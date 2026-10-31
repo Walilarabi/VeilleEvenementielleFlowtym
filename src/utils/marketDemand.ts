@@ -32,6 +32,258 @@ export function formatDateKey(year: number, month: number, day: number): string 
   return `${y}-${m}-${d}`;
 }
 
+export interface GeographicFilterOptions {
+  strictness?: 'strict' | 'expanded';
+}
+
+/**
+ * Filtre géographique intelligent :
+ * Vérifie si un événement a une pertinence géographique réelle et un impact potentiel
+ * tangible sur la demande de l'établissement hôtelier sélectionné.
+ *
+ * Élimine le bruit hors-bassin (ex: salons à Lyon, Nice ou Cannes pour un hôtel parisien)
+ * tout en conservant les pôles majeurs d'attraction de l'agglomération et de sa couronne
+ * (ex: Villepinte, Saint-Denis/Stade de France, Nanterre/Défense Arena, Le Bourget, Versailles).
+ */
+export function isEventGeographicallyRelevant(
+  event: EventItem,
+  hotel?: Hotel | null,
+  options?: GeographicFilterOptions
+): boolean {
+  // Si aucun hôtel spécifique n'est sélectionné, l'événement est pertinent
+  if (!hotel) return true;
+
+  const hotelCityNorm = (hotel.city || '').trim().toLowerCase();
+  const eventCityNorm = (event.city || '').trim().toLowerCase();
+  const venueNorm = (event.venueName || '').trim().toLowerCase();
+  const titleNorm = (event.title || '').trim().toLowerCase();
+  const subtitleNorm = (event.subtitle || '').trim().toLowerCase();
+
+  // 1. Si une évaluation d'impact direct existe pour cet hôtel dans l'événement
+  const directImpact = event.hotelImpacts?.[hotel.id];
+  if (directImpact) {
+    if (directImpact.distanceKm <= 40 || directImpact.directDemandShare > 0) {
+      return true;
+    }
+    if (directImpact.distanceKm > 60) {
+      return false;
+    }
+  }
+
+  // 2. Périmètre spécifique pour les hôtels parisiens (Grand Hôtel Opéra, Le Marais, etc.)
+  if (hotelCityNorm === 'paris') {
+    // Villes distantes à exclure formellement pour un établissement parisien
+    const distantCities = [
+      'lyon',
+      'marseille',
+      'nice',
+      'cannes',
+      'bordeaux',
+      'toulouse',
+      'lille',
+      'nantes',
+      'strasbourg',
+      'montpellier',
+      'rennes',
+      'monaco',
+    ];
+
+    const isExplicitlyDistant = distantCities.some(
+      (c) => eventCityNorm === c || (eventCityNorm.includes(c) && !eventCityNorm.includes('paris'))
+    );
+
+    if (isExplicitlyDistant) {
+      return false;
+    }
+
+    // Mots-clés représentatifs du bassin francilien & Grand Paris générateurs de flux
+    const idfKeywords = [
+      'paris',
+      'île-de-france',
+      'ile-de-france',
+      'idf',
+      'nanterre',
+      'saint-denis',
+      'villepinte',
+      'le bourget',
+      'bourget',
+      'versailles',
+      'la défense',
+      'la defense',
+      'bercy',
+      'accor arena',
+      'porte de versailles',
+      'grand palais',
+      'roland-garros',
+      'roland garros',
+      'stade de france',
+      'chessy',
+      'marne-la-vallée',
+      'marne la vallee',
+      'disneyland',
+      'roissy',
+      'aeroville',
+      'boulogne-billancourt',
+      'issy-les-moulineaux',
+      'créteil',
+      'neuilly',
+      'levallois',
+      'rungis',
+    ];
+
+    const isMatchIDF = idfKeywords.some(
+      (kw) =>
+        eventCityNorm.includes(kw) ||
+        venueNorm.includes(kw) ||
+        titleNorm.includes(kw) ||
+        subtitleNorm.includes(kw)
+    );
+
+    return isMatchIDF;
+  }
+
+  // 3. Périmètre spécifique pour les hôtels lyonnais (Bellecour Plaza, etc.)
+  if (hotelCityNorm === 'lyon') {
+    const distantCities = [
+      'paris',
+      'nice',
+      'cannes',
+      'marseille',
+      'bordeaux',
+      'lille',
+      'toulouse',
+      'nantes',
+      'strasbourg',
+      'monaco',
+    ];
+
+    const isExplicitlyDistant = distantCities.some(
+      (c) => eventCityNorm === c || (eventCityNorm.includes(c) && !eventCityNorm.includes('lyon'))
+    );
+
+    if (isExplicitlyDistant) {
+      return false;
+    }
+
+    const lyonKeywords = [
+      'lyon',
+      'chassieu',
+      'villeurbanne',
+      'décines',
+      'decines',
+      'saint-priest',
+      'vénissieux',
+      'venissieux',
+      'eurexpo',
+      'halle tony garnier',
+      'groupama stadium',
+      'ldlc arena',
+      'cité internationale',
+      'presqu’île',
+      'bellecour',
+    ];
+
+    return lyonKeywords.some(
+      (kw) =>
+        eventCityNorm.includes(kw) ||
+        venueNorm.includes(kw) ||
+        titleNorm.includes(kw) ||
+        subtitleNorm.includes(kw)
+    );
+  }
+
+  // 4. Périmètre spécifique pour la Côte d'Azur (Nice Promenade Palace, Cannes, etc.)
+  if (hotelCityNorm === 'nice' || hotelCityNorm === 'cannes') {
+    const distantCities = ['paris', 'lyon', 'bordeaux', 'lille', 'toulouse', 'nantes', 'strasbourg'];
+    const isExplicitlyDistant = distantCities.some(
+      (c) =>
+        eventCityNorm === c ||
+        (eventCityNorm.includes(c) && !eventCityNorm.includes('nice') && !eventCityNorm.includes('cannes'))
+    );
+
+    if (isExplicitlyDistant) {
+      return false;
+    }
+
+    const rivieraKeywords = [
+      'nice',
+      'cannes',
+      'monaco',
+      'antibes',
+      'juan-les-pins',
+      'cagnes',
+      'palais des festivals',
+      'acropolis',
+      'allianz riviera',
+      'nikaïa',
+      'grimaldi forum',
+      'croisette',
+      'promenade des anglais',
+    ];
+
+    return rivieraKeywords.some(
+      (kw) =>
+        eventCityNorm.includes(kw) ||
+        venueNorm.includes(kw) ||
+        titleNorm.includes(kw) ||
+        subtitleNorm.includes(kw)
+    );
+  }
+
+  // 5. Règle générale pour toute autre ville : correspondance de la commune ou présence du nom
+  return (
+    eventCityNorm.includes(hotelCityNorm) ||
+    hotelCityNorm.includes(eventCityNorm) ||
+    venueNorm.includes(hotelCityNorm)
+  );
+}
+
+/**
+ * Métadonnées descriptives du périmètre de captation géographique pour l'affichage RM
+ */
+export function getHotelCatchmentDescription(hotel?: Hotel | null): {
+  zoneName: string;
+  scopeRadius: string;
+  keyHubs: string;
+} {
+  if (!hotel) {
+    return {
+      zoneName: 'Multi-destinations',
+      scopeRadius: 'Tous établissements du groupe',
+      keyHubs: 'Paris, Île-de-France, Lyon, Côte d’Azur',
+    };
+  }
+
+  const city = hotel.city.toLowerCase();
+  if (city === 'paris') {
+    return {
+      zoneName: 'Île-de-France & Grand Paris',
+      scopeRadius: 'Bassin métropolitain pertinent (~35 km)',
+      keyHubs: 'Paris Expo Porte de Versailles, Paris Nord Villepinte, Stade de France, La Défense Arena, Le Bourget, Grand Palais',
+    };
+  }
+  if (city === 'lyon') {
+    return {
+      zoneName: 'Métropole de Lyon & Bassin Rhodanien',
+      scopeRadius: 'Bassin métropolitain pertinent (~30 km)',
+      keyHubs: 'Eurexpo Lyon (Chassieu), Halle Tony Garnier, Groupama Stadium (Décines), Cité Internationale',
+    };
+  }
+  if (city === 'nice' || city === 'cannes') {
+    return {
+      zoneName: 'Côte d’Azur & Riviera Corridor',
+      scopeRadius: 'Bassin azuréen pertinent (~40 km)',
+      keyHubs: 'Palais des Festivals Cannes, Nice Acropolis / Allianz Riviera, Grimaldi Forum Monaco, Antibes',
+    };
+  }
+
+  return {
+    zoneName: `Bassin métropolitain de ${hotel.city}`,
+    scopeRadius: 'Rayon de captation ~30 km',
+    keyHubs: hotel.city,
+  };
+}
+
 /**
  * Calculate demand for a single date
  */
@@ -48,8 +300,13 @@ export function calculateDateDemand(
   const jsDay = dateObj.getDay();
   const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
 
+  // Filter pool by geographic relevance to selected hotel (if specified)
+  const pool = selectedHotel
+    ? events.filter((e) => isEventGeographicallyRelevant(e, selectedHotel))
+    : events;
+
   // Find all active events covering this date
-  const activeEvents = events.filter((e) => {
+  const activeEvents = pool.filter((e) => {
     return e.startDate <= dateStr && e.endDate >= dateStr;
   });
 

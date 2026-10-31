@@ -78,7 +78,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden flex justify-end bg-slate-900/30 backdrop-blur-2xs transition-opacity animate-in fade-in">
+    <div className="fixed inset-0 z-[70] overflow-hidden flex justify-end bg-slate-900/40 backdrop-blur-2xs transition-opacity animate-in fade-in">
       <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 overflow-y-auto">
         {/* Header Drawer */}
         <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-200 px-6 py-4 flex items-center justify-between">
