@@ -1,0 +1,6 @@
+{
+  "name": "Flowtym Event Intelligence",
+  "description": "Plateforme SaaS d'Event Intelligence et de veille événementielle pour le Revenue Management hôtelier.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
