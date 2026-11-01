@@ -4,17 +4,17 @@ import { generateParis2027Events } from './paris2027Events';
 export const INITIAL_HOTELS: Hotel[] = [
   {
     id: 'hotel-opera',
-    name: 'Grand Hôtel Opéra',
+    name: 'Grand Hôtel Folkestone Opéra (4★)',
     group: 'Flowtym Hospitality Group',
     city: 'Paris',
     country: 'France',
-    address: '14 Rue Halévy, 75009 Paris',
-    lat: 48.8718,
-    lng: 2.3316,
+    address: '14 Rue de Castellane, 75008 Paris',
+    lat: 48.8722,
+    lng: 2.3245,
     stars: 4,
-    roomCount: 142,
-    segment: 'Affaires',
-    baseADR: 280,
+    roomCount: 45,
+    segment: 'Boutique',
+    baseADR: 260,
   },
   {
     id: 'hotel-marais',
@@ -1192,6 +1192,102 @@ export const INITIAL_EVENTS: EventItem[] = [
     lastVerifiedAt: '2026-10-30',
   },
 
+  // --- SALON DES MAIRES ET DES COLLECTIVITÉS LOCALES (SMCL 2026) ---
+  {
+    id: 'ev-smcl-2026',
+    title: 'Salon des Maires et des Collectivités Locales (SMCL 2026)',
+    subtitle: '108e Congrès des Maires de France (AMF) & Salon des Collectivités',
+    category: 'salons_foires',
+    venueId: 'venue-porte-versailles',
+    venueName: 'Paris Expo Porte de Versailles',
+    city: 'Paris',
+    country: 'France',
+    startDate: '2026-11-24',
+    endDate: '2026-11-26',
+    expectedAttendance: 58500,
+    internationalRatioPercent: 12,
+    status: 'confirmed',
+    impactLevel: 'critique',
+    scoreBreakdown: {
+      attendanceScore: 19,
+      internationalScore: 8,
+      saturationScore: 18,
+      proximityScore: 15,
+      compressionScore: 15,
+      finalRMScore: 85,
+      confidenceScore: 99,
+    },
+    sources: [
+      'AMF (Association des Maires de France)',
+      'Infopro Digital Salons',
+      'salondesmaires.com',
+      'Viparis Porte de Versailles',
+    ],
+    evidences: [
+      {
+        id: 'ev-smcl-1',
+        sourceName: 'Site Officiel Salon des Maires',
+        sourceUrl: 'https://www.salondesmaires.com',
+        sourceType: 'official_organizer',
+        verifiedAt: '2026-10-25',
+        excerpt: 'Édition 2026 confirmée à Paris Expo Porte de Versailles du 24 au 26 novembre 2026 avec plus de 1 200 exposants et 58 000 élus et décideurs territoriaux.',
+        trustScore: 99,
+      },
+      {
+        id: 'ev-smcl-2',
+        sourceName: 'Association des Maires de France (AMF)',
+        sourceUrl: 'https://www.amf.asso.fr/m/congres/',
+        sourceType: 'official_organizer',
+        verifiedAt: '2026-10-20',
+        excerpt: '108e Congrès national des maires et présidents d’intercommunalité de France couplé au SMCL 2026.',
+        trustScore: 99,
+      },
+      {
+        id: 'ev-smcl-3',
+        sourceName: 'Viparis Calendrier d’Exploitation',
+        sourceUrl: 'https://www.paris-expo-portedeversailles.com',
+        sourceType: 'venue_calendar',
+        verifiedAt: '2026-10-22',
+        excerpt: 'Réservation intégrale des Pavillons 2.2, 3, 4 et 7. Forte affluence et forte compression sur le sud et centre de Paris.',
+        trustScore: 98,
+      },
+    ],
+    hotelImpacts: {
+      'hotel-opera': {
+        hotelId: 'hotel-opera',
+        distanceKm: 6.8,
+        distanceMins: 24,
+        directDemandShare: 32,
+        compressionIndex: 9,
+        recommendedAction: 'Afflux majeur d’élus territoriaux et délégations de maires. Séjour min 2 nuits (mardi-jeudi), ADR +32% conseillé.',
+        estimatedADRBoostPercent: 32,
+        minStayRecommended: 2,
+        stopSellSuggested: false,
+      },
+      'hotel-marais': {
+        hotelId: 'hotel-marais',
+        distanceKm: 7.5,
+        distanceMins: 28,
+        directDemandShare: 26,
+        compressionIndex: 8,
+        recommendedAction: 'Délégations institutionnelles et prestataires de collectivités. Tarifs fermes non-annulables, ADR +28%.',
+        estimatedADRBoostPercent: 28,
+        minStayRecommended: 2,
+        stopSellSuggested: false,
+      },
+    },
+    isRecurring: true,
+    recurrenceFrequency: 'annual',
+    historicalGrowth: '+8% vs édition précédente (record historique de fréquentation)',
+    isFavorite: true,
+    isWatchlist: true,
+    isYieldActive: true,
+    officialUrl: 'https://www.salondesmaires.com/',
+    notes: 'Salon professionnel récurrent annuel à fort potentiel commercial pour les hôtels parisiens : présence massive des maires et délégations de toute la France avec réservations multi-nuitées.',
+    createdAt: '2026-01-15',
+    lastVerifiedAt: '2026-10-28',
+  },
+
   // --- ADDITIONAL EVENTS TO REACH REALISTIC TOTALS & RECURRENCES (106 Total, 15 upcoming, 2 ongoing, 91 past) ---
   {
     id: 'ev-congres-oncologie-lyon',
@@ -1484,8 +1580,8 @@ export function generateFullMockEvents(): EventItem[] {
     }
   }
 
-  // 2026 baseline events (106 items matching initial screenshot)
-  const base2026 = list.slice(0, 106);
+  // 2026 baseline events (including all curated upcoming and historical events)
+  const base2026 = list;
 
   // 2027 Paris events (imported from official sources)
   const paris2027 = generateParis2027Events();
@@ -1618,6 +1714,18 @@ export const INITIAL_SOURCES: EventSource[] = [
     lastCrawledAt: 'Il y a 6 heures',
     status: 'healthy',
     detectedEventsCount: 65,
+    isOfficial: true,
+  },
+  {
+    id: 'src-salon-des-maires',
+    name: 'Infopro Digital & AMF — Salon des Maires (SMCL)',
+    url: 'https://www.salondesmaires.com',
+    category: 'Organisateur Officiel Salons Pro',
+    city: 'Paris',
+    reliabilityScore: 99,
+    lastCrawledAt: 'Il y a 18 minutes',
+    status: 'healthy',
+    detectedEventsCount: 6,
     isOfficial: true,
   },
 ];

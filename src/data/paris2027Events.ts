@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { EventItem, EventCategory, RMImpactLevel } from '../types';
+import { EventItem, EventCategory, RMImpactLevel, EventHotelImpact } from '../types';
 
 interface Raw2027Event {
   title: string;
@@ -143,7 +143,7 @@ const RAW_PARIS_2027_DATA: Raw2027Event[] = [
   { title: "Heavent Paris 2027", type: "Salon", startDate: "31/10/2027", endDate: "31/10/2027", city: "Paris", venueName: "Paris Expo Porte de Versailles", sourceUrl: "https://www.heavent-paris.com/", attendance: 20000, intRatio: 28 },
   { title: "Paris Photo 2027", type: "Salon", startDate: "31/10/2027", endDate: "31/10/2027", city: "Paris", venueName: "Grand Palais", sourceUrl: "https://www.parisphoto.com/", attendance: 70000, intRatio: 62 },
   { title: "Laura Pausini — World Tour 2027", type: "Concert", startDate: "14/11/2027", endDate: "14/11/2027", city: "Paris", venueName: "Accor Arena", sourceUrl: "https://www.accorarena.com/", attendance: 18000, intRatio: 40 },
-  { title: "Salon des Maires et des Collectivités Locales 2027", type: "Salon", startDate: "16/11/2027", endDate: "18/11/2027", city: "Paris", venueName: "Paris Expo Porte de Versailles", attendance: 58000, intRatio: 12 },
+  { title: "Salon des Maires et des Collectivités Locales 2027 (SMCL)", type: "Salon", startDate: "23/11/2027", endDate: "25/11/2027", city: "Paris", venueName: "Paris Expo Porte de Versailles", sourceUrl: "https://www.salondesmaires.com/", attendance: 60000, intRatio: 12 },
   { title: "Milipol Paris 2027", type: "Salon", startDate: "16/11/2027", endDate: "19/11/2027", city: "Paris", venueName: "Paris Nord Villepinte", sourceUrl: "https://www.milipol.com/", attendance: 32000, intRatio: 68 },
   { title: "WNE - World Nuclear Exhibition 2027", type: "Salon", startDate: "07/12/2027", endDate: "09/12/2027", city: "Paris", venueName: "Paris Nord Villepinte", sourceUrl: "https://www.world-nuclear-exhibition.com/", attendance: 24000, intRatio: 65 },
   { title: "Christophe Willem — Concert", type: "Concert", startDate: "09/12/2027", endDate: "09/12/2027", city: "Paris", venueName: "Accor Arena", sourceUrl: "https://www.accorarena.com/", attendance: 16000, intRatio: 15 },
@@ -228,24 +228,57 @@ export function generateParis2027Events(): EventItem[] {
     const impactLevel = determineImpact(attendance, intRatio, raw.title);
     const scoreBreakdown = computeScores(attendance, intRatio, impactLevel);
 
+    const isSMCL = raw.title.includes('Maires');
+
     const evidences = raw.sourceUrl
       ? [
           {
             id: `evid-2027-${idx}`,
-            sourceName: 'Source Officielle Organisateur & Agenda Paris',
+            sourceName: isSMCL ? 'Site Officiel Salon des Maires & AMF' : 'Source Officielle Organisateur & Agenda Paris',
             sourceUrl: raw.sourceUrl,
             sourceType: 'official_organizer' as const,
             verifiedAt: '2026-10-31',
-            excerpt: `Dates officielles vérifiées pour l'édition Paris 2027 : du ${raw.startDate} au ${raw.endDate}.`,
+            excerpt: isSMCL
+              ? `Reconduction annuelle vérifiée pour le SMCL 2027 et 109e Congrès des Maires de France : du ${raw.startDate} au ${raw.endDate} à Paris Expo Porte de Versailles. Plus de 60 000 participants attendus.`
+              : `Dates officielles vérifiées pour l'édition Paris 2027 : du ${raw.startDate} au ${raw.endDate}.`,
             trustScore: 99,
           },
         ]
       : [];
 
+    const hotelImpacts: Record<string, EventHotelImpact> = isSMCL
+      ? {
+          'hotel-opera': {
+            hotelId: 'hotel-opera',
+            distanceKm: 6.8,
+            distanceMins: 24,
+            directDemandShare: 32,
+            compressionIndex: 9,
+            recommendedAction: 'Reconduction annuelle SMCL : forte compression nationale. Séjour minimum 2 nuits requis, révision haussière BAR +30%.',
+            estimatedADRBoostPercent: 30,
+            minStayRecommended: 2,
+            stopSellSuggested: false,
+          },
+          'hotel-marais': {
+            hotelId: 'hotel-marais',
+            distanceKm: 7.5,
+            distanceMins: 28,
+            directDemandShare: 26,
+            compressionIndex: 8,
+            recommendedAction: 'Délégations institutionnelles et prestataires de collectivités territoriales. Yield actif, tarifs non-annulables, BAR +26%.',
+            estimatedADRBoostPercent: 26,
+            minStayRecommended: 2,
+            stopSellSuggested: false,
+          },
+        }
+      : {};
+
     return {
       id: `paris-2027-${idx + 1}`,
       title: raw.title,
-      subtitle: `${raw.type} — Paris 2027 (${raw.venueName})`,
+      subtitle: isSMCL
+        ? '109e Congrès des Maires de France (AMF) & Salon des Maires et des Collectivités'
+        : `${raw.type} — Paris 2027 (${raw.venueName})`,
       category,
       venueId: 'venue-porte-versailles',
       venueName: raw.venueName,
@@ -257,14 +290,25 @@ export function generateParis2027Events(): EventItem[] {
       internationalRatioPercent: intRatio,
       status: 'confirmed' as const,
       impactLevel,
-      scoreBreakdown,
+      scoreBreakdown: isSMCL
+        ? {
+            ...scoreBreakdown,
+            finalRMScore: 85,
+            confidenceScore: 98,
+          }
+        : scoreBreakdown,
       sources: raw.sourceUrl ? ['Agenda Officiel Paris 2027', raw.sourceUrl] : ['Agenda Officiel Paris 2027'],
       evidences,
-      hotelImpacts: {},
+      hotelImpacts,
       isRecurring: true,
       recurrenceFrequency: 'annual' as const,
+      isWatchlist: isSMCL ? true : undefined,
+      isFavorite: isSMCL ? true : undefined,
       isYieldActive: impactLevel === 'hyper' || impactLevel === 'critique',
       officialUrl: raw.sourceUrl,
+      notes: isSMCL
+        ? 'Salon professionnel récurrent annuel à très fort potentiel commercial : reconduction automatique et vérification des dates officielles.'
+        : undefined,
       createdAt: '2026-10-31',
       lastVerifiedAt: '2026-10-31',
     };

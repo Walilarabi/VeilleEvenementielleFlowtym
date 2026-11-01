@@ -11,15 +11,21 @@ import {
   ShieldAlert,
   Sliders,
   CheckCircle2,
+  BarChart3,
+  DollarSign,
 } from 'lucide-react';
 import { EventItem, Hotel } from '../../types';
 import { formatEventDateRange, getCategoryLabel, getImpactColorClasses } from '../../utils/helpers';
+import { RevPARImpactSimulator } from './RevPARImpactSimulator';
 
 interface EventIntelligenceViewProps {
   events: EventItem[];
   hotels: Hotel[];
   selectedHotelId: string;
   onSelectEvent: (event: EventItem) => void;
+  defaultTab?: 'compression' | 'recurrences' | 'pricing_rules' | 'revpar_simulator';
+  onOpenProposals?: () => void;
+  pendingProposalsCount?: number;
 }
 
 export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
@@ -27,9 +33,20 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
   hotels,
   selectedHotelId,
   onSelectEvent,
+  defaultTab = 'compression',
+  onOpenProposals,
+  pendingProposalsCount = 0,
 }) => {
   const currentHotel = hotels.find((h) => h.id === selectedHotelId) || hotels[0];
-  const [activeAnalysisTab, setActiveAnalysisTab] = useState<'compression' | 'recurrences' | 'pricing_rules'>('compression');
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState<'compression' | 'revpar_simulator' | 'recurrences' | 'pricing_rules'>(
+    defaultTab
+  );
+
+  React.useEffect(() => {
+    if (defaultTab) {
+      setActiveAnalysisTab(defaultTab);
+    }
+  }, [defaultTab]);
 
   // Recurrent events
   const recurrentEvents = events.filter((e) => e.isRecurring);
@@ -51,26 +68,37 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
                 Event Intelligence & Analyses Prédictives
               </h2>
               <p className="text-xs text-slate-500">
-                Détection de récurrences, saturation de destination et recommandations de yield
+                Détection de récurrences, saturation de destination et simulateur RevPAR Recharts
               </p>
             </div>
           </div>
 
           {/* Sub-tabs */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/70">
+          <div className="flex flex-wrap items-center bg-slate-100 p-1 rounded-xl border border-slate-200/70 gap-1">
             <button
               onClick={() => setActiveAnalysisTab('compression')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeAnalysisTab === 'compression'
                   ? 'bg-violet-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Compression & Concurrence
+              Compression & Marché
+            </button>
+            <button
+              onClick={() => setActiveAnalysisTab('revpar_simulator')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeAnalysisTab === 'revpar_simulator'
+                  ? 'bg-violet-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Simulateur RevPAR (Recharts)</span>
             </button>
             <button
               onClick={() => setActiveAnalysisTab('recurrences')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeAnalysisTab === 'recurrences'
                   ? 'bg-violet-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -80,7 +108,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
             </button>
             <button
               onClick={() => setActiveAnalysisTab('pricing_rules')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeAnalysisTab === 'pricing_rules'
                   ? 'bg-violet-600 text-white shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -92,9 +120,43 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
         </div>
       </div>
 
+      {/* Tab: RevPAR Simulator with Recharts */}
+      {activeAnalysisTab === 'revpar_simulator' && (
+        <RevPARImpactSimulator
+          events={events}
+          hotels={hotels}
+          selectedHotelId={selectedHotelId}
+          onSelectEvent={onSelectEvent}
+        />
+      )}
+
       {/* Tab 1: Compression & Concurrence */}
       {activeAnalysisTab === 'compression' && (
         <div className="space-y-6">
+          {/* Quick link to RevPAR Simulator */}
+          <div className="bg-gradient-to-r from-violet-900 to-indigo-900 rounded-2xl p-4 sm:p-5 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-amber-300 shrink-0">
+                <BarChart3 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white">
+                  Simulateur d&apos;Impact RevPAR Interactif
+                </h4>
+                <p className="text-xs text-violet-200">
+                  Visualisez en temps réel l&apos;impact en € sur le RevPAR de <strong>{currentHotel.name}</strong> avec graphiques Recharts.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveAnalysisTab('revpar_simulator')}
+              className="px-4 py-2 bg-white text-violet-950 hover:bg-violet-50 text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+            >
+              <span>Lancer la projection RevPAR</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* Market Collision Warning */}
           <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-5 flex items-start gap-3.5">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -191,7 +253,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
       {activeAnalysisTab === 'recurrences' && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
                   Événements Récurrents & Détection des Décalages de Dates
@@ -200,9 +262,19 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
                   Surveillance des salons annuels et biennaux pour ajuster les budgets N-1 vs N
                 </p>
               </div>
-              <span className="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1 rounded-xl border border-violet-200">
-                {recurrentEvents.length} événements récurrents trackés
-              </span>
+              <div className="flex items-center gap-2">
+                {pendingProposalsCount > 0 && onOpenProposals && (
+                  <button
+                    onClick={onOpenProposals}
+                    className="text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-3 py-1 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <span>Valider les propositions ({pendingProposalsCount})</span>
+                  </button>
+                )}
+                <span className="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1 rounded-xl border border-violet-200">
+                  {recurrentEvents.length} événements récurrents trackés
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">

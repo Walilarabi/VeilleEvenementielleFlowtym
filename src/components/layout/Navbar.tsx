@@ -7,6 +7,8 @@ import {
   Sparkles,
   LogOut,
   User,
+  Menu,
+  X,
 } from 'lucide-react';
 import { Hotel } from '../../types';
 
@@ -20,6 +22,8 @@ interface NavbarProps {
   onOpenProposals: () => void;
   user: { name: string; email: string; role: string } | null;
   onLogout: () => void;
+  onToggleMobileMenu?: () => void;
+  isMobileMenuOpen?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,15 +36,27 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProposals,
   user,
   onLogout,
+  onToggleMobileMenu,
+  isMobileMenuOpen = false,
 }) => {
   const currentHotel = hotels.find((h) => h.id === selectedHotelId);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-slate-200/80 px-6 py-3 transition-colors">
-      <div className="flex items-center justify-between gap-4">
-        {/* Left: Brand Identity */}
-        <div className="flex items-center gap-3 shrink-0">
+    <header className="sticky top-0 z-40 h-[60px] bg-white/95 backdrop-blur-sm border-b border-slate-200/80 px-4 sm:px-6 flex items-center transition-colors">
+      <div className="flex items-center justify-between gap-4 w-full">
+        {/* Left: Brand Identity + Mobile Menu Toggle */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {onToggleMobileMenu && (
+            <button
+              type="button"
+              onClick={onToggleMobileMenu}
+              className="lg:hidden p-1.5 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              aria-label={isMobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5 text-violet-700" /> : <Menu className="w-5 h-5" />}
+            </button>
+          )}
           <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center text-white shadow-sm shadow-violet-200">
             <div className="w-4 h-4 rounded-full border-2 border-white flex items-center justify-center">
               <div className="w-1.5 h-1.5 rounded-full bg-white" />

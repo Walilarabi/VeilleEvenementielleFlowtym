@@ -239,3 +239,111 @@ export interface DiscoveryScanLog {
   status: 'success' | 'info' | 'warning';
 }
 
+// ==========================================
+// REVENUE MANAGEMENT & AIDE À LA DÉCISION
+// ==========================================
+
+export type StandardDemandLevel = 'faible' | 'normal' | 'eleve' | 'exceptionnel';
+
+export interface CompetitorHotel {
+  id: string;
+  name: string;
+  stars: number;
+  roomCount: number;
+  distanceMeters: number;
+  address: string;
+  currentRate: number; // e.g. 310€
+  baselineRate: number; // e.g. 250€
+  isSoldOut: boolean;
+  rateTrend: 'up' | 'stable' | 'down';
+  deltaPercent: number; // vs baseline
+  roomType: string;
+  scrapedSource: string;
+  lastObservedAt: string;
+}
+
+export interface MarketCompressionAlert {
+  id: string;
+  dateStr: string;
+  compressionIndex: number; // 1 to 10
+  demandLevel: StandardDemandLevel;
+  primaryDrivers: string[];
+  totalEstimatedPax: number;
+  soldOutRatioPercent: number; // e.g. 40% of compset sold out
+  compsetAverageRate: number;
+  rateSpreadVsBaselinePercent: number;
+  isMultiEventOverlap: boolean;
+  recommendedAction: string;
+  suggestedMinStay: number;
+  ctaRecommended: boolean;
+}
+
+export type RMDecisionAction = 'accepted' | 'modified' | 'rejected' | 'postponed';
+
+export interface RMDecisionRecord {
+  id: string;
+  alertId: string;
+  eventId?: string;
+  eventTitle: string;
+  dateStr: string;
+  hotelId: string;
+  action: RMDecisionAction;
+  originalCurrentRate: number;
+  recommendedRate: number;
+  appliedRate: number;
+  comment?: string;
+  decidedAt: string;
+  decidedBy: string;
+}
+
+export interface RMAlertItem {
+  id: string;
+  hotelId: string;
+  eventId: string;
+  eventTitle: string;
+  venueName: string;
+  category: EventCategory;
+  dateStr: string;
+  demandLevel: StandardDemandLevel;
+  currentRate: number;
+  recommendedRate: number;
+  gapEur: number;
+  gapPercent: number;
+  confidenceScore: number; // 0-100%
+  sources: string[];
+  urgency: 'critique' | 'haute' | 'moyenne';
+  status: 'active' | 'accepted' | 'modified' | 'rejected' | 'postponed';
+  reason: string;
+  compressionFactor: string;
+  compsetAverageRate: number;
+  soldOutCompetitorsCount: number;
+  minStayRecommended?: number;
+  ctaRecommended?: boolean;
+}
+
+export interface ForecastDriver {
+  name: string;
+  category: EventCategory;
+  expectedAttendance: number;
+  impactScore: number;
+  distanceKm: number;
+  venueName: string;
+  status: ConfirmationStatus;
+}
+
+export interface DemandForecastItem {
+  dateStr: string;
+  dayOfWeekFr: string;
+  demandLevel: StandardDemandLevel;
+  confidenceScore: number; // 0-100%
+  expectedOccupancyRange: [number, number]; // [min, max] %
+  projectedRevPAR: number;
+  baseADR: number;
+  recommendedADR: number;
+  revenueOpportunityEur: number; // Delta RevPAR * roomCount
+  marketPressureScore: number; // 0-100
+  drivers: ForecastDriver[];
+  isPmsIntegrated: boolean; // false = Event-driven & compset forecast, ready for PMS
+  pmsPickupStatus: 'not_connected' | 'connected_live';
+  pmsStatusNote: string;
+}

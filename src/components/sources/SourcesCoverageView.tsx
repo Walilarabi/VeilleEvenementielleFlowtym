@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { EventSource, Venue, EventItem } from '../../types';
 import { batchScrape2027Events, ScrapingVerificationResult } from '../../services/scraperService';
+import { getDiscoveredSources } from '../../services/eventIntelligenceAgent';
 
 interface SourcesCoverageViewProps {
   sources: EventSource[];
@@ -39,6 +40,20 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
   events = [],
   onShowToast,
 }) => {
+  const discoveredSources = getDiscoveredSources();
+
+  // Combine initial sources with agent auto-discovered sources
+  const allSources = React.useMemo(() => {
+    const map = new Map<string, EventSource>();
+    sources.forEach((s) => map.set(s.url, s));
+    discoveredSources.forEach((s) => {
+      if (!map.has(s.url)) {
+        map.set(s.url, s);
+      }
+    });
+    return Array.from(map.values());
+  }, [sources, discoveredSources]);
+
   const [isBatchScraping, setIsBatchScraping] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{
     current: number;
@@ -53,9 +68,9 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
     return events.filter((e) => e.startDate.startsWith('2027') && e.city === 'Paris').length;
   });
 
-  const healthyCount = sources.filter((s) => s.status === 'healthy').length;
-  const officialCount = sources.filter((s) => s.isOfficial).length;
-  const totalEventsIndexed = sources.reduce((acc, curr) => acc + curr.detectedEventsCount, 0);
+  const healthyCount = allSources.filter((s) => s.status === 'healthy').length;
+  const officialCount = allSources.filter((s) => s.isOfficial).length;
+  const totalEventsIndexed = allSources.reduce((acc, curr) => acc + curr.detectedEventsCount, 0);
 
   const paris2027Events = events.filter(
     (e) => e.startDate.startsWith('2027') && e.city === 'Paris'
@@ -311,20 +326,29 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sources.map((src) => (
-                <tr key={src.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="font-semibold text-slate-900">{src.name}</div>
-                    <a
-                      href={src.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] text-violet-600 hover:underline flex items-center gap-1 mt-0.5"
-                    >
-                      <span className="truncate max-w-xs">{src.url}</span>
-                      <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                    </a>
-                  </td>
+              {allSources.map((src) => {
+                const isAI = (src as any).isDiscoveredByAI;
+                return (
+                  <tr key={src.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-900">{src.name}</span>
+                        {isAI && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            Découverte IA
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={src.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-violet-600 hover:underline flex items-center gap-1 mt-0.5"
+                      >
+                        <span className="truncate max-w-xs">{src.url}</span>
+                        <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                      </a>
+                    </td>
                   <td className="py-3 px-4 text-slate-700 font-medium">{src.category}</td>
                   <td className="py-3 px-4 text-slate-700">{src.city}</td>
                   <td className="py-3 px-4 text-center">
@@ -343,7 +367,8 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
                     </span>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         </div>

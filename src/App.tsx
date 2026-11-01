@@ -74,6 +74,7 @@ export default function App() {
 
   // Global Navigation State
   const [activeTab, setActiveTab] = useState<NavTab>('calendar');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
   const [venues, setVenues] = useState(INITIAL_VENUES);
   const [sources, setSources] = useState(INITIAL_SOURCES);
@@ -444,24 +445,34 @@ export default function App() {
         selectedHotelId={filterState.selectedHotelId}
         onSelectHotel={(id) => handleFilterChange({ selectedHotelId: id })}
         pendingSuggestionsCount={pendingSuggestionsCount}
-        onOpenSuggestions={() => setActiveTab('flowboard')}
+        onOpenSuggestions={() => {
+          setActiveTab('flowboard');
+          setIsMobileMenuOpen(false);
+        }}
         pendingProposalsCount={pendingProposalsCount}
         onOpenProposals={() => setIsProposalsModalOpen(true)}
         user={user}
         onLogout={handleLogout}
+        onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
+        isMobileMenuOpen={isMobileMenuOpen}
       />
 
-      {/* Main Container: Sidebar + Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar Navigation */}
+      {/* Main Container: Fixed Sidebar + Content */}
+      <div className="flex-1 flex relative">
+        {/* Sidebar Navigation (Fixed left-0 top-[60px] bottom-0 w-64) */}
         <Sidebar
           activeTab={activeTab}
-          onChangeTab={setActiveTab}
+          onChangeTab={(tab) => {
+            setActiveTab(tab);
+            setIsMobileMenuOpen(false);
+          }}
           pendingSuggestionsCount={pendingSuggestionsCount + pendingProposalsCount}
+          isMobileOpen={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
 
-        {/* Dynamic Content Viewport */}
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Dynamic Content Viewport (offset by ml-64 on desktop so it never goes under the fixed sidebar) */}
+        <main className="flex-1 ml-64 p-6 space-y-6 min-w-0">
           {/* TAB: CALENDRIER & ÉVÉNEMENTS (VUE TABLEAU / CALENDRIER) */}
           {activeTab === 'calendar' && (
             <div className="space-y-6">
@@ -575,13 +586,29 @@ export default function App() {
             />
           )}
 
-          {/* TAB 4: EVENT INTELLIGENCE (Predictive RM & Recurrence Matrix) */}
+          {/* TAB 6: ANALYSES & RÉCURRENCES (Événements récurrents, tendances, historique, validation) */}
           {activeTab === 'intelligence' && (
             <EventIntelligenceView
               events={events}
               hotels={hotels}
               selectedHotelId={filterState.selectedHotelId}
               onSelectEvent={setSelectedEvent}
+              defaultTab="recurrences"
+              onOpenProposals={() => setIsProposalsModalOpen(true)}
+              pendingProposalsCount={pendingProposalsCount}
+            />
+          )}
+
+          {/* TAB 7: OPPORTUNITÉS & ALERTES RM (Risques de sous-tarification, opportunités tarifaires, alertes compression) */}
+          {activeTab === 'opportunities' && (
+            <EventIntelligenceView
+              events={events}
+              hotels={hotels}
+              selectedHotelId={filterState.selectedHotelId}
+              onSelectEvent={setSelectedEvent}
+              defaultTab="compression"
+              onOpenProposals={() => setIsProposalsModalOpen(true)}
+              pendingProposalsCount={pendingProposalsCount}
             />
           )}
 

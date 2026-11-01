@@ -154,8 +154,36 @@ export function exportEventsToPDF({
     return `${parts[2]}/${parts[1]}/${yy}`;
   };
 
-  // 3. Table of Events
-  const tableData = events.map((ev) => {
+  // 3. Strict chronological sorting for PDF export (closest to export date first, then ascending order)
+  const exportDateStr = now.toISOString().slice(0, 10);
+
+  const sortedEvents = [...events].sort((a, b) => {
+    const isUpcomingA = (a.endDate || a.startDate) >= exportDateStr;
+    const isUpcomingB = (b.endDate || b.startDate) >= exportDateStr;
+
+    // Prioritize current & upcoming events starting closest to the export date
+    if (isUpcomingA && !isUpcomingB) return -1;
+    if (!isUpcomingA && isUpcomingB) return 1;
+
+    // Chronological order: earliest date (closest to export date) first
+    const timeA = new Date(a.startDate).getTime();
+    const timeB = new Date(b.startDate).getTime();
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+
+    // Events with identical start dates: grouped together, ordered by duration then RM score
+    const endTimeA = new Date(a.endDate).getTime();
+    const endTimeB = new Date(b.endDate).getTime();
+    if (endTimeA !== endTimeB) {
+      return endTimeA - endTimeB;
+    }
+
+    return (b.scoreBreakdown?.finalRMScore || 0) - (a.scoreBreakdown?.finalRMScore || 0);
+  });
+
+  // Table of Events
+  const tableData = sortedEvents.map((ev) => {
     const score = ev.scoreBreakdown.finalRMScore;
     const impactLabel = 
       score >= 85 || ev.impactLevel === 'hyper'

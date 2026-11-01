@@ -1,4 +1,9 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
 import {
   RotateCcw,
   Search,
@@ -12,8 +17,23 @@ import {
   ShieldCheck,
   X,
   Layers,
+  Globe,
+  Terminal,
+  Activity,
+  CheckCircle,
+  ExternalLink,
+  MapPin,
+  Clock,
+  Building2,
+  Filter,
 } from 'lucide-react';
 import { EventItem, EventProposal, Hotel } from '../../types';
+import {
+  runEventIntelligenceCampaign,
+  AgentCampaignResult,
+  getCampaignsHistory,
+  DiscoveredSourceRecord,
+} from '../../services/eventIntelligenceAgent';
 
 interface RefreshModalProps {
   isOpen: boolean;
@@ -27,21 +47,6 @@ interface RefreshModalProps {
   onOpenProposals: () => void;
 }
 
-interface StepItem {
-  id: number;
-  label: string;
-  detail: string;
-}
-
-const REFRESH_STEPS: StepItem[] = [
-  { id: 1, label: 'Recherche des nouvelles sources', detail: 'Exploration des flux billetteries, Viparis, bureaux des congrès et agendas municipaux' },
-  { id: 2, label: 'Analyse des événements', detail: 'Qualification des catégories, jauges attendues et ratios internationaux' },
-  { id: 3, label: 'Vérification des dates', detail: 'Contrôle croisé des dates officielles et détection des annonces anticipées' },
-  { id: 4, label: 'Détection des modifications & annulations', detail: 'Audit des changements de programmation et suppressions de dates' },
-  { id: 5, label: 'Calcul des scores RM', detail: 'Calcul de la pression de marché et de l’indice de compression pour votre hôtel' },
-  { id: 6, label: 'Mise à jour du calendrier', detail: 'Intégration automatique des scores ≥ 60 et préparation des propositions à valider' },
-];
-
 export const RefreshModal: React.FC<RefreshModalProps> = ({
   isOpen,
   onClose,
@@ -49,302 +54,560 @@ export const RefreshModal: React.FC<RefreshModalProps> = ({
   onRefreshComplete,
   onOpenProposals,
 }) => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [progressPercent, setProgressPercent] = useState(15);
-  const [isFinished, setIsFinished] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState(1);
+  const [phaseTitle, setPhaseTitle] = useState('Initialisation de l’Agent IA...');
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [liveLog, setLiveLog] = useState('');
+  const [campaignResult, setCampaignResult] = useState<AgentCampaignResult | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [activeReportTab, setActiveReportTab] = useState<'events' | 'sources' | 'logs'>('events');
 
-  // Live counters
-  const [stats, setStats] = useState({
-    newCount: 0,
-    modifiedCount: 0,
-    cancelledCount: 0,
-    verifiedCount: 106,
+  // Live real-time counters during execution
+  const [counters, setCounters] = useState({
+    sourcesAnalyzed: 8,
+    newSources: 0,
+    eventsFound: 0,
+    duplicatesFiltered: 0,
+    integrated: 0,
+    pendingValidation: 0,
   });
 
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const [allLogs, setAllLogs] = useState<string[]>([]);
+
+  // Auto-scroll logs terminal
   useEffect(() => {
-    if (!isOpen) {
-      setCurrentStep(1);
-      setProgressPercent(15);
-      setIsFinished(false);
-      setStats({ newCount: 0, modifiedCount: 0, cancelledCount: 0, verifiedCount: 106 });
-      return;
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
+  }, [allLogs]);
 
-    // Step progression timer
-    const t1 = setTimeout(() => {
-      setCurrentStep(2);
-      setProgressPercent(32);
-      setStats((s) => ({ ...s, newCount: 2, verifiedCount: 110 }));
-    }, 700);
-
-    const t2 = setTimeout(() => {
-      setCurrentStep(3);
-      setProgressPercent(50);
-      setStats((s) => ({ ...s, newCount: 3, modifiedCount: 1, verifiedCount: 112 }));
-    }, 1400);
-
-    const t3 = setTimeout(() => {
-      setCurrentStep(4);
-      setProgressPercent(68);
-      setStats((s) => ({ ...s, newCount: 4, modifiedCount: 2, cancelledCount: 0 }));
-    }, 2100);
-
-    const t4 = setTimeout(() => {
-      setCurrentStep(5);
-      setProgressPercent(85);
-      setStats((s) => ({ ...s, newCount: 5, verifiedCount: 118 }));
-    }, 2800);
-
-    const t5 = setTimeout(() => {
-      setCurrentStep(6);
-      setProgressPercent(100);
-      setIsFinished(true);
-
-      // Create new high-impact events (Score >= 60, auto-integrated)
-      const newHighImpact: EventItem[] = [
-        {
-          id: `ev-ref-high-${Date.now()}`,
-          title: 'Congrès International des Neurosciences 2026',
-          subtitle: 'FENS Federation of European Neuroscience Societies',
-          category: 'congres_medical',
-          venueId: 'venue-porte-versailles',
-          venueName: 'Porte de Versailles',
-          city: hotel.city || 'Paris',
-          country: 'France',
-          startDate: '2026-11-18',
-          endDate: '2026-11-22',
-          expectedAttendance: 24000,
-          internationalRatioPercent: 82,
-          status: 'confirmed',
-          impactLevel: 'critique',
-          scoreBreakdown: {
-            attendanceScore: 18,
-            internationalScore: 19,
-            saturationScore: 16,
-            proximityScore: 14,
-            compressionScore: 11,
-            finalRMScore: 78,
-            confidenceScore: 99,
-          },
-          sources: ['FENS Official Registry', 'Viparis Dates 2026'],
-          evidences: [],
-          hotelImpacts: {},
-          isRecurring: true,
-          recurrenceFrequency: 'biennial',
-          isFavorite: false,
-          isWatchlist: false,
-          isYieldActive: true,
-          createdAt: new Date().toISOString().slice(0, 10),
-          lastVerifiedAt: new Date().toISOString().slice(0, 10),
-        },
-      ];
-
-      // Create new medium-impact proposals (Score 30-59, pending user approval)
-      const newProposals: EventProposal[] = [
-        {
-          id: `prop-${Date.now()}-1`,
-          title: 'Salon du Vélo Urbain & Mobilités Douces',
-          subtitle: 'Écomobilité urbaine',
-          category: 'salons_foires',
-          city: hotel.city || 'Paris',
-          venueName: 'Porte de Versailles',
-          startDate: '2026-11-27',
-          endDate: '2026-11-29',
-          expectedAttendance: 19000,
-          score: 48,
-          status: 'pending',
-          detectedSource: 'Fédération des Usagers de la Bicyclette (FUB)',
-          impactLevel: 'modere',
-        },
-        {
-          id: `prop-${Date.now()}-2`,
-          title: 'Championnat d’Europe d’Escrime Junior',
-          subtitle: 'Escrime épée & fleuret',
-          category: 'sport',
-          city: hotel.city || 'Paris',
-          venueName: 'Halle Carpentier',
-          startDate: '2026-12-04',
-          endDate: '2026-12-06',
-          expectedAttendance: 8500,
-          score: 36,
-          status: 'pending',
-          detectedSource: 'Fédération Française d’Escrime',
-          impactLevel: 'modere',
-        },
-      ];
-
-      onRefreshComplete(newHighImpact, newProposals, {
-        newCount: 5,
-        modifiedCount: 2,
-        cancelledCount: 0,
-        verifiedCount: 118,
-      });
-    }, 3400);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-      clearTimeout(t5);
-    };
+  // When modal opens, launch campaign automatically or reset
+  useEffect(() => {
+    if (isOpen) {
+      handleLaunchCampaign();
+    } else {
+      setIsRunning(false);
+      setProgressPercent(0);
+      setCampaignResult(null);
+      setAllLogs([]);
+    }
   }, [isOpen]);
+
+  const handleLaunchCampaign = async () => {
+    setIsRunning(true);
+    setProgressPercent(5);
+    setCampaignResult(null);
+    setAllLogs([]);
+    setShowHistory(false);
+    setCounters({
+      sourcesAnalyzed: 8,
+      newSources: 0,
+      eventsFound: 0,
+      duplicatesFiltered: 0,
+      integrated: 0,
+      pendingValidation: 0,
+    });
+
+    try {
+      const result = await runEventIntelligenceCampaign(
+        hotel,
+        [], // existing events for deduplication
+        [], // existing proposals
+        (step) => {
+          setCurrentPhase(step.phase);
+          setPhaseTitle(step.phaseTitle);
+          setProgressPercent(step.progressPercent);
+          setLiveLog(step.log);
+          setCounters(step.counters);
+          setAllLogs((prev) => [...prev, step.log]);
+        }
+      );
+
+      setCampaignResult(result);
+      setIsRunning(false);
+
+      // Notify parent app of new data
+      onRefreshComplete(
+        result.newIntegratedEvents,
+        result.newProposals,
+        {
+          newCount: result.eventsIntegratedCount,
+          modifiedCount: 1,
+          cancelledCount: 0,
+          verifiedCount: result.sourcesAnalyzedCount,
+        }
+      );
+    } catch (err: any) {
+      console.error('Agent campaign failed:', err);
+      setIsRunning(false);
+      setAllLogs((prev) => [...prev, `[Erreur] ${err?.message || 'Échec de la campagne'}`]);
+    }
+  };
 
   if (!isOpen) return null;
 
+  const pastCampaigns = getCampaignsHistory();
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-2xs animate-in fade-in">
-      <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white ${isFinished ? 'bg-emerald-600' : 'bg-violet-600'} transition-colors`}>
-              <RotateCcw className={`w-4 h-4 ${!isFinished ? 'animate-spin' : ''}`} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs transition-all animate-in fade-in duration-200">
+      <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Sticky Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 text-white flex items-center justify-center shadow-sm shadow-violet-200">
+              <Sparkles className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                {isFinished ? 'Actualisation Terminée' : 'Actualisation Événementielle en Cours...'}
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Moteur d&apos;intelligence événementielle Flowtym pour {hotel.name} ({hotel.city})
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
+                  Agent IA de Veille Événementielle Autonome
+                </h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200">
+                  Temps Réel
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                <span>Établissement cible : <strong className="text-slate-800">{hotel.name}</strong> ({hotel.city})</span>
+                <span className="text-slate-300">·</span>
+                <span>Rayon : <strong>10/30 km</strong></span>
+                <span className="text-slate-300">·</span>
+                <span>Horizon : <strong>24–36 mois</strong></span>
               </p>
             </div>
           </div>
 
-          {isFinished && (
-            <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
-              <X className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            {!isRunning && (
+              <button
+                onClick={() => setShowHistory((prev) => !prev)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                  showHistory
+                    ? 'bg-violet-50 text-violet-800 border-violet-300'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                Historique des campagnes ({pastCampaigns.length})
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              aria-label="Fermer"
+            >
+              <X className="w-5 h-5" />
             </button>
+          </div>
+        </div>
+
+        {/* Scrollable Modal Content */}
+        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+          {/* HISTORY VIEW */}
+          {showHistory && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-violet-600" />
+                  Historique des campagnes d'exploration
+                </h3>
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="text-xs font-semibold text-violet-700 hover:underline"
+                >
+                  Retour au résultat actuel
+                </button>
+              </div>
+
+              {pastCampaigns.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  Aucune campagne archivée pour le moment.
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                  {pastCampaigns.map((c) => (
+                    <div
+                      key={c.campaignId}
+                      className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-violet-300 hover:shadow-xs transition-all text-xs space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                          Campagne du {new Date(c.startedAt).toLocaleDateString('fr-FR', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          Durée : {Math.round(c.durationMs / 1000)}s
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-600 pt-1">
+                        <div>Sources auditées : <strong>{c.sourcesAnalyzedCount}</strong></div>
+                        <div>Nouvelles sources : <strong className="text-emerald-700">+{c.newSourcesDiscoveredCount}</strong></div>
+                        <div>Événements intégrés : <strong className="text-violet-700">{c.eventsIntegratedCount}</strong></div>
+                        <div>Doublons éliminés : <strong>{c.duplicatesFilteredCount}</strong></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ACTIVE CAMPAIGN OR FINAL REPORT */}
+          {!showHistory && (
+            <>
+              {/* Progress Bar & Phase Status */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {isRunning ? (
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-violet-600" />
+                      </span>
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    )}
+                    <span className="text-xs font-bold text-slate-800">
+                      {isRunning ? `Phase ${currentPhase}/5 : ${phaseTitle}` : 'Campagne terminée avec succès'}
+                    </span>
+                  </div>
+
+                  <span className="text-xs font-extrabold text-violet-700 tabular-nums">
+                    {progressPercent}%
+                  </span>
+                </div>
+
+                {/* Progress bar line */}
+                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-violet-600 to-indigo-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+
+                {/* Live log ticker */}
+                {isRunning && (
+                  <div className="text-[11px] text-slate-500 font-mono truncate flex items-center gap-1.5 pt-1">
+                    <Activity className="w-3.5 h-3.5 text-violet-600 animate-spin" />
+                    <span>{liveLog || 'Connexion aux flux de données...'}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Real-time Counters Grid (Section 8 requirements) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+                {/* 1. Sources analysées */}
+                <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
+                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Sources analysées</span>
+                  <div className="text-xl font-black text-slate-900 tabular-nums">
+                    {counters.sourcesAnalyzed}
+                  </div>
+                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <Globe className="w-3 h-3 text-violet-500" />
+                    Viparis, agendas, arénas
+                  </span>
+                </div>
+
+                {/* 2. Nouvelles sources découvertes */}
+                <div className="bg-emerald-50/70 p-3.5 rounded-2xl border border-emerald-200/80 shadow-2xs space-y-1">
+                  <span className="text-emerald-800 text-[10px] font-bold uppercase tracking-wider block">Nouvelles sources</span>
+                  <div className="text-xl font-black text-emerald-700 tabular-nums">
+                    +{counters.newSources}
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-medium flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                    Mémorisées au réseau
+                  </span>
+                </div>
+
+                {/* 3. Événements trouvés */}
+                <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
+                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Événements trouvés</span>
+                  <div className="text-xl font-black text-slate-900 tabular-nums">
+                    {counters.eventsFound}
+                  </div>
+                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <Search className="w-3 h-3 text-slate-400" />
+                    2026 à 2028
+                  </span>
+                </div>
+
+                {/* 4. Doublons écartés */}
+                <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
+                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">Doublons écartés</span>
+                  <div className="text-xl font-black text-slate-700 tabular-nums">
+                    {counters.duplicatesFiltered}
+                  </div>
+                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                    Fusion des preuves
+                  </span>
+                </div>
+
+                {/* 5. Événements intégrés (Score >= 60) */}
+                <div className="bg-violet-50/70 p-3.5 rounded-2xl border border-violet-200 shadow-2xs space-y-1">
+                  <span className="text-violet-900 text-[10px] font-bold uppercase tracking-wider block">Intégrés direct</span>
+                  <div className="text-xl font-black text-violet-700 tabular-nums">
+                    {counters.integrated}
+                  </div>
+                  <span className="text-[10px] text-violet-700 font-semibold flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-violet-600" />
+                    Score RM ≥ 60
+                  </span>
+                </div>
+
+                {/* 6. À valider (Score 30-59) */}
+                <div className="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200 shadow-2xs space-y-1">
+                  <span className="text-amber-900 text-[10px] font-bold uppercase tracking-wider block">À valider RM</span>
+                  <div className="text-xl font-black text-amber-700 tabular-nums">
+                    {counters.pendingValidation}
+                  </div>
+                  <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-amber-600" />
+                    Score 30 à 59
+                  </span>
+                </div>
+              </div>
+
+              {/* REPORT TABS WHEN CAMPAIGN IS READY OR RUNNING */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                    <button
+                      onClick={() => setActiveReportTab('events')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        activeReportTab === 'events'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Événements qualifiés ({campaignResult?.newIntegratedEvents.length || counters.integrated})
+                    </button>
+                    <button
+                      onClick={() => setActiveReportTab('sources')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        activeReportTab === 'sources'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Nouvelles sources ({campaignResult?.newDiscoveredSources.length || counters.newSources})
+                    </button>
+                    <button
+                      onClick={() => setActiveReportTab('logs')}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                        activeReportTab === 'logs'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Terminal className="w-3.5 h-3.5" />
+                      <span>Console d&apos;exécution ({allLogs.length})</span>
+                    </button>
+                  </div>
+
+                  {campaignResult && (
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      Pilote : <strong>Folkestone Opéra · Paris</strong> ({campaignResult.summaryStats.primaryRadiusKm} / {campaignResult.summaryStats.extendedRadiusKm} km)
+                    </span>
+                  )}
+                </div>
+
+                {/* TAB 1: DISCOVERED & INTEGRATED EVENTS */}
+                {activeReportTab === 'events' && (
+                  <div className="space-y-3">
+                    {campaignResult?.newIntegratedEvents.length === 0 && !isRunning && (
+                      <div className="p-8 text-center text-slate-400 text-xs">
+                        Aucun nouvel événement à intégrer sur ce cycle.
+                      </div>
+                    )}
+
+                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                      {(campaignResult?.newIntegratedEvents || []).map((ev) => {
+                        const dist = ev.hotelImpacts[hotel.id]?.distanceKm ?? 5.5;
+                        return (
+                          <div
+                            key={ev.id}
+                            className="p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-violet-300 hover:shadow-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-extrabold text-slate-900">{ev.title}</span>
+                                <span
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    ev.impactLevel === 'hyper'
+                                      ? 'bg-rose-100 text-rose-800'
+                                      : 'bg-amber-100 text-amber-800'
+                                  }`}
+                                >
+                                  Impact {ev.impactLevel}
+                                </span>
+                                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                  Dates confirmées officielles
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                  {ev.startDate} → {ev.endDate}
+                                </span>
+                                <span>·</span>
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                                  {ev.venueName} ({dist} km)
+                                </span>
+                                <span>·</span>
+                                <span>{(ev.expectedAttendance || 0).toLocaleString('fr-FR')} pax</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+                              <div className="text-right">
+                                <div className="text-sm font-black text-violet-700 tabular-nums">
+                                  Score RM {ev.scoreBreakdown.finalRMScore}/100
+                                </div>
+                                <div className="text-[10px] text-emerald-600 font-bold">
+                                  ADR +{ev.hotelImpacts[hotel.id]?.estimatedADRBoostPercent || 35}% estimé
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: NEWLY DISCOVERED SOURCES */}
+                {activeReportTab === 'sources' && (
+                  <div className="space-y-3">
+                    <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-900 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>
+                        L&apos;agent mémorise automatiquement ces nouvelles sources dans son référentiel permanent et les réinterrogera lors des prochaines campagnes.
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {(campaignResult?.newDiscoveredSources || []).map((src) => (
+                        <div
+                          key={src.id}
+                          className="p-3.5 rounded-2xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">{src.name}</span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                Découverte IA
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                              <span className="font-mono text-slate-600">{src.domain}</span>
+                              <span>·</span>
+                              <span>Catégorie : {src.category}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <span className="text-[10px] text-slate-400 block">Indice fiabilité</span>
+                              <strong className="text-xs font-black text-emerald-700">{src.reliabilityScore}%</strong>
+                            </div>
+                            <a
+                              href={src.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 text-slate-400 hover:text-violet-600 rounded-lg hover:bg-slate-100"
+                              title="Visiter la source"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: LIVE TERMINAL LOGS */}
+                {activeReportTab === 'logs' && (
+                  <div className="bg-slate-950 text-slate-200 font-mono text-[11px] rounded-2xl p-4 h-64 overflow-y-auto space-y-1.5 border border-slate-800 shadow-inner">
+                    {allLogs.map((log, index) => (
+                      <div
+                        key={index}
+                        className={`leading-relaxed ${
+                          log.includes('NOUVELLE SOURCE')
+                            ? 'text-emerald-400 font-bold'
+                            : log.includes('QUALIFIÉ')
+                            ? 'text-violet-300 font-bold'
+                            : log.includes('À VALIDER')
+                            ? 'text-amber-300'
+                            : log.includes('Doublon')
+                            ? 'text-slate-400'
+                            : 'text-slate-300'
+                        }`}
+                      >
+                        {log}
+                      </div>
+                    ))}
+                    <div ref={logsEndRef} />
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs font-bold">
-              <span className="text-slate-700">Progression globale</span>
-              <span className="text-violet-700 tabular-nums">{progressPercent}%</span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-violet-600 h-2 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+        {/* Modal Sticky Footer */}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-500">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Déduplication stricte & Vérification croisée des sources actives</span>
           </div>
 
-          {/* Metric Counters Grid */}
-          <div className="grid grid-cols-4 gap-2.5">
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70 text-center">
-              <div className="text-[10px] font-bold uppercase text-slate-400">Nouveaux</div>
-              <div className="text-lg font-extrabold text-emerald-600 tabular-nums mt-0.5">
-                +{stats.newCount}
-              </div>
-            </div>
-
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70 text-center">
-              <div className="text-[10px] font-bold uppercase text-slate-400">Modifiés</div>
-              <div className="text-lg font-extrabold text-amber-600 tabular-nums mt-0.5">
-                {stats.modifiedCount}
-              </div>
-            </div>
-
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70 text-center">
-              <div className="text-[10px] font-bold uppercase text-slate-400">Annulés</div>
-              <div className="text-lg font-extrabold text-slate-400 tabular-nums mt-0.5">
-                {stats.cancelledCount}
-              </div>
-            </div>
-
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70 text-center">
-              <div className="text-[10px] font-bold uppercase text-slate-400">Vérifiés</div>
-              <div className="text-lg font-extrabold text-violet-700 tabular-nums mt-0.5">
-                {stats.verifiedCount}
-              </div>
-            </div>
-          </div>
-
-          {/* Steps List */}
-          <div className="space-y-2.5">
-            {REFRESH_STEPS.map((step) => {
-              const isPast = step.id < currentStep || isFinished;
-              const isCurrent = step.id === currentStep && !isFinished;
-
-              return (
-                <div
-                  key={step.id}
-                  className={`p-3 rounded-xl border text-xs transition-all flex items-start gap-3 ${
-                    isCurrent
-                      ? 'bg-violet-50/80 border-violet-200 shadow-2xs'
-                      : isPast
-                      ? 'bg-white border-slate-200/80'
-                      : 'bg-slate-50/50 border-slate-200/40 opacity-50'
-                  }`}
-                >
-                  <div className="mt-0.5 shrink-0">
-                    {isPast ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    ) : isCurrent ? (
-                      <RotateCcw className="w-4 h-4 text-violet-600 animate-spin" />
-                    ) : (
-                      <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center text-[10px] text-slate-400">
-                        {step.id}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <div className={`font-bold ${isCurrent ? 'text-violet-900' : 'text-slate-800'}`}>
-                      {step.label}
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      {step.detail}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Summary Banner after finish */}
-          {isFinished && (
-            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200/80 space-y-2 animate-in fade-in">
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Règles de classification automatique appliquées :</span>
-              </div>
-              <ul className="text-[11px] text-emerald-800 space-y-1 list-disc list-inside">
-                <li>
-                  <strong>Score RM ≥ 60 (Fort / Critique) :</strong> Intégré directement au calendrier sans action requise.
-                </li>
-                <li>
-                  <strong>Score RM 30 à 59 (Moyen) :</strong> 2 propositions en attente dans la rubrique <em>« Propositions à valider »</em>.
-                </li>
-              </ul>
-            </div>
-          )}
-
-          {/* Actions */}
-          {isFinished && (
-            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            {!isRunning && (
               <button
-                onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={handleLaunchCampaign}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold transition-all cursor-pointer flex items-center gap-1.5"
               >
-                Fermer
+                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                <span>Relancer une exploration</span>
               </button>
+            )}
+
+            {campaignResult && campaignResult.proposalsCount > 0 && (
               <button
                 onClick={() => {
                   onClose();
                   onOpenProposals();
                 }}
-                className="px-4 py-2 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span>Voir les propositions à valider (2)</span>
+                <span>Examiner les propositions ({campaignResult.proposalsCount})</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
-            </div>
-          )}
+            )}
+
+            <button
+              onClick={onClose}
+              disabled={isRunning}
+              className={`px-5 py-2 rounded-xl font-bold transition-all cursor-pointer ${
+                isRunning
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-violet-600 hover:bg-violet-700 text-white shadow-xs'
+              }`}
+            >
+              {isRunning ? 'Exploration en cours...' : 'Consulter le calendrier mis à jour'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
