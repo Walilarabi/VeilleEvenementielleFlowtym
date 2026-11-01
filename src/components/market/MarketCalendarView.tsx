@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -27,17 +27,25 @@ import {
   BarChart3,
   BellRing,
   AlertCircle,
+  Maximize2,
+  Minimize2,
+  FileDown,
+  Loader2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
+  ComposedChart,
   AreaChart,
   Area,
   Line,
+  Bar,
+  Cell,
   XAxis,
   YAxis,
   Tooltip as RechartsTooltip,
   CartesianGrid,
   ReferenceLine,
+  ReferenceArea,
 } from 'recharts';
 import { EventItem, Hotel } from '../../types';
 import {
@@ -48,6 +56,7 @@ import {
   isEventGeographicallyRelevant,
   getHotelCatchmentDescription,
 } from '../../utils/marketDemand';
+import { exportMarketDemandReportPDF } from '../../utils/exportMarketPdf';
 
 interface MarketCalendarViewProps {
   events: EventItem[];
@@ -172,10 +181,12 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     (monthDataLeft.stats.avgOccupancy + monthDataRight.stats.avgOccupancy) / 2
   );
 
-  // Configuration de la visualisation Recharts (Évolution de la demande & pics)
+  // Configuration de la visualisation Recharts (Évolution de la demande, barres & pics)
   const [chartScope, setChartScope] = useState<'month1' | 'month2' | 'both'>('month1');
   const [chartMetric, setChartMetric] = useState<'tension' | 'occupancy' | 'both'>('tension');
   const [showChart, setShowChart] = useState<boolean>(true);
+  const [chartViewMode, setChartViewMode] = useState<'bars-combo' | 'bars-only' | 'curve-only'>('bars-combo');
+  const [barColorTheme, setBarColorTheme] = useState<'slate' | 'dynamic'>('slate');
 
   // Seuil critique d'alerte Revenue Management (80% tension ou forte demande)
   const CRITICAL_THRESHOLD = 80;
@@ -186,7 +197,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     return combined.filter((d) => d.intensity >= CRITICAL_THRESHOLD || d.demandLevel === 'forte');
   }, [monthDataLeft, monthDataRight]);
 
-  // Données structurées pour la courbe d'évolution Recharts
+  // Données structurées pour la courbe d'évolution et les barres Recharts
   const chartData = useMemo(() => {
     let daysToInclude: DayMarketInfo[] = [];
     if (chartScope === 'month1') {
@@ -197,12 +208,29 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
       daysToInclude = [...monthDataLeft.days, ...monthDataRight.days];
     }
 
+    const basePrice = currentHotel?.baseADR || 240;
+
     return daysToInclude.map((d) => {
       const dObj = new Date(d.dateStr);
+      const dayOfWeek = dObj.getDay(); // 0 = Dimanche, 6 = Samedi
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+      // Label d'axe X formaté fidèlement à la capture : "1 nov. 2026", "2 nov. 2026", etc.
+      const formattedAxisLabel = `${dObj.getDate()} ${dObj.toLocaleDateString('fr-FR', {
+        month: 'short',
+      })} ${dObj.getFullYear()}`;
+
       const shortMonth = dObj.toLocaleDateString('fr-FR', { month: 'short' });
+
+      // Estimation dynamique du tarif ADR en € selon la tension marché et le prix de base de l'hôtel
+      // Échelle correspondant à la capture fournie : ~130€ à ~545€
+      const adrMultiplier = 0.65 + (d.intensity / 100) * 1.35;
+      const estimatedADR = Math.round(basePrice * adrMultiplier);
+
       return {
         dateStr: d.dateStr,
         dayNumber: d.dayNumber,
+        axisLabel: formattedAxisLabel,
         shortLabel: chartScope === 'both' ? `${d.dayNumber} ${shortMonth}` : `${d.dayNumber}`,
         fullDateFormatted: dObj.toLocaleDateString('fr-FR', {
           weekday: 'long',
@@ -218,9 +246,36 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
         topEvents: d.topEventsTitles,
         dayInfo: d,
         isCritical: d.intensity >= CRITICAL_THRESHOLD || d.demandLevel === 'forte',
+        isWeekend,
+        estimatedADR,
       };
     });
-  }, [chartScope, monthDataLeft, monthDataRight]);
+  }, [chartScope, monthDataLeft, monthDataRight, currentHotel, CRITICAL_THRESHOLD]);
+
+  // Zones de week-ends pour shading en arrière-plan (exactement comme dans la capture)
+  const weekendBlocks = useMemo(() => {
+    const blocks: { x1: string; x2: string }[] = [];
+    let startLabel: string | null = null;
+    let lastLabel: string | null = null;
+
+    chartData.forEach((item, index) => {
+      if (item.isWeekend) {
+        if (!startLabel) startLabel = item.axisLabel;
+        lastLabel = item.axisLabel;
+      } else {
+        if (startLabel && lastLabel) {
+          blocks.push({ x1: startLabel, x2: lastLabel });
+          startLabel = null;
+          lastLabel = null;
+        }
+      }
+      if (index === chartData.length - 1 && startLabel && lastLabel) {
+        blocks.push({ x1: startLabel, x2: lastLabel });
+      }
+    });
+
+    return blocks;
+  }, [chartData]);
 
   // Top pics de tension sur le scope actif pour un accès rapide en 1 clic
   const peakTensionDays = useMemo(() => {
@@ -236,11 +291,153 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     return demandFilter === level;
   };
 
+  // Mode Plein Écran pour moniteurs haute résolution
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isExportingPDF, setIsExportingPDF] = useState<boolean>(false);
+
+  // Synchronisation avec l'API HTML5 Fullscreen et gestion de la touche Échap
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen && !selectedDateInfo) {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen, selectedDateInfo]);
+
+  const handleToggleFullscreen = async () => {
+    if (!isFullscreen) {
+      try {
+        if (containerRef.current?.requestFullscreen) {
+          await containerRef.current.requestFullscreen();
+        }
+      } catch {
+        // Fallback CSS plein écran garanti même en cas de restriction de permissions
+      }
+      setIsFullscreen(true);
+      onShowToast('Mode Plein Écran activé pour grands moniteurs');
+    } else {
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      } catch {}
+      setIsFullscreen(false);
+      onShowToast('Affichage standard restauré');
+    }
+  };
+
+  // Génération du rapport consolidé PDF de la demande pour le mois sélectionné
+  const handleExportPDF = () => {
+    try {
+      setIsExportingPDF(true);
+
+      // Sélection des données selon le scope actif (Mois 1, Mois 2 ou Combiné 2 Mois)
+      const targetMonthData = chartScope === 'month2' ? monthDataRight : monthDataLeft;
+      const daysToExport =
+        chartScope === 'both'
+          ? [...monthDataLeft.days, ...monthDataRight.days]
+          : targetMonthData.days;
+
+      const statsToExport =
+        chartScope === 'both'
+          ? {
+              forteCount: totalForte,
+              moyenneCount: totalMoyenne,
+              faibleCount: totalFaible,
+              avgOccupancy: combinedAvgTO,
+            }
+          : targetMonthData.stats;
+
+      const periodLabel =
+        chartScope === 'both'
+          ? `${monthDataLeft.monthName} & ${monthDataRight.monthName}`
+          : targetMonthData.monthName;
+
+      exportMarketDemandReportPDF({
+        hotel: currentHotel,
+        monthName: periodLabel,
+        days: daysToExport,
+        stats: statsToExport,
+        catchmentZone: catchmentInfo.zoneName,
+        catchmentScope: catchmentInfo.scopeRadius,
+        criticalThreshold: CRITICAL_THRESHOLD,
+      });
+
+      onShowToast(`Rapport consolidé PDF généré avec succès pour ${periodLabel} !`);
+    } catch (err) {
+      console.error('Erreur lors de la génération du rapport PDF:', err);
+      onShowToast("Erreur lors de la création du rapport consolidé PDF.");
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   // Render weekday labels (French initials matching screenshot: l m m j v s d)
   const weekdays = ['l', 'm', 'm', 'j', 'v', 's', 'd'];
 
   return (
-    <div className="space-y-6 pb-16">
+    <div
+      ref={containerRef}
+      className={
+        isFullscreen
+          ? 'fixed inset-0 z-50 overflow-y-auto bg-slate-100 p-4 sm:p-6 lg:p-8 space-y-6'
+          : 'space-y-6 pb-16'
+      }
+    >
+      {/* Sticky Fullscreen Notification & Exit Bar */}
+      {isFullscreen && (
+        <div className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md text-white px-5 py-3 rounded-2xl shadow-xl flex items-center justify-between border border-slate-700/80 mb-2">
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <div>
+              <div className="text-xs font-extrabold flex items-center gap-2">
+                Vue Marché en Plein Écran
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                  Affichage Grand Moniteur
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Calendrier multi-mois et courbe de tension Recharts optimisés pour une lisibilité maximale.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 active:scale-98 text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+            >
+              {isExportingPDF ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileDown className="w-3.5 h-3.5" />
+              )}
+              <span>Exporter en PDF</span>
+            </button>
+            <button
+              onClick={handleToggleFullscreen}
+              className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              <span>Quitter (Échap)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner: Market Intelligence Header */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 lg:p-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -263,8 +460,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             </div>
           </div>
 
-          {/* Quick controls: Hotel selector + Year toggle */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Quick controls: Hotel selector + Year toggle + Plein écran + Export PDF */}
+          <div className="flex flex-wrap items-center gap-2.5">
             {/* Hotel Selector */}
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
               <Building2 className="w-4 h-4 text-slate-500" />
@@ -305,6 +502,53 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 2027 (Paris)
               </button>
             </div>
+
+            {/* Plein Écran Option */}
+            <button
+              onClick={handleToggleFullscreen}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                isFullscreen
+                  ? 'bg-violet-50 text-violet-800 border-violet-300 ring-2 ring-violet-200'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
+              }`}
+              title={
+                isFullscreen
+                  ? 'Quitter le mode plein écran (Échap)'
+                  : 'Basculer la vue Marché en plein écran pour grands moniteurs'
+              }
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5 text-violet-600" />
+                  <span>Quitter plein écran</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Plein écran</span>
+                </>
+              )}
+            </button>
+
+            {/* Exporter en PDF Button */}
+            <button
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-700 hover:to-rose-600 active:scale-98 text-white text-xs font-extrabold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+              title="Générer un rapport consolidé de la demande pour le mois sélectionné en PDF"
+            >
+              {isExportingPDF ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                  <span>Export en cours...</span>
+                </>
+              ) : (
+                <>
+                  <FileDown className="w-3.5 h-3.5 text-white" />
+                  <span>Exporter en PDF</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -514,7 +758,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             </p>
           </div>
 
-          {/* Controls: Scope Switcher (Mois 1 / Mois 2 / 2 Mois) & Metric Toggle */}
+          {/* Controls: Scope Switcher, View Mode, Bar Coloring, Metric Toggle & PDF Export */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Scope Toggle */}
             <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
@@ -550,39 +794,124 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               </button>
             </div>
 
-            {/* Metric Toggle */}
+            {/* Chart Mode: Combo / Bars Only / Curve Only */}
             <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold">
               <button
-                onClick={() => setChartMetric('tension')}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                  chartMetric === 'tension'
-                    ? 'bg-rose-500 text-white font-bold shadow-xs'
+                onClick={() => setChartViewMode('bars-combo')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  chartViewMode === 'bars-combo'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title="Barres pour chaque date avec courbe d'évolution superposée"
               >
-                Tension (%)
+                <BarChart3 className="w-3.5 h-3.5 text-rose-500" />
+                <span>Barres & Courbe</span>
               </button>
               <button
-                onClick={() => setChartMetric('occupancy')}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                  chartMetric === 'occupancy'
-                    ? 'bg-violet-600 text-white font-bold shadow-xs'
+                onClick={() => setChartViewMode('bars-only')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  chartViewMode === 'bars-only'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title="Barres seules pour chaque date (fidèle à la capture)"
               >
-                TO Projeté (%)
+                <span>Barres seules</span>
               </button>
               <button
-                onClick={() => setChartMetric('both')}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                  chartMetric === 'both'
-                    ? 'bg-slate-900 text-white font-bold shadow-xs'
+                onClick={() => setChartViewMode('curve-only')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  chartViewMode === 'curve-only'
+                    ? 'bg-white text-slate-900 font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
+                title="Courbe fluide seule"
               >
-                Combiné
+                <span>Courbe</span>
               </button>
             </div>
+
+            {/* Bar Styling Theme Toggle */}
+            {chartViewMode !== 'curve-only' && (
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-medium">
+                <button
+                  onClick={() => setBarColorTheme('slate')}
+                  className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
+                    barColorTheme === 'slate'
+                      ? 'bg-slate-700 text-white font-bold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Barres couleur ardoise neutre fidèle à la capture"
+                >
+                  <span className="w-2 h-2 rounded-full bg-slate-400" />
+                  <span>Ardoise</span>
+                </button>
+                <button
+                  onClick={() => setBarColorTheme('dynamic')}
+                  className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
+                    barColorTheme === 'dynamic'
+                      ? 'bg-white text-slate-900 font-bold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Barres colorées selon le niveau de tension (Rouge, Orange, Vert)"
+                >
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span>Coloré</span>
+                </button>
+              </div>
+            )}
+
+            {/* Metric Toggle (visible in combo or curve mode) */}
+            {chartViewMode !== 'bars-only' && (
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold">
+                <button
+                  onClick={() => setChartMetric('tension')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    chartMetric === 'tension'
+                      ? 'bg-rose-500 text-white font-bold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Tension (%)
+                </button>
+                <button
+                  onClick={() => setChartMetric('occupancy')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    chartMetric === 'occupancy'
+                      ? 'bg-violet-600 text-white font-bold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  TO Projeté (%)
+                </button>
+                <button
+                  onClick={() => setChartMetric('both')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    chartMetric === 'both'
+                      ? 'bg-slate-900 text-white font-bold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Combiné
+                </button>
+              </div>
+            )}
+
+            {/* Direct PDF Export from Chart */}
+            <button
+              onClick={handleExportPDF}
+              disabled={isExportingPDF}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-98 text-white text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+              title="Exporter le rapport consolidé de la demande pour cette sélection en PDF"
+            >
+              {isExportingPDF ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+              ) : (
+                <FileDown className="w-3.5 h-3.5 text-white" />
+              )}
+              <span className="hidden sm:inline">Rapport PDF</span>
+            </button>
           </div>
         </div>
 
@@ -625,12 +954,12 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
           </div>
         )}
 
-        {/* The Recharts Canvas */}
-        <div className="w-full h-56 pt-2">
+        {/* The Recharts Composed Canvas with Vertical Bars for Every Date */}
+        <div className={`w-full ${isFullscreen ? 'h-96 lg:h-[450px]' : 'h-72 lg:h-80'} pt-2 transition-all`}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
+            <ComposedChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              margin={{ top: 15, right: 35, left: 10, bottom: 45 }}
               onClick={(e: any) => {
                 if (e && e.activePayload && e.activePayload[0]) {
                   const d = e.activePayload[0].payload?.dayInfo;
@@ -648,20 +977,68 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
+
+              {/* Shaded Weekend Bands in Chart Background (matching screenshot) */}
+              {weekendBlocks.map((wb, idx) => (
+                <ReferenceArea
+                  key={`we-${idx}`}
+                  yAxisId="right"
+                  x1={wb.x1}
+                  x2={wb.x2}
+                  fill="#64748b"
+                  fillOpacity={0.08}
+                />
+              ))}
+
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+
+              {/* X-Axis with rotated date labels matching screenshot */}
               <XAxis
-                dataKey="shortLabel"
+                dataKey="axisLabel"
                 tickLine={false}
-                axisLine={{ stroke: '#e2e8f0' }}
-                tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
+                axisLine={{ stroke: '#cbd5e1' }}
+                tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }}
+                angle={-45}
+                textAnchor="end"
+                height={52}
+                interval={chartData.length > 31 ? 1 : 0}
               />
+
+              {/* Left Y-Axis: ADR Price in € (matching screenshot: € 130 to € 545) */}
               <YAxis
-                domain={[0, 100]}
+                yAxisId="left"
+                orientation="left"
                 tickLine={false}
-                axisLine={false}
-                tick={{ fontSize: 11, fill: '#94a3b8' }}
-                unit="%"
+                axisLine={{ stroke: '#f1f5f9' }}
+                tick={{ fontSize: 10, fill: '#64748b' }}
+                tickFormatter={(val) => `€ ${val}`}
+                domain={[
+                  (dataMin: number) => Math.floor(Math.max(90, dataMin * 0.9)),
+                  (dataMax: number) => Math.ceil(dataMax * 1.05),
+                ]}
               />
+
+              {/* Right Y-Axis: Market Demand in % (matching screenshot: 10% to 85% + label) */}
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                domain={[0, 100]}
+                ticks={[10, 25, 40, 55, 70, 85, 100]}
+                tickLine={false}
+                axisLine={{ stroke: '#f1f5f9' }}
+                tick={{ fontSize: 10, fill: '#64748b' }}
+                tickFormatter={(val) => `${val}%`}
+                label={{
+                  value: 'Demande du marché',
+                  angle: 90,
+                  position: 'insideRight',
+                  fill: '#475569',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  offset: 15,
+                }}
+              />
+
               <RechartsTooltip
                 content={({ active, payload }) => {
                   if (!active || !payload || !payload.length) return null;
@@ -687,9 +1064,15 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                       </div>
                       <div className="space-y-1">
                         <div className="flex justify-between items-center">
-                          <span className="text-slate-400">Intensité tension :</span>
+                          <span className="text-slate-400">Demande du marché :</span>
                           <span className="font-extrabold text-rose-400 tabular-nums">
                             {data.intensity}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Tarif suggéré (ADR) :</span>
+                          <span className="font-bold text-emerald-400 tabular-nums">
+                            € {data.estimatedADR}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
@@ -729,7 +1112,9 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   );
                 }}
               />
+
               <ReferenceLine
+                yAxisId="right"
                 y={CRITICAL_THRESHOLD}
                 stroke="#e11d48"
                 strokeDasharray="4 4"
@@ -742,43 +1127,84 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   fontWeight: 700,
                 }}
               />
-              {(chartMetric === 'tension' || chartMetric === 'both') && (
-                <Area
-                  type="monotone"
+
+              {/* VERTICAL BARS FOR EACH INDIVIDUAL DATE (Faithful to Screenshot) */}
+              {(chartViewMode === 'bars-combo' || chartViewMode === 'bars-only') && (
+                <Bar
+                  yAxisId="right"
                   dataKey="intensity"
-                  name="Tension de la demande"
-                  stroke="#e11d48"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#marketTensionGradient)"
-                  activeDot={{
-                    r: 6,
-                    fill: '#be123c',
-                    stroke: '#ffffff',
-                    strokeWidth: 2,
-                    cursor: 'pointer',
+                  name="Demande du marché"
+                  barSize={chartData.length > 35 ? 7 : 12}
+                  radius={[3, 3, 0, 0]}
+                  cursor="pointer"
+                  onClick={(entry: any) => {
+                    if (entry && entry.dayInfo) {
+                      setSelectedDateInfo(entry.dayInfo);
+                    }
                   }}
-                />
+                >
+                  {chartData.map((entry, index) => {
+                    let cellFill = '#54657e'; // Screenshot default slate-blue tone
+                    if (barColorTheme === 'dynamic') {
+                      if (entry.demandLevel === 'forte') cellFill = '#f43f5e';
+                      else if (entry.demandLevel === 'moyenne') cellFill = '#f59e0b';
+                      else cellFill = '#10b981';
+                    }
+                    return (
+                      <Cell
+                        key={`bar-cell-${index}`}
+                        fill={cellFill}
+                        fillOpacity={entry.isCritical ? 1 : 0.88}
+                        className="hover:opacity-100 transition-opacity cursor-pointer"
+                      />
+                    );
+                  })}
+                </Bar>
               )}
-              {(chartMetric === 'occupancy' || chartMetric === 'both') && (
-                <Area
-                  type="monotone"
-                  dataKey="occupancy"
-                  name="TO Prévisionnel"
-                  stroke="#7c3aed"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#marketOccupancyGradient)"
-                  activeDot={{
-                    r: 5,
-                    fill: '#6d28d9',
-                    stroke: '#ffffff',
-                    strokeWidth: 2,
-                    cursor: 'pointer',
-                  }}
-                />
-              )}
-            </AreaChart>
+
+              {/* OVERLAY CURVES (When in Combo or Curve-Only Mode) */}
+              {(chartViewMode === 'bars-combo' || chartViewMode === 'curve-only') &&
+                (chartMetric === 'tension' || chartMetric === 'both') && (
+                  <Area
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="intensity"
+                    name="Tension de la demande"
+                    stroke="#e11d48"
+                    strokeWidth={2.5}
+                    fillOpacity={chartViewMode === 'bars-combo' ? 0.12 : 0.45}
+                    fill="url(#marketTensionGradient)"
+                    activeDot={{
+                      r: 6,
+                      fill: '#be123c',
+                      stroke: '#ffffff',
+                      strokeWidth: 2,
+                      cursor: 'pointer',
+                    }}
+                  />
+                )}
+
+              {(chartViewMode === 'bars-combo' || chartViewMode === 'curve-only') &&
+                (chartMetric === 'occupancy' || chartMetric === 'both') && (
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="occupancy"
+                    name="TO Prévisionnel"
+                    stroke="#7c3aed"
+                    strokeWidth={2}
+                    strokeDasharray={chartViewMode === 'bars-combo' ? '4 4' : undefined}
+                    dot={false}
+                    activeDot={{
+                      r: 5,
+                      fill: '#6d28d9',
+                      stroke: '#ffffff',
+                      strokeWidth: 2,
+                      cursor: 'pointer',
+                    }}
+                  />
+                )}
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
