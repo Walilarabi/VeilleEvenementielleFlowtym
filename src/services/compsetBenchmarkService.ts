@@ -17,6 +17,7 @@ export interface CompsetSnapshot {
   soldOutCount: number;
   totalCompetitors: number;
   marketPosition: number; // rank, e.g. 2nd out of 6
+  demandLevel: StandardDemandLevel;
   competitors: CompetitorHotel[];
   compressionAlert?: MarketCompressionAlert;
 }
@@ -156,7 +157,7 @@ export function getCompsetForDate(
       primaryDrivers: totalPax > 50000 ? ['Forte affluence événementielle', 'Resserrement de la disponibilité compset'] : ['Tension sur le compset direct'],
       totalEstimatedPax: totalPax,
       soldOutRatioPercent: Math.round((soldOutCount / competitors.length) * 100),
-      compsetAverageRate,
+      compsetAverageRate: compsetAverage,
       rateSpreadVsBaselinePercent: Math.round((compressionRatio - 1) * 100),
       isMultiEventOverlap: activeEventsCount > 1,
       recommendedAction: soldOutCount >= 2 ? 'Fermer les canaux OTA remisés & appliquer Minimum Stay 2 ou 3 nuits' : 'Rehausser le BAR de +15% à +25%',
@@ -177,6 +178,7 @@ export function getCompsetForDate(
     soldOutCount,
     totalCompetitors: competitors.length,
     marketPosition,
+    demandLevel,
     competitors,
     compressionAlert,
   };

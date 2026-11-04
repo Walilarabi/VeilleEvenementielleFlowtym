@@ -32,6 +32,8 @@ export function getCategoryLabel(category: EventCategory): string {
       return 'Sommets & Corporate';
     case 'culturel':
       return 'Culture & Arts';
+    case 'vacances_scolaires':
+      return 'Vacances Scolaires';
     default:
       return category;
   }

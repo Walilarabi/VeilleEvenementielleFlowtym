@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Plus,
   FileText,
+  GraduationCap,
 } from 'lucide-react';
 import { EventItem, EventCategory, RMImpactLevel } from '../../types';
 import { getRMScoreColorClasses } from '../../utils/helpers';
@@ -23,6 +24,7 @@ interface CalendarViewProps {
   onSelectEvent: (event: EventItem) => void;
   onAddEventOnDate: (dateStr: string) => void;
   onExportPDF?: () => void;
+  onSelectDate?: (dateStr: string) => void;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -32,6 +34,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onSelectEvent,
   onAddEventOnDate,
   onExportPDF,
+  onSelectDate,
 }) => {
   // Days of the week in French (starting Monday)
   const WEEKDAYS = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
@@ -89,12 +92,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       return <Palette className="w-3 h-3 shrink-0" />;
     if (category === 'congres_medical') return <Stethoscope className="w-3 h-3 shrink-0" />;
     if (category === 'corporate_sommet') return <Briefcase className="w-3 h-3 shrink-0" />;
+    if (category === 'vacances_scolaires') return <GraduationCap className="w-3 h-3 shrink-0 text-indigo-600" />;
     return <Sparkles className="w-3 h-3 shrink-0" />;
   };
 
   // Color helper based on impact matching the user screenshot
-  const getChipStyle = (impact: RMImpactLevel, title: string) => {
+  const getChipStyle = (impact: RMImpactLevel, title: string, category?: EventCategory) => {
     const t = title.toLowerCase();
+
+    // Specific styling for vacances scolaires
+    if (category === 'vacances_scolaires' || t.includes('vacances') || t.includes('half-term') || t.includes('spring break')) {
+      return 'text-indigo-800 bg-indigo-50/90 border border-indigo-200/90 hover:bg-indigo-100 font-semibold';
+    }
 
     // Specific styling matching screenshot:
     // Red/Rose for Mondial de l'Auto, SIAL, Rolex Paris Masters (highest yield pressure)
@@ -197,17 +206,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             >
               {/* Top Row: Day Number + Impact dot */}
               <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => cell.dateStr && onSelectDate?.(cell.dateStr)}
+                  className="flex items-center gap-1 group/btn text-left cursor-pointer"
+                  title="Examiner la demande, signaux marché et recommandations RM pour cette date"
+                >
                   {isToday ? (
                     <span className="w-6 h-6 rounded-full bg-violet-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
                       {cell.dayNumber}
                     </span>
                   ) : (
-                    <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                    <span className="text-xs font-semibold text-slate-700 group-hover/btn:text-violet-600 transition-colors tabular-nums">
                       {cell.dayNumber}
                     </span>
                   )}
-                </div>
+                </button>
 
                 <div className="flex items-center gap-1.5">
                   {/* Subtle Add event hover trigger */}
@@ -226,24 +240,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 </div>
               </div>
 
-              {/* Event Stack Inside Day */}
-              <div className="space-y-1 overflow-y-auto max-h-[115px] pr-0.5">
-                {dayEvents.map((ev) => {
-                  const chipStyle = getChipStyle(ev.impactLevel, ev.title);
-                  const score = ev.scoreBreakdown.finalRMScore;
-                  const scoreColors = getRMScoreColorClasses(score);
+            {/* Event Stack Inside Day */}
+            <div className="space-y-1 overflow-y-auto max-h-[115px] pr-0.5">
+              {dayEvents.map((ev) => {
+                const chipStyle = getChipStyle(ev.impactLevel, ev.title, ev.category);
+                const score = ev.scoreBreakdown.finalRMScore;
+                const scoreColors = getRMScoreColorClasses(score);
 
-                  return (
-                    <button
-                      key={`${ev.id}-${cell.dateStr}`}
-                      onClick={() => onSelectEvent(ev)}
-                      className={`w-full text-left px-2 py-1 rounded-md text-[11px] leading-tight flex items-center justify-between gap-1.5 transition-all truncate shadow-2xs ${chipStyle}`}
-                      title={`${ev.title} — ${ev.venueName} (Score RM: ${score}/100)`}
-                    >
-                      <div className="flex items-center gap-1.5 truncate">
-                        {renderCategoryIcon(ev.category, ev.title)}
-                        <span className="truncate">{ev.title}</span>
-                      </div>
+                return (
+                  <button
+                    key={`${ev.id}-${cell.dateStr}`}
+                    onClick={() => onSelectEvent(ev)}
+                    className={`w-full text-left px-2 py-1 rounded-md text-[11px] leading-tight flex items-center justify-between gap-1.5 transition-all truncate shadow-2xs ${chipStyle}`}
+                    title={`${ev.title} — ${ev.venueName} (Score RM: ${score}/100)`}
+                  >
+                    <div className="flex items-center gap-1.5 truncate">
+                      {renderCategoryIcon(ev.category, ev.title)}
+                      <span className="truncate">{ev.title}</span>
+                    </div>
                       <span
                         className={`shrink-0 px-1 py-0.2 rounded text-[9px] font-bold tabular-nums border ${scoreColors.badge}`}
                       >

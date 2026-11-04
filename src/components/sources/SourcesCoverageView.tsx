@@ -21,24 +21,30 @@ import {
   CheckCircle,
   Activity,
   Sparkles,
+  FileSpreadsheet,
 } from 'lucide-react';
-import { EventSource, Venue, EventItem } from '../../types';
+import { EventSource, Venue, EventItem, Hotel } from '../../types';
 import { batchScrape2027Events, ScrapingVerificationResult } from '../../services/scraperService';
 import { getDiscoveredSources } from '../../services/eventIntelligenceAgent';
+import { HotelDataExcelUploadSection } from './HotelDataExcelUploadSection';
 
 interface SourcesCoverageViewProps {
   sources: EventSource[];
   venues: Venue[];
   events?: EventItem[];
+  hotel?: Hotel;
   onTriggerSync?: () => void;
   onShowToast?: (msg: string) => void;
+  onNavigateToPricing?: () => void;
 }
 
 export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
   sources,
   venues,
   events = [],
+  hotel,
   onShowToast,
+  onNavigateToPricing,
 }) => {
   const discoveredSources = getDiscoveredSources();
 
@@ -75,6 +81,10 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
   const paris2027Events = events.filter(
     (e) => e.startDate.startsWith('2027') && e.city === 'Paris'
   );
+
+  const [activeSubTab, setActiveSubTab] = useState<
+    'excel_uploads' | 'crawler' | 'sources_list' | 'venues'
+  >('excel_uploads');
 
   const handleStartBatchScraping = async () => {
     if (paris2027Events.length === 0) {
@@ -187,20 +197,89 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Sub-navigation Tabs */}
+        <div className="flex items-center gap-2 border-t border-slate-100 pt-4 overflow-x-auto">
+          {[
+            {
+              id: 'excel_uploads',
+              label: 'Upload Excel : Lighthouse, D-EDGE & PMS',
+              icon: FileSpreadsheet,
+              badge: 'Mode Alternatif Hors-API',
+            },
+            {
+              id: 'crawler',
+              label: 'Scraper & Robot Crawler 2027',
+              icon: Globe,
+              badge: `${paris2027Events.length} événements`,
+            },
+            {
+              id: 'sources_list',
+              label: `Répertoire des Sources (${allSources.length})`,
+              icon: Database,
+            },
+            {
+              id: 'venues',
+              label: `Infrastructures (${venues.length})`,
+              icon: Building,
+            },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeSubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveSubTab(tab.id as typeof activeSubTab)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? 'bg-violet-600 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+                {tab.badge && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
+      {/* EXCEL UPLOADS SECTION (LIGHTHOUSE, D-EDGE, PMS) */}
+      {activeSubTab === 'excel_uploads' && (
+        <HotelDataExcelUploadSection
+          hotel={hotel}
+          onShowToast={onShowToast}
+          onNavigateToPricing={onNavigateToPricing}
+          onDataImported={(sourceType, rowCount) => {
+            if (onShowToast) {
+              onShowToast(`${rowCount} lignes importées avec succès depuis l'export ${sourceType.toUpperCase()} !`);
+            }
+          }}
+        />
+      )}
+
       {/* CRAWLER & SCRAPER AUTOMATISÉ 2027 BANNER */}
-      <div className="bg-white rounded-2xl border border-violet-200/80 p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center text-white shadow-xs">
-              <Globe className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">
-                  Scraper & Robot de Vérification Automatisé — Paris 2027
-                </h3>
+      {activeSubTab === 'crawler' && (
+        <div className="bg-white rounded-2xl border border-violet-200/80 p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center text-white shadow-xs">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900">
+                    Scraper & Robot de Vérification Automatisé — Paris 2027
+                  </h3>
                 <span className="text-[10px] font-bold uppercase bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full border border-violet-200">
                   Web Crawler Live
                 </span>
@@ -280,128 +359,134 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
           </div>
         </div>
       </div>
+      )}
 
-      {/* Workers & Ingestion Architecture Banner */}
-      <div className="bg-slate-900 text-slate-200 rounded-2xl p-6 shadow-sm space-y-3">
-        <div className="flex items-center gap-2 text-violet-400 font-bold text-xs uppercase tracking-wider">
-          <Server className="w-4 h-4" />
-          <span>Architecture de Collecte Découplée (Background Workers)</span>
-        </div>
-        <p className="text-xs text-slate-300 leading-relaxed max-w-4xl">
-          Conformément au PRD technique, le moteur de crawling et de déduplication est exécuté en dehors des fonctions serverless Vercel sur des conteneurs workers dédiés avec queue de tâches. Les données vérifiées sont synchronisées de manière asynchrone dans PostgreSQL / Supabase avec contrôle d&apos;intégrité.
-        </p>
-        <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            Worker Ingestion Paris 2027 : En ligne ({paris2027Events.length} sources surveillées)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            Worker Ingestion Lyon/Nice : En ligne (Fréquence : 2h)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            Moteur de Déduplication & Calcul Score RM : Actif
-          </span>
-        </div>
-      </div>
+      {/* Workers & Ingestion Architecture Banner + Sources Table */}
+      {activeSubTab === 'sources_list' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900 text-slate-200 rounded-2xl p-6 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 text-violet-400 font-bold text-xs uppercase tracking-wider">
+              <Server className="w-4 h-4" />
+              <span>Architecture de Collecte Découplée (Background Workers)</span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-4xl">
+              Conformément au PRD technique, le moteur de crawling et de déduplication est exécuté en dehors des fonctions serverless Vercel sur des conteneurs workers dédiés avec queue de tâches. Les données vérifiées sont synchronisées de manière asynchrone dans PostgreSQL / Supabase avec contrôle d&apos;intégrité.
+            </p>
+            <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-slate-800">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                Worker Ingestion Paris 2027 : En ligne ({paris2027Events.length} sources surveillées)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                Worker Ingestion Lyon/Nice : En ligne (Fréquence : 2h)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                Moteur de Déduplication & Calcul Score RM : Actif
+              </span>
+            </div>
+          </div>
 
-      {/* Sources Table */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-        <h3 className="text-sm font-bold text-slate-900">
-          Sources Primaires & Gestionnaires de Billetterie
-        </h3>
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">
+              Sources Primaires & Gestionnaires de Billetterie
+            </h3>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
-              <tr>
-                <th className="py-3 px-4">Source</th>
-                <th className="py-3 px-4">Catégorie</th>
-                <th className="py-3 px-4">Territoire</th>
-                <th className="py-3 px-4 text-center">Fiabilité</th>
-                <th className="py-3 px-4">Dernier Crawl</th>
-                <th className="py-3 px-4 text-right">Événements</th>
-                <th className="py-3 px-4 text-center">Statut</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {allSources.map((src) => {
-                const isAI = (src as any).isDiscoveredByAI;
-                return (
-                  <tr key={src.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-900">{src.name}</span>
-                        {isAI && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                            Découverte IA
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
+                  <tr>
+                    <th className="py-3 px-4">Source</th>
+                    <th className="py-3 px-4">Catégorie</th>
+                    <th className="py-3 px-4">Territoire</th>
+                    <th className="py-3 px-4 text-center">Fiabilité</th>
+                    <th className="py-3 px-4">Dernier Crawl</th>
+                    <th className="py-3 px-4 text-right">Événements</th>
+                    <th className="py-3 px-4 text-center">Statut</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {allSources.map((src) => {
+                    const isAI = (src as any).isDiscoveredByAI;
+                    return (
+                      <tr key={src.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-900">{src.name}</span>
+                            {isAI && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                Découverte IA
+                              </span>
+                            )}
+                          </div>
+                          <a
+                            href={src.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] text-violet-600 hover:underline flex items-center gap-1 mt-0.5"
+                          >
+                            <span className="truncate max-w-xs">{src.url}</span>
+                            <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                          </a>
+                        </td>
+                        <td className="py-3 px-4 text-slate-700 font-medium">{src.category}</td>
+                        <td className="py-3 px-4 text-slate-700">{src.city}</td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="inline-flex items-center justify-center font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md tabular-nums border border-emerald-200/70">
+                            {src.reliabilityScore}%
                           </span>
-                        )}
-                      </div>
-                      <a
-                        href={src.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] text-violet-600 hover:underline flex items-center gap-1 mt-0.5"
-                      >
-                        <span className="truncate max-w-xs">{src.url}</span>
-                        <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                      </a>
-                    </td>
-                  <td className="py-3 px-4 text-slate-700 font-medium">{src.category}</td>
-                  <td className="py-3 px-4 text-slate-700">{src.city}</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-flex items-center justify-center font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md tabular-nums border border-emerald-200/70">
-                      {src.reliabilityScore}%
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-slate-500">{src.lastCrawledAt}</td>
-                  <td className="py-3 px-4 text-right font-bold text-slate-900 tabular-nums">
-                    {src.detectedEventsCount}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      Actif
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-            </tbody>
-          </table>
+                        </td>
+                        <td className="py-3 px-4 text-slate-500">{src.lastCrawledAt}</td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-900 tabular-nums">
+                          {src.detectedEventsCount}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Actif
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Venues Directory */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-        <h3 className="text-sm font-bold text-slate-900">
-          Infrastructures Clés Référencées
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {venues.map((venue) => (
-            <div
-              key={venue.id}
-              className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/60 space-y-2 text-xs"
-            >
-              <div className="flex items-start justify-between">
-                <span className="font-bold text-slate-900">{venue.name}</span>
-                <span className="text-[10px] uppercase font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded">
-                  {venue.city}
-                </span>
+      {activeSubTab === 'venues' && (
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+          <h3 className="text-sm font-bold text-slate-900">
+            Infrastructures Clés Référencées
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {venues.map((venue) => (
+              <div
+                key={venue.id}
+                className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/60 space-y-2 text-xs"
+              >
+                <div className="flex items-start justify-between">
+                  <span className="font-bold text-slate-900">{venue.name}</span>
+                  <span className="text-[10px] uppercase font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded">
+                    {venue.city}
+                  </span>
+                </div>
+                <div className="text-slate-500 text-[11px]">{venue.address}</div>
+                <div className="flex items-center justify-between text-slate-700 font-medium pt-2 border-t border-slate-200/60">
+                  <span>Capacité maximale :</span>
+                  <span className="font-bold tabular-nums">
+                    {venue.capacity.toLocaleString('fr-FR')} places
+                  </span>
+                </div>
               </div>
-              <div className="text-slate-500 text-[11px]">{venue.address}</div>
-              <div className="flex items-center justify-between text-slate-700 font-medium pt-2 border-t border-slate-200/60">
-                <span>Capacité maximale :</span>
-                <span className="font-bold tabular-nums">
-                  {venue.capacity.toLocaleString('fr-FR')} places
-                </span>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

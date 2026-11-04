@@ -35,6 +35,7 @@ import {
   Eye,
   EyeOff,
   Filter,
+  X,
 } from 'lucide-react';
 import { Hotel, HotelGeoSettings, VenueGeoDetail, OfficialCategorySpec, EventItem } from '../../types';
 import {
@@ -147,7 +148,9 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
   const [copiedSQL, setCopiedSQL] = useState(false);
 
   // Active view tab inside Geo Module
-  const [activeGeoTab, setActiveGeoTab] = useState<'carte_google' | 'categories' | 'venues_table' | 'supabase_schema'>('carte_google');
+  const [activeGeoTab, setActiveGeoTab] = useState<
+    'carte_google' | 'categories' | 'venues_table' | 'supabase_schema' | 'debordement_metropolitain'
+  >('carte_google');
 
   // TERRITOIRE DE RÉFÉRENCE AUTOMATIQUE (Section 3 du Complément Technique)
   // Paris -> Île-de-France, Lyon -> Métropole de Lyon, etc.
@@ -391,10 +394,51 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
               </div>
             </div>
 
+            {/* GPS Auto-Detect Button */}
+            <button
+              onClick={() => {
+                if (!navigator.geolocation) {
+                  onShowToast("La géolocalisation n'est pas supportée sur ce navigateur");
+                  return;
+                }
+                onShowToast('Détection de la position GPS en cours...');
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    setTempLat(lat.toFixed(6));
+                    setTempLng(lng.toFixed(6));
+                    currentHotel.lat = lat;
+                    currentHotel.lng = lng;
+                    onShowToast(`Position GPS détectée et appliquée : ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+                  },
+                  (err) => {
+                    onShowToast(`Géolocalisation automatique : ${err.message}. Vous pouvez saisir les coordonnées.`);
+                  },
+                  { timeout: 7000 }
+                );
+              }}
+              title="Détecter automatiquement la position GPS de l'hôtel"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-all cursor-pointer border border-slate-200"
+            >
+              <Compass className="w-3.5 h-3.5 text-violet-600" />
+              <span className="hidden sm:inline">Détecter GPS</span>
+            </button>
+
+            {/* Manual Coordinates & Custom Radius Button */}
+            <button
+              onClick={() => setIsEditingGPS(true)}
+              title="Saisir manuellement les coordonnées ou modifier la zone d'influence"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-all cursor-pointer border border-slate-200"
+            >
+              <Sliders className="w-3.5 h-3.5 text-slate-600" />
+              <span>Périmètre & GPS</span>
+            </button>
+
             <button
               onClick={handleLaunchDiscoveryScan}
               disabled={isScanning}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-bold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-60"
             >
               <RotateCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
               <span>{isScanning ? 'Découverte...' : 'Lancer un scan'}</span>
@@ -406,6 +450,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
         <div className="flex items-center gap-2 border-t border-slate-100 pt-3 overflow-x-auto">
           {[
             { id: 'carte_google', label: 'Carte Événementielle Google Maps', icon: MapPin },
+            { id: 'debordement_metropolitain', label: 'Règle des 10/30 km & Débordement', icon: Train },
             { id: 'categories', label: 'Les 7 Catégories Officielles', icon: Layers },
             { id: 'venues_table', label: `Infrastructures & Distances (${calculatedVenues.length})`, icon: Building },
             { id: 'supabase_schema', label: 'Architecture Supabase PostGIS', icon: Database },
@@ -1064,6 +1109,321 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
           <pre className="p-4 bg-slate-900 text-slate-100 rounded-xl text-xs font-mono overflow-x-auto max-h-[550px] leading-relaxed border border-slate-800">
             {SUPABASE_POSTGIS_SCHEMA_SQL}
           </pre>
+        </div>
+      )}
+
+      {/* TAB 5: RÈGLE DES 10/30 KM & DÉBORDEMENT MÉTROPOLITAIN */}
+      {activeGeoTab === 'debordement_metropolitain' && (
+        <div className="space-y-6">
+          {/* Header Explanation Banner */}
+          <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 rounded-3xl p-6 text-white border border-indigo-800/40 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 flex items-center gap-1.5">
+                <Train className="w-3.5 h-3.5 text-indigo-300" />
+                <span>Principe Fondateur de Réalité Métier</span>
+              </span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
+              La Distance Brute n&apos;est Jamais le Seul Critère d&apos;Impact Hôtelier
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
+              Un événement situé à <strong>30 km</strong> peut déclencher une surchauffe historique de votre établissement, tandis qu&apos;un événement à <strong>4 km</strong> peut n&apos;engendrer absolument aucune nuitée. Flowtym modélise la capacité du lieu, la part de visiteurs extra-régionaux, les liaisons de transport directes et la saturation du compset périphérique.
+            </p>
+          </div>
+
+          {/* Comparative Case Studies (Requested by user) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Cas 1: Lointain mais impact massif */}
+            <div className="bg-white rounded-3xl border border-rose-200 p-5 space-y-4 shadow-2xs">
+              <div className="flex items-start justify-between">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                  Distance : 31 km · Fort Impact
+                </span>
+                <span className="text-lg font-black text-rose-600">94/100</span>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm">Mondial de l&apos;Auto & SIAL Paris</h4>
+                <p className="text-xs text-slate-500 mt-0.5">Parc des Expositions Paris Nord Villepinte</p>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-700 bg-rose-50/50 p-3 rounded-2xl border border-rose-100">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Affluence :</span>
+                  <span className="font-bold text-slate-900">490 000 pax (42% internat.)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Transport direct :</span>
+                  <span className="font-bold text-slate-900">RER B direct (28 min)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Concurrence locale :</span>
+                  <span className="font-bold text-rose-700">100% Sold-out (12 000 ch.)</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                <strong>Mécanisme de Débordement :</strong> La périphérie immédiate de Villepinte ne pouvant absorber 490k visiteurs, la demande se déverse en totalité sur les quartiers centraux parisiens reliés directement par le RER B (Gare du Nord, Châtelet, Opéra).
+              </p>
+
+              <div className="pt-2 border-t border-slate-100 text-[11px] font-bold text-rose-700">
+                Action RM : Hausse tarifaire de +35% à +50% et Minimum Stay 3 nuits justifiés.
+              </div>
+            </div>
+
+            {/* Cas 2: Proche mais impact nul */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+              <div className="flex items-start justify-between">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                  Distance : 5.8 km · Impact Nul
+                </span>
+                <span className="text-lg font-black text-slate-400">12/100</span>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm">Salon du Livre Jeunesse & Événements Locaux</h4>
+                <p className="text-xs text-slate-500 mt-0.5">Espace Paris-Est Montreuil / Halle Locale</p>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-700 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Affluence :</span>
+                  <span className="font-bold text-slate-900">160 000 entrées déclarées</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Origine visiteurs :</span>
+                  <span className="font-bold text-slate-900">94% résidents franciliens</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Nuitées générées :</span>
+                  <span className="font-bold text-slate-500">Quasi nulles (&lt;40 ch.)</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                <strong>Absence de Nuitées :</strong> Malgré une affluence massive en apparence, les visiteurs possèdent un titre de transport Navigo et rentrent dormir à leur domicile le soir même.
+              </p>
+
+              <div className="pt-2 border-t border-slate-100 text-[11px] font-bold text-slate-500">
+                Alerte RM : Ne pas augmenter les tarifs. Risque majeur de perte de taux d&apos;occupation.
+              </div>
+            </div>
+
+            {/* Cas 3: Proximité & prestige ciblé */}
+            <div className="bg-white rounded-3xl border border-emerald-200 p-5 space-y-4 shadow-2xs">
+              <div className="flex items-start justify-between">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Distance : 6.8 km · Très Ciblé
+                </span>
+                <span className="text-lg font-black text-emerald-600">88/100</span>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-900 text-sm">Tournoi de Roland-Garros (Internationaux)</h4>
+                <p className="text-xs text-slate-500 mt-0.5">Stade Roland-Garros · Porte d&apos;Auteuil</p>
+              </div>
+
+              <div className="space-y-2 text-xs text-slate-700 bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Durée :</span>
+                  <span className="font-bold text-slate-900">15 jours consécutifs</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Profil clientèle :</span>
+                  <span className="font-bold text-slate-900">Haut pouvoir d&apos;achat / VIP</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Liaison hôtelière :</span>
+                  <span className="font-bold text-emerald-800">Métro 9 direct (18 min)</span>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                <strong>Adéquation Typologique :</strong> Forte affinité avec les hôtels 4★ et 5★ parisiens. Les spectateurs internationaux privilégient le séjour au centre-ville d&apos;Opéra pour combiner tennis et shopping de luxe.
+              </p>
+
+              <div className="pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-800">
+                Action RM : Protéger les catégories de chambres supérieures et forfaits multi-nuits.
+              </div>
+            </div>
+          </div>
+
+          {/* Les 10 Critères Métier de Modélisation Spatiale */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-2xs">
+            <h3 className="font-bold text-slate-900 text-base">
+              Les 10 Facteurs Analytiques Pris en Compte par Flowtym
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">1. Capacité du lieu</span>
+                <p className="text-slate-600 text-[11px]">Jauge maximale et surfaces d&apos;exposition m².</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">2. Visiteurs attendus</span>
+                <p className="text-slate-600 text-[11px]">Volume réel vs simples inscrits ou estimations.</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">3. Provenance géo</span>
+                <p className="text-slate-600 text-[11px]">Part des internationaux et provinciaux nécessitant un hébergement.</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">4. Durée & Rythme</span>
+                <p className="text-slate-600 text-[11px]">Événement multi-jours (salons) vs concert ponctuel (2h).</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">5. Attractivité / Pouvoir</span>
+                <p className="text-slate-600 text-[11px]">Budget hébergement de la cible (B2B vs loisir économique).</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">6. Transports directs</span>
+                <p className="text-slate-600 text-[11px]">RER, Métro, tramway sans correspondance complexe.</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">7. Temps de trajet réel</span>
+                <p className="text-slate-600 text-[11px]">Temps porte-à-porte en minutes plutôt que distance brute en km.</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">8. Génération de nuitées</span>
+                <p className="text-slate-600 text-[11px]">Taux de conversion affluence / nuitées marchandes.</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">9. Saturation compset</span>
+                <p className="text-slate-600 text-[11px]">Niveau de sold-out des hôtels environnant le lieu.</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                <span className="font-bold text-violet-700">10. Arbitrage de séjour</span>
+                <p className="text-slate-600 text-[11px]">Volonté du client de loger au cœur de la ville ou près du salon.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* GPS Coordinates & Zone d'Influence Modal */}
+      {isEditingGPS && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
+                  <Compass className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    Géolocalisation & Zone d&apos;Influence
+                  </h3>
+                  <p className="text-xs text-slate-500">{currentHotel.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditingGPS(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Adresse de l&apos;établissement
+                </label>
+                <input
+                  type="text"
+                  defaultValue={currentHotel.address}
+                  onChange={(e) => {
+                    currentHotel.address = e.target.value;
+                  }}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl"
+                  placeholder="Ex: 14 Rue de Castellane, 75008 Paris"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Latitude</label>
+                  <input
+                    type="text"
+                    value={tempLat}
+                    onChange={(e) => setTempLat(e.target.value)}
+                    className="w-full px-3 py-2 font-mono border border-slate-200 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Longitude</label>
+                  <input
+                    type="text"
+                    value={tempLng}
+                    onChange={(e) => setTempLng(e.target.value)}
+                    className="w-full px-3 py-2 font-mono border border-slate-200 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Rayon d&apos;influence principal : {currentSettings.mainRadiusKm} km
+                </label>
+                <input
+                  type="range"
+                  min={3}
+                  max={25}
+                  value={currentSettings.mainRadiusKm}
+                  onChange={(e) => updateCurrentSetting('mainRadiusKm', Number(e.target.value))}
+                  className="w-full accent-violet-600"
+                />
+                <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>3 km (Hyper-centre)</span>
+                  <span>10 km (Standard)</span>
+                  <span>25 km (Élargi)</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Rayon d&apos;influence étendu (Grands pôles) : {currentSettings.extendedRadiusKm} km
+                </label>
+                <input
+                  type="range"
+                  min={15}
+                  max={60}
+                  value={currentSettings.extendedRadiusKm}
+                  onChange={(e) => updateCurrentSetting('extendedRadiusKm', Number(e.target.value))}
+                  className="w-full accent-indigo-600"
+                />
+                <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>15 km</span>
+                  <span>30 km (Villepinte / Bourget)</span>
+                  <span>60 km (Bassin total)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setIsEditingGPS(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  const lat = parseFloat(tempLat);
+                  const lng = parseFloat(tempLng);
+                  if (!isNaN(lat) && !isNaN(lng)) {
+                    currentHotel.lat = lat;
+                    currentHotel.lng = lng;
+                  }
+                  setIsEditingGPS(false);
+                  onShowToast(`Paramètres géographiques enregistrés pour ${currentHotel.name}`);
+                }}
+                className="px-4 py-2 text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-xl shadow-xs cursor-pointer"
+              >
+                Valider & Recalculer
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -6,11 +6,19 @@ export type EventCategory =
   | 'festivals'
   | 'mode_luxe'
   | 'corporate_sommet'
-  | 'culturel';
+  | 'culturel'
+  | 'vacances_scolaires';
 
 export type RMImpactLevel = 'hyper' | 'critique' | 'modere' | 'faible';
 
-export type ConfirmationStatus = 'confirmed' | 'estimated_recurrent' | 'announced_pending' | 'rumored';
+export type ConfirmationStatus =
+  | 'confirmed'
+  | 'probable'
+  | 'estime'
+  | 'a_verifier'
+  | 'estimated_recurrent'
+  | 'announced_pending'
+  | 'rumored';
 
 export interface Venue {
   id: string;
@@ -160,6 +168,7 @@ export interface FilterState {
   selectedHotelId: string;
   currentYear: number;
   currentMonth: number; // 0-11
+  showSchoolHolidays?: boolean;
 }
 
 // ==========================================
@@ -347,3 +356,82 @@ export interface DemandForecastItem {
   pmsPickupStatus: 'not_connected' | 'connected_live';
   pmsStatusNote: string;
 }
+
+// ==========================================
+// CONNECTIVITÉ LIGHTHOUSE (RATE SHOPPING API)
+// ==========================================
+export interface LighthouseRateConfig {
+  apiKey: string; // Header X-Oi-Authorization
+  accountEmail: string;
+  baseUrl: string; // https://api.mylighthouse.com/v3
+  authType: 'api_token' | 'oauth';
+  isConnected: boolean;
+  status: 'connected' | 'configured_ready' | 'invalid_token' | 'disconnected';
+  lastSyncAt?: string;
+  rateLimitRemaining?: number;
+  rateLimitReset?: string;
+  compsetIds: string[];
+}
+
+export interface LighthouseRateItem {
+  hotelId: string;
+  hotelName: string;
+  dateStr: string;
+  roomType: string;
+  ratePlan: string; // BAR, Non-Refundable, Breakfast Included
+  rateEur: number;
+  currency: string;
+  isSoldOut: boolean;
+  pos: string; // Direct Web, Booking.com, Expedia
+  observedAt: string;
+  deltaPercentVsPriorScrape: number;
+}
+
+// ==========================================
+// CONNECTIVITÉ D-EDGE (CRS & CHANNEL MANAGER)
+// ==========================================
+export interface DEdgeConfig {
+  hotelCode: string;
+  engineId: string;
+  apiToken: string;
+  webhookUrl: string;
+  authType: 'bearer_token' | 'oauth_client';
+  status: 'connected' | 'configured_ready' | 'pending_certification' | 'disconnected';
+  syncMode: 'direct_api' | 'partner_connector' | 'night_audit_export';
+  lastSyncAt?: string;
+  lastHeartbeatStatus: 'ok' | 'degraded' | 'error';
+}
+
+export interface DEdgeInventoryDay {
+  dateStr: string;
+  hotelId: string;
+  totalRooms: number;
+  roomsSold: number; // OTB (On The Books)
+  roomsAvailable: number; // Stock restant
+  occupancyPercent: number; // OTB Occ %
+  currentBAR: number;
+  pickup24h: number; // Nuitées enregistrées dans les dernières 24h
+  pickup72h: number;
+  pickup7d: number;
+  cancellations24h: number;
+  bookingVelocity: 'tres_rapide' | 'rapide' | 'normale' | 'faible' | 'stagnante';
+  minStayRestriction: number;
+  stopSellActive: boolean;
+  averageLeadTimeDays: number;
+  lastUpdated: string;
+}
+
+// ==========================================
+// JUSTIFICATION ÉPISTÉMOLOGIQUE RM (5 NIVEAUX)
+// ==========================================
+export interface RMEpistemologicalBreakdown {
+  faitObserve: string[]; // Fait observé et vérifié (donnée brute)
+  analyse: string[]; // Analyse & interprétation du marché
+  prevision: string[]; // Prévision chiffrée
+  recommandation: string; // Recommandation d'action RM
+  hypothese: string[]; // Hypothèse et limites
+  confidenceScore: number; // 0-100%
+  primaryDrivers: string[];
+}
+
+export * from './schoolHolidays';

@@ -355,6 +355,7 @@ export const CalendarControls: React.FC<CalendarControlsProps> = ({
                 <option value="mode_luxe">Mode & Fashion Week</option>
                 <option value="corporate_sommet">Sommets & Corporate</option>
                 <option value="culturel">Culture & Arts</option>
+                <option value="vacances_scolaires">Vacances Scolaires</option>
               </select>
             </div>
 
@@ -431,6 +432,16 @@ export const CalendarControls: React.FC<CalendarControlsProps> = ({
                 className="w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500"
               />
               <span>À surveiller</span>
+            </label>
+
+            <label className="inline-flex items-center gap-2.5 cursor-pointer text-xs font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={filterState.showSchoolHolidays ?? true}
+                onChange={(e) => onFilterChange({ showSchoolHolidays: e.target.checked })}
+                className="w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500"
+              />
+              <span className="font-semibold text-violet-900">Vacances scolaires</span>
             </label>
           </div>
         </div>

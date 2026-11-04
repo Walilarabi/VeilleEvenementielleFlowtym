@@ -23,6 +23,15 @@ import { RefreshModal } from './components/modals/RefreshModal';
 import { ProposalsModal } from './components/proposals/ProposalsModal';
 import { LoginPage } from './components/auth/LoginPage';
 import { MarketCalendarView } from './components/market/MarketCalendarView';
+import { SchoolHolidaysCalendarView } from './components/events/SchoolHolidaysCalendarView';
+import { CalendarSubNavbar, CalendarSubTabMode } from './components/calendar/CalendarSubNavbar';
+import { RMDecisionCenter } from './components/intelligence/RMDecisionCenter';
+import { DemandForecastView } from './components/forecast/DemandForecastView';
+import { DateDetailModal } from './components/events/DateDetailModal';
+import { HotelConnectivityHub } from './components/connectivity/HotelConnectivityHub';
+import { RateIntelligenceView } from './components/pricing/RateIntelligenceView';
+import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
+import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
 import {
   INITIAL_HOTELS,
@@ -117,6 +126,8 @@ export default function App() {
 
   // View switch: 'calendar' vs 'table' (default to 'table' so Table View is immediately active)
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
+  const [calendarSubTab, setCalendarSubTab] = useState<CalendarSubTabMode>('table');
+  const [selectedDateForModal, setSelectedDateForModal] = useState<string | null>(null);
 
   // Filter state (Matching the reference screenshot default configuration)
   const [filterState, setFilterState] = useState<FilterState>({
@@ -130,6 +141,7 @@ export default function App() {
     rmsPrioritiesOnly: false,
     anomaliesOnly: false,
     watchlistOnly: false,
+    showSchoolHolidays: true,
     selectedHotelId: 'hotel-opera',
     currentYear: 2026,
     currentMonth: 9, // October 2026 (0-indexed)
@@ -176,9 +188,26 @@ export default function App() {
     showToast('Filtres réinitialisés');
   };
 
+  // Current Hotel selection
+  const currentHotel = useMemo(() => {
+    return hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0];
+  }, [hotels, filterState.selectedHotelId]);
+
+  // School holidays converted into EventItem representations
+  const schoolHolidayEvents = useMemo(() => {
+    const hList = generateSchoolHolidaysForYear(filterState.currentYear);
+    return convertSchoolHolidaysToEventItems(hList, currentHotel);
+  }, [currentHotel, filterState.currentYear]);
+
+  // Combined events pool (merging standard events and official school holidays)
+  const allEventsWithHolidays = useMemo(() => {
+    if (filterState.showSchoolHolidays === false) return events;
+    return [...events, ...schoolHolidayEvents];
+  }, [events, schoolHolidayEvents, filterState.showSchoolHolidays]);
+
   // Filtered Events Calculation
   const filteredEvents = useMemo(() => {
-    return events.filter((ev) => {
+    return allEventsWithHolidays.filter((ev) => {
       // Search
       if (filterState.search.trim()) {
         const q = filterState.search.toLowerCase();
@@ -228,7 +257,7 @@ export default function App() {
 
       return true;
     });
-  }, [events, filterState]);
+  }, [allEventsWithHolidays, filterState]);
 
   // Event interaction handlers
   const handleToggleFavorite = (eventId: string) => {
@@ -430,7 +459,6 @@ export default function App() {
 
   const pendingSuggestionsCount = suggestions.filter((s) => s.status === 'pending').length;
   const pendingProposalsCount = proposals.filter((p) => p.status === 'pending').length;
-  const currentHotel = hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0];
 
   // If user is not authenticated, render Login Page!
   if (!user) {
@@ -473,7 +501,7 @@ export default function App() {
 
         {/* Dynamic Content Viewport (offset by ml-64 on desktop so it never goes under the fixed sidebar) */}
         <main className="flex-1 ml-64 p-6 space-y-6 min-w-0">
-          {/* TAB: CALENDRIER & ÉVÉNEMENTS (VUE TABLEAU / CALENDRIER) */}
+          {/* TAB: CALENDRIER & ÉVÉNEMENTS (VUE TABLEAU / CALENDRIER / VACANCES SCOLAIRES) */}
           {activeTab === 'calendar' && (
             <div className="space-y-6">
               {/* Header KPI cards with Actualiser button */}
@@ -484,58 +512,102 @@ export default function App() {
                 onTriggerRefresh={() => setIsRefreshModalOpen(true)}
               />
 
-              {/* Controls bar (Selectors, Tabs, Search & Filters, Tableau / Calendrier Switch) */}
-              <CalendarControls
-                filterState={filterState}
-                onFilterChange={handleFilterChange}
-                viewMode={viewMode}
-                onToggleViewMode={(mode) => setViewMode(mode)}
-                onOpenAddModal={() => setIsAddModalOpen(true)}
-                onOpenImportModal={() => setIsImportModalOpen(true)}
-                onDownloadTemplate={handleDownloadTemplate}
-                onExportData={handleExportData}
-                onExportPDF={handleExportPDF}
-                onResetFilters={handleResetFilters}
-                isFilterExpanded={isFilterExpanded}
-                onToggleFilterExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
-                events={events}
+              {/* Sub-navigation bar matching reference screenshot: Liste, Calendrier, Heatmap, Vacances scolaires */}
+              <CalendarSubNavbar
+                activeTab={calendarSubTab}
+                onChangeTab={(tab) => {
+                  setCalendarSubTab(tab);
+                  if (tab === 'table') setViewMode('table');
+                  if (tab === 'calendar') setViewMode('calendar');
+                }}
+                onOpenSources={() => setActiveTab('sources')}
+                onOpenImportHistory={() => setIsImportModalOpen(true)}
+                holidaysCount={57}
               />
 
-              {/* Active View Quick Indicator & One-Click Toggle */}
-              <div className="flex items-center justify-between bg-violet-50/70 border border-violet-200/80 px-4 py-2.5 rounded-2xl text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-violet-600" />
-                  <span className="text-violet-950 font-medium">
-                    Affichage actif : <strong className="font-bold">{viewMode === 'table' ? 'Tableau (Vue Liste des événements)' : 'Calendrier (Planning mensuel des événements)'}</strong>
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    setViewMode(viewMode === 'table' ? 'calendar' : 'table');
-                  }}
-                  className="font-bold text-violet-700 hover:text-violet-900 bg-white hover:bg-violet-100/60 px-3.5 py-1.5 rounded-xl border border-violet-200 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>{viewMode === 'table' ? 'Afficher la Vue Calendrier ▦' : 'Afficher la Vue Tableau ⊞'}</span>
-                </button>
-              </div>
+              {/* View 1: Vacances Scolaires (Screenshot Layout & Deep RM Analysis) */}
+              {calendarSubTab === 'school_holidays' && (
+                <SchoolHolidaysCalendarView
+                  hotel={currentHotel}
+                  onShowToast={showToast}
+                />
+              )}
 
-              {/* View Display: Calendrier vs Tableau */}
-              {viewMode === 'calendar' ? (
-                <CalendarView
-                  events={filteredEvents}
-                  currentYear={filterState.currentYear}
-                  currentMonth={filterState.currentMonth}
+              {/* View 2: Heatmap (Market Tension) */}
+              {calendarSubTab === 'heatmap' && (
+                <MarketCalendarView
+                  events={events}
+                  hotels={hotels}
+                  selectedHotelId={filterState.selectedHotelId}
+                  onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
                   onSelectEvent={setSelectedEvent}
-                  onAddEventOnDate={handleOpenAddOnDate}
-                  onExportPDF={handleExportPDF}
+                  onShowToast={showToast}
                 />
-              ) : (
-                <TableView
-                  events={filteredEvents}
-                  onSelectEvent={setSelectedEvent}
-                  onToggleFavorite={handleToggleFavorite}
-                  onExportPDF={handleExportPDF}
-                />
+              )}
+
+              {/* View 3 & 4: Table vs Calendar View with Controls */}
+              {(calendarSubTab === 'table' || calendarSubTab === 'calendar') && (
+                <>
+                  {/* Controls bar (Selectors, Tabs, Search & Filters, Tableau / Calendrier Switch) */}
+                  <CalendarControls
+                    filterState={filterState}
+                    onFilterChange={handleFilterChange}
+                    viewMode={viewMode}
+                    onToggleViewMode={(mode) => {
+                      setViewMode(mode);
+                      setCalendarSubTab(mode);
+                    }}
+                    onOpenAddModal={() => setIsAddModalOpen(true)}
+                    onOpenImportModal={() => setIsImportModalOpen(true)}
+                    onDownloadTemplate={handleDownloadTemplate}
+                    onExportData={handleExportData}
+                    onExportPDF={handleExportPDF}
+                    onResetFilters={handleResetFilters}
+                    isFilterExpanded={isFilterExpanded}
+                    onToggleFilterExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+                    events={allEventsWithHolidays}
+                  />
+
+                  {/* Active View Quick Indicator & One-Click Toggle */}
+                  <div className="flex items-center justify-between bg-violet-50/70 border border-violet-200/80 px-4 py-2.5 rounded-2xl text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-violet-600" />
+                      <span className="text-violet-950 font-medium">
+                        Affichage actif : <strong className="font-bold">{viewMode === 'table' ? 'Tableau (Vue Liste des événements & vacances)' : 'Calendrier (Planning mensuel des événements & vacances)'}</strong>
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const newMode = viewMode === 'table' ? 'calendar' : 'table';
+                        setViewMode(newMode);
+                        setCalendarSubTab(newMode);
+                      }}
+                      className="font-bold text-violet-700 hover:text-violet-900 bg-white hover:bg-violet-100/60 px-3.5 py-1.5 rounded-xl border border-violet-200 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>{viewMode === 'table' ? 'Afficher la Vue Calendrier ▦' : 'Afficher la Vue Tableau ⊞'}</span>
+                    </button>
+                  </div>
+
+                  {/* View Display: Calendrier vs Tableau */}
+                  {viewMode === 'calendar' ? (
+                    <CalendarView
+                      events={filteredEvents}
+                      currentYear={filterState.currentYear}
+                      currentMonth={filterState.currentMonth}
+                      onSelectEvent={setSelectedEvent}
+                      onAddEventOnDate={handleOpenAddOnDate}
+                      onExportPDF={handleExportPDF}
+                      onSelectDate={(dateStr) => setSelectedDateForModal(dateStr)}
+                    />
+                  ) : (
+                    <TableView
+                      events={filteredEvents}
+                      onSelectEvent={setSelectedEvent}
+                      onToggleFavorite={handleToggleFavorite}
+                      onExportPDF={handleExportPDF}
+                    />
+                  )}
+                </>
               )}
             </div>
           )}
@@ -573,6 +645,11 @@ export default function App() {
               }}
               onGoToExplorer={() => setActiveTab('explorer')}
               onGoToCalendar={() => setActiveTab('calendar')}
+              onGoToSchoolHolidays={() => {
+                setActiveTab('calendar');
+                setCalendarSubTab('school_holidays');
+              }}
+              onGoToOpportunities={() => setActiveTab('opportunities')}
             />
           )}
 
@@ -583,6 +660,17 @@ export default function App() {
               hotels={hotels}
               selectedHotelId={filterState.selectedHotelId}
               onSelectEvent={setSelectedEvent}
+            />
+          )}
+
+          {/* TAB: PRICING INTELLIGENCE (Analyse concurrentielle, positionnement tarifaire et recommandations de prix) */}
+          {activeTab === 'pricing' && (
+            <RateIntelligenceView
+              hotel={currentHotel}
+              events={events}
+              onSelectEvent={setSelectedEvent}
+              onGoToExcelUpload={() => setActiveTab('sources')}
+              onShowToast={showToast}
             />
           )}
 
@@ -601,14 +689,11 @@ export default function App() {
 
           {/* TAB 7: OPPORTUNITÉS & ALERTES RM (Risques de sous-tarification, opportunités tarifaires, alertes compression) */}
           {activeTab === 'opportunities' && (
-            <EventIntelligenceView
+            <RMDecisionCenter
+              hotel={currentHotel}
               events={events}
-              hotels={hotels}
-              selectedHotelId={filterState.selectedHotelId}
               onSelectEvent={setSelectedEvent}
-              defaultTab="compression"
-              onOpenProposals={() => setIsProposalsModalOpen(true)}
-              pendingProposalsCount={pendingProposalsCount}
+              onShowToast={showToast}
             />
           )}
 
@@ -630,6 +715,17 @@ export default function App() {
               sources={sources}
               venues={venues}
               events={events}
+              hotel={currentHotel}
+              onNavigateToPricing={() => setActiveTab('pricing')}
+              onShowToast={showToast}
+            />
+          )}
+
+          {/* TAB: CONNECTIVITÉ & API (Lighthouse & D-EDGE CRS) */}
+          {activeTab === 'connectivity' && (
+            <HotelConnectivityHub
+              hotel={currentHotel}
+              onNavigateToPricing={() => setActiveTab('pricing')}
               onShowToast={showToast}
             />
           )}
@@ -693,6 +789,19 @@ export default function App() {
         onAcceptProposal={handleAcceptProposal}
         onRefuseProposal={handleRefuseProposal}
         onRestoreProposal={handleRestoreProposal}
+      />
+
+      {/* Modal: Date Detail & Compset Rate Benchmark */}
+      <DateDetailModal
+        isOpen={selectedDateForModal !== null}
+        onClose={() => setSelectedDateForModal(null)}
+        dateStr={selectedDateForModal || ''}
+        hotel={currentHotel}
+        events={allEventsWithHolidays}
+        onSelectEvent={setSelectedEvent}
+        onApplyRecommendation={(dateStr, rate) => {
+          showToast(`Tarif recommandé de ${rate}€ validé et appliqué pour le ${dateStr}`);
+        }}
       />
 
       {/* Toast Feedback */}

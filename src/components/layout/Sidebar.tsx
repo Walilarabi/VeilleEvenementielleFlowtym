@@ -10,6 +10,8 @@ import {
   Database,
   Sliders,
   Flame,
+  Radio,
+  DollarSign,
 } from 'lucide-react';
 
 export type NavTab =
@@ -18,9 +20,11 @@ export type NavTab =
   | 'explorer'
   | 'geo'
   | 'market'
+  | 'pricing'
   | 'intelligence'
   | 'opportunities'
   | 'sources'
+  | 'connectivity'
   | 'settings';
 
 interface SidebarProps {
@@ -92,9 +96,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
           id: 'market',
           label: 'Analyse du marché',
-          subtitle: 'Tension de la demande, prix & compression',
-          fullDescription: 'Tension de la demande, évolution des prix, périodes de forte demande et compression',
+          subtitle: 'Tension, prix & vacances scolaires',
+          fullDescription: 'Tension de la demande, prix, compression et impact historique des vacances scolaires par segment',
           icon: TrendingUp,
+        },
+        {
+          id: 'pricing',
+          label: 'Pricing Intelligence',
+          subtitle: 'Positionnement & recommandations',
+          fullDescription: 'Analyse concurrentielle, positionnement tarifaire et recommandations de prix.',
+          icon: DollarSign,
+          badge: 'Position Compset',
         },
         {
           id: 'intelligence',
@@ -122,6 +134,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subtitle: 'Sources de données, audit & ingestion',
           fullDescription: 'Sources de données, couverture géographique, fiabilité, audit et ingestion',
           icon: Database,
+        },
+        {
+          id: 'connectivity',
+          label: 'Connectivité & API',
+          subtitle: 'Lighthouse & D-EDGE CRS',
+          fullDescription: 'Intégration temps réel Lighthouse Rate Insight et D-EDGE Central Reservation System',
+          icon: Radio,
         },
         {
           id: 'settings',

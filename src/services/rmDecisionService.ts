@@ -214,11 +214,20 @@ export function recordRMDecision(
   const currentDecisions = getStoredRMDecisions(hotelId);
 
   // Mettre à jour le statut de l'alerte
-  const updatedAlerts = currentAlerts.map((a) => {
+  const updatedAlerts: RMAlertItem[] = currentAlerts.map((a) => {
     if (a.id === alert.id) {
+      const newStatus: RMAlertItem['status'] =
+        action === 'accepted'
+          ? 'accepted'
+          : action === 'modified'
+          ? 'modified'
+          : action === 'rejected'
+          ? 'rejected'
+          : 'postponed';
+
       return {
         ...a,
-        status: action === 'accepted' ? 'accepted' : action === 'modified' ? 'modified' : action === 'rejected' ? 'rejected' : 'postponed',
+        status: newStatus,
         currentRate: action === 'accepted' || action === 'modified' ? appliedRate : a.currentRate,
         gapEur: action === 'accepted' || action === 'modified' ? Math.max(0, a.recommendedRate - appliedRate) : a.gapEur,
         gapPercent: action === 'accepted' || action === 'modified' ? Math.round(((a.recommendedRate - appliedRate) / appliedRate) * 100) : a.gapPercent,
