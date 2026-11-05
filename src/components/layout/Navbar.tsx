@@ -9,6 +9,9 @@ import {
   User,
   Menu,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelLeft,
 } from 'lucide-react';
 import { Hotel } from '../../types';
 
@@ -24,6 +27,8 @@ interface NavbarProps {
   onLogout: () => void;
   onToggleMobileMenu?: () => void;
   isMobileMenuOpen?: boolean;
+  sidebarMode?: 'full' | 'compact' | 'hidden';
+  onToggleSidebarMode?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -38,6 +43,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onToggleMobileMenu,
   isMobileMenuOpen = false,
+  sidebarMode = 'full',
+  onToggleSidebarMode,
 }) => {
   const currentHotel = hotels.find((h) => h.id === selectedHotelId);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -45,8 +52,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-40 h-[60px] bg-white/95 backdrop-blur-sm border-b border-slate-200/80 px-4 sm:px-6 flex items-center transition-colors">
       <div className="flex items-center justify-between gap-4 w-full">
-        {/* Left: Brand Identity + Mobile Menu Toggle */}
+        {/* Left: Brand Identity + Mobile & Desktop Sidebar Toggles */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Mobile hamburger */}
           {onToggleMobileMenu && (
             <button
               type="button"
@@ -55,6 +63,31 @@ export const Navbar: React.FC<NavbarProps> = ({
               aria-label={isMobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
             >
               {isMobileMenuOpen ? <X className="w-5 h-5 text-violet-700" /> : <Menu className="w-5 h-5" />}
+            </button>
+          )}
+
+          {/* Desktop sidebar toggle button */}
+          {onToggleSidebarMode && (
+            <button
+              type="button"
+              onClick={onToggleSidebarMode}
+              className="hidden lg:flex p-1.5 -ml-1 text-slate-500 hover:text-violet-700 hover:bg-slate-100 rounded-xl transition-all cursor-pointer items-center justify-center border border-transparent hover:border-slate-200"
+              title={
+                sidebarMode === 'full'
+                  ? 'Réduire le menu latéral (mode compact)'
+                  : sidebarMode === 'compact'
+                  ? 'Masquer le menu latéral (plein écran)'
+                  : 'Déployer le menu latéral'
+              }
+              aria-label="Basculer l'affichage du menu latéral"
+            >
+              {sidebarMode === 'full' ? (
+                <PanelLeftClose className="w-5 h-5 text-slate-600" />
+              ) : sidebarMode === 'compact' ? (
+                <PanelLeft className="w-5 h-5 text-violet-700" />
+              ) : (
+                <PanelLeftOpen className="w-5 h-5 text-violet-700" />
+              )}
             </button>
           )}
           <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center text-white shadow-sm shadow-violet-200">

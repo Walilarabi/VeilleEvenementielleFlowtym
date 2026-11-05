@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   TrendingUp,
   AlertTriangle,
@@ -14,10 +14,13 @@ import {
   Clock,
   Eye,
   GraduationCap,
+  Radar,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { EventItem, EventSuggestion, Hotel } from '../../types';
 import { formatEventDateRange, getCategoryLabel, getImpactColorClasses } from '../../utils/helpers';
 import { getHotelRoomTypology } from '../../data/hotelRoomTypologies';
+import { D3RadarChart } from './D3RadarChart';
 
 interface FlowboardViewProps {
   events: EventItem[];
@@ -54,6 +57,13 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
     .filter((e) => e.scoreBreakdown.finalRMScore >= 70)
     .sort((a, b) => b.scoreBreakdown.finalRMScore - a.scoreBreakdown.finalRMScore)
     .slice(0, 5);
+
+  const [selectedRadarEventId, setSelectedRadarEventId] = useState<string>(
+    priorityEvents[0]?.id || events[0]?.id || ''
+  );
+
+  const selectedRadarEvent =
+    events.find((e) => e.id === selectedRadarEventId) || priorityEvents[0] || events[0];
 
   // Pending suggestions
   const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
@@ -220,6 +230,90 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
         </div>
       </div>
 
+      {/* D3 Radar Chart: Répartition des scores d'impact par catégorie */}
+      <div className="bg-gradient-to-br from-slate-50 via-white to-violet-50/30 rounded-2xl border border-violet-200/90 p-5 shadow-xs space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0 shadow-xs shadow-violet-200">
+              <Radar className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
+                  Cartographie Radar D3 — Répartition des Scores d'Impact RM
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200">
+                  D3.js Interactif
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Visualisation multi-axes des composantes d'impact (Attractivité, Saturation, International, Proximité, Pickup, ADR)
+              </p>
+            </div>
+          </div>
+
+          {/* Event Quick Dropdown Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-600 font-semibold hidden sm:inline">Événement :</span>
+            <select
+              value={selectedRadarEventId}
+              onChange={(e) => setSelectedRadarEventId(e.target.value)}
+              className="bg-white border border-slate-300 text-slate-900 text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 shadow-2xs max-w-[280px] sm:max-w-xs truncate cursor-pointer"
+            >
+              <optgroup label="Top Priorités RM">
+                {priorityEvents.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title} (Score: {ev.scoreBreakdown.finalRMScore})
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Tous les événements">
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title} · {ev.startDate}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        {/* Quick pills for instant switching between Top Priorities */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
+            <SlidersHorizontal className="w-3 h-3 text-slate-400" />
+            <span>Sélection rapide :</span>
+          </span>
+          {priorityEvents.slice(0, 5).map((ev) => {
+            const isSelected = ev.id === selectedRadarEventId;
+            return (
+              <button
+                key={ev.id}
+                onClick={() => setSelectedRadarEventId(ev.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-violet-600 text-white shadow-xs ring-2 ring-violet-400'
+                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span>{ev.title.split('—')[0].split('-')[0].trim()}</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] font-black ${
+                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {ev.scoreBreakdown.finalRMScore}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* D3 Radar Chart Component */}
+        <D3RadarChart
+          event={selectedRadarEvent}
+          hotel={currentHotel}
+        />
+      </div>
+
       {/* Grid: 2 Columns (Top RM Priorities & Suggestions to Validate) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Top RM Priorities (2/3 width on desktop) */}
@@ -240,16 +334,24 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
             {priorityEvents.map((ev) => {
               const impact = getImpactColorClasses(ev.impactLevel);
               const hotelImp = ev.hotelImpacts[currentHotel.id];
+              const isSelectedForRadar = ev.id === selectedRadarEventId;
 
               return (
                 <div
                   key={ev.id}
-                  onClick={() => onSelectEvent(ev)}
-                  className="bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-slate-300 hover:shadow-xs transition-all cursor-pointer space-y-3"
+                  onClick={() => {
+                    setSelectedRadarEventId(ev.id);
+                    onSelectEvent(ev);
+                  }}
+                  className={`bg-white rounded-2xl border p-4 transition-all cursor-pointer space-y-3 ${
+                    isSelectedForRadar
+                      ? 'border-violet-500 ring-2 ring-violet-400/40 shadow-xs bg-violet-50/10'
+                      : 'border-slate-200/90 hover:border-slate-300 hover:shadow-xs'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span
                           className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${impact.badgeBg}`}
                         >
@@ -262,6 +364,12 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
                         <span className="text-xs text-slate-500 font-medium tabular-nums">
                           {formatEventDateRange(ev.startDate, ev.endDate)}
                         </span>
+                        {isSelectedForRadar && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 flex items-center gap-1">
+                            <Radar className="w-3 h-3" />
+                            <span>Affiché sur le Radar D3</span>
+                          </span>
+                        )}
                       </div>
                       <h4 className="text-sm font-bold text-slate-900 mt-1">
                         {ev.title}

@@ -24,6 +24,7 @@ import {
 import { Hotel, EventItem, DemandForecastItem, StandardDemandLevel } from '../../types';
 import { generateDemandForecast } from '../../services/demandForecastService';
 import { formatEventDateRange, getCategoryLabel } from '../../utils/helpers';
+import { ActualVsForecastRoomTypeChart } from './ActualVsForecastRoomTypeChart';
 
 interface DemandForecastViewProps {
   hotel: Hotel;
@@ -123,6 +124,9 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Graphique Interactif : Réservations Réelles vs Prévisions par Typologie de Chambre */}
+      <ActualVsForecastRoomTypeChart hotel={hotel} />
 
       {/* Month Navigator & Demand Level Filters */}
       <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">

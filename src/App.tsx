@@ -4,9 +4,24 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { PanelLeftOpen, ChevronRight } from 'lucide-react';
 import { Navbar } from './components/layout/Navbar';
-import { Sidebar, NavTab } from './components/layout/Sidebar';
+import { Sidebar, NavTab, SidebarMode } from './components/layout/Sidebar';
 import { KPIHeader } from './components/kpi/KPIHeader';
+
+const SIDEBAR_MODE_STORAGE_KEY = 'flowtym_sidebar_mode_v1';
+
+const getInitialSidebarMode = (): SidebarMode => {
+  try {
+    const saved = localStorage.getItem(SIDEBAR_MODE_STORAGE_KEY);
+    if (saved === 'full' || saved === 'compact' || saved === 'hidden') {
+      return saved;
+    }
+  } catch (err) {
+    console.error('Failed to load sidebar mode', err);
+  }
+  return 'full';
+};
 import { CalendarControls } from './components/calendar/CalendarControls';
 import { CalendarView } from './components/calendar/CalendarView';
 import { TableView } from './components/calendar/TableView';
@@ -30,6 +45,9 @@ import { DemandForecastView } from './components/forecast/DemandForecastView';
 import { DateDetailModal } from './components/events/DateDetailModal';
 import { HotelConnectivityHub } from './components/connectivity/HotelConnectivityHub';
 import { RateIntelligenceView } from './components/pricing/RateIntelligenceView';
+import { RateOpportunityPushNotification } from './components/notifications/RateOpportunityPushNotification';
+import { PushOpportunityAlert } from './services/pushNotificationService';
+import { ReportsAndAutomationsHub } from './components/reports/ReportsAndAutomationsHub';
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
@@ -83,6 +101,23 @@ export default function App() {
 
   // Global Navigation State
   const [activeTab, setActiveTab] = useState<NavTab>('calendar');
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(getInitialSidebarMode);
+
+  const handleSidebarModeChange = (newMode: SidebarMode) => {
+    setSidebarMode(newMode);
+    try {
+      localStorage.setItem(SIDEBAR_MODE_STORAGE_KEY, newMode);
+    } catch (err) {
+      console.error('Failed to save sidebar mode', err);
+    }
+  };
+
+  const handleCycleSidebarMode = () => {
+    const nextMode: SidebarMode =
+      sidebarMode === 'full' ? 'compact' : sidebarMode === 'compact' ? 'hidden' : 'full';
+    handleSidebarModeChange(nextMode);
+  };
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
   const [venues, setVenues] = useState(INITIAL_VENUES);
@@ -483,11 +518,43 @@ export default function App() {
         onLogout={handleLogout}
         onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
         isMobileMenuOpen={isMobileMenuOpen}
+        sidebarMode={sidebarMode}
+        onToggleSidebarMode={handleCycleSidebarMode}
       />
 
       {/* Main Container: Fixed Sidebar + Content */}
       <div className="flex-1 flex relative">
-        {/* Sidebar Navigation (Fixed left-0 top-[60px] bottom-0 w-64) */}
+        {/* Floating Left-Edge Trigger when Sidebar is Hidden */}
+        {sidebarMode === 'hidden' && (
+          <aside
+            className="fixed left-0 top-[76px] z-40 flex flex-col items-center bg-white border border-l-0 border-slate-200/90 rounded-r-2xl shadow-lg backdrop-blur-xs transition-all hover:shadow-xl group"
+          >
+            <button
+              type="button"
+              onClick={() => handleSidebarModeChange('compact')}
+              className="p-2.5 text-slate-600 hover:text-violet-700 hover:bg-violet-50 rounded-tr-2xl transition-all cursor-pointer flex flex-col items-center gap-1.5"
+              title="Réafficher le menu latéral (Mode compact - icônes)"
+              aria-label="Réafficher le menu latéral en mode compact"
+            >
+              <PanelLeftOpen className="w-5 h-5 text-violet-600 group-hover:scale-110 transition-transform" />
+              <span className="text-[10px] font-black uppercase text-violet-800 tracking-wider [writing-mode:vertical-lr] py-1">
+                Menu
+              </span>
+            </button>
+            <div className="w-full h-px bg-slate-100" />
+            <button
+              type="button"
+              onClick={() => handleSidebarModeChange('full')}
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-br-2xl transition-all cursor-pointer"
+              title="Déployer le menu complet"
+              aria-label="Déployer le menu complet"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </aside>
+        )}
+
+        {/* Sidebar Navigation */}
         <Sidebar
           activeTab={activeTab}
           onChangeTab={(tab) => {
@@ -497,10 +564,16 @@ export default function App() {
           pendingSuggestionsCount={pendingSuggestionsCount + pendingProposalsCount}
           isMobileOpen={isMobileMenuOpen}
           onCloseMobile={() => setIsMobileMenuOpen(false)}
+          mode={sidebarMode}
+          onModeChange={handleSidebarModeChange}
         />
 
-        {/* Dynamic Content Viewport (offset by ml-64 on desktop so it never goes under the fixed sidebar) */}
-        <main className="flex-1 ml-64 p-6 space-y-6 min-w-0">
+        {/* Dynamic Content Viewport (adapts smoothly to full, compact or hidden mode) */}
+        <main
+          className={`flex-1 p-6 space-y-6 min-w-0 transition-[margin] duration-300 ease-in-out ${
+            sidebarMode === 'full' ? 'lg:ml-64' : sidebarMode === 'compact' ? 'lg:ml-[72px]' : 'ml-0'
+          }`}
+        >
           {/* TAB: CALENDRIER & ÉVÉNEMENTS (VUE TABLEAU / CALENDRIER / VACANCES SCOLAIRES) */}
           {activeTab === 'calendar' && (
             <div className="space-y-6">
@@ -730,6 +803,14 @@ export default function App() {
             />
           )}
 
+          {/* TAB: RAPPORTS & GESTION (Propriétaires, Prévisions Typologies, Slack & Excel) */}
+          {activeTab === 'reports' && (
+            <ReportsAndAutomationsHub
+              hotel={currentHotel}
+              onShowToast={showToast}
+            />
+          )}
+
           {/* TAB 7: PARAMÈTRES (Hotel portfolio, Veille Géo & Supabase) */}
           {activeTab === 'settings' && (
             <SettingsView
@@ -802,6 +883,18 @@ export default function App() {
         onApplyRecommendation={(dateStr, rate) => {
           showToast(`Tarif recommandé de ${rate}€ validé et appliqué pour le ${dateStr}`);
         }}
+      />
+
+      {/* Top-Right Visual Push Notification for Major Rate Opportunities */}
+      <RateOpportunityPushNotification
+        onNavigateToPricing={(alert: PushOpportunityAlert) => {
+          setActiveTab('pricing');
+          showToast(`Navigation vers Pricing Intelligence : ${alert.title} (+${alert.gapEur}€)`);
+        }}
+        onApplyRecommendedRate={(alert: PushOpportunityAlert) => {
+          showToast(`✓ Tarif conseillé de ${alert.recommendedRate}€ appliqué pour le ${alert.dateStr} (+${alert.gapEur}€)`);
+        }}
+        onShowToast={showToast}
       />
 
       {/* Toast Feedback */}
