@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Bell,
@@ -12,6 +12,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   PanelLeft,
+  Maximize,
+  Minimize,
+  Search,
+  Keyboard,
 } from 'lucide-react';
 import { Hotel } from '../../types';
 
@@ -29,6 +33,10 @@ interface NavbarProps {
   isMobileMenuOpen?: boolean;
   sidebarMode?: 'full' | 'compact' | 'hidden';
   onToggleSidebarMode?: () => void;
+  onOpenCommandPalette?: () => void;
+  onOpenShortcutsHelp?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -45,9 +53,43 @@ export const Navbar: React.FC<NavbarProps> = ({
   isMobileMenuOpen = false,
   sidebarMode = 'full',
   onToggleSidebarMode,
+  onOpenCommandPalette,
+  onOpenShortcutsHelp,
+  isFullscreen: externalIsFullscreen,
+  onToggleFullscreen: externalOnToggleFullscreen,
 }) => {
   const currentHotel = hotels.find((h) => h.id === selectedHotelId);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [localIsFullscreen, setLocalIsFullscreen] = useState(false);
+
+  // Sync with document fullscreen state
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setLocalIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const isFullscreen = externalIsFullscreen !== undefined ? externalIsFullscreen : localIsFullscreen;
+
+  const handleToggleFullscreen = () => {
+    if (externalOnToggleFullscreen) {
+      externalOnToggleFullscreen();
+      return;
+    }
+
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn('Fullscreen not supported or blocked:', err);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(console.warn);
+      }
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 h-[60px] bg-white/95 backdrop-blur-sm border-b border-slate-200/80 px-4 sm:px-6 flex items-center transition-colors">
@@ -137,7 +179,59 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Right: Mode Demo, Proposals & Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Quick Search / Command Palette button (Ctrl+K) */}
+          {onOpenCommandPalette && (
+            <button
+              type="button"
+              onClick={onOpenCommandPalette}
+              className="hidden md:flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-xl text-xs transition-all cursor-pointer shadow-2xs"
+              title="Recherche rapide et commandes (Ctrl+K / ⌘K)"
+            >
+              <Search className="w-3.5 h-3.5 text-violet-600" />
+              <span className="text-slate-500 hidden lg:inline">Recherche...</span>
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono text-slate-500 font-bold shadow-2xs">
+                Ctrl+K
+              </kbd>
+            </button>
+          )}
+
+          {/* Raccourcis Clavier Help button */}
+          {onOpenShortcutsHelp && (
+            <button
+              type="button"
+              onClick={onOpenShortcutsHelp}
+              title="Guide des raccourcis clavier (?)"
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer hidden sm:flex items-center justify-center border border-transparent hover:border-slate-200"
+              aria-label="Afficher les raccourcis clavier"
+            >
+              <Keyboard className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Bouton Plein Écran (Fullscreen API) */}
+          <button
+            type="button"
+            onClick={handleToggleFullscreen}
+            title={
+              isFullscreen
+                ? 'Quitter le mode plein écran (Échap / Ctrl+Shift+F)'
+                : 'Passer en mode plein écran (Fullscreen API · Ctrl+Shift+F)'
+            }
+            aria-label="Basculer le mode plein écran"
+            className={`p-2 rounded-xl transition-all cursor-pointer border flex items-center justify-center ${
+              isFullscreen
+                ? 'bg-violet-50 text-violet-700 border-violet-200 shadow-2xs ring-1 ring-violet-300'
+                : 'text-slate-600 hover:text-violet-700 hover:bg-slate-100 border-transparent hover:border-slate-200'
+            }`}
+          >
+            {isFullscreen ? (
+              <Minimize className="w-4 h-4 text-violet-700" />
+            ) : (
+              <Maximize className="w-4 h-4 text-slate-600" />
+            )}
+          </button>
+
           {/* Propositions button */}
           <button
             onClick={onOpenProposals}

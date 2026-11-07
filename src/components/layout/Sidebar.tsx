@@ -55,6 +55,7 @@ interface NavItemConfig {
   fullDescription: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  shortcut?: string;
 }
 
 interface NavSectionConfig {
@@ -81,6 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subtitle: 'Vue exécutive RM',
           fullDescription: 'Vue exécutive RM',
           icon: LayoutDashboard,
+          shortcut: 'Ctrl+1',
         },
         {
           id: 'calendar',
@@ -88,6 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subtitle: 'Planning et tableau RM',
           fullDescription: 'Planning et tableau RM — Entrée principale de la veille événementielle',
           icon: Calendar,
+          shortcut: 'Ctrl+2',
         },
         {
           id: 'explorer',
@@ -95,6 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subtitle: 'Recherche multi-villes et exploration',
           fullDescription: 'Recherche multi-villes et exploration',
           icon: Compass,
+          shortcut: 'Ctrl+6',
         },
         {
           id: 'geo',
@@ -102,6 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subtitle: 'Périmètres 10/30 km et lieux stratégiques',
           fullDescription: 'Périmètres 10/30 km et lieux stratégiques',
           icon: MapPin,
+          shortcut: 'Ctrl+7',
         },
       ],
     },
@@ -114,6 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subtitle: 'Tension, prix & vacances scolaires',
           fullDescription: 'Tension de la demande, prix, compression et impact historique des vacances scolaires par segment',
           icon: TrendingUp,
+          shortcut: 'Ctrl+8',
         },
         {
           id: 'pricing',
@@ -122,6 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           fullDescription: 'Analyse concurrentielle, positionnement tarifaire et recommandations de prix.',
           icon: DollarSign,
           badge: 'Position Compset',
+          shortcut: 'Ctrl+3',
         },
         {
           id: 'intelligence',
@@ -137,6 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subtitle: 'Sous-tarification, alertes & reco RM',
           fullDescription: 'Risques de sous-tarification, opportunités tarifaires, alertes de compression et recommandations RM',
           icon: AlertTriangle,
+          shortcut: 'Ctrl+4',
         },
         {
           id: 'reports',
@@ -145,6 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           fullDescription: 'Rapport mensuel propriétaires, comparatif prévisions vs réel par typologie, alertes Slack parité et export Excel',
           icon: FileText,
           badge: 'Propriétaires & IA',
+          shortcut: 'Ctrl+5',
         },
       ],
     },
@@ -164,6 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           subtitle: 'Lighthouse & D-EDGE CRS',
           fullDescription: 'Intégration temps réel Lighthouse Rate Insight et D-EDGE Central Reservation System',
           icon: Radio,
+          shortcut: 'Ctrl+9',
         },
         {
           id: 'settings',
@@ -323,11 +333,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-bold text-xs text-white tracking-wide">{item.label}</span>
-                            {item.badge && (
-                              <span className="text-[9px] font-black bg-violet-500 text-white px-1.5 py-0.2 rounded-full whitespace-nowrap">
-                                {item.badge}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {item.shortcut && (
+                                <kbd className="text-[9px] font-mono bg-slate-800 text-violet-300 border border-slate-700 px-1.5 py-0.5 rounded font-bold shadow-2xs">
+                                  {item.shortcut}
+                                </kbd>
+                              )}
+                              {item.badge && (
+                                <span className="text-[9px] font-black bg-violet-500 text-white px-1.5 py-0.2 rounded-full whitespace-nowrap">
+                                  {item.badge}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="text-[10px] text-slate-300 leading-snug font-normal">
                             {item.subtitle}
@@ -386,11 +403,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                           </div>
                         </div>
-                        {item.badge && (
-                          <span className="text-[10px] font-semibold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap ml-1.5 shadow-2xs">
-                            {item.badge}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
+                          {item.shortcut && (
+                            <kbd className="hidden group-hover:inline-block text-[9px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                              {item.shortcut}
+                            </kbd>
+                          )}
+                          {item.badge && (
+                            <span className="text-[10px] font-semibold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full whitespace-nowrap shadow-2xs">
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })}

@@ -22,6 +22,7 @@ import {
   Info,
 } from 'lucide-react';
 import { Hotel } from '../../types';
+import { exportLighthouseWorkbookToXLSX } from '../../services/lighthouseAnalysisEngine';
 
 export type ExcelSourceType = 'lighthouse' | 'dedge' | 'pms';
 
@@ -75,10 +76,10 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
       {
         id: 'rec-init-lh',
         sourceType: 'lighthouse',
-        fileName: 'export_lighthouse_compset_nov2026.xlsx',
-        uploadedAt: '03/11/2026 à 08:15',
-        rowCount: 185,
-        dateRange: '01/11/2026 — 31/12/2026',
+        fileName: 'folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx',
+        uploadedAt: '06/11/2026 à 08:30',
+        rowCount: 60,
+        dateRange: '10/11/2026 — 08/01/2027',
         status: 'synced',
         fileSize: '48.2 Ko',
       },
@@ -86,7 +87,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
         id: 'rec-init-de',
         sourceType: 'dedge',
         fileName: 'dedge_crs_inventory_paris_opera.csv',
-        uploadedAt: '02/11/2026 à 17:40',
+        uploadedAt: '05/11/2026 à 17:40',
         rowCount: 61,
         dateRange: '01/11/2026 — 31/12/2026',
         status: 'synced',
@@ -96,7 +97,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
         id: 'rec-init-pms',
         sourceType: 'pms',
         fileName: 'cloture_night_audit_opera_pms.xlsx',
-        uploadedAt: '02/11/2026 à 06:10',
+        uploadedAt: '05/11/2026 à 06:10',
         rowCount: 90,
         dateRange: '01/10/2026 — 31/12/2026',
         status: 'synced',
@@ -115,19 +116,29 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
 
   // Download Sample Excel/CSV Templates
   const handleDownloadTemplate = (type: ExcelSourceType) => {
+    if (type === 'lighthouse') {
+      const u8array = exportLighthouseWorkbookToXLSX();
+      const blob = new Blob([u8array.buffer as ArrayBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      if (onShowToast) {
+        onShowToast('Export officiel Lighthouse (5 onglets) téléchargé : folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx');
+      }
+      return;
+    }
+
     let csvContent = '';
     let fileName = '';
 
-    if (type === 'lighthouse') {
-      fileName = 'modele_import_lighthouse_compset.csv';
-      csvContent =
-        'Date,Hotel_Concurrent,Etoiles,Chambre_Type,Tarif_Releve_EUR,Statut_Disponibilite,Point_De_Vente,Ecart_vs_Base_EUR\n' +
-        '2026-11-18,Hôtel Saint-Pétersbourg Opéra,4,Classique Double,345,Sold-Out,Booking.com,+95\n' +
-        '2026-11-18,Hôtel Charing Cross,4,Supérieure,310,Disponible,Site Direct,+60\n' +
-        '2026-11-18,Hôtel Astra Opéra,4,Standard,295,Disponible,Expedia,+45\n' +
-        '2026-11-19,Hôtel Saint-Pétersbourg Opéra,4,Classique Double,360,Sold-Out,Booking.com,+110\n' +
-        '2026-11-19,Hotel Indigo Paris-Opéra,4,Deluxe,385,Disponible,Site Direct,+135\n';
-    } else if (type === 'dedge') {
+    if (type === 'dedge') {
       fileName = 'modele_import_dedge_crs_inventory.csv';
       csvContent =
         'Date,Hotel_Code,Chambres_Total,Chambres_Vendues_OTB,Stock_Disponible,Tarif_BAR_EUR,Min_Stay_Nuits,Stop_Sell_Actif\n' +

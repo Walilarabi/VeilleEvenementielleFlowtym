@@ -48,6 +48,10 @@ import { RateIntelligenceView } from './components/pricing/RateIntelligenceView'
 import { RateOpportunityPushNotification } from './components/notifications/RateOpportunityPushNotification';
 import { PushOpportunityAlert } from './services/pushNotificationService';
 import { ReportsAndAutomationsHub } from './components/reports/ReportsAndAutomationsHub';
+import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import { CommandPaletteModal } from './components/modals/CommandPaletteModal';
+import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal';
+import { exportCompleteHistoricalExcel } from './services/excelHistoricalExportService';
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
@@ -117,6 +121,42 @@ export default function App() {
       sidebarMode === 'full' ? 'compact' : sidebarMode === 'compact' ? 'hidden' : 'full';
     handleSidebarModeChange(nextMode);
   };
+
+  // Fullscreen & Shortcuts Modals State
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn('Fullscreen request blocked or not supported:', err);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(console.warn);
+      }
+    }
+  };
+
+  // Global Keyboard Shortcuts Hook (Ctrl+K, Ctrl+1..9, Ctrl+Shift+F, ?)
+  useGlobalShortcuts({
+    activeTab,
+    onChangeTab: (tab) => setActiveTab(tab),
+    onOpenCommandPalette: () => setIsCommandPaletteOpen((prev) => !prev),
+    onOpenShortcutsHelp: () => setIsShortcutsHelpOpen(true),
+    onToggleFullscreen: handleToggleFullscreen,
+    onToggleSidebar: handleCycleSidebarMode,
+    onShowToast: (msg) => showToast(msg),
+  });
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
@@ -520,6 +560,10 @@ export default function App() {
         isMobileMenuOpen={isMobileMenuOpen}
         sidebarMode={sidebarMode}
         onToggleSidebarMode={handleCycleSidebarMode}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenShortcutsHelp={() => setIsShortcutsHelpOpen(true)}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={handleToggleFullscreen}
       />
 
       {/* Main Container: Fixed Sidebar + Content */}
@@ -895,6 +939,33 @@ export default function App() {
           showToast(`✓ Tarif conseillé de ${alert.recommendedRate}€ appliqué pour le ${alert.dateStr} (+${alert.gapEur}€)`);
         }}
         onShowToast={showToast}
+      />
+
+      {/* Command Palette Modal (Ctrl+K / ⌘K) */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          showToast(`Navigation rapide : ${tab}`);
+        }}
+        onSelectEvent={(ev) => {
+          setSelectedEvent(ev);
+        }}
+        events={events}
+        onToggleFullscreen={handleToggleFullscreen}
+        isFullscreen={isFullscreen}
+        onExportExcel={() => {
+          const res = exportCompleteHistoricalExcel({ hotelName: currentHotel.name });
+          showToast(`✓ ${res.totalRows} dates de prix et d'occupation exportées dans "${res.filename}"`);
+        }}
+        onOpenShortcutsHelp={() => setIsShortcutsHelpOpen(true)}
+      />
+
+      {/* Keyboard Shortcuts Cheat Sheet Modal (?) */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsHelpOpen}
+        onClose={() => setIsShortcutsHelpOpen(false)}
       />
 
       {/* Toast Feedback */}

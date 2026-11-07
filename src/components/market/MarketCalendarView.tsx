@@ -58,6 +58,7 @@ import {
 } from '../../utils/marketDemand';
 import { exportMarketDemandReportPDF } from '../../utils/exportMarketPdf';
 import { SchoolHolidaysImpactView } from './SchoolHolidaysImpactView';
+import { LighthouseCompetitiveIntelligenceView } from '../pricing/LighthouseCompetitiveIntelligenceView';
 
 interface MarketCalendarViewProps {
   events: EventItem[];
@@ -66,7 +67,7 @@ interface MarketCalendarViewProps {
   onSelectHotel: (hotelId: string) => void;
   onSelectEvent: (event: EventItem) => void;
   onShowToast: (msg: string) => void;
-  initialSubTab?: 'calendar' | 'school_holidays';
+  initialSubTab?: 'calendar' | 'school_holidays' | 'lighthouse';
 }
 
 export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
@@ -78,8 +79,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
   onShowToast,
   initialSubTab = 'calendar',
 }) => {
-  // Active sub-tab in Analyse de marché: 'calendar' | 'school_holidays'
-  const [activeMarketSubTab, setActiveMarketSubTab] = useState<'calendar' | 'school_holidays'>(initialSubTab);
+  // Active sub-tab in Analyse de marché: 'calendar' | 'school_holidays' | 'lighthouse'
+  const [activeMarketSubTab, setActiveMarketSubTab] = useState<'calendar' | 'school_holidays' | 'lighthouse'>(initialSubTab);
   // Navigation state: start month index (0-indexed) & year
   // Default to October 2026 (month 9) so it displays "octobre 2026" & "novembre 2026" exactly like the screenshot!
   const [currentYear, setCurrentYear] = useState<number>(2026);
@@ -478,6 +479,27 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               Nouveau
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveMarketSubTab('lighthouse')}
+            className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+              activeMarketSubTab === 'lighthouse'
+                ? 'bg-violet-600 text-white shadow-2xs font-extrabold'
+                : 'hover:bg-slate-100 hover:text-slate-900 text-slate-700 bg-slate-50 border border-slate-200/60'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span>Veille Concurrentielle Lighthouse</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                activeMarketSubTab === 'lighthouse'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-amber-100 text-amber-800'
+              }`}
+            >
+              5 Onglets
+            </span>
+          </button>
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 self-end sm:self-auto">
@@ -486,7 +508,12 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
         </div>
       </div>
 
-      {activeMarketSubTab === 'school_holidays' ? (
+      {activeMarketSubTab === 'lighthouse' ? (
+        <LighthouseCompetitiveIntelligenceView
+          hotel={currentHotel}
+          onShowToast={onShowToast}
+        />
+      ) : activeMarketSubTab === 'school_holidays' ? (
         <SchoolHolidaysImpactView
           hotel={currentHotel}
           onShowToast={onShowToast}

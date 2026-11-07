@@ -103,6 +103,7 @@ import {
   exportRateGridToCSV,
 } from '../../services/rateIntelligenceService';
 import { exportCompleteHistoricalExcel } from '../../services/excelHistoricalExportService';
+import { LighthouseCompetitiveIntelligenceView } from './LighthouseCompetitiveIntelligenceView';
 
 export type ColumnId =
   | 'date_day'
@@ -382,7 +383,8 @@ interface RateIntelligenceViewProps {
   events?: EventItem[];
   onSelectEvent?: (event: EventItem) => void;
   onGoToExcelUpload?: () => void;
-  onShowToast?: (msg: string) => void;
+  onShowToast: (msg: string) => void;
+  initialTab?: 'grid' | 'lighthouse' | 'learning';
 }
 
 export type PeriodDuration = '7d' | '14d' | '30d' | '60d' | '90d' | 'all';
@@ -393,9 +395,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   onSelectEvent,
   onGoToExcelUpload,
   onShowToast,
+  initialTab = 'grid',
 }) => {
   // Navigation principale interne
-  const [activeSubTab, setActiveSubTab] = useState<'grid' | 'learning'>('grid');
+  const [activeSubTab, setActiveSubTab] = useState<'grid' | 'lighthouse' | 'learning'>(initialTab);
 
   // Base des enregistrements chargés pour cet établissement (Grand Hôtel Folkestone Opéra par défaut)
   const [records, setRecords] = useState<DailyRateIntelligence[]>(() =>
@@ -858,7 +861,21 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 }`}
               >
                 <Layers className="w-3.5 h-3.5 text-violet-600" />
-                <span>Grille & Recommandations ({synchronizedRecords.length})</span>
+                <span>Grille 21 Colonnes RM ({synchronizedRecords.length})</span>
+              </button>
+              <button
+                onClick={() => setActiveSubTab('lighthouse')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeSubTab === 'lighthouse'
+                    ? 'bg-white text-slate-900 shadow-2xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-violet-600" />
+                <span>Veille Lighthouse (5 onglets)</span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] bg-violet-100 text-violet-800 font-extrabold uppercase">
+                  Nouveau
+                </span>
               </button>
               <button
                 onClick={() => setActiveSubTab('learning')}
@@ -939,7 +956,27 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         </div>
       </div>
 
-      {activeSubTab === 'grid' ? (
+      {activeSubTab === 'lighthouse' ? (
+        <LighthouseCompetitiveIntelligenceView
+          hotel={hotel}
+          onShowToast={onShowToast}
+          onApplyRecommendationToRMS={(dateStr, rate, reason) => {
+            const matched = records.find((r) => r.dateStr === dateStr);
+            const targetRecId = matched ? matched.id : `rec-${dateStr}`;
+            modifyRateSuggestion(
+              hotel.id,
+              targetRecId,
+              rate,
+              1,
+              'custom',
+              `Recommandation Veille Concurrentielle Lighthouse : ${reason}`,
+              'Wali Larabi'
+            );
+            setRecords(getRateIntelligenceRecords(hotel.id));
+            onShowToast(`✓ Tarif conseillé de ${rate}€ validé et enregistré pour le ${dateStr}`);
+          }}
+        />
+      ) : activeSubTab === 'grid' ? (
         <>
           {/* 2. Cartes Synthétiques de Performance RM & Positionnement */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
