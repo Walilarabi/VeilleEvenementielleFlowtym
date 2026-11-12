@@ -11,15 +11,18 @@ import {
   GraduationCap,
   Database,
   History,
+  MapPin,
+  Compass,
 } from 'lucide-react';
 
-export type CalendarSubTabMode = 'table' | 'calendar' | 'heatmap' | 'school_holidays';
+export type CalendarSubTabMode = 'table' | 'calendar' | 'explorer' | 'heatmap' | 'school_holidays';
 
 interface CalendarSubNavbarProps {
   activeTab: CalendarSubTabMode;
   onChangeTab: (tab: CalendarSubTabMode) => void;
   onOpenSources: () => void;
   onOpenImportHistory: () => void;
+  onOpenGeo?: () => void;
   holidaysCount?: number;
 }
 
@@ -28,6 +31,7 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
   onChangeTab,
   onOpenSources,
   onOpenImportHistory,
+  onOpenGeo,
   holidaysCount = 57,
 }) => {
   return (
@@ -56,6 +60,19 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
       >
         <Calendar className={`w-4 h-4 ${activeTab === 'calendar' ? 'text-violet-600' : 'text-slate-400'}`} />
         <span>Calendrier</span>
+      </button>
+
+      {/* 3. Explorer Events (Anciennement Marché & Concurrence) */}
+      <button
+        onClick={() => onChangeTab('explorer')}
+        className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative border-b-2 cursor-pointer whitespace-nowrap ${
+          activeTab === 'explorer'
+            ? 'text-violet-900 border-violet-600 font-extrabold'
+            : 'text-slate-600 hover:text-slate-900 border-transparent hover:border-slate-300'
+        }`}
+      >
+        <Compass className={`w-4 h-4 ${activeTab === 'explorer' ? 'text-violet-600' : 'text-slate-400'}`} />
+        <span>Explorer Events</span>
       </button>
 
       {/* 3. Heatmap */}
@@ -87,7 +104,18 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
         </span>
       </button>
 
-      {/* 5. Sources & API */}
+      {/* 5. Veille géographique (Carte interactive) */}
+      {onOpenGeo && (
+        <button
+          onClick={onOpenGeo}
+          className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap"
+        >
+          <MapPin className="w-4 h-4 text-violet-600" />
+          <span>Veille géographique (Carte)</span>
+        </button>
+      )}
+
+      {/* 6. Sources & API */}
       <button
         onClick={onOpenSources}
         className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap"
@@ -96,7 +124,7 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
         <span>Sources & API</span>
       </button>
 
-      {/* 6. Import & Historique */}
+      {/* 7. Import & Historique */}
       <button
         onClick={onOpenImportHistory}
         className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap"

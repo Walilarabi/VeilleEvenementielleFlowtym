@@ -64,6 +64,7 @@ import {
   SlidersHorizontal,
   Eye,
   EyeOff,
+  Database,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -104,6 +105,11 @@ import {
 } from '../../services/rateIntelligenceService';
 import { exportCompleteHistoricalExcel } from '../../services/excelHistoricalExportService';
 import { LighthouseCompetitiveIntelligenceView } from './LighthouseCompetitiveIntelligenceView';
+import { HistoricalDataImportView } from './HistoricalDataImportView';
+import { BacktestingValidationDashboard } from './BacktestingValidationDashboard';
+import { PredictiveRecommendationDetailDrawer } from './PredictiveRecommendationDetailDrawer';
+import { computeFullPredictivePricingRecommendation } from '../../services/predictiveRevenueEngine';
+import { FullPredictivePricingRecommendation } from '../../types/historicalData';
 
 export type ColumnId =
   | 'date_day'
@@ -384,7 +390,7 @@ interface RateIntelligenceViewProps {
   onSelectEvent?: (event: EventItem) => void;
   onGoToExcelUpload?: () => void;
   onShowToast: (msg: string) => void;
-  initialTab?: 'grid' | 'lighthouse' | 'learning';
+  initialTab?: 'grid' | 'lighthouse' | 'historical' | 'backtest' | 'learning';
 }
 
 export type PeriodDuration = '7d' | '14d' | '30d' | '60d' | '90d' | 'all';
@@ -398,7 +404,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   initialTab = 'grid',
 }) => {
   // Navigation principale interne
-  const [activeSubTab, setActiveSubTab] = useState<'grid' | 'lighthouse' | 'learning'>(initialTab);
+  const [activeSubTab, setActiveSubTab] = useState<'grid' | 'lighthouse' | 'historical' | 'backtest' | 'learning'>(initialTab);
+
+  // Fiche détaillée d'une date (Section 12)
+  const [selectedPredictiveRec, setSelectedPredictiveRec] = useState<FullPredictivePricingRecommendation | null>(null);
 
   // Base des enregistrements chargés pour cet établissement (Grand Hôtel Folkestone Opéra par défaut)
   const [records, setRecords] = useState<DailyRateIntelligence[]>(() =>
@@ -878,6 +887,28 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 </span>
               </button>
               <button
+                onClick={() => setActiveSubTab('historical')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeSubTab === 'historical'
+                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Database className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Données Historiques & Import Excel</span>
+              </button>
+              <button
+                onClick={() => setActiveSubTab('backtest')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeSubTab === 'backtest'
+                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Backtesting & Précision</span>
+              </button>
+              <button
                 onClick={() => setActiveSubTab('learning')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'learning'
@@ -956,7 +987,20 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         </div>
       </div>
 
-      {activeSubTab === 'lighthouse' ? (
+      {activeSubTab === 'historical' ? (
+        <HistoricalDataImportView
+          hotel={hotel}
+          onShowToast={onShowToast}
+          onDataImported={() => {
+            setRecords(getRateIntelligenceRecords(hotel.id));
+          }}
+        />
+      ) : activeSubTab === 'backtest' ? (
+        <BacktestingValidationDashboard
+          hotel={hotel}
+          onShowToast={onShowToast}
+        />
+      ) : activeSubTab === 'lighthouse' ? (
         <LighthouseCompetitiveIntelligenceView
           hotel={hotel}
           onShowToast={onShowToast}
@@ -1585,10 +1629,43 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             {/* 1 & 2. Date & Jour */}
                             {visibleColumns.date_day && (
                               <td className="py-3 px-3 whitespace-nowrap">
-                                <div className="font-bold text-slate-900">
-                                  {r.dayOfWeek.slice(0, 3)}. {new Date(r.dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                <div className="flex items-center gap-1.5">
+                                  <div>
+                                    <div className="font-bold text-slate-900">
+                                      {r.dayOfWeek.slice(0, 3)}. {new Date(r.dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 font-mono">{r.dateStr}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const pred = computeFullPredictivePricingRecommendation({
+                                        dateStr: r.dateStr,
+                                        hotelId: hotel.id,
+                                        currentBarEur: r.currentBarEur,
+                                        roomsSoldOtb: r.dedgeReservations.bookedRoomsNights || 36,
+                                        totalRooms: hotel.roomCount || HOTEL_TOTAL_ROOMS,
+                                        pickup1d: r.dedgePickup?.pickup1d || 0,
+                                        pickup7d: r.dedgePickup?.pickup7d || 6,
+                                        leadTimeDays: r.dedgeReservations?.leadTimeDaysAvg || 21,
+                                        compsetMedianEur: r.compsetMedianEur,
+                                        compsetMinEur: r.compsetMinEur,
+                                        compsetMaxEur: r.compsetMaxEur,
+                                        soldOutCompetitorsCount: r.lighthouse.soldOutCount || 0,
+                                        hasEvent: !!r.eventTitle,
+                                        eventTitle: r.eventTitle,
+                                        eventExpectedAttendance: (r.rmScore || 50) * 1000,
+                                        eventDistanceKm: 3.5,
+                                      });
+                                      setSelectedPredictiveRec(pred);
+                                    }}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                                    title="Ouvrir le panneau d'analyse prédictive multi-années et scénarios"
+                                  >
+                                    <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                                  </button>
                                 </div>
-                                <div className="text-[10px] text-slate-400 font-mono">{r.dateStr}</div>
                               </td>
                             )}
 
@@ -2856,6 +2933,30 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal / Drawer Analyse Prédictive Multi-Années & Scénarios (Section 12) */}
+      {selectedPredictiveRec && (
+        <PredictiveRecommendationDetailDrawer
+          recommendation={selectedPredictiveRec}
+          hotelName={hotel.name}
+          onClose={() => setSelectedPredictiveRec(null)}
+          onApplyScenario={(scenarioName, rate, explanation) => {
+            const matched = records.find((r) => r.dateStr === selectedPredictiveRec.dateStr);
+            const targetRecId = matched ? matched.id : `rec-${selectedPredictiveRec.dateStr}`;
+            modifyRateSuggestion(
+              hotel.id,
+              targetRecId,
+              rate,
+              selectedPredictiveRec.recommendedAction.minStaySuggested || 1,
+              'custom',
+              explanation,
+              'Wali Larabi'
+            );
+            setRecords(getRateIntelligenceRecords(hotel.id));
+            onShowToast(`✓ Tarif scénario ${scenarioName.toUpperCase()} (${rate}€) validé pour le ${selectedPredictiveRec.dateStr}`);
+          }}
+        />
       )}
     </div>
   );

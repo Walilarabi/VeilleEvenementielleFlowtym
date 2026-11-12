@@ -13,7 +13,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-const port = process.env.PORT || 3000;
+const port = Number(process.env.PORT) || 3000;
 
 // Initialize Google GenAI client according to AI Studio guidelines
 let ai: GoogleGenAI | null = null;
@@ -110,8 +110,12 @@ async function startServer() {
     });
   }
 
-  app.listen(port, () => {
-    console.log(`[Flowtym] Server running on http://localhost:${port}`);
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`[Flowtym] Server running on http://0.0.0.0:${port}`);
+  });
+
+  server.on('error', (err: any) => {
+    console.error('[Flowtym Server Error]', err);
   });
 }
 

@@ -7,6 +7,12 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { EventItem, FilterState, Hotel } from '../types';
 import { getCategoryLabel } from './helpers';
+import {
+  SYSTEM_REFERENCE_DATE,
+  sortEventsChronologically,
+  getEventStatusBadgeConfig,
+  getMonthTemporalRelation,
+} from '../services/eventChronologyService';
 
 export interface PDFExportOptions {
   events: EventItem[];
@@ -14,6 +20,7 @@ export interface PDFExportOptions {
   viewMode?: 'calendar' | 'table';
   filterState?: FilterState;
   filename?: string;
+  referenceDate?: string;
 }
 
 export function exportEventsToPDF({
@@ -22,6 +29,7 @@ export function exportEventsToPDF({
   viewMode = 'table',
   filterState,
   filename,
+  referenceDate = SYSTEM_REFERENCE_DATE,
 }: PDFExportOptions): void {
   // Landscape orientation for comprehensive data table visibility
   const doc = new jsPDF({
@@ -43,14 +51,41 @@ export function exportEventsToPDF({
     minute: '2-digit',
   });
 
-  // Calculate KPIs
-  const totalEvents = events.length;
-  const criticalEvents = events.filter((e) => e.scoreBreakdown.finalRMScore >= 60 || e.impactLevel === 'hyper' || e.impactLevel === 'critique').length;
-  const recurringEvents = events.filter((e) => e.isRecurring).length;
+  // Selected period description
+  const monthNames = [
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+  ];
+  const selectedYear = filterState?.currentYear ?? 2026;
+  const selectedMonth = filterState?.currentMonth ?? 10;
+  const monthLabel = `${monthNames[selectedMonth]} ${selectedYear}`;
+  const temporalRelation = getMonthTemporalRelation(selectedYear, selectedMonth, referenceDate);
+  const periodTypeLabel =
+    temporalRelation === 'current'
+      ? `${monthLabel} — Événements en cours & à venir (Réf : ${referenceDate.split('-').reverse().join('/')})`
+      : temporalRelation === 'past'
+      ? `${monthLabel} — Historique mensuel consolidé`
+      : `${monthLabel} — Prévisions événementielles futures`;
+
+  // 3. Strict chronological sorting matching screen view:
+  // Priority 1: Ongoing events (at reference date)
+  // Priority 2: Upcoming events strictly ascending by start date (closest first)
+  // Priority 3: Past events (if in a past month)
+  const isPastMonth = temporalRelation === 'past';
+  const sortedEvents = sortEventsChronologically(events, referenceDate, isPastMonth);
+
+  // Calculate KPIs on strictly sorted events
+  const totalEvents = sortedEvents.length;
+  const ongoingCount = sortedEvents.filter((e) => {
+    const end = e.endDate || e.startDate;
+    return e.startDate <= referenceDate && end >= referenceDate;
+  }).length;
+  const upcomingCount = sortedEvents.filter((e) => e.startDate > referenceDate).length;
+  const criticalEvents = sortedEvents.filter((e) => e.scoreBreakdown.finalRMScore >= 60 || e.impactLevel === 'hyper' || e.impactLevel === 'critique').length;
   const avgScore = totalEvents > 0 
-    ? Math.round(events.reduce((acc, e) => acc + e.scoreBreakdown.finalRMScore, 0) / totalEvents) 
+    ? Math.round(sortedEvents.reduce((acc, e) => acc + e.scoreBreakdown.finalRMScore, 0) / totalEvents) 
     : 0;
-  const totalAttendance = events.reduce((acc, e) => acc + (e.expectedAttendance || 0), 0);
+  const totalAttendance = sortedEvents.reduce((acc, e) => acc + (e.expectedAttendance || 0), 0);
 
   // 1. Header Banner (Navy / Violet gradient style)
   doc.setFillColor(15, 23, 42); // slate-900
@@ -71,17 +106,17 @@ export function exportEventsToPDF({
   doc.setTextColor(196, 181, 253); // violet-300
   doc.text('|  EVENT INTELLIGENCE & REVENUE MANAGEMENT', 47, 12);
 
-  // Subtitle / Document Type
+  // Subtitle / Document Type & Period
   doc.setFontSize(8.5);
   doc.setTextColor(148, 163, 184); // slate-400
-  doc.text(`Rapport analytique des événements — ${viewMode === 'calendar' ? 'Vue Calendrier Mensuel' : 'Vue Tableau Détaillé'}`, 14, 19);
+  doc.text(`Rapport analytique — ${periodTypeLabel}`, 14, 19);
 
   // Right-aligned Generation info
   doc.setFontSize(8);
   doc.setTextColor(203, 213, 225);
   doc.text(`Édité le ${formattedDate} à ${formattedTime}`, pageWidth - 14, 12, { align: 'right' });
   doc.setTextColor(148, 163, 184);
-  doc.text(`Périmètre : ${hotel ? hotel.name : 'Tous les établissements'}`, pageWidth - 14, 19, { align: 'right' });
+  doc.text(`Établissement : ${hotel ? hotel.name : 'Tous les établissements'}`, pageWidth - 14, 19, { align: 'right' });
 
   // 2. Executive Context & KPI Summary Box
   const summaryY = 32;
@@ -89,7 +124,7 @@ export function exportEventsToPDF({
   doc.setDrawColor(226, 232, 240); // slate-200
   doc.roundedRect(14, summaryY, pageWidth - 28, 22, 2, 2, 'FD');
 
-  // KPI 1: Total Events
+  // KPI 1: Total Events & Ongoing/Upcoming Breakdown
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(15, 23, 42);
@@ -97,55 +132,61 @@ export function exportEventsToPDF({
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('ÉVÉNEMENTS FILTRÉS', 24, summaryY + 17);
+  const statusSummaryText =
+    temporalRelation === 'current'
+      ? `${ongoingCount} EN COURS · ${upcomingCount} À VENIR`
+      : temporalRelation === 'past'
+      ? 'HISTORIQUE CLÔTURÉ'
+      : `${upcomingCount} À VENIR`;
+  doc.text(statusSummaryText, 24, summaryY + 17);
 
   // Divider
   doc.setDrawColor(203, 213, 225);
-  doc.line(72, summaryY + 4, 72, summaryY + 18);
+  doc.line(78, summaryY + 4, 78, summaryY + 18);
 
   // KPI 2: Critical RM Impact
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(225, 29, 72); // rose-600
-  doc.text(`${criticalEvents} (${totalEvents > 0 ? Math.round((criticalEvents / totalEvents) * 100) : 0}%)`, 80, summaryY + 11);
+  doc.text(`${criticalEvents} (${totalEvents > 0 ? Math.round((criticalEvents / totalEvents) * 100) : 0}%)`, 86, summaryY + 11);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('IMPACT CRITIQUE & FORT (≥ 60)', 80, summaryY + 17);
+  doc.text('IMPACT CRITIQUE & FORT (≥ 60)', 86, summaryY + 17);
 
   // Divider
-  doc.line(138, summaryY + 4, 138, summaryY + 18);
+  doc.line(144, summaryY + 4, 144, summaryY + 18);
 
   // KPI 3: Average RM Score
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(124, 58, 237); // violet-600
-  doc.text(`${avgScore}/100`, 146, summaryY + 11);
+  doc.text(`${avgScore}/100`, 152, summaryY + 11);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('SCORE RM MOYEN', 146, summaryY + 17);
+  doc.text('SCORE RM MOYEN', 152, summaryY + 17);
 
   // Divider
-  doc.line(196, summaryY + 4, 196, summaryY + 18);
+  doc.line(202, summaryY + 4, 202, summaryY + 18);
 
   // KPI 4: Recurrences & Cumulated Attendance
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(15, 23, 42);
-  doc.text(`${recurringEvents} récurrents - ${Math.round(totalAttendance / 1000)}k pax`, 204, summaryY + 11);
+  doc.text(`${Math.round(totalAttendance / 1000)}k pax`, 210, summaryY + 11);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
-  doc.text('AFFLUENCE & RÉCURRENCE', 204, summaryY + 17);
+  doc.text('AFFLUENCE ESTIMÉE CUMULÉE', 210, summaryY + 17);
 
-  // Helper for pure ASCII thousands grouping (avoids French locale narrow non-breaking spaces that break in jsPDF)
+  // Helper for pure ASCII thousands grouping
   const formatNumber = (num?: number) => {
     if (num === undefined || num === null) return 'NC';
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   };
 
-  // Helper for clean, compact dates: DD/MM/YY - DD/MM/YY (pure ASCII)
+  // Helper for clean, compact dates: DD/MM/YY
   const formatCompactDate = (d: string) => {
     if (!d) return '';
     const parts = d.split('-');
@@ -153,34 +194,6 @@ export function exportEventsToPDF({
     const yy = parts[0].slice(-2);
     return `${parts[2]}/${parts[1]}/${yy}`;
   };
-
-  // 3. Strict chronological sorting for PDF export (closest to export date first, then ascending order)
-  const exportDateStr = now.toISOString().slice(0, 10);
-
-  const sortedEvents = [...events].sort((a, b) => {
-    const isUpcomingA = (a.endDate || a.startDate) >= exportDateStr;
-    const isUpcomingB = (b.endDate || b.startDate) >= exportDateStr;
-
-    // Prioritize current & upcoming events starting closest to the export date
-    if (isUpcomingA && !isUpcomingB) return -1;
-    if (!isUpcomingA && isUpcomingB) return 1;
-
-    // Chronological order: earliest date (closest to export date) first
-    const timeA = new Date(a.startDate).getTime();
-    const timeB = new Date(b.startDate).getTime();
-    if (timeA !== timeB) {
-      return timeA - timeB;
-    }
-
-    // Events with identical start dates: grouped together, ordered by duration then RM score
-    const endTimeA = new Date(a.endDate).getTime();
-    const endTimeB = new Date(b.endDate).getTime();
-    if (endTimeA !== endTimeB) {
-      return endTimeA - endTimeB;
-    }
-
-    return (b.scoreBreakdown?.finalRMScore || 0) - (a.scoreBreakdown?.finalRMScore || 0);
-  });
 
   // Table of Events
   const tableData = sortedEvents.map((ev) => {
@@ -212,8 +225,12 @@ export function exportEventsToPDF({
       ? `${formatNumber(ev.expectedAttendance)} (${ev.internationalRatioPercent}% int.)`
       : 'NC';
 
+    const statusBadge = getEventStatusBadgeConfig(ev, referenceDate);
+    const statusText = statusBadge.label; // "En cours" | "À venir" | "Terminé"
+
     return [
       ev.title,
+      statusText,
       getCategoryLabel(ev.category),
       dateText,
       `${ev.venueName} (${ev.city})`,
@@ -228,6 +245,7 @@ export function exportEventsToPDF({
     startY: 58,
     head: [[
       'ÉVÉNEMENT',
+      'STATUT',
       'TYPE',
       'DATES',
       'LIEU & VILLE',
@@ -241,7 +259,7 @@ export function exportEventsToPDF({
     styles: {
       font: 'helvetica',
       fontSize: 7.5,
-      cellPadding: 2.5,
+      cellPadding: 2.2,
       textColor: [15, 23, 42],
       lineColor: [226, 232, 240],
       lineWidth: 0.1,
@@ -257,24 +275,42 @@ export function exportEventsToPDF({
       valign: 'middle',
     },
     columnStyles: {
-      0: { cellWidth: 46, fontStyle: 'bold' }, // Title
-      1: { cellWidth: 25 }, // Type
-      2: { cellWidth: 34, halign: 'center' }, // Dates
-      3: { cellWidth: 40 }, // Location
-      4: { cellWidth: 32, halign: 'center' }, // Attendance
-      5: { cellWidth: 22, halign: 'center' }, // Impact
-      6: { cellWidth: 22, halign: 'center', fontStyle: 'bold' }, // Score
-      7: { cellWidth: 48 }, // Yield recommendation
+      0: { cellWidth: 44, fontStyle: 'bold' }, // Title
+      1: { cellWidth: 20, halign: 'center' }, // Statut
+      2: { cellWidth: 22 }, // Type
+      3: { cellWidth: 30, halign: 'center' }, // Dates
+      4: { cellWidth: 38 }, // Location
+      5: { cellWidth: 30, halign: 'center' }, // Attendance
+      6: { cellWidth: 20, halign: 'center' }, // Impact
+      7: { cellWidth: 20, halign: 'center', fontStyle: 'bold' }, // Score
+      8: { cellWidth: 45 }, // Yield recommendation
     },
     alternateRowStyles: {
       fillColor: [250, 250, 250],
     },
     didParseCell: (data) => {
+      // Colorize Status column (column 1)
+      if (data.section === 'body' && data.column.index === 1) {
+        const rawRow = data.row.raw as any;
+        const statusVal = Array.isArray(rawRow) ? String(rawRow[1]) : '';
+        if (statusVal === 'En cours') {
+          data.cell.styles.textColor = [5, 150, 105]; // emerald-600
+          data.cell.styles.fillColor = [236, 253, 245]; // emerald-50
+          data.cell.styles.fontStyle = 'bold';
+        } else if (statusVal === 'À venir') {
+          data.cell.styles.textColor = [124, 58, 237]; // violet-600
+          data.cell.styles.fillColor = [245, 243, 255]; // violet-50
+        } else {
+          data.cell.styles.textColor = [100, 116, 139]; // slate-500
+          data.cell.styles.fillColor = [241, 245, 249]; // slate-100
+        }
+      }
+
       // Colorize Impact and Score RM cells based on values
       if (data.section === 'body') {
-        if (data.column.index === 5 || data.column.index === 6) {
+        if (data.column.index === 6 || data.column.index === 7) {
           const rawRow = data.row.raw as any;
-          const scoreStr = Array.isArray(rawRow) ? String(rawRow[6]) : '';
+          const scoreStr = Array.isArray(rawRow) ? String(rawRow[7]) : '';
           const rawScore = parseInt(scoreStr.split('/')[0].trim(), 10) || 0;
           if (rawScore >= 85) {
             data.cell.styles.textColor = [225, 29, 72]; // rose-600

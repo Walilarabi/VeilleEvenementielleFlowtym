@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -15,6 +15,14 @@ import {
   FileText,
 } from 'lucide-react';
 import { FilterState, EventItem, RMImpactLevel, EventCategory, ConfirmationStatus } from '../../types';
+import {
+  SYSTEM_REFERENCE_DATE,
+  isEventOngoing,
+  isEventUpcoming,
+  isEventPast,
+  doesEventOverlapMonth,
+  getMonthTemporalRelation,
+} from '../../services/eventChronologyService';
 
 interface CalendarControlsProps {
   filterState: FilterState;
@@ -62,11 +70,38 @@ export const CalendarControls: React.FC<CalendarControlsProps> = ({
   onToggleFilterExpanded,
   events,
 }) => {
-  // Counts for tabs
-  const upcomingCount = events.filter((e) => new Date(e.startDate) >= new Date('2026-10-01')).length;
-  const ongoingCount = 2; // In current month active window
-  const pastCount = events.filter((e) => new Date(e.startDate) < new Date('2026-10-01')).length;
-  const totalCount = events.length;
+  const selectedYear = filterState.currentYear;
+  const selectedMonth = filterState.currentMonth;
+  const temporal = getMonthTemporalRelation(selectedYear, selectedMonth, SYSTEM_REFERENCE_DATE);
+
+  // Filter events overlapping selected month
+  const monthEvents = useMemo(() => {
+    return events.filter((e) => doesEventOverlapMonth(e, selectedYear, selectedMonth));
+  }, [events, selectedYear, selectedMonth]);
+
+  // Counts based on certified RM chronology
+  const ongoingCount = useMemo(() => {
+    return monthEvents.filter((e) => isEventOngoing(e, SYSTEM_REFERENCE_DATE)).length;
+  }, [monthEvents]);
+
+  const upcomingCount = useMemo(() => {
+    if (temporal === 'past') return 0;
+    if (temporal === 'future') return monthEvents.length;
+    return monthEvents.filter((e) => isEventUpcoming(e, SYSTEM_REFERENCE_DATE)).length;
+  }, [monthEvents, temporal]);
+
+  const pastCount = useMemo(() => {
+    if (temporal === 'future') return 0;
+    if (temporal === 'past') return monthEvents.length;
+    return monthEvents.filter((e) => isEventPast(e, SYSTEM_REFERENCE_DATE)).length;
+  }, [monthEvents, temporal]);
+
+  // Total count for current month: ongoing + upcoming (past excluded by default)
+  const totalCount = useMemo(() => {
+    if (temporal === 'current') return ongoingCount + upcomingCount;
+    if (temporal === 'future') return upcomingCount;
+    return pastCount;
+  }, [temporal, ongoingCount, upcomingCount, pastCount]);
 
   const handlePrevMonth = () => {
     if (filterState.currentMonth === 0) {
@@ -85,7 +120,7 @@ export const CalendarControls: React.FC<CalendarControlsProps> = ({
   };
 
   const handleGoToday = () => {
-    onFilterChange({ currentYear: 2026, currentMonth: 9 }); // October 2026 (0-indexed 9)
+    onFilterChange({ currentYear: 2026, currentMonth: 10, periodTab: 'all' }); // 10 = Novembre 2026 (date du jour 12/11/2026)
   };
 
   return (

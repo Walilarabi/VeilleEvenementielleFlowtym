@@ -181,20 +181,38 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
           )}
 
           {/* Footer actions */}
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
             <button
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+              type="button"
+              onClick={() => {
+                const headers = ['titre', 'date_debut', 'date_fin', 'categorie', 'lieu', 'ville', 'participants_attendus', 'statut'];
+                const rows = [
+                  ['Salon International du Luxe 2026', '2026-11-20', '2026-11-22', 'mode_luxe', 'Palais Brongniart', 'Paris', 25000, 'confirmed'],
+                  ['Congrès Européen d’Oncologie', '2026-12-05', '2026-12-08', 'congres_medical', 'Palais des Congrès', 'Paris', 18000, 'confirmed'],
+                ];
+                import('../../utils/helpers').then(({ downloadGenericCsv }) => {
+                  downloadGenericCsv('modele_import_evenements_flowtym.csv', headers, rows);
+                });
+              }}
+              className="text-xs font-bold text-violet-700 hover:text-violet-800 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              Annuler
+              <span>Télécharger le modèle (.CSV)</span>
             </button>
-            <button
-              disabled={!selectedFileName || isSuccess}
-              onClick={handleConfirmImport}
-              className="px-4 py-2 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-xl shadow-xs"
-            >
-              Intégrer les événements
-            </button>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                disabled={!selectedFileName || isSuccess}
+                onClick={handleConfirmImport}
+                className="px-4 py-2 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-xl shadow-xs cursor-pointer"
+              >
+                Intégrer les événements
+              </button>
+            </div>
           </div>
         </div>
       </div>

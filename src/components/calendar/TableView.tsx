@@ -15,6 +15,12 @@ import {
 } from 'lucide-react';
 import { EventItem, EventCategory, RMImpactLevel } from '../../types';
 import { getRMScoreColorClasses } from '../../utils/helpers';
+import {
+  SYSTEM_REFERENCE_DATE,
+  sortEventsChronologically,
+  getEventStatusBadgeConfig,
+  getEffectiveEndDate,
+} from '../../services/eventChronologyService';
 
 interface TableViewProps {
   events: EventItem[];
@@ -45,81 +51,42 @@ export const TableView: React.FC<TableViewProps> = ({
     }
   };
 
-  // Format dates as: "30 oct. 2026 → 02 nov. 2026"
+  // Format dates: "10 nov. 2026 → 14 nov. 2026" (timezone-safe)
   const formatDateArrow = (startStr: string, endStr: string) => {
     if (!startStr) return '';
-    const s = new Date(startStr);
-    const e = new Date(endStr);
+    const MONTH_LABELS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const partsStart = startStr.split('-');
+    const sDay = partsStart[2];
+    const sMonth = MONTH_LABELS[parseInt(partsStart[1], 10) - 1] || '';
+    const sYear = partsStart[0];
 
-    const sDay = String(s.getDate()).padStart(2, '0');
-    const sMonth = s.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '');
-    const sYear = s.getFullYear();
+    const effectiveEnd = endStr || startStr;
+    const partsEnd = effectiveEnd.split('-');
+    const eDay = partsEnd[2];
+    const eMonth = MONTH_LABELS[parseInt(partsEnd[1], 10) - 1] || '';
+    const eYear = partsEnd[0];
 
-    const eDay = String(e.getDate()).padStart(2, '0');
-    const eMonth = e.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '');
-    const eYear = e.getFullYear();
-
-    return `${sDay} ${sMonth}. ${sYear} → ${eDay} ${eMonth}. ${eYear}`;
+    if (startStr === effectiveEnd) {
+      return `${sDay} ${sMonth} ${sYear}`;
+    }
+    return `${sDay} ${sMonth} ${sYear} → ${eDay} ${eMonth} ${eYear}`;
   };
 
-  // Type label helper (Matching "Salon", "Sport", etc.)
-  const getTypeLabel = (category: EventCategory, title: string) => {
-    const t = title.toLowerCase();
-    if (
-      category === 'salons_foires' ||
-      t.includes('salon') ||
-      t.includes('mondial') ||
-      t.includes('photo') ||
-      t.includes('hotel') ||
-      t.includes('naval') ||
-      t.includes('games') ||
-      t.includes('sial') ||
-      t.includes('batimat')
-    ) {
-      return 'Salon';
-    }
-    if (
-      category === 'sport' ||
-      t.includes('rugby') ||
-      t.includes('tennis') ||
-      t.includes('masters') ||
-      t.includes('cross') ||
-      t.includes('ligue') ||
-      t.includes('nfl') ||
-      t.includes('marathon')
-    ) {
-      return 'Sport';
-    }
-    if (category === 'mode_luxe' || t.includes('mode')) return 'Mode';
-    if (category === 'concerts_spectacles' || t.includes('concert') || t.includes('dion')) return 'Spectacle';
-    if (category === 'congres_medical' || t.includes('congrès') || t.includes('oncologie')) return 'Congrès';
-    if (category === 'festivals' || t.includes('fête') || t.includes('lumières')) return 'Festival';
-    if (category === 'corporate_sommet' || t.includes('sommet')) return 'Sommet';
-    return 'Culture';
-  };
-
-  // Status helper (En cours vs À venir vs Passé)
-  const getEventStatusBadge = (startDate: string, endDate: string) => {
-    const simNow = '2026-10-31';
-
-    if (simNow >= startDate && simNow <= endDate) {
-      return (
-        <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-          En cours
-        </span>
-      );
-    }
-    if (startDate > simNow) {
-      return (
-        <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
-          À venir
-        </span>
-      );
-    }
+  // Status helper (En cours vs À venir vs Terminé)
+  const renderStatusBadge = (ev: EventItem) => {
+    const config = getEventStatusBadgeConfig(ev, SYSTEM_REFERENCE_DATE);
     return (
-      <span className="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-        Passé
-      </span>
+      <div className="flex flex-col items-start gap-0.5">
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs ${config.badgeClass}`}>
+          <span className={`w-2 h-2 rounded-full ${config.dotClass}`} />
+          <span>{config.label}</span>
+        </span>
+        {config.subLabel && (
+          <span className="text-[10px] text-slate-400 font-medium pl-1">
+            {config.subLabel}
+          </span>
+        )}
+      </div>
     );
   };
 

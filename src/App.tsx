@@ -566,39 +566,22 @@ export default function App() {
         onToggleFullscreen={handleToggleFullscreen}
       />
 
+      {/* Sub-header Banner Session Demo matching reference screenshots */}
+      <div className="bg-violet-50/70 border-b border-violet-100/90 px-4 sm:px-6 py-2 text-[11px] text-violet-900 flex flex-wrap items-center justify-between gap-2 z-20">
+        <div>
+          <strong>Accès ouvert — authentification désactivée.</strong> L&apos;interface est accessible sans connexion pour le moment (AUTH_MODE=open). Session de travail : {user?.name || 'Nabil Amrani'} · {user?.email || 'revenue@flowtym.fr'}.
+        </div>
+        <button
+          onClick={handleLogout}
+          className="text-violet-700 hover:text-violet-900 font-bold underline cursor-pointer"
+        >
+          Ouvrir l&apos;écran de connexion
+        </button>
+      </div>
+
       {/* Main Container: Fixed Sidebar + Content */}
       <div className="flex-1 flex relative">
-        {/* Floating Left-Edge Trigger when Sidebar is Hidden */}
-        {sidebarMode === 'hidden' && (
-          <aside
-            className="fixed left-0 top-[76px] z-40 flex flex-col items-center bg-white border border-l-0 border-slate-200/90 rounded-r-2xl shadow-lg backdrop-blur-xs transition-all hover:shadow-xl group"
-          >
-            <button
-              type="button"
-              onClick={() => handleSidebarModeChange('compact')}
-              className="p-2.5 text-slate-600 hover:text-violet-700 hover:bg-violet-50 rounded-tr-2xl transition-all cursor-pointer flex flex-col items-center gap-1.5"
-              title="Réafficher le menu latéral (Mode compact - icônes)"
-              aria-label="Réafficher le menu latéral en mode compact"
-            >
-              <PanelLeftOpen className="w-5 h-5 text-violet-600 group-hover:scale-110 transition-transform" />
-              <span className="text-[10px] font-black uppercase text-violet-800 tracking-wider [writing-mode:vertical-lr] py-1">
-                Menu
-              </span>
-            </button>
-            <div className="w-full h-px bg-slate-100" />
-            <button
-              type="button"
-              onClick={() => handleSidebarModeChange('full')}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-br-2xl transition-all cursor-pointer"
-              title="Déployer le menu complet"
-              aria-label="Déployer le menu complet"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </aside>
-        )}
-
-        {/* Sidebar Navigation */}
+        {/* Sidebar Navigation (Slim Icon-Rail) */}
         <Sidebar
           activeTab={activeTab}
           onChangeTab={(tab) => {
@@ -608,15 +591,14 @@ export default function App() {
           pendingSuggestionsCount={pendingSuggestionsCount + pendingProposalsCount}
           isMobileOpen={isMobileMenuOpen}
           onCloseMobile={() => setIsMobileMenuOpen(false)}
-          mode={sidebarMode}
-          onModeChange={handleSidebarModeChange}
+          onLogout={handleLogout}
+          userInitials="NA"
+          userName={user?.name || 'Nabil Amrani'}
         />
 
-        {/* Dynamic Content Viewport (adapts smoothly to full, compact or hidden mode) */}
+        {/* Dynamic Content Viewport */}
         <main
-          className={`flex-1 p-6 space-y-6 min-w-0 transition-[margin] duration-300 ease-in-out ${
-            sidebarMode === 'full' ? 'lg:ml-64' : sidebarMode === 'compact' ? 'lg:ml-[72px]' : 'ml-0'
-          }`}
+          className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 transition-[margin] duration-200 ease-in-out lg:ml-16 w-full"
         >
           {/* TAB: CALENDRIER & ÉVÉNEMENTS (VUE TABLEAU / CALENDRIER / VACANCES SCOLAIRES) */}
           {activeTab === 'calendar' && (
@@ -639,6 +621,7 @@ export default function App() {
                 }}
                 onOpenSources={() => setActiveTab('sources')}
                 onOpenImportHistory={() => setIsImportModalOpen(true)}
+                onOpenGeo={() => setActiveTab('geo')}
                 holidaysCount={57}
               />
 
@@ -647,6 +630,16 @@ export default function App() {
                 <SchoolHolidaysCalendarView
                   hotel={currentHotel}
                   onShowToast={showToast}
+                />
+              )}
+
+              {/* View: Explorer Events (Marché & Concurrence) */}
+              {calendarSubTab === 'explorer' && (
+                <ExplorerView
+                  events={events}
+                  hotels={hotels}
+                  selectedHotelId={filterState.selectedHotelId}
+                  onSelectEvent={setSelectedEvent}
                 />
               )}
 
@@ -760,7 +753,10 @@ export default function App() {
                 setSuggestions((prev) => prev.filter((x) => x.id !== id));
                 showToast('Suggestion ignorée');
               }}
-              onGoToExplorer={() => setActiveTab('explorer')}
+              onGoToExplorer={() => {
+                setActiveTab('calendar');
+                setCalendarSubTab('explorer');
+              }}
               onGoToCalendar={() => setActiveTab('calendar')}
               onGoToSchoolHolidays={() => {
                 setActiveTab('calendar');
@@ -847,11 +843,22 @@ export default function App() {
             />
           )}
 
-          {/* TAB: RAPPORTS & GESTION (Propriétaires, Prévisions Typologies, Slack & Excel) */}
+          {/* TAB: DEMAND FORECAST (Prévision d'occupation, d'ADR et de RevPAR) */}
+          {activeTab === 'forecast' && (
+            <DemandForecastView
+              hotel={currentHotel}
+              events={events}
+              onSelectEvent={setSelectedEvent}
+              onGoToMarket={() => setActiveTab('market')}
+            />
+          )}
+
+          {/* TAB: RAPPORTS D'ACTIVITÉ REVENUE MANAGEMENT */}
           {activeTab === 'reports' && (
             <ReportsAndAutomationsHub
               hotel={currentHotel}
               onShowToast={showToast}
+              onNavigateToDecisionCenter={() => setActiveTab('opportunities')}
             />
           )}
 

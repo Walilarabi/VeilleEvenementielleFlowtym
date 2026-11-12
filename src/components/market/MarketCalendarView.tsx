@@ -81,10 +81,20 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 }) => {
   // Active sub-tab in Analyse de marché: 'calendar' | 'school_holidays' | 'lighthouse'
   const [activeMarketSubTab, setActiveMarketSubTab] = useState<'calendar' | 'school_holidays' | 'lighthouse'>(initialSubTab);
+  // Date du jour pour Flowtym (11 novembre 2026)
+  const todayDateObj = new Date();
+  const todayStr = useMemo(() => {
+    const y = todayDateObj.getFullYear();
+    const m = String(todayDateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(todayDateObj.getDate()).padStart(2, '0');
+    const s = `${y}-${m}-${d}`;
+    return s.startsWith('2026') ? s : '2026-11-11';
+  }, []);
+
   // Navigation state: start month index (0-indexed) & year
-  // Default to October 2026 (month 9) so it displays "octobre 2026" & "novembre 2026" exactly like the screenshot!
+  // Par défaut, initialisé automatiquement sur le mois en cours (Novembre 2026 = mois 10)
   const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [currentMonth, setCurrentMonth] = useState<number>(9); // 9 = October
+  const [currentMonth, setCurrentMonth] = useState<number>(10); // 10 = Novembre
 
   // Filter by demand level: 'all' | 'forte' | 'moyenne' | 'faible'
   const [demandFilter, setDemandFilter] = useState<'all' | MarketDemandLevel>('all');
@@ -98,9 +108,6 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     x: number;
     y: number;
   } | null>(null);
-
-  // View presentation mode: 'screenshot_dual' (2 months side-by-side) or 'quarter' (3 months)
-  const [displayMode, setDisplayMode] = useState<'dual' | 'quarter'>('dual');
 
   const currentHotel = useMemo(() => {
     return hotels.find((h) => h.id === selectedHotelId) || hotels[0];
@@ -136,27 +143,45 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     }
   }, [selectedDateInfo]);
 
-  // Compute month grids with filtered relevant events
-  const monthDataLeft = useMemo(() => {
-    return getMonthMarketGrid(currentYear, currentMonth, relevantEvents, currentHotel);
-  }, [currentYear, currentMonth, relevantEvents, currentHotel]);
+  // Calcul dynamique des 3 mois consécutifs : Mois en cours, Mois+1, Mois+2
+  const getMonthYearOffset = (baseYear: number, baseMonth: number, offset: number) => {
+    const totalMonths = baseYear * 12 + baseMonth + offset;
+    const year = Math.floor(totalMonths / 12);
+    const month = ((totalMonths % 12) + 12) % 12;
+    return { year, month };
+  };
 
-  // Compute second month (right)
-  const monthDataRight = useMemo(() => {
-    const nextMonthIndex = (currentMonth + 1) % 12;
-    const nextYear = currentMonth + 1 > 11 ? currentYear + 1 : currentYear;
-    return getMonthMarketGrid(nextYear, nextMonthIndex, relevantEvents, currentHotel);
-  }, [currentYear, currentMonth, relevantEvents, currentHotel]);
+  const m1 = useMemo(() => getMonthYearOffset(currentYear, currentMonth, 0), [currentYear, currentMonth]);
+  const m2 = useMemo(() => getMonthYearOffset(currentYear, currentMonth, 1), [currentYear, currentMonth]);
+  const m3 = useMemo(() => getMonthYearOffset(currentYear, currentMonth, 2), [currentYear, currentMonth]);
 
-  // Compute third month for quarter view if active
-  const monthDataThird = useMemo(() => {
-    const thirdMonthIndex = (currentMonth + 2) % 12;
-    const thirdYear = currentMonth + 2 > 11 ? currentYear + 1 : currentYear;
-    return getMonthMarketGrid(thirdYear, thirdMonthIndex, relevantEvents, currentHotel);
-  }, [currentYear, currentMonth, relevantEvents, currentHotel]);
+  // Mois 1 : Mois en cours (ex: Novembre 2026)
+  const monthData1 = useMemo(() => {
+    return getMonthMarketGrid(m1.year, m1.month, relevantEvents, currentHotel);
+  }, [m1.year, m1.month, relevantEvents, currentHotel]);
 
-  // Navigation handlers
+  // Mois 2 : Mois suivant (ex: Décembre 2026)
+  const monthData2 = useMemo(() => {
+    return getMonthMarketGrid(m2.year, m2.month, relevantEvents, currentHotel);
+  }, [m2.year, m2.month, relevantEvents, currentHotel]);
+
+  // Mois 3 : 2ème mois suivant (ex: Janvier 2027)
+  const monthData3 = useMemo(() => {
+    return getMonthMarketGrid(m3.year, m3.month, relevantEvents, currentHotel);
+  }, [m3.year, m3.month, relevantEvents, currentHotel]);
+
+  // Animation state for smooth month transitions (fade-in + horizontal slide)
+  const [animationClass, setAnimationClass] = useState<string>('animate-calendar-fade');
+  const [calendarKey, setCalendarKey] = useState<string>('cal-2026-10');
+
+  const triggerCalendarTransition = (direction: 'next' | 'prev') => {
+    setAnimationClass(direction === 'next' ? 'animate-calendar-next' : 'animate-calendar-prev');
+    setCalendarKey(`cal-${Date.now()}`);
+  };
+
+  // Navigation handlers (mois par mois, trimestre, réinitialisation à aujourd'hui)
   const handlePrev = () => {
+    triggerCalendarTransition('prev');
     if (currentMonth === 0) {
       setCurrentMonth(11);
       setCurrentYear((y) => y - 1);
@@ -166,6 +191,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
   };
 
   const handleNext = () => {
+    triggerCalendarTransition('next');
     if (currentMonth === 11) {
       setCurrentMonth(0);
       setCurrentYear((y) => y + 1);
@@ -174,21 +200,42 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     }
   };
 
+  const handlePrevQuarter = () => {
+    triggerCalendarTransition('prev');
+    const p = getMonthYearOffset(currentYear, currentMonth, -3);
+    setCurrentYear(p.year);
+    setCurrentMonth(p.month);
+  };
+
+  const handleNextQuarter = () => {
+    triggerCalendarTransition('next');
+    const n = getMonthYearOffset(currentYear, currentMonth, 3);
+    setCurrentYear(n.year);
+    setCurrentMonth(n.month);
+  };
+
+  const handleResetToToday = () => {
+    triggerCalendarTransition('prev');
+    setCurrentYear(2026);
+    setCurrentMonth(10); // Novembre 2026
+    onShowToast("Calendrier repositionné sur aujourd'hui (Novembre 2026 - Janvier 2027)");
+  };
+
   // Quick year switch
   const handleSetYear = (year: number) => {
     setCurrentYear(year);
   };
 
-  // Aggregated KPI numbers for the current displayed period
-  const totalForte = monthDataLeft.stats.forteCount + monthDataRight.stats.forteCount;
-  const totalMoyenne = monthDataLeft.stats.moyenneCount + monthDataRight.stats.moyenneCount;
-  const totalFaible = monthDataLeft.stats.faibleCount + monthDataRight.stats.faibleCount;
+  // Aggregated KPI numbers for the 3 displayed consecutive months
+  const totalForte = monthData1.stats.forteCount + monthData2.stats.forteCount + monthData3.stats.forteCount;
+  const totalMoyenne = monthData1.stats.moyenneCount + monthData2.stats.moyenneCount + monthData3.stats.moyenneCount;
+  const totalFaible = monthData1.stats.faibleCount + monthData2.stats.faibleCount + monthData3.stats.faibleCount;
   const combinedAvgTO = Math.round(
-    (monthDataLeft.stats.avgOccupancy + monthDataRight.stats.avgOccupancy) / 2
+    (monthData1.stats.avgOccupancy + monthData2.stats.avgOccupancy + monthData3.stats.avgOccupancy) / 3
   );
 
-  // Configuration de la visualisation Recharts (Évolution de la demande, barres & pics)
-  const [chartScope, setChartScope] = useState<'month1' | 'month2' | 'both'>('month1');
+  // Configuration de la visualisation Recharts (Évolution de la demande, barres & pics sur 3 mois)
+  const [chartScope, setChartScope] = useState<'month1' | 'month2' | 'month3' | 'all3'>('all3');
   const [chartMetric, setChartMetric] = useState<'tension' | 'occupancy' | 'both'>('tension');
   const [showChart, setShowChart] = useState<boolean>(true);
   const [chartViewMode, setChartViewMode] = useState<'bars-combo' | 'bars-only' | 'curve-only'>('bars-combo');
@@ -197,21 +244,23 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
   // Seuil critique d'alerte Revenue Management (80% tension ou forte demande)
   const CRITICAL_THRESHOLD = 80;
 
-  // Identification de l'ensemble des dates critiques sous tension maximale sur la période affichée
+  // Identification de l'ensemble des dates critiques sous tension maximale sur les 3 mois affichés
   const criticalDaysInView = useMemo(() => {
-    const combined = [...monthDataLeft.days, ...monthDataRight.days];
+    const combined = [...monthData1.days, ...monthData2.days, ...monthData3.days];
     return combined.filter((d) => d.intensity >= CRITICAL_THRESHOLD || d.demandLevel === 'forte');
-  }, [monthDataLeft, monthDataRight]);
+  }, [monthData1, monthData2, monthData3]);
 
   // Données structurées pour la courbe d'évolution et les barres Recharts
   const chartData = useMemo(() => {
     let daysToInclude: DayMarketInfo[] = [];
     if (chartScope === 'month1') {
-      daysToInclude = monthDataLeft.days;
+      daysToInclude = monthData1.days;
     } else if (chartScope === 'month2') {
-      daysToInclude = monthDataRight.days;
+      daysToInclude = monthData2.days;
+    } else if (chartScope === 'month3') {
+      daysToInclude = monthData3.days;
     } else {
-      daysToInclude = [...monthDataLeft.days, ...monthDataRight.days];
+      daysToInclude = [...monthData1.days, ...monthData2.days, ...monthData3.days];
     }
 
     const basePrice = currentHotel?.baseADR || 240;
@@ -221,15 +270,12 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
       const dayOfWeek = dObj.getDay(); // 0 = Dimanche, 6 = Samedi
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-      // Label d'axe X formaté fidèlement à la capture : "1 nov. 2026", "2 nov. 2026", etc.
       const formattedAxisLabel = `${dObj.getDate()} ${dObj.toLocaleDateString('fr-FR', {
         month: 'short',
       })} ${dObj.getFullYear()}`;
 
       const shortMonth = dObj.toLocaleDateString('fr-FR', { month: 'short' });
 
-      // Estimation dynamique du tarif ADR en € selon la tension marché et le prix de base de l'hôtel
-      // Échelle correspondant à la capture fournie : ~130€ à ~545€
       const adrMultiplier = 0.65 + (d.intensity / 100) * 1.35;
       const estimatedADR = Math.round(basePrice * adrMultiplier);
 
@@ -237,7 +283,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
         dateStr: d.dateStr,
         dayNumber: d.dayNumber,
         axisLabel: formattedAxisLabel,
-        shortLabel: chartScope === 'both' ? `${d.dayNumber} ${shortMonth}` : `${d.dayNumber}`,
+        shortLabel: chartScope === 'all3' ? `${d.dayNumber} ${shortMonth}` : `${d.dayNumber}`,
         fullDateFormatted: dObj.toLocaleDateString('fr-FR', {
           weekday: 'long',
           day: 'numeric',
@@ -256,7 +302,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
         estimatedADR,
       };
     });
-  }, [chartScope, monthDataLeft, monthDataRight, currentHotel, CRITICAL_THRESHOLD]);
+  }, [chartScope, monthData1, monthData2, monthData3, currentHotel, CRITICAL_THRESHOLD]);
 
   // Zones de week-ends pour shading en arrière-plan (exactement comme dans la capture)
   const weekendBlocks = useMemo(() => {
@@ -345,32 +391,36 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     }
   };
 
-  // Génération du rapport consolidé PDF de la demande pour le mois sélectionné
+  // Génération du rapport consolidé PDF de la demande pour la période sélectionnée
   const handleExportPDF = () => {
     try {
       setIsExportingPDF(true);
 
-      // Sélection des données selon le scope actif (Mois 1, Mois 2 ou Combiné 2 Mois)
-      const targetMonthData = chartScope === 'month2' ? monthDataRight : monthDataLeft;
-      const daysToExport =
-        chartScope === 'both'
-          ? [...monthDataLeft.days, ...monthDataRight.days]
-          : targetMonthData.days;
+      // Sélection des données selon le scope actif (Mois 1, 2, 3 ou Combiné 3 Mois)
+      let daysToExport: DayMarketInfo[] = [];
+      let statsToExport = {
+        forteCount: totalForte,
+        moyenneCount: totalMoyenne,
+        faibleCount: totalFaible,
+        avgOccupancy: combinedAvgTO,
+      };
+      let periodLabel = `${monthData1.monthName}, ${monthData2.monthName} & ${monthData3.monthName}`;
 
-      const statsToExport =
-        chartScope === 'both'
-          ? {
-              forteCount: totalForte,
-              moyenneCount: totalMoyenne,
-              faibleCount: totalFaible,
-              avgOccupancy: combinedAvgTO,
-            }
-          : targetMonthData.stats;
-
-      const periodLabel =
-        chartScope === 'both'
-          ? `${monthDataLeft.monthName} & ${monthDataRight.monthName}`
-          : targetMonthData.monthName;
+      if (chartScope === 'month1') {
+        daysToExport = monthData1.days;
+        statsToExport = monthData1.stats;
+        periodLabel = monthData1.monthName;
+      } else if (chartScope === 'month2') {
+        daysToExport = monthData2.days;
+        statsToExport = monthData2.stats;
+        periodLabel = monthData2.monthName;
+      } else if (chartScope === 'month3') {
+        daysToExport = monthData3.days;
+        statsToExport = monthData3.stats;
+        periodLabel = monthData3.monthName;
+      } else {
+        daysToExport = [...monthData1.days, ...monthData2.days, ...monthData3.days];
+      }
 
       exportMarketDemandReportPDF({
         hotel: currentHotel,
@@ -393,6 +443,166 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
   // Render weekday labels (French initials matching screenshot: l m m j v s d)
   const weekdays = ['l', 'm', 'm', 'j', 'v', 's', 'd'];
+
+  // Rendu unifié, compact et responsive d'une colonne de mois (pour affichage de 3 mois consécutifs)
+  const renderMonthColumn = (
+    monthData: typeof monthData1,
+    colIndex: number
+  ) => {
+    const isCurrentActiveMonth = monthData.year === 2026 && monthData.month === 10;
+
+    return (
+      <div
+        key={`month-col-${monthData.year}-${monthData.month}`}
+        className="flex flex-col bg-slate-50/60 p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs"
+      >
+        {/* Entête de colonne du mois */}
+        <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200/80">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-extrabold text-slate-900 capitalize tracking-tight flex items-center gap-1.5">
+              <span>{monthData.monthName}</span>
+              {isCurrentActiveMonth && (
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200 uppercase tracking-wider">
+                  Actuel
+                </span>
+              )}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+            <span className="text-rose-600 font-extrabold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+              {monthData.stats.forteCount} j.
+            </span>
+            <span className="text-slate-300">·</span>
+            <span className="text-violet-700 font-extrabold">{monthData.stats.avgOccupancy}% TO</span>
+          </div>
+        </div>
+
+        {/* Jours de la semaine : l m m j v s d */}
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 text-center mb-1.5">
+          {weekdays.map((w, idx) => (
+            <div
+              key={idx}
+              className="text-xs font-black text-slate-400 uppercase tracking-wider py-0.5"
+            >
+              {w}
+            </div>
+          ))}
+        </div>
+
+        {/* Grille des journées compactes */}
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+          {/* Espaces vides initiaux */}
+          {Array.from({ length: monthData.leadingEmptyDays }).map((_, i) => (
+            <div key={`empty-${colIndex}-${i}`} className="h-9 sm:h-10 md:h-11" />
+          ))}
+
+          {/* Cases des jours */}
+          {monthData.days.map((dayInfo) => {
+            const isSelected = selectedDateInfo?.dateStr === dayInfo.dateStr;
+            const matchesFilter = isDayVisibleInFilter(dayInfo.demandLevel);
+            const isCritical =
+              dayInfo.intensity >= CRITICAL_THRESHOLD || dayInfo.demandLevel === 'forte';
+
+            const isPast = dayInfo.dateStr < todayStr;
+            const isToday = dayInfo.dateStr === todayStr;
+
+            // Dimensions réduites et compactes pour un affichage parfait des 3 mois
+            let cellClasses =
+              'h-9 sm:h-10 md:h-11 rounded-lg sm:rounded-xl flex flex-col items-center justify-center relative transition-all cursor-pointer font-bold select-none text-xs sm:text-sm ';
+
+            if (!matchesFilter) {
+              cellClasses += 'opacity-25 grayscale scale-95 ';
+            }
+
+            if (isPast) {
+              // Journée passée : gris clair atténué, information conservée, pleinement interactive
+              cellClasses +=
+                'bg-slate-100 text-slate-500 border border-slate-200/80 hover:bg-slate-200/80 hover:text-slate-900 hover:scale-105 active:scale-95 ';
+            } else if (dayInfo.demandLevel === 'forte') {
+              // Forte tension : Rose/Corail #fb7185
+              cellClasses +=
+                'bg-[#fb7185] text-slate-900 shadow-2xs hover:brightness-95 hover:scale-105 active:scale-95 ';
+            } else if (dayInfo.demandLevel === 'moyenne') {
+              // Moyenne tension : Orange #fbb664
+              cellClasses +=
+                'bg-[#fbb664] text-slate-900 shadow-2xs hover:brightness-95 hover:scale-105 active:scale-95 ';
+            } else {
+              // Faible tension : Vert d'eau #6ee7b7
+              cellClasses +=
+                'bg-[#6ee7b7] text-slate-900 shadow-2xs hover:brightness-95 hover:scale-105 active:scale-95 ';
+            }
+
+            if (isToday) {
+              // Mise en avant forte et indiscutable de la date du jour (Aujourd'hui)
+              cellClasses +=
+                ' ring-2 ring-violet-600 ring-offset-2 z-10 font-black shadow-md scale-102';
+            } else if (isSelected) {
+              cellClasses += ' ring-2 ring-slate-900 ring-offset-2 z-10';
+            }
+
+            return (
+              <div
+                key={dayInfo.dateStr}
+                onClick={() => setSelectedDateInfo(dayInfo)}
+                onMouseEnter={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setHoveredDay({
+                    info: dayInfo,
+                    x: rect.left + rect.width / 2,
+                    y: rect.top,
+                  });
+                }}
+                onMouseLeave={() => setHoveredDay(null)}
+                className={cellClasses}
+              >
+                <span className="leading-none">{dayInfo.dayNumber}</span>
+
+                {/* Badge visuel "Auj." marquant la date du jour */}
+                {isToday && (
+                  <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-[8px] font-black uppercase tracking-wider bg-violet-600 text-white px-1 py-0.2 rounded-full shadow-2xs whitespace-nowrap leading-tight">
+                    Auj.
+                  </span>
+                )}
+
+                {/* Témoin discret de tension sur les journées passées pour conserver l'information */}
+                {isPast && (
+                  <span
+                    className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${
+                      dayInfo.demandLevel === 'forte'
+                        ? 'bg-rose-400/80'
+                        : dayInfo.demandLevel === 'moyenne'
+                        ? 'bg-amber-400/80'
+                        : 'bg-emerald-400/70'
+                    }`}
+                    title={`Journée passée — Tension historique : ${dayInfo.demandLevel}`}
+                  />
+                )}
+
+                {/* Pastille clignotante de seuil critique (Aujourd'hui & Futur) */}
+                {!isPast && isCritical && (
+                  <span
+                    className="absolute -top-1 -right-1 flex h-2.5 w-2.5 z-20 pointer-events-none"
+                    title={`Alerte seuil critique : tension ${dayInfo.intensity}%`}
+                  >
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600 border border-white items-center justify-center shadow-2xs">
+                      <span className="w-1 h-1 rounded-full bg-white" />
+                    </span>
+                  </span>
+                )}
+
+                {/* Point d'événement identifié (Aujourd'hui & Futur) */}
+                {!isPast && dayInfo.eventCount > 0 && (
+                  <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-slate-900/60" />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -746,7 +956,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               {combinedAvgTO}%
             </div>
             <div className="text-[11px] text-violet-700 mt-1">
-              Moyenne estimée sur les 2 mois affichés
+              Moyenne estimée sur les 3 mois consécutifs
             </div>
           </div>
         </div>
@@ -803,17 +1013,14 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             </button>
           </div>
 
-          {/* Quick jump to October 2026 reference (matching user's screenshot) */}
+          {/* Quick jump to Today (Nov 2026 - Jan 2027) */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                setCurrentYear(2026);
-                setCurrentMonth(9); // Oct 2026
-                onShowToast('Affichage repositionné sur Octobre & Novembre 2026');
-              }}
-              className="text-xs font-semibold text-violet-700 hover:text-violet-900 hover:underline cursor-pointer"
+              onClick={handleResetToToday}
+              className="text-xs font-semibold text-violet-700 hover:text-violet-900 hover:underline cursor-pointer flex items-center gap-1"
             >
-              Repositionner sur Oct. / Nov. 2026
+              <Clock className="w-3.5 h-3.5" />
+              <span>Aujourd'hui (Nov. 2026 - Janv. 2027)</span>
             </button>
           </div>
         </div>
@@ -836,13 +1043,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               </h2>
             </div>
             <p className="text-xs text-slate-500">
-              Visualisation continue de la pression du marché jour par jour pour identifier immédiatement les pics de tension et ajuster le Yield.
+              Visualisation continue de la pression du marché jour par jour sur les 3 mois pour identifier immédiatement les pics de tension et ajuster le Yield.
             </p>
           </div>
 
           {/* Controls: Scope Switcher, View Mode, Bar Coloring, Metric Toggle & PDF Export */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Scope Toggle */}
+            {/* Scope Toggle: Mois 1, Mois 2, Mois 3, 3 Mois */}
             <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
               <button
                 onClick={() => setChartScope('month1')}
@@ -852,7 +1059,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                {monthDataLeft.monthName.split(' ')[0]}
+                {monthData1.monthName.split(' ')[0]}
               </button>
               <button
                 onClick={() => setChartScope('month2')}
@@ -862,17 +1069,27 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                {monthDataRight.monthName.split(' ')[0]}
+                {monthData2.monthName.split(' ')[0]}
               </button>
               <button
-                onClick={() => setChartScope('both')}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                  chartScope === 'both'
+                onClick={() => setChartScope('month3')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer capitalize ${
+                  chartScope === 'month3'
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                2 Mois
+                {monthData3.monthName.split(' ')[0]}
+              </button>
+              <button
+                onClick={() => setChartScope('all3')}
+                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                  chartScope === 'all3'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                3 Mois
               </button>
             </div>
 
@@ -1341,344 +1558,259 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
         </div>
       )}
 
-      {/* Main Multi-Month Calendar Surface (faithful to screenshot image_d31a63a7.png) */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 lg:p-8">
-        {/* Navigation Bar matching screenshot */}
-        <div className="flex items-center justify-between mb-8 px-2">
-          <button
-            onClick={handlePrev}
-            aria-label="Mois précédent"
-            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
-          >
-            <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
-          </button>
-
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
-            <h2 className="text-xl lg:text-2xl font-bold text-slate-900 lowercase tracking-tight">
-              {monthDataLeft.monthName}
-            </h2>
-            <h2 className="text-xl lg:text-2xl font-bold text-slate-900 lowercase tracking-tight">
-              {monthDataRight.monthName}
-            </h2>
+      {/* Main Multi-Month Calendar Surface: 3 Consecutive Months */}
+      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-6 lg:p-7 space-y-6 w-full">
+        {/* Navigation Bar with Controls and 3 Month Headers */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-1.5 self-start sm:self-auto">
+            <button
+              onClick={handlePrevQuarter}
+              title="Reculer de 3 mois"
+              className="px-2.5 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer text-xs font-bold border border-slate-200/70 flex items-center gap-1"
+            >
+              <span>-3 m.</span>
+            </button>
+            <button
+              onClick={handlePrev}
+              aria-label="Mois précédent"
+              title="Reculer d'un mois"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200/70"
+            >
+              <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+            </button>
           </div>
 
-          <button
-            onClick={handleNext}
-            aria-label="Mois suivant"
-            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
-          >
-            <ChevronRight className="w-6 h-6 stroke-[2.5]" />
-          </button>
+          <div className="flex-1 flex flex-wrap items-center justify-center gap-2 sm:gap-4 md:gap-6 text-center">
+            <div className="flex items-center gap-1.5 text-base sm:text-lg font-black text-slate-900 capitalize tracking-tight">
+              <span className="text-violet-900">{monthData1.monthName}</span>
+              <span className="text-slate-300">/</span>
+              <span>{monthData2.monthName}</span>
+              <span className="text-slate-300">/</span>
+              <span>{monthData3.monthName}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+            <button
+              onClick={handleResetToToday}
+              className="px-3 py-1.5 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-700 hover:text-violet-900 border border-violet-200 text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              title="Revenir instantanément à la date du jour (Novembre 2026)"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Aujourd'hui</span>
+            </button>
+            <button
+              onClick={handleNext}
+              aria-label="Mois suivant"
+              title="Avancer d'un mois"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200/70"
+            >
+              <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+            </button>
+            <button
+              onClick={handleNextQuarter}
+              title="Avancer de 3 mois"
+              className="px-2.5 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer text-xs font-bold border border-slate-200/70 flex items-center gap-1"
+            >
+              <span>+3 m.</span>
+            </button>
+          </div>
         </div>
 
-        {/* 2 Month Grids Side-by-Side */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-14">
-          {/* LEFT MONTH */}
-          <div>
-            {/* Weekday headers: l m m j v s d */}
-            <div className="grid grid-cols-7 gap-2 lg:gap-3 text-center mb-4">
-              {weekdays.map((w, idx) => (
-                <div
-                  key={idx}
-                  className="text-sm lg:text-base font-extrabold text-slate-900 uppercase tracking-wider py-1"
-                >
-                  {w}
-                </div>
-              ))}
-            </div>
-
-            {/* Days grid */}
-            <div className="grid grid-cols-7 gap-2 lg:gap-3">
-              {/* Leading empty slots */}
-              {Array.from({ length: monthDataLeft.leadingEmptyDays }).map((_, i) => (
-                <div key={`empty-left-${i}`} className="aspect-square" />
-              ))}
-
-              {/* Day cells */}
-              {monthDataLeft.days.map((dayInfo) => {
-                const isSelected = selectedDateInfo?.dateStr === dayInfo.dateStr;
-                const matchesFilter = isDayVisibleInFilter(dayInfo.demandLevel);
-                const isCritical =
-                  dayInfo.intensity >= CRITICAL_THRESHOLD || dayInfo.demandLevel === 'forte';
-
-                // Determine coloring based on demand level and screenshot appearance
-                let cellClasses =
-                  'aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all cursor-pointer font-bold select-none text-base lg:text-lg ';
-
-                if (!matchesFilter) {
-                  cellClasses += 'opacity-25 grayscale scale-95 ';
-                }
-
-                // If date is in October and before day 31, screenshot shows plain uncolored muted numbers
-                // If it has demand or day 31, color it!
-                const isSpecialScreenshotOctMuted =
-                  dayInfo.year === 2026 &&
-                  dayInfo.month === 9 &&
-                  dayInfo.dayNumber < 31 &&
-                  dayInfo.demandLevel === 'faible';
-
-                if (isSpecialScreenshotOctMuted) {
-                  cellClasses += 'text-slate-400 hover:bg-slate-100 hover:text-slate-700';
-                } else if (dayInfo.demandLevel === 'forte') {
-                  // Coral/Pink Red matching screenshot #fb7185
-                  cellClasses +=
-                    'bg-[#fb7185] text-slate-900 shadow-xs hover:brightness-95 hover:scale-105 active:scale-95';
-                } else if (dayInfo.demandLevel === 'moyenne') {
-                  // Orange/Amber matching screenshot #fbb664
-                  cellClasses +=
-                    'bg-[#fbb664] text-slate-900 shadow-xs hover:brightness-95 hover:scale-105 active:scale-95';
-                } else {
-                  // Mint/Green matching screenshot #6ee7b7
-                  cellClasses +=
-                    'bg-[#6ee7b7] text-slate-900 shadow-xs hover:brightness-95 hover:scale-105 active:scale-95';
-                }
-
-                if (isSelected) {
-                  cellClasses += ' ring-3 ring-slate-900 ring-offset-2 z-10';
-                }
-
-                return (
-                  <div
-                    key={dayInfo.dateStr}
-                    onClick={() => setSelectedDateInfo(dayInfo)}
-                    onMouseEnter={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setHoveredDay({
-                        info: dayInfo,
-                        x: rect.left + rect.width / 2,
-                        y: rect.top,
-                      });
-                    }}
-                    onMouseLeave={() => setHoveredDay(null)}
-                    className={cellClasses}
-                  >
-                    <span>{dayInfo.dayNumber}</span>
-
-                    {/* Pastille d'alerte visuelle quand le niveau dépasse le seuil critique */}
-                    {isCritical && (
-                      <span
-                        className="absolute -top-1 -right-1 flex h-3 w-3 z-20 pointer-events-none"
-                        title={`Alerte seuil critique : tension ${dayInfo.intensity}%`}
-                      >
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600 border border-white items-center justify-center shadow-xs">
-                          <span className="w-1 h-1 rounded-full bg-white" />
-                        </span>
-                      </span>
-                    )}
-
-                    {/* Small badge if events exist & cell is colored */}
-                    {dayInfo.eventCount > 0 && (
-                      <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-slate-900/60" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* RIGHT MONTH */}
-          <div>
-            {/* Weekday headers: l m m j v s d */}
-            <div className="grid grid-cols-7 gap-2 lg:gap-3 text-center mb-4">
-              {weekdays.map((w, idx) => (
-                <div
-                  key={idx}
-                  className="text-sm lg:text-base font-extrabold text-slate-900 uppercase tracking-wider py-1"
-                >
-                  {w}
-                </div>
-              ))}
-            </div>
-
-            {/* Days grid */}
-            <div className="grid grid-cols-7 gap-2 lg:gap-3">
-              {/* Leading empty slots */}
-              {Array.from({ length: monthDataRight.leadingEmptyDays }).map((_, i) => (
-                <div key={`empty-right-${i}`} className="aspect-square" />
-              ))}
-
-              {/* Day cells */}
-              {monthDataRight.days.map((dayInfo) => {
-                const isSelected = selectedDateInfo?.dateStr === dayInfo.dateStr;
-                const matchesFilter = isDayVisibleInFilter(dayInfo.demandLevel);
-                const isCritical =
-                  dayInfo.intensity >= CRITICAL_THRESHOLD || dayInfo.demandLevel === 'forte';
-
-                let cellClasses =
-                  'aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all cursor-pointer font-bold select-none text-base lg:text-lg ';
-
-                if (!matchesFilter) {
-                  cellClasses += 'opacity-25 grayscale scale-95 ';
-                }
-
-                if (dayInfo.demandLevel === 'forte') {
-                  // Coral/Pink Red matching screenshot #fb7185
-                  cellClasses +=
-                    'bg-[#fb7185] text-slate-900 shadow-xs hover:brightness-95 hover:scale-105 active:scale-95';
-                } else if (dayInfo.demandLevel === 'moyenne') {
-                  // Orange/Amber matching screenshot #fbb664
-                  cellClasses +=
-                    'bg-[#fbb664] text-slate-900 shadow-xs hover:brightness-95 hover:scale-105 active:scale-95';
-                } else {
-                  // Mint/Green matching screenshot #6ee7b7
-                  cellClasses +=
-                    'bg-[#6ee7b7] text-slate-900 shadow-xs hover:brightness-95 hover:scale-105 active:scale-95';
-                }
-
-                if (isSelected) {
-                  cellClasses += ' ring-3 ring-slate-900 ring-offset-2 z-10';
-                }
-
-                return (
-                  <div
-                    key={dayInfo.dateStr}
-                    onClick={() => setSelectedDateInfo(dayInfo)}
-                    onMouseEnter={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setHoveredDay({
-                        info: dayInfo,
-                        x: rect.left + rect.width / 2,
-                        y: rect.top,
-                      });
-                    }}
-                    onMouseLeave={() => setHoveredDay(null)}
-                    className={cellClasses}
-                  >
-                    <span>{dayInfo.dayNumber}</span>
-
-                    {/* Pastille d'alerte visuelle quand le niveau dépasse le seuil critique */}
-                    {isCritical && (
-                      <span
-                        className="absolute -top-1 -right-1 flex h-3 w-3 z-20 pointer-events-none"
-                        title={`Alerte seuil critique : tension ${dayInfo.intensity}%`}
-                      >
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600 border border-white items-center justify-center shadow-xs">
-                          <span className="w-1 h-1 rounded-full bg-white" />
-                        </span>
-                      </span>
-                    )}
-
-                    {/* Small dot indicator if events exist */}
-                    {dayInfo.eventCount > 0 && (
-                      <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-slate-900/60" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {/* 3 Month Grids Side-by-Side with smooth slide & fade animation */}
+        <div
+          key={calendarKey}
+          className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 lg:gap-6 w-full ${animationClass}`}
+        >
+          {renderMonthColumn(monthData1, 0)}
+          {renderMonthColumn(monthData2, 1)}
+          {renderMonthColumn(monthData3, 2)}
         </div>
 
         {/* Legend bar at the bottom matching user specifications */}
-        <div className="flex flex-wrap items-center justify-center gap-6 mt-10 pt-6 border-t border-slate-100 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-5 border-t border-slate-100 text-xs text-slate-600">
           <div className="flex items-center gap-2">
-            <span className="w-4 h-4 rounded-md bg-[#fb7185] border border-rose-300 inline-block shadow-2xs" />
-            <span className="font-semibold text-slate-800">Rouge :</span>
-            <span>Forte demande — dates sous tension maximale ou exceptionnelle</span>
+            <span className="w-3.5 h-3.5 rounded-md bg-[#fb7185] border border-rose-300 inline-block shadow-2xs" />
+            <span className="font-bold text-slate-800">Rouge :</span>
+            <span>Forte demande (Tension max)</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="w-4 h-4 rounded-md bg-[#fbb664] border border-amber-300 inline-block shadow-2xs" />
-            <span className="font-semibold text-slate-800">Orange :</span>
-            <span>Demande moyenne — dates présentant un niveau de demande modéré</span>
+            <span className="w-3.5 h-3.5 rounded-md bg-[#fbb664] border border-amber-300 inline-block shadow-2xs" />
+            <span className="font-bold text-slate-800">Orange :</span>
+            <span>Demande moyenne (Soutenu)</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="w-4 h-4 rounded-md bg-[#6ee7b7] border border-emerald-300 inline-block shadow-2xs" />
-            <span className="font-semibold text-slate-800">Vert :</span>
-            <span>Faible demande — dates présentant un niveau de demande faible / calme</span>
+            <span className="w-3.5 h-3.5 rounded-md bg-[#6ee7b7] border border-emerald-300 inline-block shadow-2xs" />
+            <span className="font-bold text-slate-800">Vert :</span>
+            <span>Faible demande (Calme)</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="w-3.5 h-3.5 rounded-md bg-slate-100 border border-slate-300 inline-flex items-center justify-center text-[9px] text-slate-500 font-bold">
+              •
+            </span>
+            <span className="font-bold text-slate-800">Gris clair :</span>
+            <span>Journées passées (Historique / Réalisé)</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="w-3.5 h-3.5 rounded-md bg-white border-2 border-violet-600 ring-1 ring-violet-400 inline-block shadow-2xs" />
+            <span className="font-bold text-violet-800">Contour violet :</span>
+            <span>Date du jour (Aujourd'hui)</span>
           </div>
         </div>
       </div>
       </>
       )}
 
-      {/* Floating Hover Tooltip */}
+      {/* Floating Enriched Hover Tooltip */}
       {hoveredDay && !selectedDateInfo && (
         <div
           className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-3"
           style={{
-            left: `${hoveredDay.x}px`,
-            top: `${hoveredDay.y - 10}px`,
+            left: `${Math.max(170, Math.min(typeof window !== 'undefined' ? window.innerWidth - 170 : 800, hoveredDay.x))}px`,
+            top: `${Math.max(220, hoveredDay.y - 12)}px`,
           }}
         >
-          <div className="bg-slate-900 text-white rounded-xl shadow-xl p-3.5 w-64 border border-slate-700/80 animate-in fade-in zoom-in-95 duration-100">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-bold text-xs capitalize text-slate-100">
-                {new Date(hoveredDay.info.dateStr).toLocaleDateString('fr-FR', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
-              </span>
-              <span
-                className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-sm uppercase tracking-wider ${
-                  hoveredDay.info.demandLevel === 'forte'
-                    ? 'bg-rose-500 text-white'
-                    : hoveredDay.info.demandLevel === 'moyenne'
-                    ? 'bg-amber-400 text-slate-900'
-                    : 'bg-emerald-400 text-slate-900'
-                }`}
-              >
-                {hoveredDay.info.demandLevel}
-              </span>
-            </div>
+          {(() => {
+            const d = hoveredDay.info;
+            const isPast = d.dateStr < todayStr;
+            const isToday = d.dateStr === todayStr;
+            const basePrice = currentHotel?.baseADR || 240;
+            const adrMultiplier = 0.65 + (d.intensity / 100) * 1.35;
+            const estimatedADR = Math.round(basePrice * adrMultiplier);
+            const compsetADR = Math.round(estimatedADR * 1.06);
 
-            <div className="space-y-1.5 text-xs text-slate-300">
-              <div className="flex items-center justify-between">
-                <span>Intensité demande :</span>
-                <span className="font-bold text-white tabular-nums">
-                  {hoveredDay.info.intensity}%
-                </span>
-              </div>
-              <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${
-                    hoveredDay.info.demandLevel === 'forte'
-                      ? 'bg-rose-400'
-                      : hoveredDay.info.demandLevel === 'moyenne'
-                      ? 'bg-amber-400'
-                      : 'bg-emerald-400'
-                  }`}
-                  style={{ width: `${hoveredDay.info.intensity}%` }}
-                />
-              </div>
+            return (
+              <div className="bg-slate-900/95 backdrop-blur-md text-white rounded-2xl shadow-2xl p-4 w-76 sm:w-80 border border-slate-700/80 animate-in fade-in zoom-in-95 duration-100 text-xs">
+                {/* Header: Date lisible & Badges */}
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+                  <div>
+                    <div className="font-black text-sm capitalize text-slate-100">
+                      {new Date(d.dateStr).toLocaleDateString('fr-FR', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {isToday ? (
+                        <span className="text-[10px] font-black px-1.5 py-0.2 rounded-sm bg-violet-600 text-white uppercase tracking-wider">
+                          Aujourd'hui
+                        </span>
+                      ) : isPast ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-sm bg-slate-700 text-slate-300 uppercase tracking-wider">
+                          Journée passée (Réalisé)
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-sm bg-emerald-950/80 text-emerald-300 border border-emerald-800 uppercase tracking-wider">
+                          Prévisionnel
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <span>TO Prévisionnel :</span>
-                <span className="font-bold text-white tabular-nums">
-                  {hoveredDay.info.projectedOccupancy}%
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span>Événements identifiés :</span>
-                <span className="font-bold text-white tabular-nums">
-                  {hoveredDay.info.eventCount}
-                </span>
-              </div>
-
-              {hoveredDay.info.topEventsTitles.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-slate-800 text-[11px] text-slate-300">
-                  <div className="font-semibold text-slate-400 mb-0.5">Moteurs de demande :</div>
-                  <ul className="list-disc list-inside truncate text-slate-200">
-                    {hoveredDay.info.topEventsTitles.slice(0, 2).map((t, i) => (
-                      <li key={i} className="truncate">
-                        {t}
-                      </li>
-                    ))}
-                  </ul>
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0 ${
+                      d.demandLevel === 'forte'
+                        ? 'bg-rose-500 text-white shadow-xs'
+                        : d.demandLevel === 'moyenne'
+                        ? 'bg-amber-400 text-slate-900 font-black'
+                        : 'bg-emerald-400 text-slate-900 font-black'
+                    }`}
+                  >
+                    Demande {d.demandLevel}
+                  </span>
                 </div>
-              )}
-            </div>
 
-            <div className="mt-2 text-[10px] text-slate-400 text-center italic">
-              Cliquez pour inspecter la date en détail
-            </div>
-          </div>
+                {/* Key indicators: Tension gauge & TO */}
+                <div className="space-y-2 text-slate-300">
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-slate-400">Niveau de tension marché :</span>
+                      <span className="font-extrabold text-white tabular-nums">{d.intensity}%</span>
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          d.demandLevel === 'forte'
+                            ? 'bg-rose-400'
+                            : d.demandLevel === 'moyenne'
+                            ? 'bg-amber-400'
+                            : 'bg-emerald-400'
+                        }`}
+                        style={{ width: `${d.intensity}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="bg-slate-800/80 p-2 rounded-xl border border-slate-700/60">
+                      <div className="text-[10px] text-slate-400">TO Projeté</div>
+                      <div className="text-sm font-extrabold text-violet-300 tabular-nums">
+                        {d.projectedOccupancy}%
+                      </div>
+                    </div>
+                    <div className="bg-slate-800/80 p-2 rounded-xl border border-slate-700/60">
+                      <div className="text-[10px] text-slate-400">ADR Suggéré</div>
+                      <div className="text-sm font-extrabold text-emerald-400 tabular-nums">
+                        {estimatedADR} €
+                        <span className="text-[9px] text-slate-400 ml-1 font-normal">
+                          (vs CompSet {compsetADR}€)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Identified events */}
+                  <div className="pt-1.5 border-t border-slate-800">
+                    <div className="flex items-center justify-between text-[11px] mb-1">
+                      <span className="text-slate-400 flex items-center gap-1">
+                        <CalendarIcon className="w-3 h-3 text-violet-400" />
+                        Événements identifiés :
+                      </span>
+                      <span className="font-extrabold text-white tabular-nums">
+                        {d.eventCount}
+                      </span>
+                    </div>
+                    {d.topEventsTitles.length > 0 ? (
+                      <div className="space-y-0.5">
+                        {d.topEventsTitles.slice(0, 2).map((t, idx) => (
+                          <div key={idx} className="text-[11px] text-slate-200 truncate flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-violet-400 shrink-0" />
+                            <span className="truncate">{t}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-slate-400 italic">
+                        Demande organique usuelle
+                      </div>
+                    )}
+                  </div>
+
+                  {/* RM Recommendation */}
+                  <div className="pt-1.5 border-t border-slate-800 text-[11px]">
+                    <div className="text-violet-400 font-extrabold flex items-center gap-1 mb-0.5">
+                      <Sparkles className="w-3 h-3" />
+                      Recommandation RM :
+                    </div>
+                    <div className="text-slate-200 leading-tight">
+                      {d.adrAdvice} · {d.minStayAdvice}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 pt-1.5 border-t border-slate-800 text-[10px] text-slate-400 text-center flex items-center justify-center gap-1 italic">
+                  <ArrowUpRight className="w-3 h-3" />
+                  <span>Cliquer pour ouvrir le diagnostic complet</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
