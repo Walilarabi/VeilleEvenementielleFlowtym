@@ -741,6 +741,7 @@ export default function App() {
               onGoToMarket={() => setActiveTab('market')}
               backendForecasts={revenueWorkspace.forecasts}
               backendInventory={revenueWorkspace.inventory}
+              backendBacktests={revenueWorkspace.backtests}
               backendLoading={revenueLoading}
               backendError={revenueError}
               supabase={supabase}
