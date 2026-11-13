@@ -385,6 +385,7 @@ export interface LighthouseRateItem {
   pos: string; // Direct Web, Booking.com, Expedia
   observedAt: string;
   deltaPercentVsPriorScrape: number;
+  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation';
 }
 
 // ==========================================
@@ -419,6 +420,7 @@ export interface DEdgeInventoryDay {
   stopSellActive: boolean;
   averageLeadTimeDays: number;
   lastUpdated: string;
+  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation';
 }
 
 // ==========================================
