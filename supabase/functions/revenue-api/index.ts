@@ -175,7 +175,7 @@ async function handle(req: Request): Promise<Response> {
       p_rate_intelligence_id: rateIntelligenceId,
       p_action: action,
       p_applied_rate: numberOrNull(appliedRate),
-      p_applied_min_stay: Number.isInteger(appliedMinStay) ? appliedMinStay : null,
+      p_applied_min_stay: typeof appliedMinStay === "number" && Number.isInteger(appliedMinStay) ? appliedMinStay : null,
       p_reason_code: typeof reasonCode === "string" ? reasonCode.slice(0, 80) : null,
       p_reason_text: typeof reasonText === "string" ? reasonText.slice(0, 2000) : null,
     });
@@ -355,7 +355,7 @@ async function handle(req: Request): Promise<Response> {
     const totalWeight = keys.reduce((s,k)=>s+(Number(weights[k])||0),0);
     const thresholds = cfg.thresholds as Record<string,number>;
     const adjustments = cfg.rate_adjustments_pct as Record<string,number>;
-    if (totalWeight <= 0 || keys.some(k => Number(weights[k]) < 0) ||
+    if (totalWeight <= 0 || keys.some(k => !Number.isFinite(Number(weights[k])) || Number(weights[k]) < 0) ||
         !Number.isFinite(Number(thresholds.normal)) || !Number.isFinite(Number(thresholds.high)) ||
         !Number.isFinite(Number(thresholds.exceptional)) ||
         !["low","normal","high","exceptional"].every(k => Number.isFinite(Number(adjustments[k])))) {
@@ -424,9 +424,9 @@ async function handle(req: Request): Promise<Response> {
         organization_id:hotel.organization_id,hotel_id:hotelId,stay_date:stayDate,currency:hotel.currency,
         current_bar:current,suggested_bar:suggested,delta_amount:Math.round((suggested-current)*100)/100,
         delta_pct:Math.round(((suggested-current)/current)*10000)/100,
-        demand_index:score===null?null:Math.round(score),demand_level:sufficient?bucket:"normal",
+        demand_index:score===null?null:Math.round(score),demand_level:sufficient?({low:"faible",normal:"normal",high:"eleve",exceptional:"exceptionnel"} as Record<string,string>)[bucket]:"normal",
         occupancy_pct:signals.occupancy,rooms_remaining:numberOrNull(inv?.rooms_available),
-        lighthouse_median:med,flowtym_compset_median:med,strategy_code:sufficient?`PRICING_V1_${bucket.toUpperCase()}`:"HOLD_INSUFFICIENT_DATA",
+        lighthouse_median:null,flowtym_compset_median:med,strategy_code:sufficient?`PRICING_V1_${bucket.toUpperCase()}`:"HOLD_INSUFFICIENT_DATA",
         explanation, evidence, confidence_score:confidence,
         data_quality_status:sufficient?"valid":"insufficient",input_snapshot:evidence,
         engine_version:"pricing_v1",recommendation_status:"pending",
