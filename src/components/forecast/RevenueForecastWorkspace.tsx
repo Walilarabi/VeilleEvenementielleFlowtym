@@ -6,7 +6,7 @@ import type {RevenueForecastRow,RevenueInventoryRow} from "../../services/revenu
 import {generateBaselineForecast,runWalkForwardBacktest} from "../../services/revenueApiClient";
 type Props={hotel:Hotel;forecasts:RevenueForecastRow[];inventory:RevenueInventoryRow[];loading:boolean;error:string|null;supabase:SupabaseClient|null;onRefresh:()=>void;onShowToast:(message:string)=>void};
 export const RevenueForecastWorkspace:React.FC<Props>=({hotel,forecasts,inventory,loading,error,supabase,onRefresh,onShowToast})=>{
- const today=new Date().toISOString().slice(0,10),future=new Date();future.setUTCDate(future.getUTCDate()+30);
+ const now=new Date();const today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,"0"),String(now.getDate()).padStart(2,"0")].join("-");const future=new Date(now);future.setDate(future.getDate()+30);
  const [start,setStart]=useState(today),[end,setEnd]=useState(future.toISOString().slice(0,10)),[busy,setBusy]=useState(false),[backtest,setBacktest]=useState<unknown>(null);
  const rows=useMemo(()=>[...forecasts].sort((a,b)=>a.stay_date.localeCompare(b.stay_date)),[forecasts]);
  const runForecast=async()=>{
@@ -16,7 +16,7 @@ export const RevenueForecastWorkspace:React.FC<Props>=({hotel,forecasts,inventor
  };
  const runBacktest=async()=>{
   if(!supabase)return;setBusy(true);
-  try{const from=new Date();from.setUTCDate(from.getUTCDate()-180);const to=new Date();to.setUTCDate(to.getUTCDate()-30);const result=await runWalkForwardBacktest(supabase,hotel.id,from.toISOString().slice(0,10),to.toISOString().slice(0,10),30,3);setBacktest(result);onShowToast("Backtest walk-forward terminé.");}
+  try{const from=new Date();from.setDate(from.getDate()-180);const to=new Date();to.setDate(to.getDate()-30);const result=await runWalkForwardBacktest(supabase,hotel.id,from.toISOString().slice(0,10),to.toISOString().slice(0,10),30,3);setBacktest(result);onShowToast("Backtest walk-forward terminé.");}
   catch(e){onShowToast(e instanceof Error?e.message:"Backtest impossible.");}finally{setBusy(false);}
  };
  return <section className="space-y-5">
