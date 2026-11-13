@@ -23,6 +23,7 @@ For production incidents, prefer a forward-fix migration. The current schema con
 6. `20261113000600_hotel_directory_membership_rls.sql`: hotel-level read membership policy.
 7. `20261113000700_idempotent_recommendation_persistence.sql`: idempotent pending-recommendation upsert.
 8. `20261113000800_persist_pickup_windows.sql`: persist validated 24h/3d/7d pickup windows.
+9. `20261113000900_event_impact_evidence_scores.sql`: store event-impact scoring components and evidence.
 
 ### Recovery notes
 
