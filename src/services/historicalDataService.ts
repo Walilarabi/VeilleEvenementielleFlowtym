@@ -743,13 +743,3 @@ function getWeekNumber(dateStr: string): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
-function isFrenchHoliday(dateStr: string): boolean {
-  const md = dateStr.slice(5);
-  return ['01-01', '05-01', '05-08', '07-14', '08-15', '11-01', '11-11', '12-25'].includes(md);
-}
-
-function isFrenchSchoolHoliday(dateStr: string): boolean {
-  const m = Number(dateStr.slice(5, 7));
-  const d = Number(dateStr.slice(8, 10));
-  return (m === 2 && d >= 10 && d <= 25) || (m === 4 && d >= 12 && d <= 28) || m === 7 || m === 8 || (m === 10 && d >= 20);
-}
