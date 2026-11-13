@@ -52,7 +52,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
     setLoading(true); setError(null);
     try {
       const { data: hotelRows, error: hotelError } = await supabase.from('hotels')
-        .select('id,name,city,country,stars,room_count,currency,timezone,rate_floor,rate_ceiling,max_rate_change_pct,is_active')
+        .select('id,organization_id,name,city,country,stars,room_count,currency,timezone,rate_floor,rate_ceiling,max_rate_change_pct,is_active')
         .eq('is_active', true).order('name');
       if (hotelError) throw hotelError;
       const rows = (hotelRows ?? []) as DbHotel[];
