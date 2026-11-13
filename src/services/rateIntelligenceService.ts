@@ -23,7 +23,7 @@
  * (src/services/revenueApiClient.ts) and its RLS-protected database contracts.
  */
 
-export const TODAY_DATE_STR = '2026-11-04';
+export const TODAY_DATE_STR = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 export const HOTEL_TOTAL_ROOMS = 45; // Grand Hôtel Folkestone Opéra (4★)
 export const RATE_FLOOR_EUR = 180; // Tarif plancher de rentabilité minimale
 export const RATE_CEILING_EUR = 550; // Tarif plafond de marché
@@ -1189,33 +1189,12 @@ const STORAGE_PREFIX = 'flowtym_pricing_intelligence_v2_';
 const AUDIT_STORAGE_KEY = 'flowtym_rm_decision_audit_log_v2';
 const RULES_STORAGE_KEY = 'flowtym_rm_learned_calibration_rules_v2';
 
-export function getRateIntelligenceRecords(hotelId: string = 'hotel-opera'): DailyRateIntelligence[] {
-  try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${hotelId}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load rate intelligence records', e);
-  }
-
-  const generated = generateContinuous90DaysData().map((item) => ({
-    ...item,
-    hotelId,
-  }));
-  saveRateIntelligenceRecords(hotelId, generated);
-  return generated;
+export function getRateIntelligenceRecords(_hotelId: string = 'hotel-opera'): DailyRateIntelligence[] {
+  return [];
 }
 
-export function saveRateIntelligenceRecords(hotelId: string, records: DailyRateIntelligence[]): void {
-  try {
-    localStorage.setItem(`${STORAGE_PREFIX}${hotelId}`, JSON.stringify(records));
-  } catch (e) {
-    console.error('Failed to save rate intelligence records', e);
-  }
+export function saveRateIntelligenceRecords(_hotelId: string, _records: DailyRateIntelligence[]): void {
+  // Deliberately disabled; use authenticated Revenue API persistence.
 }
 
 // Validation humaine : Accepter
@@ -1417,131 +1396,22 @@ export function applyAllRateSuggestions(hotelId: string): { updated: DailyRateIn
 }
 
 // Traçabilité des décisions
-export function recordDecisionAudit(entry: RMDecisionAuditRecord): void {
-  try {
-    const list = getDecisionAuditLog();
-    list.unshift(entry);
-    localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(list.slice(0, 200)));
-  } catch (e) {
-    console.error('Failed to record decision audit', e);
-  }
+export function recordDecisionAudit(_entry: RMDecisionAuditRecord): void {
+  // Deliberately disabled; decisions must be persisted through the Revenue API.
 }
 
 export function getDecisionAuditLog(): RMDecisionAuditRecord[] {
-  try {
-    const raw = localStorage.getItem(AUDIT_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {
-    console.error('Failed to get decision audit log', e);
-  }
-  // Logs initiaux de démonstration
-  return [
-    {
-      id: 'audit-init-1',
-      recordId: 'rate-2026-11-25',
-      hotelId: 'hotel-opera',
-      dateStr: '2026-11-25',
-      action: 'accept',
-      originalRateEur: 265,
-      suggestedRateEur: 350,
-      finalRateEur: 350,
-      originalMinStay: 1,
-      finalMinStay: 2,
-      reasonText: 'Recommandation acceptée. Pression SMCL 2026 avec 3 concurrents complets.',
-      userEmail: 'wali.larabi@flowtym.com',
-      timestamp: '2026-11-03T18:32:00Z',
-      snapshotContext: {
-        occupancyPercent: 86.7,
-        compsetMedianEur: 360,
-        pickup1d: 7,
-        demandLevel: 'exceptionnel',
-      },
-    },
-    {
-      id: 'audit-init-2',
-      recordId: 'rate-2026-11-14',
-      hotelId: 'hotel-opera',
-      dateStr: '2026-11-14',
-      action: 'modify',
-      originalRateEur: 255,
-      suggestedRateEur: 300,
-      finalRateEur: 320,
-      originalMinStay: 1,
-      finalMinStay: 2,
-      reasonCode: 'increase_higher',
-      reasonText: 'Souhait d’augmenter davantage le prix (+20€ vs IA). Salon Paris Photo à fort pouvoir d’achat.',
-      userEmail: 'wali.larabi@flowtym.com',
-      timestamp: '2026-11-02T14:15:00Z',
-      snapshotContext: {
-        occupancyPercent: 80.0,
-        compsetMedianEur: 310,
-        pickup1d: 5,
-        demandLevel: 'tres_fort',
-      },
-    },
-  ];
+  return [];
 }
-
-// -------------------------------------------------------------
-// MOTEUR D'APPRENTISSAGE CONTRÔLÉ ET RÉVERSIBLE (Section 9)
-// -------------------------------------------------------------
 
 export function getLearnedCalibrationRules(): RMLearnedCalibrationRule[] {
-  try {
-    const raw = localStorage.getItem(RULES_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {
-    console.error('Failed to get calibration rules', e);
-  }
-  // Règles apprises initiales fondées sur le comportement du Revenue Manager
-  return [
-    {
-      id: 'rule-event-weekend-premium',
-      title: 'Majoration Événements Week-End (+15€)',
-      condition: 'Événements majeurs le samedi soir avec occupation OTB > 70%',
-      adjustmentType: 'offset_eur',
-      adjustmentValue: 15,
-      sampleDecisionsCount: 14,
-      agreementRatePct: 92,
-      isActive: true,
-      learnedAt: '02/11/2026',
-      description: 'Le RM surcote systématiquement les samedis d’événements de +15€ au-delà de la médiane compset.',
-    },
-    {
-      id: 'rule-mlos-saturation',
-      title: 'Min Stay 2 Nuits automatique lors de compression compset',
-      condition: 'Quand au moins 2 concurrents sont complets (sold-out)',
-      adjustmentType: 'mlos_shift',
-      adjustmentValue: 2,
-      sampleDecisionsCount: 22,
-      agreementRatePct: 95,
-      isActive: true,
-      learnedAt: '28/10/2026',
-      description: 'Sécurise la durée de séjour et bloque les séjours d’une seule nuit en période de compression.',
-    },
-    {
-      id: 'rule-protection-corporate-midweek',
-      title: 'Plafond d’alignement en milieu de semaine corporate (-10€)',
-      condition: 'Mardi et Mercredi sans grand salon international',
-      adjustmentType: 'offset_eur',
-      adjustmentValue: -10,
-      sampleDecisionsCount: 18,
-      agreementRatePct: 83,
-      isActive: false,
-      learnedAt: '20/10/2026',
-      description: 'Garde une marge de compétitivité de 10€ sous l’Astra Opéra pour capter la clientèle affaires récurrente.',
-    },
-  ];
+  return [];
 }
 
-export function toggleLearnedCalibrationRule(ruleId: string): RMLearnedCalibrationRule[] {
-  const rules = getLearnedCalibrationRules();
-  const updated = rules.map((r) => (r.id === ruleId ? { ...r, isActive: !r.isActive } : r));
-  localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(updated));
-  return updated;
+export function toggleLearnedCalibrationRule(_ruleId: string): RMLearnedCalibrationRule[] {
+  return [];
 }
 
-// -------------------------------------------------------------
 // EXPORT CSV À 21 COLONNES CONFORME AU CAHIER DES CHARGES (Section 5)
 // -------------------------------------------------------------
 
