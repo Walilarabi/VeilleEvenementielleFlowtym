@@ -58,10 +58,8 @@ import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
 import {
   INITIAL_HOTELS,
-  INITIAL_VENUES,
-  INITIAL_SOURCES,
 } from './data/mockData';
-import { EventItem, EventSuggestion, FilterState, Hotel, EventProposal } from './types';
+import { EventItem, EventSuggestion, EventSource, FilterState, Hotel, EventProposal, Venue } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 
 
@@ -129,8 +127,8 @@ export default function App() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
-  const [venues, setVenues] = useState(INITIAL_VENUES);
-  const [sources, setSources] = useState(INITIAL_SOURCES);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [sources, setSources] = useState<EventSource[]>([]);
   const [suggestions, setSuggestions] = useState<EventSuggestion[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
 
