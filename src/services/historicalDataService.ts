@@ -597,22 +597,10 @@ export function saveHistoricalRecords(hotelId: string, newRecords: HistoricalDai
 /**
  * Récupère les données historiques stockées pour un hôtel (avec fallback sur un jeu N-1, N-2, N-3 complet)
  */
-export function getHistoricalDailyRecords(hotelId: string): HistoricalDailyRecord[] {
-  try {
-    const raw = localStorage.getItem(HISTORICAL_STORAGE_KEY);
-    if (raw) {
-      const parsed: HistoricalDailyRecord[] = JSON.parse(raw);
-      const filtered = parsed.filter((r) => r.hotelId === hotelId);
-      if (filtered.length > 0) return filtered;
-    }
-  } catch (err) {
-    console.error('Erreur lecture localStorage historiques', err);
-  }
-
-  // Fallback de référence : 3 années générées pour le Grand Hôtel Folkestone Opéra (2023, 2024, 2025)
-  const defaultHistory = generateRealisticHistoricalRecords(hotelId, 365 * 3);
-  saveHistoricalRecords(hotelId, defaultHistory);
-  return defaultHistory;
+export function getHistoricalDailyRecords(_hotelId: string): HistoricalDailyRecord[] {
+  // Historical data must come from the authenticated Supabase source.
+  // No generated N-1/N-2/N-3 fixture is returned when the database is empty.
+  return [];
 }
 
 /**
