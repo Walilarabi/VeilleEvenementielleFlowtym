@@ -45,15 +45,15 @@ export interface HistoricalDailyRecord {
   roomsSold: number; // Y : Chambres vendues payantes
   complimentaryRooms?: number; // Z : absent si non renseigné
   outOfOrderRooms?: number; // AA : absent si non renseigné
-  occupancyPercent?: number; // AB : absent si non renseigné et non calculable
+  occupancyPercent: number; // AB : taux réel ou calculé depuis les chambres déclarées
   turnawaysCount?: number; // AC : absent si non renseigné
   reservationsCount?: number; // AD : absent si non renseigné
   guestsCount?: number; // AE : absent si non renseigné
 
   // D. Performance financière
-  adrNetEur?: number; // AF : absent si non renseigné et non calculable
-  revparEur?: number; // AG : absent si non renseigné et non calculable
-  accommodationRevenueEur?: number; // AH : absent si non renseigné et non calculable
+  adrNetEur: number; // AF : réel ou calculé depuis CA hébergement / chambres vendues
+  revparEur: number; // AG : calculé depuis CA hébergement / stock commercialisable
+  accommodationRevenueEur: number; // AH : réel ou calculé depuis ADR net / chambres vendues
   avgSoldRoomPrice?: number; // AI : absent si non renseigné
   totalHotelRevenueEur?: number; // AJ : CA total hôtel HT (avec extras, PDJ...)
   trevparEur?: number; // AK : TRevPAR
