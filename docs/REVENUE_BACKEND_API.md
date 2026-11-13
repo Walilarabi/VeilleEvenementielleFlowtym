@@ -66,7 +66,7 @@ These values are an example configuration, not pre-approved defaults. Configure 
 ### v1 deterministic signal definitions
 
 - Occupancy signal: latest non-simulated inventory snapshot occupancy (0–100).
-- Pickup signal: `clamp(50 + 50 × net OTB pickup / pickup_scale_rooms, 0, 100)`, using two snapshots at least 20 hours apart.
+- Pickup signal: `clamp(50 + 50 × net OTB pickup / pickup_scale_rooms, 0, 100)`, using two snapshots 20–30 hours apart (stale pickup snapshots are ignored).
 - Event signal: highest validated/available hotel impact score for the stay date.
 - Compset signal: `clamp(50 + 100 × (compset median - current BAR) / current BAR, 0, 100)`, using recent available comparable Lighthouse observations.
 - Demand index: weighted mean of the available signals, re-normalized over available weights.
