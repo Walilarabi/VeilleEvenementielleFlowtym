@@ -74,6 +74,24 @@ function requireManager(profile: Profile) {
   return ["super_admin", "admin", "revenue_manager"].includes(profile.role);
 }
 
+function calculateForecastMetrics(actual: number[], forecast: number[]) {
+  if (!actual.length || actual.length !== forecast.length) return null;
+  const errors = actual.map((a,i)=>forecast[i]-a);
+  const absoluteError = errors.reduce((s,e)=>s+Math.abs(e),0);
+  const actualTotal = actual.reduce((s,a)=>s+Math.abs(a),0);
+  const mae = absoluteError/actual.length;
+  const rmse = Math.sqrt(errors.reduce((s,e)=>s+e*e,0)/actual.length);
+  const biasPct = actual.reduce((s,a,i)=>s+forecast[i]-a,0);
+  const actualSum = actual.reduce((s,a)=>s+a,0);
+  return {
+    sampleCount: actual.length,
+    wape: actualTotal>0 ? absoluteError/actualTotal : null,
+    mae,
+    rmse,
+    biasPct: actualSum!==0 ? biasPct/actualSum*100 : null,
+  };
+}
+
 async function handle(req: Request, supabase: any, userId: string): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (!["GET", "POST"].includes(req.method)) return fail("Method not allowed", 405);
@@ -130,6 +148,13 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       .order("snapshot_at", { ascending: false }).limit(2000);
     if (error) return fail("Lecture des snapshots impossible", 400, error.message);
     return json({ ok: true, hotelId, ...range, data });
+  }
+
+  if (req.method === "GET" && actionPath === "backtests") {
+    const { data, error } = await supabase.from("hotel_backtest_evaluations")
+      .select("*").eq("hotel_id",hotelId).order("evaluated_at",{ascending:false}).limit(100);
+    if (error) return fail("Lecture des évaluations de backtest impossible",400,error.message);
+    return json({ok:true,hotelId,data});
   }
 
   if (req.method === "GET" && actionPath === "forecasts") {
@@ -313,6 +338,54 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     }).eq("id", run.id);
     if (insertError) return fail("Persistance des prévisions impossible", 400, insertError.message);
     return json({ ok: true, forecastRunId: run.id, datesRequested: eachDate(start,end).length, datesForecast: forecasts.length, skippedForInsufficientHistory: eachDate(start,end).length-forecasts.length }, 201);
+  }
+
+  if (actionPath === "backtests/evaluate") {
+    const forecastRunId = body.forecastRunId;
+    if (typeof forecastRunId !== "string") return fail("forecastRunId obligatoire");
+    const { data: run, error: runError } = await supabase.from("revenue_forecast_runs")
+      .select("id,model_name,model_version,as_of,horizon_start,horizon_end,run_status")
+      .eq("id",forecastRunId).eq("hotel_id",hotelId).maybeSingle();
+    if (runError || !run) return fail("Run de prévision introuvable pour cet hôtel",404,runError?.message);
+    if (run.run_status !== "completed") return fail("Seuls les runs terminés peuvent être évalués",409);
+    const [{data:forecastRows,error:forecastError},{data:actualRows,error:actualError}] = await Promise.all([
+      supabase.from("daily_demand_forecasts").select("stay_date,occupancy_p10,occupancy_p50,occupancy_p90")
+        .eq("forecast_run_id",forecastRunId).eq("hotel_id",hotelId).is("room_type_id",null).order("stay_date"),
+      supabase.from("hotel_historical_daily").select("stay_date,occupancy_pct,source_status,updated_at")
+        .eq("hotel_id",hotelId).in("source_status",["real","imported"])
+        .gte("stay_date",run.horizon_start).lte("stay_date",run.horizon_end).order("updated_at",{ascending:false}),
+    ]);
+    if (forecastError || actualError) return fail("Lecture des données de backtest impossible",400,forecastError?.message ?? actualError?.message);
+    const actualByDate = new Map<string,number>();
+    for (const row of actualRows ?? []) {
+      if (!actualByDate.has(row.stay_date) && numberOrNull(row.occupancy_pct)!==null) actualByDate.set(row.stay_date,Number(row.occupancy_pct));
+    }
+    const pairedRows = (forecastRows ?? []).filter((row:any) =>
+      Date.parse(run.as_of) < Date.parse(row.stay_date+"T00:00:00Z") && actualByDate.has(row.stay_date) && numberOrNull(row.occupancy_p50)!==null
+    );
+    if (!pairedRows.length) return fail("Aucune paire prévision/réel éligible. Les dates doivent être postérieures au as_of du run et disposer d'un réel historique.",422);
+    const actual = pairedRows.map((row:any)=>actualByDate.get(row.stay_date)!);
+    const forecast = pairedRows.map((row:any)=>Number(row.occupancy_p50));
+    const metrics = calculateForecastMetrics(actual,forecast)!;
+    const intervalRows = pairedRows.filter((row:any)=>numberOrNull(row.occupancy_p10)!==null && numberOrNull(row.occupancy_p90)!==null);
+    const intervalCoverage = intervalRows.length
+      ? intervalRows.filter((row:any)=>actualByDate.get(row.stay_date)!>=Number(row.occupancy_p10) && actualByDate.get(row.stay_date)!<=Number(row.occupancy_p90)).length/intervalRows.length
+      : null;
+    const firstDate = pairedRows[0].stay_date;
+    const lastDate = pairedRows[pairedRows.length-1].stay_date;
+    const horizonDays = Math.round((Date.parse(lastDate+"T00:00:00Z")-Date.parse(run.as_of))/86400000);
+    const {data:evaluation,error:evaluationError}=await supabase.from("hotel_backtest_evaluations").insert({
+      organization_id:hotel.organization_id,hotel_id:hotelId,model_name:run.model_name,model_version:run.model_version,
+      evaluated_from:firstDate,evaluated_to:lastDate,horizon_days:horizonDays,sample_count:metrics.sampleCount,
+      wape:metrics.wape,mae:metrics.mae,rmse:metrics.rmse,bias_pct:metrics.biasPct,
+      baseline_metrics:{model:run.model_name,modelVersion:run.model_version},
+      metrics_by_horizon:{overall:metrics},
+      calibration:{occupancyP10P90Coverage:intervalCoverage,intervalSampleCount:intervalRows.length},
+      leakage_checks:{runAsOfBeforeStayDate:true,onlyRealOrImportedActuals:true,excludedForecastDates:(forecastRows??[]).length-pairedRows.length},
+      created_by:profile.id,
+    }).select("*").single();
+    if (evaluationError) return fail("Enregistrement du backtest impossible",400,evaluationError.message);
+    return json({ok:true,data:evaluation},201);
   }
 
   if (actionPath === "recommendations/generate") {
