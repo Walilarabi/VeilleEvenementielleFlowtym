@@ -23,6 +23,7 @@
  */
 
 import * as XLSX from 'xlsx';
+import { buildDefaultCompSetForHotel } from './rmsSettingsService';
 
 export type MarketDemandLevelCategory = 'faible' | 'moderee' | 'forte' | 'tres_forte';
 
@@ -153,13 +154,13 @@ export interface LighthouseExtractionDataset {
   records: LighthouseDailyItem[];
 }
 
-export const FOLKESTONE_PRIMARY_COMPSET_NAMES = [
-  'Hôtel Saint-Pétersbourg Opéra & Spa',
-  'Hôtel Charing Cross',
-  'Hôtel Astra Opéra (Astotel)',
-  'Hôtel Indigo Paris - Opéra (IHG)',
-  'Hôtel Pulitzer Paris',
-];
+export const FOLKESTONE_PRIMARY_COMPSET_NAMES = buildDefaultCompSetForHotel({
+  id: 'hotel-opera',
+  city: 'Paris',
+  baseADR: 260,
+})
+  .slice(0, 10)
+  .map((competitor) => competitor.name);
 
 /**
  * Calcul qualitatif du niveau de demande selon les seuils configurables Flowtym
