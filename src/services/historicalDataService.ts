@@ -304,9 +304,12 @@ function parseHistoricalDateCell(value: any): string | null {
   }
   if (typeof value === 'string') {
     const raw = value.trim();
-    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
-    const french = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (french) return `${french[3]}-${french[2].padStart(2, '0')}-${french[1].padStart(2, '0')}`;
+    const iso = raw.slice(0, 10);
+    if (iso.length === 10 && iso[4] === '-' && iso[7] === '-') return iso;
+    const parts = raw.split('/');
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
     const parsed = new Date(raw);
     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
   }
@@ -436,7 +439,8 @@ export function parseAndValidateHistoricalExcel(
       if (caHeberg === null && adrNet !== null) caHeberg = roomsSold * adrNet;
       if (adrNet === null && caHeberg !== null && roomsSold > 0) adrNet = caHeberg / roomsSold;
       if (caHeberg === null && roomsSold === 0) caHeberg = 0;
-      if (caHeberg === null) {
+      if (adrNet === null && roomsSold === 0 && caHeberg === 0) adrNet = 0;
+      if (caHeberg === null || adrNet === null) {
         errorsList.push({
           rowNumber,
           column: 'ADR net / CA hébergement',
