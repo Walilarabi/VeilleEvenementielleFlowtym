@@ -96,3 +96,12 @@ export const scoreHotelEventImpact = (supabase: SupabaseClient, hotelId: string,
     supabase, `/hotels/${encodeURIComponent(hotelId)}/events/score`,
     { method: "POST", body: { occurrenceId } },
   );
+
+export const ingestReservationSnapshots = (
+  supabase: SupabaseClient,
+  hotelId: string,
+  snapshots: Record<string, unknown>[],
+) => revenueApiRequest<{ ok: true; inserted: number; data: unknown[] }>(
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/reservation-snapshots`,
+  { method: "POST", body: { snapshots } },
+);
