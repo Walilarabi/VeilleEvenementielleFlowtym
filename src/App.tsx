@@ -377,6 +377,15 @@ export default function App() {
             compressionScore: Number(impact.extra_nights_score ?? 0),
             finalRMScore: score,
             confidenceScore: confidence,
+            durationScore: Number(impact.duration_score ?? 0),
+            recurrenceScore: Number(impact.recurrence_score ?? 0),
+            capacityScore: Number(impact.capacity_score ?? 0),
+            notorietyScore: Number(impact.notoriety_score ?? 0),
+            extraNightsScore: Number(impact.extra_nights_score ?? 0),
+            segmentFitScore: Number(impact.segment_fit_score ?? 0),
+            sourceConfidenceScore: Number(impact.source_confidence_score ?? 0),
+            historicalDemandScore: Number(impact.historical_demand_score ?? 0),
+            historicalDemandSampleCount: Number(impact.historical_demand_sample_count ?? 0),
           };
           const status = CONFIRMATION_STATUSES.has(event.status as ConfirmationStatus) ? event.status as ConfirmationStatus : 'a_verifier';
           mappedEvents.push({
