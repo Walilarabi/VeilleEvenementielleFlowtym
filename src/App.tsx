@@ -133,42 +133,11 @@ export default function App() {
   const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
   const [venues, setVenues] = useState(INITIAL_VENUES);
   const [sources, setSources] = useState(INITIAL_SOURCES);
-  const [suggestions, setSuggestions] = useState(INITIAL_SUGGESTIONS);
-  const [events, setEvents] = useState<EventItem[]>(() => generateFullMockEvents());
+  const [suggestions, setSuggestions] = useState<EventSuggestion[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
 
   // Proposals State (Score RM 30 à 59)
-  const [proposals, setProposals] = useState<EventProposal[]>([
-    {
-      id: 'prop-init-1',
-      title: 'Salon du Vélo Urbain & Mobilités Douces',
-      subtitle: 'Écomobilité & transition urbaine',
-      category: 'salons_foires',
-      city: 'Paris',
-      venueName: 'Porte de Versailles',
-      startDate: '2026-11-27',
-      endDate: '2026-11-29',
-      expectedAttendance: 19000,
-      score: 48,
-      status: 'pending',
-      detectedSource: 'Fédération des Usagers de la Bicyclette (FUB)',
-      impactLevel: 'modere',
-    },
-    {
-      id: 'prop-init-2',
-      title: 'Championnat d’Europe d’Escrime Junior',
-      subtitle: 'Escrime épée & fleuret',
-      category: 'sport',
-      city: 'Paris',
-      venueName: 'Halle Carpentier',
-      startDate: '2026-12-04',
-      endDate: '2026-12-06',
-      expectedAttendance: 8500,
-      score: 36,
-      status: 'pending',
-      detectedSource: 'Fédération Française d’Escrime',
-      impactLevel: 'modere',
-    },
-  ]);
+  const [proposals, setProposals] = useState<EventProposal[]>([]);
 
   // View switch: 'calendar' vs 'table' (default to 'table' so Table View is immediately active)
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
@@ -199,7 +168,7 @@ export default function App() {
   // Modals & Drawers
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [addEventDefaultDate, setAddEventDefaultDate] = useState<string>('2026-10-15');
+  const [addEventDefaultDate, setAddEventDefaultDate] = useState<string>(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()));
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isRefreshModalOpen, setIsRefreshModalOpen] = useState(false);
   const [isProposalsModalOpen, setIsProposalsModalOpen] = useState(false);
@@ -265,14 +234,14 @@ export default function App() {
 
       // Period Tab
       if (filterState.periodTab === 'upcoming') {
-        if (new Date(ev.startDate) < new Date('2026-10-01')) return false;
+        if (new Date(ev.startDate) < new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()))) return false;
       } else if (filterState.periodTab === 'ongoing') {
         const inMonth =
           ev.startDate.startsWith(`${filterState.currentYear}-${String(filterState.currentMonth + 1).padStart(2, '0')}`) ||
           ev.endDate.startsWith(`${filterState.currentYear}-${String(filterState.currentMonth + 1).padStart(2, '0')}`);
         if (!inMonth) return false;
       } else if (filterState.periodTab === 'past') {
-        if (new Date(ev.startDate) >= new Date('2026-10-01')) return false;
+        if (new Date(ev.startDate) >= new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()))) return false;
       }
 
       // Impact
@@ -337,8 +306,8 @@ export default function App() {
 
   // Add event handler
   const handleAddEvent = (newEvent: EventItem) => {
-    setEvents((prev) => [newEvent, ...prev]);
-    showToast(`Événement "${newEvent.title}" ajouté avec succès`);
+    void newEvent;
+    showToast("Création non enregistrée : le backend événementiel n'est pas encore raccordé. Aucun événement n'a été ajouté.");
   };
 
   const handleOpenAddOnDate = (dateStr: string) => {
@@ -348,8 +317,8 @@ export default function App() {
 
   // Excel / CSV Import handler
   const handleImportEvents = (imported: EventItem[]) => {
-    setEvents((prev) => [...imported, ...prev]);
-    showToast(`${imported.length} événements importés dans le référentiel`);
+    void imported;
+    showToast("Import bloqué : aucun backend événementiel persistant n'est disponible.");
   };
 
   // Excel / CSV Export handler
@@ -414,15 +383,8 @@ export default function App() {
     newProps: EventProposal[],
     stats: { newCount: number; modifiedCount: number; cancelledCount: number; verifiedCount: number }
   ) => {
-    // Score >= 60 auto-integrated
-    if (newHighImpact.length > 0) {
-      setEvents((prev) => [...newHighImpact, ...prev]);
-    }
-    // Score 30-59 added to proposals
-    if (newProps.length > 0) {
-      setProposals((prev) => [...newProps, ...prev]);
-    }
-    showToast(`Actualisation terminée : ${stats.newCount} nouveaux événements détectés`);
+    void newHighImpact; void newProps; void stats;
+    showToast("Actualisation non enregistrée : la veille événementielle n'est pas encore raccordée à un stockage persistant.");
   };
 
   // Proposal acceptance / refusal
