@@ -145,12 +145,30 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
   if (req.method === "GET" && actionPath === "events") {
     const range = dateRange(url);
     if (!range) return fail("Les paramètres from et to sont obligatoires (maximum 365 jours)");
-    const { data, error } = await supabase.from("event_hotel_impacts")
-      .select("*,events(id,title,subtitle,category,status,city,country_code,expected_attendance,international_ratio_pct,recurrence_frequency,official_url,created_at,updated_at,venues(id,name,city,country_code,address,latitude,longitude,capacity,verification_status),event_evidence(id,source_name,source_url,excerpt,evidence_type,trust_score,verified_at,event_sources(source_type))) ,event_occurrences(id,start_date,end_date,date_status,attendance_estimate)")
-      .eq("hotel_id", hotelId).gte("event_occurrences.start_date", range.from)
-      .lte("event_occurrences.end_date", range.to).order("final_rm_score", { ascending: false });
-    if (error) return fail("Lecture des impacts événementiels impossible", 400, error.message);
-    return json({ ok: true, hotelId, ...range, data });
+    const { data: eventRows, error: eventError } = await supabase.from("events")
+      .select("id,title,subtitle,category,status,city,country_code,expected_attendance,international_ratio_pct,recurrence_frequency,official_url,created_at,updated_at,venues(id,name,city,country_code,address,latitude,longitude,capacity,verification_status),event_evidence(id,source_name,source_url,excerpt,evidence_type,trust_score,verified_at,event_sources(source_type)),event_occurrences!inner(id,start_date,end_date,date_status,attendance_estimate)")
+      .eq("city", hotel.city)
+      .lte("event_occurrences.start_date", range.to).gte("event_occurrences.end_date", range.from);
+    if (eventError) return fail("Lecture du catalogue événementiel impossible", 400, eventError.message);
+    const occurrences = (eventRows ?? []).flatMap((event: any) => (event.event_occurrences ?? []).map((occurrence: any) => ({ event, occurrence })));
+    const occurrenceIds = occurrences.map((item: any) => item.occurrence.id);
+    let impacts: any[] = [];
+    if (occurrenceIds.length) {
+      const { data: impactRows, error: impactError } = await supabase.from("event_hotel_impacts")
+        .select("*").eq("hotel_id", hotelId).in("occurrence_id", occurrenceIds);
+      if (impactError) return fail("Lecture des impacts propres à l'hôtel impossible", 400, impactError.message);
+      impacts = impactRows ?? [];
+    }
+    const impactByOccurrence = new Map(impacts.map((impact: any) => [impact.occurrence_id, impact]));
+    const data = occurrences.map((item: any) => ({
+      events: item.event,
+      event_occurrences: item.occurrence,
+      ...(impactByOccurrence.get(item.occurrence.id) ?? {}),
+    })).sort((a: any, b: any) => {
+      const scoreA = a.final_rm_score ?? -1, scoreB = b.final_rm_score ?? -1;
+      return scoreB - scoreA || String(a.event_occurrences.start_date).localeCompare(String(b.event_occurrences.start_date));
+    });
+    return json({ ok: true, hotelId, city: hotel.city, ...range, data });
   }
 
   if (req.method === "GET" && actionPath === "inventory-snapshots") {
