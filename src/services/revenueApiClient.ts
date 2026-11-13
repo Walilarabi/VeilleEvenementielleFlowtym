@@ -187,3 +187,8 @@ export const getHotelInventorySnapshots = (supabase: SupabaseClient, hotelId: st
   revenueApiRequest<{ ok: true; data: unknown[] }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/inventory-snapshots?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
   );
+
+export const getHotelIntegrations = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/integrations`,
+  );
