@@ -174,7 +174,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             <div>
               <div className="text-[11px] font-bold text-slate-400 uppercase">Affluence Estimée</div>
               <div className="text-xs font-bold text-slate-900 mt-0.5 tabular-nums">
-                {event.expectedAttendance.toLocaleString('fr-FR')} pax
+                {event.expectedAttendanceUnknown ? 'Affluence non communiquée' : `${event.expectedAttendance.toLocaleString('fr-FR')} pax`}
               </div>
             </div>
 
@@ -189,7 +189,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <div className="text-[11px] font-bold text-slate-400 uppercase">Indice Confiance</div>
               <div className="text-xs font-bold text-emerald-600 mt-0.5 tabular-nums flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                {event.scoreBreakdown.confidenceScore}%
+                {event.confidenceUnknown ? 'Non calculée' : `${event.scoreBreakdown.confidenceScore}%`}
               </div>
             </div>
           </div>
