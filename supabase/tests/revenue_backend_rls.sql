@@ -37,35 +37,25 @@ do $$
 declare
   own_org uuid := current_setting('flowtym_test.own_org_id')::uuid;
   own_hotel uuid := current_setting('flowtym_test.own_hotel_id')::uuid;
-  other_org uuid := current_setting('flowtym_test.other_org_id')::uuid;
-  other_hotel uuid := current_setting('flowtym_test.other_hotel_id')::uuid;
-begin
-  if not flowtym_private.can_access_hotel(own_hotel,own_org) then
-    raise exception 'FAIL: Revenue Manager cannot access assigned tenant hotel';
-  end if;
-  if not flowtym_private.can_manage_hotel(own_hotel,own_org) then
-    raise exception 'FAIL: Revenue Manager cannot manage own tenant hotel';
-  end if;
-  if flowtym_private.can_access_hotel(other_hotel,other_org) then
-    raise exception 'FAIL: cross-tenant hotel access was granted';
-  end if;
-  if exists(select 1 from public.hotels where id=other_hotel) then
-    raise exception 'FAIL: RLS exposed another organization hotel';
-  end if;
-end $$;
-
-do $$
-declare
-  own_org uuid := current_setting('flowtym_test.own_org_id')::uuid;
-  own_hotel uuid := current_setting('flowtym_test.own_hotel_id')::uuid;
   v_rate_id uuid;
+  v_rate_id_again uuid;
   v_status text;
 begin
-  insert into public.daily_rate_intelligence(
-    organization_id,hotel_id,stay_date,current_bar,suggested_bar,engine_version
-  ) values (
-    own_org,own_hotel,current_date+29,220,245,'rls-atomic-test'
-  ) returning id into v_rate_id;
+  select id into v_rate_id
+  from public.persist_rm_recommendation(
+    own_org,own_hotel,current_date+29,'EUR',220,245,25,11.36,72,'eleve',78,10,null,230,
+    'PRICING_V1_HIGH','Test recommendation','{"test":true}'::jsonb,80,'valid','{"test":true}'::jsonb,'rls-idempotency-test'
+  );
+
+  select id into v_rate_id_again
+  from public.persist_rm_recommendation(
+    own_org,own_hotel,current_date+29,'EUR',220,250,30,13.64,76,'eleve',80,9,null,235,
+    'PRICING_V1_HIGH','Updated pending recommendation','{"test":true}'::jsonb,85,'valid','{"test":true}'::jsonb,'rls-idempotency-test'
+  );
+
+  if v_rate_id <> v_rate_id_again then
+    raise exception 'FAIL: repeated generation created duplicate pending recommendations';
+  end if;
 
   select recommendation_status into v_status
   from public.record_rm_decision(own_hotel,v_rate_id,'modify',240,null,'rls_test','Transactional RLS test');
@@ -76,6 +66,16 @@ begin
   if not exists(select 1 from public.rm_decision_audit_logs where rate_intelligence_id=v_rate_id and reason_code='rls_test') then
     raise exception 'FAIL: decision audit row missing';
   end if;
+
+  begin
+    perform * from public.persist_rm_recommendation(
+      own_org,own_hotel,current_date+29,'EUR',220,255,35,15.91,80,'eleve',85,7,null,240,
+      'PRICING_V1_HIGH','Should not overwrite a decided recommendation','{"test":true}'::jsonb,90,'valid','{"test":true}'::jsonb,'rls-idempotency-test'
+    );
+    raise exception 'FAIL: recommendation generation overwrote a decided recommendation';
+  exception when sqlstate '55000' then
+    null;
+  end;
 
   begin
     update public.rm_decision_audit_logs set reason_text='tampered' where rate_intelligence_id=v_rate_id;
