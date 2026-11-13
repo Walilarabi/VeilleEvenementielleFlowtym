@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useAuth } from './auth/AuthProvider';
 import { PanelLeftOpen, ChevronRight } from 'lucide-react';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar, NavTab, SidebarMode } from './components/layout/Sidebar';
@@ -66,41 +67,11 @@ import { EventItem, FilterState, Hotel, EventProposal } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 import { exportEventsToPDF } from './utils/pdfExport';
 
-interface UserSession {
-  name: string;
-  email: string;
-  role: string;
-}
-
 export default function App() {
-  // Authentication State
-  const [user, setUser] = useState<UserSession | null>(() => {
-    const saved = localStorage.getItem('flowtym_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
-      }
-    }
-    // Default logged-in demo user for immediate testing if desired, but let's allow clean logout/login
-    return {
-      name: 'Wali Larabi',
-      email: 'wali.larabi@flowtym.com',
-      role: 'Head of Revenue Management',
-    };
-  });
-
-  const handleLoginSuccess = (newUser: UserSession) => {
-    setUser(newUser);
-    localStorage.setItem('flowtym_user', JSON.stringify(newUser));
-    showToast(`Bienvenue, ${newUser.name}`);
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('flowtym_user');
-    showToast('Vous avez été déconnecté avec succès');
+  const { user, loading: authLoading, error: authError, recoveryMode, signOut } = useAuth();
+  const handleLogout = async () => {
+    try { await signOut(); }
+    catch (error) { console.error('Supabase sign-out failed:', error); showToast('La déconnexion a échoué. Veuillez réessayer.'); }
   };
 
   // Global Navigation State
@@ -535,10 +506,12 @@ export default function App() {
   const pendingSuggestionsCount = suggestions.filter((s) => s.status === 'pending').length;
   const pendingProposalsCount = proposals.filter((p) => p.status === 'pending').length;
 
-  // If user is not authenticated, render Login Page!
-  if (!user) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
-  }
+  if (authLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
+      <div className="text-center space-y-3"><div className="mx-auto h-9 w-9 rounded-full border-4 border-violet-100 border-t-violet-600 animate-spin" /><p className="text-sm font-medium text-slate-600">Vérification de votre session sécurisée…</p></div>
+    </div>
+  );
+  if (recoveryMode || !user) return <LoginPage authError={authError} recoveryMode={recoveryMode} />;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 antialiased font-sans">
@@ -566,19 +539,6 @@ export default function App() {
         onToggleFullscreen={handleToggleFullscreen}
       />
 
-      {/* Sub-header Banner Session Demo matching reference screenshots */}
-      <div className="bg-violet-50/70 border-b border-violet-100/90 px-4 sm:px-6 py-2 text-[11px] text-violet-900 flex flex-wrap items-center justify-between gap-2 z-20">
-        <div>
-          <strong>Accès ouvert — authentification désactivée.</strong> L&apos;interface est accessible sans connexion pour le moment (AUTH_MODE=open). Session de travail : {user?.name || 'Nabil Amrani'} · {user?.email || 'revenue@flowtym.fr'}.
-        </div>
-        <button
-          onClick={handleLogout}
-          className="text-violet-700 hover:text-violet-900 font-bold underline cursor-pointer"
-        >
-          Ouvrir l&apos;écran de connexion
-        </button>
-      </div>
-
       {/* Main Container: Fixed Sidebar + Content */}
       <div className="flex-1 flex relative">
         {/* Sidebar Navigation (Slim Icon-Rail) */}
@@ -592,7 +552,7 @@ export default function App() {
           isMobileOpen={isMobileMenuOpen}
           onCloseMobile={() => setIsMobileMenuOpen(false)}
           onLogout={handleLogout}
-          userInitials="NA"
+          userInitials={user.name.split(/\\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
           userName={user?.name || 'Nabil Amrani'}
         />
 
