@@ -90,3 +90,9 @@ export const evaluateForecastBacktest = (supabase: SupabaseClient, hotelId: stri
     supabase, `/hotels/${encodeURIComponent(hotelId)}/backtests/evaluate`,
     { method: "POST", body: { forecastRunId } },
   );
+
+export const scoreHotelEventImpact = (supabase: SupabaseClient, hotelId: string, occurrenceId: string) =>
+  revenueApiRequest<{ ok: true; data: unknown; requiresHumanValidation: true; driveTimeCalculated: false; extraNightsCalculated: false }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/events/score`,
+    { method: "POST", body: { occurrenceId } },
+  );
