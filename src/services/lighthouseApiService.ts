@@ -20,10 +20,15 @@ const STORAGE_KEY_PREFIX = 'flowtym_lighthouse_config_';
  */
 export const LIGHTHOUSE_API_SPEC = {
   name: 'Lighthouse Rate Insight API',
-  docsUrl: 'https://api.mylighthouse.com/#introduction-0',
+  baseUrl: 'À confirmer — connecteur non configuré',
+  docUrl: 'https://api.mylighthouse.com/#introduction-0',
   portalUrl: 'https://app.mylighthouse.com/hotel',
   integrationStatus: 'not_connected',
+  authProtocol: 'À confirmer auprès du fournisseur',
   note: 'Les endpoints, l’authentification, les paramètres LOS/POS, les limites et les droits doivent être confirmés dans la documentation contractuelle du compte. Aucun endpoint n’est présumé ni appelé par ce module.',
+  supportedEndpoints: [] as Array<{method:string;path:string;description:string;params:string[]}>,
+  rateLimits: 'À confirmer auprès de Lighthouse',
+  availabilityHorizons: 'À confirmer auprès de Lighthouse',
   requiredCapabilities: [
     'Extraction des tarifs concurrents comparables',
     'Disponibilités / sold-out et statut de comparabilité',
