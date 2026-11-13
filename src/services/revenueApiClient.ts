@@ -177,3 +177,13 @@ export const reviewPriceExperiment = (
   supabase, `/hotels/${encodeURIComponent(hotelId)}/price-experiments/review`,
   { method: "POST", body: { experimentId, action, reasonCode, evidence, reasonText } },
 );
+
+export const getHotelForecasts = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/forecasts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  );
+
+export const getHotelInventorySnapshots = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/inventory-snapshots?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  );
