@@ -79,3 +79,14 @@ export const importHotelHistoricalRows = (
 ) => revenueApiRequest<{ ok: true; importId: string; imported: number }>(
   supabase, `/hotels/${encodeURIComponent(hotelId)}/historical-import`, { method: "POST", body: payload },
 );
+
+export const getHotelBacktests = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/backtests`,
+  );
+
+export const evaluateForecastBacktest = (supabase: SupabaseClient, hotelId: string, forecastRunId: string) =>
+  revenueApiRequest<{ ok: true; data: unknown }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/backtests/evaluate`,
+    { method: "POST", body: { forecastRunId } },
+  );
