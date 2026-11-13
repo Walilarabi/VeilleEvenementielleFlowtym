@@ -303,9 +303,8 @@ export default function App() {
     showToast('Création événementielle non enregistrée : le formulaire sera réactivé après ajout de la route backend sécurisée.');
   };
 
-  const handleOpenAddOnDate = (dateStr: string) => {
-    setAddEventDefaultDate(dateStr);
-    setIsAddModalOpen(true);
+  const handleOpenAddOnDate = (_dateStr: string) => {
+    showToast('Ajout d’événement désactivé tant que le formulaire ne passe pas par une écriture backend sécurisée.');
   };
 
   const handleImportEvents = (_imported: EventItem[]) => {
@@ -531,8 +530,8 @@ export default function App() {
                       setViewMode(mode);
                       setCalendarSubTab(mode);
                     }}
-                    onOpenAddModal={() => setIsAddModalOpen(true)}
-                    onOpenImportModal={() => setIsImportModalOpen(true)}
+                    onOpenAddModal={() => showToast('Création d’événement non disponible : la persistance backend n’est pas encore ouverte.')}
+                    onOpenImportModal={() => showToast('Import événementiel non disponible : utilisez l’import historique dans Pricing pour les données hôtelières.')}
                     onDownloadTemplate={handleDownloadTemplate}
                     onExportData={handleExportData}
                     onExportPDF={handleExportPDF}
