@@ -335,54 +335,103 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     if (!isDate(start) || !isDate(end) || start > end || eachDate(start, end).length > 180) {
       return fail("startDate/endDate invalides (maximum 180 jours)");
     }
-    const today = new Date().toISOString().slice(0,10);
+    const asOf = new Date();
+    const today = new Intl.DateTimeFormat("en-CA",{timeZone:hotel.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(asOf);
+    if (start < today) return fail("Une prévision opérationnelle doit porter sur aujourd'hui ou une date future. Utilisez le backtest walk-forward pour le passé.",422);
     const cutoff = addDays(today, -1095);
-    const { data: history, error: historyError } = await supabase.from("hotel_historical_daily")
-      .select("stay_date,day_of_week,occupancy_pct,adr_net,revpar,source_status")
-      .eq("hotel_id", hotelId).gte("stay_date", cutoff).lt("stay_date", today)
-      .in("source_status", ["real","imported"]).order("stay_date", { ascending: false }).limit(5000);
-    if (historyError) return fail("Lecture de l'historique impossible", 400, historyError.message);
+    const [historyResult,demandResult] = await Promise.all([
+      supabase.from("hotel_historical_daily")
+        .select("stay_date,day_of_week,occupancy_pct,adr_net,revpar,source_status,updated_at")
+        .eq("hotel_id",hotelId).gte("stay_date",cutoff).lt("stay_date",today)
+        .in("source_status",["real","imported"]).order("updated_at",{ascending:false}).limit(5000),
+      supabase.from("hotel_historical_demand_snapshots")
+        .select("arrival_date,observation_date,days_before_arrival,projected_occupancy_pct,pickup_since_previous,cancellations_since_previous,source_status")
+        .eq("hotel_id",hotelId).gte("arrival_date",cutoff).lt("arrival_date",today)
+        .in("source_status",["real","imported"]).order("observation_date",{ascending:false}).limit(10000),
+    ]);
+    if (historyResult.error || demandResult.error) return fail("Lecture de l'historique Revenue impossible",400,historyResult.error?.message ?? demandResult.error?.message);
+    const history=historyResult.data??[];
+    const demandHistory=demandResult.data??[];
+    const actualByDate=new Map<string,any>();
+    for (const row of history) if (!actualByDate.has(row.stay_date) && numberOrNull(row.occupancy_pct)!==null) actualByDate.set(row.stay_date,row);
 
-    const { data: run, error: runError } = await supabase.from("revenue_forecast_runs").insert({
-      organization_id: hotel.organization_id, hotel_id: hotelId,
-      model_name: "seasonal_naive_same_month_weekday", model_version: "1.0.0",
-      as_of: new Date().toISOString(), horizon_start: start, horizon_end: end,
-      input_freshness: { historicalRows: history?.length ?? 0, cutoff }, parameters: { minSamples: 3 },
-      run_status: "running", created_by: profile.id,
-    }).select("id").single();
-    if (runError || !run) return fail("Création du run de prévision impossible", 400, runError?.message);
+    const models=[
+      {name:"seasonal_naive_same_month_weekday",version:"1.0.0",minimumSamples:3},
+      {name:"same_weekday_last_year",version:"1.0.0",minimumSamples:1},
+      {name:"seasonal_average_same_month",version:"1.0.0",minimumSamples:3},
+      {name:"pickup_historical_comparable",version:"1.0.0",minimumSamples:3},
+    ];
+    const modelResults:any[]=[];
+    for (const model of models) {
+      const {data:run,error:runError}=await supabase.from("revenue_forecast_runs").insert({
+        organization_id:hotel.organization_id,hotel_id:hotelId,model_name:model.name,model_version:model.version,
+        as_of:asOf.toISOString(),horizon_start:start,horizon_end:end,
+        input_freshness:{historicalDailyRows:history.length,historicalDemandSnapshots:demandHistory.length,cutoff,asOf:asOf.toISOString()},
+        parameters:{minimumSamples:model.minimumSamples,lookbackDays:1095,timezone:hotel.timezone},
+        run_status:"running",created_by:profile.id,
+      }).select("id").single();
+      if (runError || !run) return fail("Création du run de prévision impossible",400,runError?.message);
 
-    const forecasts: any[] = [];
-    for (const stayDate of eachDate(start, end)) {
-      const d = new Date(stayDate + "T00:00:00Z");
-      const month = d.getUTCMonth() + 1, dow = d.getUTCDay();
-      const sample = (history ?? []).filter((r: any) =>
-        r.stay_date < today && new Date(r.stay_date + "T00:00:00Z").getUTCMonth()+1 === month &&
-        ((r.day_of_week ?? new Date(r.stay_date + "T00:00:00Z").getUTCDay()) === dow) && numberOrNull(r.occupancy_pct) !== null
-      );
-      if (sample.length < 3) continue;
-      const occ = sample.map((r: any) => Number(r.occupancy_pct)).filter((n: number) => n >= 0 && n <= 100);
-      const adr = sample.map((r: any) => Number(r.adr_net)).filter((n: number) => Number.isFinite(n) && n >= 0);
-      const revpar = sample.map((r: any) => Number(r.revpar)).filter((n: number) => Number.isFinite(n) && n >= 0);
-      forecasts.push({
-        organization_id: hotel.organization_id, hotel_id: hotelId, forecast_run_id: run.id, stay_date: stayDate,
-        occupancy_p10: quantile(occ,0.1), occupancy_p50: median(occ), occupancy_p90: quantile(occ,0.9),
-        adr_p50: median(adr), revpar_p50: median(revpar), confidence_score: null,
-        drivers: [{ type: "seasonal_naive", sampleCount: sample.length, sameMonthWeekday: true }],
-        source_status: "derived",
+      const forecasts:any[]=[];
+      for (const stayDate of eachDate(start,end)) {
+        const target=new Date(stayDate+"T00:00:00Z");
+        const month=target.getUTCMonth()+1;
+        const dow=target.getUTCDay();
+        const leadDays=Math.max(0,Math.round((Date.parse(stayDate+"T00:00:00Z")-Date.parse(today+"T00:00:00Z"))/86400000));
+        let sampleRows:any[]=[];
+        if (model.name==="seasonal_naive_same_month_weekday") {
+          sampleRows=history.filter((r:any)=>new Date(r.stay_date+"T00:00:00Z").getUTCMonth()+1===month &&
+            (r.day_of_week??new Date(r.stay_date+"T00:00:00Z").getUTCDay())===dow && numberOrNull(r.occupancy_pct)!==null);
+        } else if (model.name==="same_weekday_last_year") {
+          const lastYear=addDays(stayDate,-365);
+          const lower=addDays(lastYear,-7),upper=addDays(lastYear,7);
+          sampleRows=history.filter((r:any)=>r.stay_date>=lower && r.stay_date<=upper &&
+            (r.day_of_week??new Date(r.stay_date+"T00:00:00Z").getUTCDay())===dow && numberOrNull(r.occupancy_pct)!==null);
+        } else if (model.name==="seasonal_average_same_month") {
+          sampleRows=history.filter((r:any)=>new Date(r.stay_date+"T00:00:00Z").getUTCMonth()+1===month && numberOrNull(r.occupancy_pct)!==null);
+        } else {
+          const comparableByArrival=new Map<string,any>();
+          for (const snapshot of demandHistory as any[]) {
+            const arrival=snapshot.arrival_date;
+            const arrivalDate=new Date(arrival+"T00:00:00Z");
+            if (arrivalDate.getUTCMonth()+1!==month ||
+                (arrivalDate.getUTCDay()!==dow) ||
+                Math.abs(Number(snapshot.days_before_arrival)-leadDays)>2 ||
+                !actualByDate.has(arrival)) continue;
+            if (!comparableByArrival.has(arrival)) comparableByArrival.set(arrival,actualByDate.get(arrival));
+          }
+          sampleRows=[...comparableByArrival.values()];
+        }
+        const occ=sampleRows.map((r:any)=>Number(r.occupancy_pct)).filter((n:number)=>Number.isFinite(n)&&n>=0&&n<=100);
+        if (occ.length<model.minimumSamples) continue;
+        const adr=sampleRows.map((r:any)=>Number(r.adr_net)).filter((n:number)=>Number.isFinite(n)&&n>=0);
+        const revpar=sampleRows.map((r:any)=>Number(r.revpar)).filter((n:number)=>Number.isFinite(n)&&n>=0);
+        forecasts.push({
+          organization_id:hotel.organization_id,hotel_id:hotelId,forecast_run_id:run.id,stay_date:stayDate,
+          occupancy_p10:occ.length>=3?quantile(occ,0.1):null,
+          occupancy_p50:median(occ),
+          occupancy_p90:occ.length>=3?quantile(occ,0.9):null,
+          adr_p50:median(adr),revpar_p50:median(revpar),confidence_score:null,
+          drivers:[{type:model.name,sampleCount:occ.length,leadDays,lookbackDays:1095,sourceStatus:["real","imported"]}],
+          source_status:"derived",
+        });
+      }
+      let insertError:any=null;
+      if (forecasts.length) {
+        const inserted=await supabase.from("daily_demand_forecasts").insert(forecasts);
+        insertError=inserted.error;
+      }
+      await supabase.from("revenue_forecast_runs").update({
+        run_status:insertError?"failed":"completed",error_message:insertError?.message??null,
+      }).eq("id",run.id);
+      if (insertError) return fail("Persistance des prévisions impossible",400,insertError.message);
+      modelResults.push({
+        modelName:model.name,modelVersion:model.version,forecastRunId:run.id,
+        datesRequested:eachDate(start,end).length,datesForecast:forecasts.length,
+        skippedForInsufficientHistory:eachDate(start,end).length-forecasts.length,
       });
     }
-    let insertError: any = null;
-    if (forecasts.length) {
-      const inserted = await supabase.from("daily_demand_forecasts").insert(forecasts);
-      insertError = inserted.error;
-    }
-    await supabase.from("revenue_forecast_runs").update({
-      run_status: insertError ? "failed" : "completed",
-      error_message: insertError?.message ?? null,
-    }).eq("id", run.id);
-    if (insertError) return fail("Persistance des prévisions impossible", 400, insertError.message);
-    return json({ ok: true, forecastRunId: run.id, datesRequested: eachDate(start,end).length, datesForecast: forecasts.length, skippedForInsufficientHistory: eachDate(start,end).length-forecasts.length }, 201);
+    return json({ok:true,hotelId,asOf:asOf.toISOString(),models:modelResults,forecastingIsBaselineOnly:true},201);
   }
 
   if (actionPath === "events/score") {
