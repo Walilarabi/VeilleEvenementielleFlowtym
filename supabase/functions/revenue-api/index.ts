@@ -418,7 +418,8 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       for (const field of ["available_rooms", "complimentary_rooms", "out_of_order_rooms", "reservations_count", "guests_count"]) {
         if (r[field] != null && (!Number.isInteger(r[field]) || r[field] < 0)) return true;
       }
-      if (!Number.isFinite(Number(r.occupancy_pct)) || Number(r.occupancy_pct) < 0 || Number(r.occupancy_pct) > 100) return true;
+      const occupancy = numberOrNull(r.occupancy_pct);
+      if (occupancy === null || occupancy < 0 || occupancy > 100) return true;
       for (const field of ["adr_net", "revpar", "accommodation_revenue", "net_adr"]) {
         if (r[field] != null && (!Number.isFinite(Number(r[field])) || Number(r[field]) < 0)) return true;
       }
@@ -435,7 +436,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         s.days_before_arrival !== expectedDays ||
         !Number.isInteger(s.rooms_booked_otb) || s.rooms_booked_otb < 0 ||
         !Number.isInteger(s.rooms_available) || s.rooms_available < 0 ||
-        !Number.isFinite(Number(s.projected_occupancy_pct)) || Number(s.projected_occupancy_pct) < 0 || Number(s.projected_occupancy_pct) > 100 ||
+        numberOrNull(s.projected_occupancy_pct) === null || Number(s.projected_occupancy_pct) < 0 || Number(s.projected_occupancy_pct) > 100 ||
         (s.booked_adr != null && (!Number.isFinite(Number(s.booked_adr)) || Number(s.booked_adr) < 0)) ||
         (s.booked_revenue != null && (!Number.isFinite(Number(s.booked_revenue)) || Number(s.booked_revenue) < 0)) ||
         (s.rooms_booked_otb > 0 && s.booked_adr == null && s.booked_revenue == null) ||
@@ -925,6 +926,10 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       const inv=latestInventory.get(stayDate);
       const current=numberOrNull(inv?.current_bar);
       if (current===null || current<=0) continue;
+      if (current < floor || current > ceiling) {
+        output.push({stayDate,status:"skipped",reason:"current_rate_outside_configured_bounds"});
+        continue;
+      }
       const inventoryAgeHours=(Date.now()-Date.parse(inv.snapshot_at))/3600000;
       if (!Number.isFinite(inventoryAgeHours) || inventoryAgeHours < 0 || inventoryAgeHours > maxInventoryAge) {
         output.push({stayDate,status:"skipped",reason:"stale_inventory_snapshot"});
