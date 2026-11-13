@@ -56,15 +56,14 @@ const KeyboardShortcutsModal = React.lazy(() => import('./components/modals/Keyb
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
-import {
-  INITIAL_HOTELS,
-} from './data/mockData';
 import { EventItem, EventSuggestion, EventSource, FilterState, Hotel, EventProposal, Venue } from './types';
+
+const EMPTY_HOTEL: Hotel = { id: '', name: '', group: null, city: '', country: '', address: null, lat: null, lng: null, stars: null, roomCount: null, segment: null, baseADR: null };
 import { exportEventsToCSV } from './utils/helpers';
 
 
 export default function App() {
-  const { user, loading: authLoading, error: authError, recoveryMode, signOut } = useAuth();
+  const { supabase, user, loading: authLoading, error: authError, recoveryMode, signOut } = useAuth();
   const handleLogout = async () => {
     try { await signOut(); }
     catch (error) { console.error('Supabase sign-out failed:', error); showToast('La déconnexion a échoué. Veuillez réessayer.'); }
@@ -126,7 +125,9 @@ export default function App() {
   });
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [hotelsLoading, setHotelsLoading] = useState(true);
+  const [hotelsError, setHotelsError] = useState<string | null>(null);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [sources, setSources] = useState<EventSource[]>([]);
   const [suggestions, setSuggestions] = useState<EventSuggestion[]>([]);
@@ -134,6 +135,61 @@ export default function App() {
 
   // Proposals State (Score RM 30 à 59)
   const [proposals, setProposals] = useState<EventProposal[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadAccessibleHotels = async () => {
+      if (!supabase) {
+        if (active) {
+          setHotelsError('Connexion Supabase indisponible : aucun portefeuille hôtelier réel ne peut être chargé.');
+          setHotelsLoading(false);
+        }
+        return;
+      }
+      setHotelsLoading(true);
+      setHotelsError(null);
+      try {
+        const { data, error } = await supabase
+          .from('hotels')
+          .select('id,name,group_name,city,country,address,lat,lng,stars,room_count,segment,base_adr')
+          .eq('is_active', true)
+          .order('name');
+        if (error) throw error;
+        const rows = (data ?? []).map((row: any): Hotel => ({
+          id: row.id,
+          name: row.name,
+          group: row.group_name ?? null,
+          city: row.city ?? '',
+          country: row.country ?? '',
+          address: row.address ?? null,
+          lat: typeof row.lat === 'number' ? row.lat : null,
+          lng: typeof row.lng === 'number' ? row.lng : null,
+          stars: typeof row.stars === 'number' ? row.stars : null,
+          roomCount: typeof row.room_count === 'number' ? row.room_count : null,
+          segment: ['Luxe', 'Boutique', 'Affaires', 'Économique', 'Resort'].includes(row.segment) ? row.segment : null,
+          baseADR: typeof row.base_adr === 'number' ? row.base_adr : null,
+        }));
+        if (!active) return;
+        setHotels(rows);
+        if (rows.length === 0) {
+          setHotelsError('Aucun hôtel actif accessible dans Supabase. Faites initialiser l’établissement et ses droits avant d’utiliser le RMS.');
+          return;
+        }
+        setFilterState((prev) => ({
+          ...prev,
+          selectedHotelId: rows.some((hotel) => hotel.id === prev.selectedHotelId)
+            ? prev.selectedHotelId
+            : rows[0].id,
+        }));
+      } catch (error) {
+        if (active) setHotelsError(error instanceof Error ? error.message : 'Impossible de charger les hôtels depuis Supabase.');
+      } finally {
+        if (active) setHotelsLoading(false);
+      }
+    };
+    void loadAccessibleHotels();
+    return () => { active = false; };
+  }, [supabase]);
 
   // View switch: 'calendar' vs 'table' (default to 'table' so Table View is immediately active)
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
@@ -153,9 +209,9 @@ export default function App() {
     anomaliesOnly: false,
     watchlistOnly: false,
     showSchoolHolidays: true,
-    selectedHotelId: 'hotel-opera',
-    currentYear: 2026,
-    currentMonth: 9, // October 2026 (0-indexed)
+    selectedHotelId: '',
+    currentYear: new Date().getFullYear(),
+    currentMonth: new Date().getMonth(),
   });
 
   // Collapsible advanced filters (open by default like the screenshot)
@@ -201,7 +257,7 @@ export default function App() {
 
   // Current Hotel selection
   const currentHotel = useMemo(() => {
-    return hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0];
+    return hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0] || EMPTY_HOTEL;
   }, [hotels, filterState.selectedHotelId]);
 
   // School holidays converted into EventItem representations
@@ -446,17 +502,12 @@ export default function App() {
   };
 
   // Hotel management
-  const handleAddHotel = (newHotel: Hotel) => {
-    setHotels((prev) => [...prev, newHotel]);
-    showToast(`Hôtel "${newHotel.name}" ajouté au portefeuille`);
+  const handleAddHotel = (_newHotel: Hotel) => {
+    showToast("Ajout bloqué : les hôtels doivent être créés et autorisés dans Supabase par un administrateur.");
   };
 
-  const handleDeleteHotel = (hotelId: string) => {
-    setHotels((prev) => prev.filter((h) => h.id !== hotelId));
-    if (filterState.selectedHotelId === hotelId) {
-      setFilterState((prev) => ({ ...prev, selectedHotelId: hotels[0]?.id || 'all' }));
-    }
-    showToast('Hôtel supprimé');
+  const handleDeleteHotel = (_hotelId: string) => {
+    showToast("Suppression bloquée : aucun hôtel n'est supprimé depuis cette interface non raccordée à un flux d'administration sécurisé.");
   };
 
   const pendingSuggestionsCount = suggestions.filter((s) => s.status === 'pending').length;
@@ -468,6 +519,8 @@ export default function App() {
     </div>
   );
   if (recoveryMode || !user) return <LoginPage authError={authError} recoveryMode={recoveryMode} />;
+  if (hotelsLoading) return <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]"><div className="text-center space-y-3"><div className="mx-auto h-9 w-9 rounded-full border-4 border-violet-100 border-t-violet-600 animate-spin" /><p className="text-sm font-medium text-slate-600">Chargement des établissements autorisés depuis Supabase…</p></div></div>;
+  if (hotelsError || hotels.length === 0) return <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-6"><div className="max-w-xl rounded-2xl border border-amber-200 bg-white p-6 shadow-sm"><h1 className="text-lg font-bold text-slate-900">Portefeuille hôtelier indisponible</h1><p className="mt-2 text-sm text-slate-600">{hotelsError || 'Aucun hôtel actif accessible.'}</p><button onClick={() => window.location.reload()} className="mt-4 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white">Réessayer</button></div></div>;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 antialiased font-sans">
