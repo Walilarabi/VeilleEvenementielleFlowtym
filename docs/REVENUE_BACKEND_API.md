@@ -87,6 +87,40 @@ The engine version is persisted as `pricing_v1`; all inputs and configuration ar
 
 ## Event impact scoring
 
+Example configuration only — not a pre-approved set of weights or hotel thresholds:
+
+```json
+{
+  "event_impact_v1": {
+    "weights": {
+      "attendance": 0.25,
+      "international": 0.20,
+      "duration": 0.10,
+      "proximity": 0.15,
+      "capacity": 0.10,
+      "notoriety": 0.10,
+      "recurrence": 0.05,
+      "extra_nights": 0.05,
+      "segment_fit": 0.00
+    },
+    "scales": {
+      "attendance": 50000,
+      "duration_days": 5,
+      "max_distance_km": 20,
+      "venue_capacity": 50000
+    },
+    "recurrence_scores": {
+      "annual": 100,
+      "biennial": 75,
+      "triennial": 55,
+      "one_time": 25
+    },
+    "minimum_weight_coverage_pct": 80,
+    "minimum_components": 4
+  }
+}
+```
+
 `event_impact_v1` requires hotel-specific weights and scales in `hotel_parameters_profiles.demand_thresholds`. Inputs are the event attendance estimate, international ratio, occurrence duration, straight-line hotel-to-venue distance, verified venue capacity, verified evidence trust scores, configured recurrence scores and optional segment-fit scores. Components with missing evidence remain NULL and their weights are excluded from the available-weight mean. The result is stored as `to_review`; it is never auto-validated. Drive time and extra-night lift are explicitly not calculated until verified routing and hotel-history models exist. Only confirmed/probable events with confirmed occurrence dates are scored.
 
 ## Forecast baseline
