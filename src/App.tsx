@@ -548,7 +548,7 @@ export default function App() {
         onOpenShortcutsHelp={() => setIsShortcutsHelpOpen(true)}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
-      />
+      /></React.Suspense>
 
       {/* Main Container: Fixed Sidebar + Content */}
       <div className="flex-1 flex relative">
@@ -564,8 +564,8 @@ export default function App() {
           onCloseMobile={() => setIsMobileMenuOpen(false)}
           onLogout={handleLogout}
           userInitials={user.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
-          userName={user?.name || 'Nabil Amrani'}
-        />
+          userName={user?.name || 'Utilisateur'}
+        /></React.Suspense>
 
         {/* Dynamic Content Viewport */}
         <main
