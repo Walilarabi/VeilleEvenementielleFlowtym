@@ -556,11 +556,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="text-lg font-bold text-slate-900 tabular-nums">35</div>
+                <div className="text-lg font-bold text-slate-900 tabular-nums">36</div>
                 <div className="text-[11px] text-slate-500">Tables métier et fondation</div>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="text-lg font-bold text-slate-900 tabular-nums">35/35</div>
+                <div className="text-lg font-bold text-slate-900 tabular-nums">36/36</div>
                 <div className="text-[11px] text-slate-500">Tables publiques avec RLS activé</div>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
