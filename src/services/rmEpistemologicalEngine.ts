@@ -40,6 +40,7 @@ export function generateRMEpistemologicalBreakdown(
   const prevision: string[] = [];
   const hypothese: string[] = [];
   const primaryDrivers: string[] = [];
+  const baseADR = baseADR ?? 0;
 
   const totalPax = dayEvents.reduce((acc, e) => acc + (e.expectedAttendance || 0), 0);
   const maxScore = dayEvents.length > 0 ? Math.max(...dayEvents.map((e) => e.scoreBreakdown?.finalRMScore ?? 50)) : 0;
@@ -69,8 +70,8 @@ export function generateRMEpistemologicalBreakdown(
   // 2. ANALYSE
   if (compset.soldOutCount >= 2 && dedge.roomsAvailable <= 12) {
     analyse.push('Forte tension de compression : Le marché local sature et le compset direct rejette une demande non servie vers votre établissement.');
-  } else if (compset.compsetAverage > hotel.baseADR * 1.15) {
-    analyse.push(`Écart de positionnement compétitif : Votre tarif de base (${hotel.baseADR}€) présente un retard de ${compset.compsetAverage - hotel.baseADR}€ face au marché.`);
+  } else if (compset.compsetAverage > baseADR * 1.15) {
+    analyse.push(`Écart de positionnement compétitif : Votre tarif de base (${baseADR}€) présente un retard de ${compset.compsetAverage - baseADR}€ face au marché.`);
   } else if (dedge.occupancyPercent < 60 && dayEvents.length === 0) {
     analyse.push('Demande atone : Rythme de réservation organique insuffisant pour garantir le remplissage de base sans stimulation commerciale.');
   } else {
@@ -97,15 +98,15 @@ export function generateRMEpistemologicalBreakdown(
   // 4. RECOMMANDATION RM
   let recommandation = '';
   if (demandLevel === 'exceptionnel') {
-    const targetRate = Math.round(hotel.baseADR * 1.42);
+    const targetRate = Math.round(baseADR * 1.42);
     recommandation = `Hausse vigoureuse du BAR à ${targetRate}€ (+42%), verrouillage immédiat des tarifs non annulables remisés, et application d’un Minimum Stay de 2 ou 3 nuits.`;
   } else if (demandLevel === 'eleve') {
-    const targetRate = Math.round(hotel.baseADR * 1.25);
+    const targetRate = Math.round(baseADR * 1.25);
     recommandation = `Rehausser le tarif de vente à ${targetRate}€ (+25%), fermer les canaux OTA à forte commission (>20%) et protéger le stock restant pour la clientèle directe.`;
   } else if (demandLevel === 'faible' && dedge.occupancyPercent < 65) {
-    recommandation = `Maintenir le BAR de base (${hotel.baseADR}€), ouvrir les packages loisirs (ex. petit-déjeuner inclus) et assouplir la politique d’annulation à J-1 sans brader le prix facial.`;
+    recommandation = `Maintenir le BAR de base (${baseADR}€), ouvrir les packages loisirs (ex. petit-déjeuner inclus) et assouplir la politique d’annulation à J-1 sans brader le prix facial.`;
   } else {
-    recommandation = `Maintenir le tarif actuel (${hotel.baseADR}€) ou tester un incrément tactique de +10€ tout en surveillant le pickup quotidien D-EDGE.`;
+    recommandation = `Maintenir le tarif actuel (${baseADR}€) ou tester un incrément tactique de +10€ tout en surveillant le pickup quotidien D-EDGE.`;
   }
 
   // 5. HYPOTHÈSES & LIMITES
