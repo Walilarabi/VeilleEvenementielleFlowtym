@@ -1,4 +1,5 @@
 import { withSupabase } from "npm:@supabase/server@1";
+import { calculateForecastMetrics, calculateHaversineKm, selectForecastTrainingRows, summarizeForecastSamples } from "./_shared/forecast.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -72,31 +73,6 @@ async function getHotel(supabase: any, hotelId: string): Promise<Hotel | null> {
 
 function requireManager(profile: Profile) {
   return ["super_admin", "admin", "revenue_manager"].includes(profile.role);
-}
-
-function haversineKm(lat1:number,lon1:number,lat2:number,lon2:number):number {
-  const rad=(v:number)=>v*Math.PI/180;
-  const dLat=rad(lat2-lat1),dLon=rad(lon2-lon1);
-  const a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;
-  return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
-function calculateForecastMetrics(actual: number[], forecast: number[]) {
-  if (!actual.length || actual.length !== forecast.length) return null;
-  const errors = actual.map((a,i)=>forecast[i]-a);
-  const absoluteError = errors.reduce((s,e)=>s+Math.abs(e),0);
-  const actualTotal = actual.reduce((s,a)=>s+Math.abs(a),0);
-  const mae = absoluteError/actual.length;
-  const rmse = Math.sqrt(errors.reduce((s,e)=>s+e*e,0)/actual.length);
-  const biasPct = actual.reduce((s,a,i)=>s+forecast[i]-a,0);
-  const actualSum = actual.reduce((s,a)=>s+a,0);
-  return {
-    sampleCount: actual.length,
-    wape: actualTotal>0 ? absoluteError/actualTotal : null,
-    mae,
-    rmse,
-    biasPct: actualSum!==0 ? biasPct/actualSum*100 : null,
-  };
 }
 
 async function handle(req: Request, supabase: any, userId: string): Promise<Response> {
@@ -331,30 +307,24 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
   }
 
   if (actionPath === "forecasts/baseline") {
-    const start = body.startDate, end = body.endDate;
-    if (!isDate(start) || !isDate(end) || start > end || eachDate(start, end).length > 180) {
-      return fail("startDate/endDate invalides (maximum 180 jours)");
-    }
-    const asOf = new Date();
-    const today = new Intl.DateTimeFormat("en-CA",{timeZone:hotel.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(asOf);
-    if (start < today) return fail("Une prévision opérationnelle doit porter sur aujourd'hui ou une date future. Utilisez le backtest walk-forward pour le passé.",422);
-    const cutoff = addDays(today, -1095);
-    const [historyResult,demandResult] = await Promise.all([
-      supabase.from("hotel_historical_daily")
-        .select("stay_date,day_of_week,occupancy_pct,adr_net,revpar,source_status,updated_at")
-        .eq("hotel_id",hotelId).gte("stay_date",cutoff).lt("stay_date",today)
-        .in("source_status",["real","imported"]).order("updated_at",{ascending:false}).limit(5000),
-      supabase.from("hotel_historical_demand_snapshots")
-        .select("arrival_date,observation_date,days_before_arrival,projected_occupancy_pct,pickup_since_previous,cancellations_since_previous,source_status")
-        .eq("hotel_id",hotelId).gte("arrival_date",cutoff).lt("arrival_date",today)
-        .in("source_status",["real","imported"]).order("observation_date",{ascending:false}).limit(10000),
+    const start=body.startDate,end=body.endDate;
+    if (!isDate(start)||!isDate(end)||start>end||eachDate(start,end).length>180) return fail("startDate/endDate invalides (maximum 180 jours)");
+    const asOf=new Date();
+    const today=new Intl.DateTimeFormat("en-CA",{timeZone:hotel.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(asOf);
+    if (start<today) return fail("Une prévision opérationnelle doit porter sur aujourd'hui ou une date future. Utilisez le backtest walk-forward pour le passé.",422);
+    const cutoff=addDays(today,-1095);
+    const [historyResult,demandResult]=await Promise.all([
+      supabase.from("hotel_historical_daily").select("stay_date,day_of_week,occupancy_pct,adr_net,revpar,source_status,updated_at")
+        .eq("hotel_id",hotelId).gte("stay_date",cutoff).lt("stay_date",today).in("source_status",["real","imported"])
+        .order("updated_at",{ascending:false}).limit(5000),
+      supabase.from("hotel_historical_demand_snapshots").select("arrival_date,observation_date,days_before_arrival,source_status")
+        .eq("hotel_id",hotelId).gte("arrival_date",cutoff).lt("arrival_date",today).in("source_status",["real","imported"])
+        .order("observation_date",{ascending:false}).limit(10000),
     ]);
-    if (historyResult.error || demandResult.error) return fail("Lecture de l'historique Revenue impossible",400,historyResult.error?.message ?? demandResult.error?.message);
-    const history=historyResult.data??[];
-    const demandHistory=demandResult.data??[];
+    if (historyResult.error||demandResult.error) return fail("Lecture de l'historique Revenue impossible",400,historyResult.error?.message??demandResult.error?.message);
+    const history=historyResult.data??[],demandHistory=demandResult.data??[];
     const actualByDate=new Map<string,any>();
-    for (const row of history) if (!actualByDate.has(row.stay_date) && numberOrNull(row.occupancy_pct)!==null) actualByDate.set(row.stay_date,row);
-
+    for (const row of history) if (!actualByDate.has(row.stay_date)&&numberOrNull(row.occupancy_pct)!==null) actualByDate.set(row.stay_date,row);
     const models=[
       {name:"seasonal_naive_same_month_weekday",version:"1.0.0",minimumSamples:3},
       {name:"same_weekday_last_year",version:"1.0.0",minimumSamples:1},
@@ -370,66 +340,27 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         parameters:{minimumSamples:model.minimumSamples,lookbackDays:1095,timezone:hotel.timezone},
         run_status:"running",created_by:profile.id,
       }).select("id").single();
-      if (runError || !run) return fail("Création du run de prévision impossible",400,runError?.message);
-
+      if (runError||!run) return fail("Création du run de prévision impossible",400,runError?.message);
       const forecasts:any[]=[];
       for (const stayDate of eachDate(start,end)) {
-        const target=new Date(stayDate+"T00:00:00Z");
-        const month=target.getUTCMonth()+1;
-        const dow=target.getUTCDay();
         const leadDays=Math.max(0,Math.round((Date.parse(stayDate+"T00:00:00Z")-Date.parse(today+"T00:00:00Z"))/86400000));
-        let sampleRows:any[]=[];
-        if (model.name==="seasonal_naive_same_month_weekday") {
-          sampleRows=history.filter((r:any)=>new Date(r.stay_date+"T00:00:00Z").getUTCMonth()+1===month &&
-            (r.day_of_week??new Date(r.stay_date+"T00:00:00Z").getUTCDay())===dow && numberOrNull(r.occupancy_pct)!==null);
-        } else if (model.name==="same_weekday_last_year") {
-          const lastYear=addDays(stayDate,-365);
-          const lower=addDays(lastYear,-7),upper=addDays(lastYear,7);
-          sampleRows=history.filter((r:any)=>r.stay_date>=lower && r.stay_date<=upper &&
-            (r.day_of_week??new Date(r.stay_date+"T00:00:00Z").getUTCDay())===dow && numberOrNull(r.occupancy_pct)!==null);
-        } else if (model.name==="seasonal_average_same_month") {
-          sampleRows=history.filter((r:any)=>new Date(r.stay_date+"T00:00:00Z").getUTCMonth()+1===month && numberOrNull(r.occupancy_pct)!==null);
-        } else {
-          const comparableByArrival=new Map<string,any>();
-          for (const snapshot of demandHistory as any[]) {
-            const arrival=snapshot.arrival_date;
-            const arrivalDate=new Date(arrival+"T00:00:00Z");
-            if (arrivalDate.getUTCMonth()+1!==month ||
-                (arrivalDate.getUTCDay()!==dow) ||
-                Math.abs(Number(snapshot.days_before_arrival)-leadDays)>2 ||
-                !actualByDate.has(arrival)) continue;
-            if (!comparableByArrival.has(arrival)) comparableByArrival.set(arrival,actualByDate.get(arrival));
-          }
-          sampleRows=[...comparableByArrival.values()];
-        }
-        const occ=sampleRows.map((r:any)=>Number(r.occupancy_pct)).filter((n:number)=>Number.isFinite(n)&&n>=0&&n<=100);
-        if (occ.length<model.minimumSamples) continue;
-        const adr=sampleRows.map((r:any)=>Number(r.adr_net)).filter((n:number)=>Number.isFinite(n)&&n>=0);
-        const revpar=sampleRows.map((r:any)=>Number(r.revpar)).filter((n:number)=>Number.isFinite(n)&&n>=0);
+        const sampleRows=selectForecastTrainingRows(model.name as any,stayDate,today,leadDays,history as any,demandHistory as any,actualByDate);
+        const summary=summarizeForecastSamples(sampleRows as any,model.minimumSamples);
+        if (!summary) continue;
         forecasts.push({
           organization_id:hotel.organization_id,hotel_id:hotelId,forecast_run_id:run.id,stay_date:stayDate,
-          occupancy_p10:occ.length>=3?quantile(occ,0.1):null,
-          occupancy_p50:median(occ),
-          occupancy_p90:occ.length>=3?quantile(occ,0.9):null,
-          adr_p50:median(adr),revpar_p50:median(revpar),confidence_score:null,
-          drivers:[{type:model.name,sampleCount:occ.length,leadDays,lookbackDays:1095,sourceStatus:["real","imported"]}],
+          occupancy_p10:summary.occupancyP10,occupancy_p50:summary.occupancyP50,occupancy_p90:summary.occupancyP90,
+          adr_p50:summary.adrP50,revpar_p50:summary.revparP50,confidence_score:null,
+          drivers:[{type:model.name,sampleCount:summary.sampleCount,leadDays,lookbackDays:1095,sourceStatus:["real","imported"]}],
           source_status:"derived",
         });
       }
       let insertError:any=null;
-      if (forecasts.length) {
-        const inserted=await supabase.from("daily_demand_forecasts").insert(forecasts);
-        insertError=inserted.error;
-      }
-      await supabase.from("revenue_forecast_runs").update({
-        run_status:insertError?"failed":"completed",error_message:insertError?.message??null,
-      }).eq("id",run.id);
+      if (forecasts.length) insertError=(await supabase.from("daily_demand_forecasts").insert(forecasts)).error;
+      await supabase.from("revenue_forecast_runs").update({run_status:insertError?"failed":"completed",error_message:insertError?.message??null}).eq("id",run.id);
       if (insertError) return fail("Persistance des prévisions impossible",400,insertError.message);
-      modelResults.push({
-        modelName:model.name,modelVersion:model.version,forecastRunId:run.id,
-        datesRequested:eachDate(start,end).length,datesForecast:forecasts.length,
-        skippedForInsufficientHistory:eachDate(start,end).length-forecasts.length,
-      });
+      modelResults.push({modelName:model.name,modelVersion:model.version,forecastRunId:run.id,datesRequested:eachDate(start,end).length,
+        datesForecast:forecasts.length,skippedForInsufficientHistory:eachDate(start,end).length-forecasts.length});
     }
     return json({ok:true,hotelId,asOf:asOf.toISOString(),models:modelResults,forecastingIsBaselineOnly:true},201);
   }
@@ -467,7 +398,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         !Number.isInteger(Number(cfg.minimum_components)) || Number(cfg.minimum_components)<1) {
       return fail("Configuration event_impact_v1 invalide : weights, scales et seuils obligatoires",422);
     }
-    const distance=haversineKm(Number(hotel.lat),Number(hotel.lng),Number(venue.latitude),Number(venue.longitude));
+    const distance=calculateHaversineKm(Number(hotel.lat),Number(hotel.lng),Number(venue.latitude),Number(venue.longitude));
     const durationDays=Math.max(1,Math.round((Date.parse(occurrence.end_date+"T00:00:00Z")-Date.parse(occurrence.start_date+"T00:00:00Z"))/86400000)+1);
     const attendance=numberOrNull(occurrence.attendance_estimate) ?? numberOrNull(event.expected_attendance);
     const evidence=(event.event_evidence??[]).filter((e:any)=>e.verified_at && numberOrNull(e.trust_score)!==null);
@@ -520,102 +451,56 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
 
   if (actionPath === "backtests/walk-forward") {
     const start=body.startDate,end=body.endDate;
-    const horizonDays=Number(body.horizonDays);
-    const minimumSamples=Number(body.minimumSamples??3);
+    const horizonDays=Number(body.horizonDays),minimumSamples=Number(body.minimumSamples??3);
     const today=new Intl.DateTimeFormat("en-CA",{timeZone:hotel.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-    if (!isDate(start)||!isDate(end)||start>end||end>=today||eachDate(start,end).length>90) {
-      return fail("La période de backtest doit être historique, valide et limitée à 90 jours",422);
-    }
-    if (!Number.isInteger(horizonDays)||horizonDays<1||horizonDays>365||!Number.isInteger(minimumSamples)||minimumSamples<1||minimumSamples>30) {
-      return fail("horizonDays (1–365) et minimumSamples (1–30) obligatoires/invalides",422);
-    }
+    if (!isDate(start)||!isDate(end)||start>end||end>=today||eachDate(start,end).length>90) return fail("La période de backtest doit être historique, valide et limitée à 90 jours",422);
+    if (!Number.isInteger(horizonDays)||horizonDays<1||horizonDays>365||!Number.isInteger(minimumSamples)||minimumSamples<1||minimumSamples>30) return fail("horizonDays (1–365) et minimumSamples (1–30) invalides",422);
     const cutoff=addDays(start,-1095-horizonDays);
     const [historyResult,demandResult]=await Promise.all([
       supabase.from("hotel_historical_daily").select("stay_date,day_of_week,occupancy_pct,adr_net,revpar,source_status,updated_at")
-        .eq("hotel_id",hotelId).gte("stay_date",cutoff).lte("stay_date",end)
-        .in("source_status",["real","imported"]).order("updated_at",{ascending:false}).limit(10000),
+        .eq("hotel_id",hotelId).gte("stay_date",cutoff).lte("stay_date",end).in("source_status",["real","imported"])
+        .order("updated_at",{ascending:false}).limit(10000),
       supabase.from("hotel_historical_demand_snapshots").select("arrival_date,observation_date,days_before_arrival,source_status")
-        .eq("hotel_id",hotelId).gte("arrival_date",cutoff).lte("arrival_date",end)
-        .in("source_status",["real","imported"]).order("observation_date",{ascending:false}).limit(20000),
+        .eq("hotel_id",hotelId).gte("arrival_date",cutoff).lte("arrival_date",end).in("source_status",["real","imported"])
+        .order("observation_date",{ascending:false}).limit(20000),
     ]);
     if (historyResult.error||demandResult.error) return fail("Lecture des historiques walk-forward impossible",400,historyResult.error?.message??demandResult.error?.message);
-    const history=historyResult.data??[];
-    const demandSnapshots=demandResult.data??[];
+    const history=historyResult.data??[],demandSnapshots=demandResult.data??[];
     const actualByDate=new Map<string,any>();
     for (const row of history) if (!actualByDate.has(row.stay_date)&&numberOrNull(row.occupancy_pct)!==null) actualByDate.set(row.stay_date,row);
     const modelNames=["seasonal_naive_same_month_weekday","same_weekday_last_year","seasonal_average_same_month","pickup_historical_comparable"];
     const results:Record<string,{actual:number[];forecast:number[];p10:number[];p90:number[];covered:number}>={};
     for (const name of modelNames) results[name]={actual:[],forecast:[],p10:[],p90:[],covered:0};
-
     for (const stayDate of eachDate(start,end)) {
       const actualRow=actualByDate.get(stayDate);
       if (!actualRow) continue;
-      const actual=Number(actualRow.occupancy_pct);
-      const asOfDate=addDays(stayDate,-horizonDays);
-      const target=new Date(stayDate+"T00:00:00Z");
-      const month=target.getUTCMonth()+1,dow=target.getUTCDay();
-      const training=history.filter((r:any)=>r.stay_date<asOfDate);
-      const candidates:Record<string,any[]>={};
-      candidates.seasonal_naive_same_month_weekday=training.filter((r:any)=>
-        new Date(r.stay_date+"T00:00:00Z").getUTCMonth()+1===month &&
-        (r.day_of_week??new Date(r.stay_date+"T00:00:00Z").getUTCDay())===dow &&
-        numberOrNull(r.occupancy_pct)!==null
-      );
-      const lastYear=addDays(stayDate,-365),lastYearLower=addDays(lastYear,-7),lastYearUpper=addDays(lastYear,7);
-      candidates.same_weekday_last_year=training.filter((r:any)=>
-        r.stay_date>=lastYearLower&&r.stay_date<=lastYearUpper&&
-        (r.day_of_week??new Date(r.stay_date+"T00:00:00Z").getUTCDay())===dow&&numberOrNull(r.occupancy_pct)!==null
-      );
-      candidates.seasonal_average_same_month=training.filter((r:any)=>
-        new Date(r.stay_date+"T00:00:00Z").getUTCMonth()+1===month&&numberOrNull(r.occupancy_pct)!==null
-      );
-      const comparableByArrival=new Map<string,any>();
-      for (const snap of demandSnapshots as any[]) {
-        if (snap.arrival_date>=asOfDate||snap.observation_date>asOfDate||
-            Math.abs(Number(snap.days_before_arrival)-horizonDays)>2||
-            new Date(snap.arrival_date+"T00:00:00Z").getUTCMonth()+1!==month||
-            new Date(snap.arrival_date+"T00:00:00Z").getUTCDay()!==dow||
-            !actualByDate.has(snap.arrival_date)) continue;
-        if (!comparableByArrival.has(snap.arrival_date)) comparableByArrival.set(snap.arrival_date,actualByDate.get(snap.arrival_date));
-      }
-      candidates.pickup_historical_comparable=[...comparableByArrival.values()].filter((r:any)=>r.stay_date<asOfDate);
-
+      const actual=Number(actualRow.occupancy_pct),asOfDate=addDays(stayDate,-horizonDays);
       for (const name of modelNames) {
-        const rows=candidates[name]??[];
-        const values=rows.map((r:any)=>Number(r.occupancy_pct)).filter((n:number)=>Number.isFinite(n)&&n>=0&&n<=100);
-        if (values.length<minimumSamples) continue;
-        const p50=median(values);
-        if (p50===null) continue;
-        const p10=values.length>=3?quantile(values,0.1):null;
-        const p90=values.length>=3?quantile(values,0.9):null;
-        const bucket=results[name];
-        bucket.actual.push(actual);
-        bucket.forecast.push(p50);
-        if (p10!==null&&p90!==null) {
-          bucket.p10.push(p10);bucket.p90.push(p90);
-          if (actual>=p10&&actual<=p90) bucket.covered++;
+        const sampleRows=selectForecastTrainingRows(name as any,stayDate,asOfDate,horizonDays,history as any,demandSnapshots as any,actualByDate);
+        const summary=summarizeForecastSamples(sampleRows as any,minimumSamples);
+        if (!summary) continue;
+        const result=results[name];
+        result.actual.push(actual);result.forecast.push(summary.occupancyP50);
+        if (summary.occupancyP10!==null&&summary.occupancyP90!==null) {
+          result.p10.push(summary.occupancyP10);result.p90.push(summary.occupancyP90);
+          if (actual>=summary.occupancyP10&&actual<=summary.occupancyP90) result.covered++;
         }
       }
     }
-
     const modelMetrics:Record<string,any>={};
-    for (const name of modelNames) {
-      const r=results[name];
-      modelMetrics[name]=calculateForecastMetrics(r.actual,r.forecast);
-    }
+    for (const name of modelNames) modelMetrics[name]=calculateForecastMetrics(results[name].actual,results[name].forecast);
     const persisted:any[]=[];
     for (const name of modelNames) {
       const r=results[name],metrics=modelMetrics[name];
       if (!metrics) continue;
-      const intervalCount=r.p10.length;
-      const coverage=intervalCount? r.covered/intervalCount:null;
+      const intervalCount=r.p10.length,coverage=intervalCount?r.covered/intervalCount:null;
       const {data:row,error}=await supabase.from("hotel_backtest_evaluations").insert({
         organization_id:hotel.organization_id,hotel_id:hotelId,model_name:name,model_version:"1.0.0",
         evaluated_from:start,evaluated_to:end,horizon_days:horizonDays,sample_count:metrics.sampleCount,
         wape:metrics.wape,mae:metrics.mae,rmse:metrics.rmse,bias_pct:metrics.biasPct,
         baseline_metrics:modelMetrics,metrics_by_horizon:{[String(horizonDays)]:metrics},
         calibration:{occupancyP10P90Coverage:coverage,intervalSampleCount:intervalCount},
-        leakage_checks:{rollingOrigin:true,trainingRowsStrictlyBeforeAsOf:true,demandSnapshotsObservedOnOrBeforeAsOf:true,sourceStatuses:["real","imported"],minimumSamples},
+        leakage_checks:{rollingOrigin:true,trainingRowsStrictlyBeforeEachAsOf:true,demandSnapshotsObservedOnOrBeforeEachAsOf:true,sourceStatuses:["real","imported"],minimumSamples},
         created_by:profile.id,
       }).select("*").single();
       if (error) return fail("Persistance du backtest walk-forward impossible",400,error.message);
