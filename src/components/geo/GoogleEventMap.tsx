@@ -100,7 +100,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
 
   // Filter hotels belonging to this territory
   const territorialOtherHotels = useMemo(() => {
-    return otherHotels.filter((oth) => isLocationInTerritory(oth.lat, oth.lng, territory.territoryName, territory));
+    return otherHotels.filter((oth) => oth.lat !== null && oth.lng !== null && isLocationInTerritory(oth.lat, oth.lng, territory.territoryName, territory));
   }, [otherHotels, territory]);
 
   // Determine highest impact level for a list of events
