@@ -883,6 +883,10 @@ export default function App() {
               selectedHotelId={filterState.selectedHotelId}
               onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
               onShowToast={showToast}
+              backendMode
+              backendParameters={revenueWorkspace.parameters}
+              supabase={supabase}
+              onBackendRefresh={refreshRevenueWorkspace}
             />
           )}
         </main>
