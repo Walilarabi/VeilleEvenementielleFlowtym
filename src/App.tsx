@@ -896,7 +896,6 @@ export default function App() {
               onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
               onSelectEvent={setSelectedEvent}
               onShowToast={showToast}
-              onHotelCoordinatesUpdated={handleHotelCoordinatesUpdated}
             />
           )}
 
@@ -1037,6 +1036,7 @@ export default function App() {
               selectedHotelId={filterState.selectedHotelId}
               onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
               onShowToast={showToast}
+              onHotelCoordinatesUpdated={handleHotelCoordinatesUpdated}
             />
           )}
           </React.Suspense>
