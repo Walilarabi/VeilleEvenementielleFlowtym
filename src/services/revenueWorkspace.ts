@@ -78,7 +78,7 @@ function mapEvent(row:RevenueEventRow,hotelId:string):EventItem|null {
  const impactLevel:EventItem["impactLevel"]=score>=90?"hyper":score>=75?"critique":score>=50?"modere":"faible";
  const title=String(event.title??"Événement sans titre");
  return {
-  id:String(event.id),occurrenceId:String(occ.id),impactStatus:row.impact_status??undefined,expectedAttendanceUnknown:num(occ.attendance_estimate)===null&&num(event.expected_attendance)===null,confidenceUnknown:num(row.confidence_score)===null,title,subtitle:event.subtitle??undefined,category:category(String(event.category??"culturel")),
+  id:String(event.id),occurrenceId:String(occ.id),impactStatus:row.impact_status??undefined,expectedAttendanceUnknown:num(occ.attendance_estimate)===null&&num(event.expected_attendance)===null,confidenceUnknown:num(row.confidence_score)===null,scoreUnknown:num(row.final_rm_score)===null,distanceUnknown:num(row.distance_km)===null,adrLiftUnknown:num(row.estimated_adr_lift_pct)===null,title,subtitle:event.subtitle??undefined,category:category(String(event.category??"culturel")),
   venueId:String(venue?.id??""),venueName:String(venue?.name??"Lieu non renseigné"),
   city:String(venue?.city??event.city??""),country:(venue?.country_code??event.country_code)==="FR"?"France":String(venue?.country_code??event.country_code??"Pays non renseigné"),
   startDate:String(occ.start_date),endDate:String(occ.end_date),
