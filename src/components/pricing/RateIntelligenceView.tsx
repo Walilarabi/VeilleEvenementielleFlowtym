@@ -14,6 +14,9 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { RevenueRateRow } from '../../services/revenueWorkspace';
+import { RevenuePricingWorkspace } from './RevenuePricingWorkspace';
 import {
   TrendingUp,
   DollarSign,
@@ -391,11 +394,16 @@ interface RateIntelligenceViewProps {
   onGoToExcelUpload?: () => void;
   onShowToast: (msg: string) => void;
   initialTab?: 'grid' | 'lighthouse' | 'historical' | 'backtest' | 'learning';
+  backendRates?: RevenueRateRow[];
+  backendLoading?: boolean;
+  backendError?: string | null;
+  supabase?: SupabaseClient | null;
+  onBackendRefresh?: () => void;
 }
 
 export type PeriodDuration = '7d' | '14d' | '30d' | '60d' | '90d' | 'all';
 
-export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
+const LegacyRateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   hotel,
   events = [],
   onSelectEvent,
@@ -2960,4 +2968,20 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       )}
     </div>
   );
+};
+
+
+export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = (props) => {
+  if (props.backendRates !== undefined) {
+    return <RevenuePricingWorkspace
+      hotel={props.hotel}
+      rows={props.backendRates}
+      loading={Boolean(props.backendLoading)}
+      error={props.backendError ?? null}
+      supabase={props.supabase ?? null}
+      onRefresh={props.onBackendRefresh ?? (() => undefined)}
+      onShowToast={props.onShowToast}
+    />;
+  }
+  return <LegacyRateIntelligenceView {...props} />;
 };
