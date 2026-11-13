@@ -64,18 +64,18 @@ function mapHotel(row:RevenueHotel):Hotel {
 function mapEvent(row:RevenueEventRow,hotelId:string):EventItem|null {
  const event=relation(row.events),occ=relation(row.event_occurrences);
  if(!event||!occ||!occ.start_date||!occ.end_date) return null;
- const venue=relation(occ.venues);
+ const venue=relation(event.venues);
  const score=num(row.final_rm_score)??0,confidence=num(row.confidence_score)??0;
  const evidences=(event.event_evidence??[]).map((e:any)=>({
   id:String(e.id),sourceName:e.source_name??"Source non renseignée",sourceUrl:e.source_url??"",
-  sourceType:"official_organizer" as const,verifiedAt:e.verified_at??"",excerpt:e.excerpt??"",trustScore:num(e.trust_score)??0,
+  sourceType:(["official_organizer","venue_calendar","press","ticketing","city_agenda"].includes(e.event_sources?.source_type)?e.event_sources.source_type:"other") as EventItem["evidences"][number]["sourceType"],verifiedAt:e.verified_at??"",excerpt:e.excerpt??"",trustScore:num(e.trust_score)??0,
  }));
  const impactLevel:EventItem["impactLevel"]=score>=90?"hyper":score>=75?"critique":score>=50?"modere":"faible";
  const title=String(event.title??"Événement sans titre");
  return {
-  id:String(event.id),title,subtitle:event.description??undefined,category:category(String(event.category??"culturel")),
+  id:String(event.id),title,subtitle:event.subtitle??undefined,category:category(String(event.category??"culturel")),
   venueId:String(venue?.id??""),venueName:String(venue?.name??"Lieu non renseigné"),
-  city:String(venue?.city??""),country:String(venue?.country??"France"),
+  city:String(venue?.city??event.city??""),country:String(venue?.country_code??event.country_code??"FR"),
   startDate:String(occ.start_date),endDate:String(occ.end_date),
   expectedAttendance:num(occ.attendance_estimate)??num(event.expected_attendance)??0,
   internationalRatioPercent:num(event.international_ratio_pct)??0,status:status(String(event.status??"a_verifier")),
