@@ -399,19 +399,41 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     if (!Array.isArray(body.rows) || body.rows.length < 1 || body.rows.length > 5000) {
       return fail("Fournir entre 1 et 5000 lignes historiques");
     }
+    const snapshots = Array.isArray(body.snapshots) ? body.snapshots : [];
+    if (snapshots.length > 10000) return fail("Maximum 10000 snapshots historiques par import");
     const sourceName = typeof body.sourceName === "string" && body.sourceName.trim() ? body.sourceName.trim().slice(0,120) : null;
     if (!sourceName) return fail("sourceName est obligatoire pour garantir la déduplication");
     const invalid = body.rows.filter((r: any) => !isDate(r.stay_date));
     if (invalid.length) return fail("Une ou plusieurs lignes ont une stay_date invalide", 422, { invalidRows: invalid.length });
+
+    const invalidSnapshots = snapshots.filter((s: any) => {
+      if (!isDate(s.observation_date) || !isDate(s.arrival_date)) return true;
+      const expectedDays = Math.round((Date.parse(s.arrival_date + "T00:00:00Z") - Date.parse(s.observation_date + "T00:00:00Z")) / 86400000);
+      return !Number.isInteger(s.days_before_arrival) || s.days_before_arrival < 0 ||
+        s.days_before_arrival !== expectedDays ||
+        !Number.isInteger(s.rooms_booked_otb) || s.rooms_booked_otb < 0 ||
+        !Number.isInteger(s.rooms_available) || s.rooms_available < 0 ||
+        !Number.isFinite(Number(s.projected_occupancy_pct)) || Number(s.projected_occupancy_pct) < 0 || Number(s.projected_occupancy_pct) > 100 ||
+        !Number.isFinite(Number(s.booked_adr)) || Number(s.booked_adr) < 0 ||
+        !Number.isFinite(Number(s.booked_revenue)) || Number(s.booked_revenue) < 0 ||
+        !Number.isInteger(s.pickup_since_previous) ||
+        !Number.isInteger(s.cancellations_since_previous) || s.cancellations_since_previous < 0;
+    });
+    if (invalidSnapshots.length) {
+      return fail("Un ou plusieurs snapshots sont invalides : dates, lead time ou métriques OTB incohérentes", 422, { invalidSnapshots: invalidSnapshots.length });
+    }
+
     const dates = body.rows.map((r: any) => r.stay_date).sort();
     const { data: log, error: logError } = await supabase.from("hotel_historical_import_logs").insert({
       organization_id: hotel.organization_id, hotel_id: hotelId,
       file_name: typeof body.fileName === "string" ? body.fileName.slice(0,255) : "historical-import",
+      file_size_bytes: Number.isFinite(Number(body.fileSizeBytes)) && Number(body.fileSizeBytes) > 0 ? Math.round(Number(body.fileSizeBytes)) : null,
       records_count: body.rows.length, rejected_count: 0, date_start: dates[0], date_end: dates[dates.length-1],
       import_status: "pending", warnings: [], errors: [], detected_columns: Array.isArray(body.detectedColumns) ? body.detectedColumns : [],
       imported_by: profile.id,
     }).select("id").single();
     if (logError || !log) return fail("Création du journal d'import impossible", 400, logError?.message);
+
     const rows = body.rows.map((r: any) => ({
       ...r, id: undefined, organization_id: hotel.organization_id, hotel_id: hotelId,
       source_name: sourceName, source_status: "imported", import_batch_id: log.id,
@@ -422,14 +444,44 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       .upsert(rows, { onConflict: "hotel_id,stay_date,source_name" }).select("id");
     if (error) {
       await supabase.from("hotel_historical_import_logs").update({
-        import_status: "failed", rejected_count: body.rows.length, errors: [{ message: error.message }],
+        import_status: "failed", rejected_count: body.rows.length, errors: [{ phase: "daily", message: error.message }],
       }).eq("id", log.id);
-      return fail("Import historique échoué", 400, error.message);
+      return fail("Import historique quotidien échoué", 400, error.message);
     }
+
+    let snapshotsImported = 0;
+    if (snapshots.length > 0) {
+      const snapshotRows = snapshots.map((s: any) => ({
+        organization_id: hotel.organization_id, hotel_id: hotelId,
+        observation_date: s.observation_date, arrival_date: s.arrival_date,
+        days_before_arrival: s.days_before_arrival, rooms_booked_otb: s.rooms_booked_otb,
+        rooms_available: s.rooms_available, projected_occupancy_pct: s.projected_occupancy_pct,
+        booked_adr: s.booked_adr, booked_revenue: s.booked_revenue,
+        pickup_since_previous: s.pickup_since_previous,
+        cancellations_since_previous: s.cancellations_since_previous,
+        public_rate: numberOrNull(s.public_rate), compset_rate: numberOrNull(s.compset_rate),
+        source_status: "imported", source_name: sourceName, import_batch_id: log.id,
+      }));
+      const { data: snapshotData, error: snapshotError } = await supabase.from("hotel_historical_demand_snapshots")
+        .upsert(snapshotRows, { onConflict: "hotel_id,observation_date,arrival_date,source_name" }).select("id");
+      if (snapshotError) {
+        await supabase.from("hotel_historical_import_logs").update({
+          import_status: "failed",
+          records_count: data?.length ?? 0,
+          errors: [{ phase: "snapshots", message: snapshotError.message }],
+        }).eq("id", log.id);
+        return fail("Historique quotidien enregistré, mais import des snapshots OTB échoué", 400, {
+          importId: log.id, dailyImported: data?.length ?? 0, snapshotError: snapshotError.message,
+        });
+      }
+      snapshotsImported = snapshotData?.length ?? 0;
+    }
+
     await supabase.from("hotel_historical_import_logs").update({
       import_status: "completed", records_count: data?.length ?? 0,
+      warnings: snapshots.length === 0 ? [{ message: "Aucun snapshot OTB fourni dans le fichier." }] : [],
     }).eq("id", log.id);
-    return json({ ok: true, importId: log.id, imported: data?.length ?? 0 }, 201);
+    return json({ ok: true, importId: log.id, imported: data?.length ?? 0, snapshotsImported }, 201);
   }
 
   if (actionPath === "forecasts/baseline") {
