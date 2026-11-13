@@ -59,7 +59,8 @@ No pricing thresholds are silently assumed. The hotel's `hotel_parameters_profil
       "high": 5,
       "exceptional": 10
     },
-    "pickup_scale_rooms": 5,
+    "pickup_window_weights": { "24h": 0.5, "3d": 0.3, "7d": 0.2 },
+    "pickup_scale_rooms": { "24h": 2, "3d": 5, "7d": 8 },
     "max_observation_age_hours": 48,
     "max_inventory_age_hours": 24
   }
@@ -71,7 +72,7 @@ These values are an example configuration, not pre-approved defaults. Configure 
 ### v1 deterministic signal definitions
 
 - Occupancy signal: latest non-simulated inventory snapshot occupancy (0–100).
-- Pickup signal: `clamp(50 + 50 × net OTB pickup / pickup_scale_rooms, 0, 100)`, using two snapshots 20–30 hours apart (stale pickup snapshots are ignored).
+- Pickup signal: weighted average of net OTB pickup scores for 24h, 3d and 7d. Snapshot pairs are accepted only in 20–30h, 60–84h and 144–192h windows respectively; missing pairs remain NULL. Each window has its own configured weight and room-scale normalization.
 - Event signal: highest validated/available hotel impact score for the stay date.
 - Compset signal: `clamp(50 + 100 × (compset median - current BAR) / current BAR, 0, 100)`, using recent available comparable Lighthouse observations.
 - Demand index: weighted mean of the available signals, re-normalized over available weights.
