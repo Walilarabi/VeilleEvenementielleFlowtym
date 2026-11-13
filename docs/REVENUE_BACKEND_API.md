@@ -33,6 +33,7 @@ All routes require a valid Supabase user access token.
 | POST | `/hotels/:hotelId/backtests/walk-forward` | Rolling-origin evaluation of four historical baselines |
 | POST | `/hotels/:hotelId/decisions` | Accept, modify or reject a recommendation |
 | POST | `/hotels/:hotelId/events/score` | Calculate hotel-specific impact from verified event evidence and configured weights |
+| POST | `/hotels/:hotelId/events/decisions` | Human validate/dismiss decision with immutable audit row |
 | POST | `/hotels/:hotelId/parameters` | Save hotel pricing parameters |
 | POST | `/hotels/:hotelId/inventory-snapshots` | Ingest up to 500 inventory snapshots |
 | POST | `/hotels/:hotelId/reservation-snapshots` | Ingest OTB snapshots and exact windowed reservation deltas |
@@ -125,7 +126,7 @@ Example configuration only — not a pre-approved set of weights or hotel thresh
 }
 ```
 
-`event_impact_v1` requires hotel-specific weights and scales in `hotel_parameters_profiles.demand_thresholds`. Inputs are the event attendance estimate, international ratio, occurrence duration, straight-line hotel-to-venue distance, verified venue capacity, verified evidence trust scores, configured recurrence scores, optional segment-fit scores and the hotel's own occupancy on comparable dates in prior years. Components with missing evidence remain NULL and their weights are excluded from the available-weight mean. The result is stored as `to_review`; it is never auto-validated. Drive time and extra-night lift are explicitly not calculated until verified routing and hotel-history models exist. Only confirmed/probable events with confirmed occurrence dates are scored.
+`event_impact_v1` requires hotel-specific weights and scales in `hotel_parameters_profiles.demand_thresholds`. Inputs are the event attendance estimate, international ratio, occurrence duration, straight-line hotel-to-venue distance, verified venue capacity, verified evidence trust scores, configured recurrence scores, optional segment-fit scores and the hotel's own occupancy on comparable dates in prior years. Components with missing evidence remain NULL and their weights are excluded from the available-weight mean. The result is stored as `to_review`; it is never auto-validated. A separate manager-only decision endpoint validates or dismisses it through an audited RPC; direct status edits and audit-log mutation are blocked. Drive time and extra-night lift are explicitly not calculated until verified routing and hotel-history models exist. Only confirmed/probable events with confirmed occurrence dates are scored.
 
 ## Forecast baselines
 
