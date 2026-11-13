@@ -395,7 +395,11 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ok:true,inserted:data?.length??0,data},201);
   }
 
-  if (actionPath === "historical-import") {
+  if (actionPath === "historical-import-v2-status") {
+    return json({ ok: true, version: 2 });
+  }
+
+  if (actionPath === "historical-import-v2") {
     if (!Array.isArray(body.rows) || body.rows.length < 1 || body.rows.length > 5000) {
       return fail("Fournir entre 1 et 5000 lignes historiques");
     }
