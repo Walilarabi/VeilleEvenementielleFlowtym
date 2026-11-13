@@ -10,7 +10,7 @@ const cors = {
 };
 
 type Profile = { id: string; organization_id: string | null; role: string; email: string | null };
-type Hotel = { id: string; organization_id: string; name: string; room_count: number | null; timezone: string; currency: string; rate_floor: number | null; rate_ceiling: number | null; max_rate_change_pct: number | null; lat: number | null; lng: number | null; segment: string | null };
+type Hotel = { id: string; organization_id: string; name: string; city: string | null; country: string | null; address: string | null; stars: number | null; base_adr: number | null; room_count: number | null; timezone: string; currency: string; rate_floor: number | null; rate_ceiling: number | null; max_rate_change_pct: number | null; lat: number | null; lng: number | null; segment: string | null };
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: cors });
@@ -66,7 +66,7 @@ async function getProfile(supabase: any, userId: string): Promise<Profile | null
 async function getHotel(supabase: any, hotelId: string): Promise<Hotel | null> {
   const { data, error } = await supabase
     .from("hotels")
-    .select("id,organization_id,name,room_count,timezone,currency,rate_floor,rate_ceiling,max_rate_change_pct,lat,lng,segment")
+    .select("id,organization_id,name,city,country,address,stars,base_adr,room_count,timezone,currency,rate_floor,rate_ceiling,max_rate_change_pct,lat,lng,segment")
     .eq("id", hotelId).maybeSingle();
   if (error || !data) return null;
   return data as Hotel;
