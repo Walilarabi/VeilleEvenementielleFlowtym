@@ -243,7 +243,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             {/* Event Stack Inside Day */}
             <div className="space-y-1 overflow-y-auto max-h-[115px] pr-0.5">
               {dayEvents.map((ev) => {
-                const chipStyle = getChipStyle(ev.impactLevel, ev.title, ev.category);
+                const chipStyle = ev.scoreUnknown ? 'bg-slate-100 text-slate-700 border border-slate-200' : getChipStyle(ev.impactLevel, ev.title, ev.category);
                 const score = ev.scoreBreakdown.finalRMScore;
                 const scoreColors = getRMScoreColorClasses(score);
 
@@ -252,7 +252,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     key={`${ev.id}-${cell.dateStr}`}
                     onClick={() => onSelectEvent(ev)}
                     className={`w-full text-left px-2 py-1 rounded-md text-[11px] leading-tight flex items-center justify-between gap-1.5 transition-all truncate shadow-2xs ${chipStyle}`}
-                    title={`${ev.title} — ${ev.venueName} (Score RM: ${score}/100)`}
+                    title={`${ev.title} — ${ev.venueName} (Score RM: ${ev.scoreUnknown ? "non calculé" : score+"/100"})`}
                   >
                     <div className="flex items-center gap-1.5 truncate">
                       {renderCategoryIcon(ev.category, ev.title)}
@@ -261,7 +261,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       <span
                         className={`shrink-0 px-1 py-0.2 rounded text-[9px] font-bold tabular-nums border ${scoreColors.badge}`}
                       >
-                        {score}
+                        {ev.scoreUnknown ? '—' : score}
                       </span>
                     </button>
                   );

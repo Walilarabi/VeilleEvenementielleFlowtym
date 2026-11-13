@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import type { RevenueRateRow, RevenueLighthouseRow, RevenueInventoryRow } from '../../services/revenueWorkspace';
+import { RevenueMarketWorkspace } from './RevenueMarketWorkspace';
 import {
   ChevronLeft,
   ChevronRight,
@@ -68,9 +70,14 @@ interface MarketCalendarViewProps {
   onSelectEvent: (event: EventItem) => void;
   onShowToast: (msg: string) => void;
   initialSubTab?: 'calendar' | 'school_holidays' | 'lighthouse';
+  backendMode?: boolean;
+  backendRates?: RevenueRateRow[];
+  backendLighthouse?: RevenueLighthouseRow[];
+  backendInventory?: RevenueInventoryRow[];
+  onGoToPricing?: () => void;
 }
 
-export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
+const LegacyMarketCalendarView: React.FC<MarketCalendarViewProps> = ({
   events,
   hotels,
   selectedHotelId,
@@ -2079,4 +2086,22 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
       )}
     </div>
   );
+};
+
+
+export const MarketCalendarView: React.FC<MarketCalendarViewProps> = (props) => {
+  if (props.backendMode) {
+    const hotel = props.hotels.find((item) => item.id === props.selectedHotelId) ?? props.hotels[0];
+    if (!hotel) return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Aucun hôtel sélectionné.</div>;
+    return <RevenueMarketWorkspace
+      hotel={hotel}
+      events={props.events}
+      rates={props.backendRates ?? []}
+      lighthouse={props.backendLighthouse ?? []}
+      inventory={props.backendInventory ?? []}
+      onSelectEvent={props.onSelectEvent}
+      onGoToPricing={props.onGoToPricing ?? (() => undefined)}
+    />;
+  }
+  return <LegacyMarketCalendarView {...props} />;
 };

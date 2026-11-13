@@ -10,7 +10,7 @@ const cors = {
 };
 
 type Profile = { id: string; organization_id: string | null; role: string; email: string | null };
-type Hotel = { id: string; organization_id: string; name: string; room_count: number | null; timezone: string; currency: string; rate_floor: number | null; rate_ceiling: number | null; max_rate_change_pct: number | null; lat: number | null; lng: number | null; segment: string | null };
+type Hotel = { id: string; organization_id: string; name: string; city: string | null; country: string | null; address: string | null; stars: number | null; base_adr: number | null; room_count: number | null; timezone: string; currency: string; rate_floor: number | null; rate_ceiling: number | null; max_rate_change_pct: number | null; lat: number | null; lng: number | null; segment: string | null };
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: cors });
@@ -66,7 +66,7 @@ async function getProfile(supabase: any, userId: string): Promise<Profile | null
 async function getHotel(supabase: any, hotelId: string): Promise<Hotel | null> {
   const { data, error } = await supabase
     .from("hotels")
-    .select("id,organization_id,name,room_count,timezone,currency,rate_floor,rate_ceiling,max_rate_change_pct,lat,lng,segment")
+    .select("id,organization_id,name,city,country,address,stars,base_adr,room_count,timezone,currency,rate_floor,rate_ceiling,max_rate_change_pct,lat,lng,segment")
     .eq("id", hotelId).maybeSingle();
   if (error || !data) return null;
   return data as Hotel;
@@ -90,9 +90,27 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
   }
   if (req.method === "GET" && path === "/hotels") {
     const { data, error } = await supabase.from("hotels")
-      .select("id,name,group_name,city,country,stars,room_count,timezone,currency,is_active")
+      .select("id,name,group_name,city,country,address,lat,lng,stars,room_count,segment,base_adr,timezone,currency,rate_floor,rate_ceiling,max_rate_change_pct,is_active")
       .order("name");
     if (error) return fail("Impossible de charger les hôtels", 400, error.message);
+    return json({ ok: true, data });
+  }
+
+  if (req.method === "GET" && path === "/sources") {
+    const { data, error } = await supabase.from("event_sources")
+      .select("id,name,source_url,source_type,city,reliability_score,is_official,status,last_crawled_at,event_evidence(event_id)")
+      .order("name").limit(1000);
+    if (error) return fail("Lecture du catalogue des sources impossible", 400, error.message);
+    return json({ ok: true, data });
+  }
+
+  if (req.method === "GET" && path === "/venues") {
+    const city = url.searchParams.get("city");
+    if (!city) return fail("Le paramètre city est obligatoire");
+    const { data, error } = await supabase.from("venues")
+      .select("id,name,venue_type,city,country_code,address,latitude,longitude,capacity,verification_status")
+      .eq("city", city).order("name").limit(1000);
+    if (error) return fail("Lecture du répertoire des lieux impossible", 400, error.message);
     return json({ ok: true, data });
   }
 
@@ -113,15 +131,44 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ ok: true, hotelId, ...range, data });
   }
 
+  if (req.method === "GET" && actionPath === "lighthouse-observations") {
+    const range = dateRange(url);
+    if (!range) return fail("Les paramètres from et to sont obligatoires (maximum 365 jours)");
+    const { data, error } = await supabase.from("lighthouse_rate_observations")
+      .select("*,lighthouse_extractions!left(file_name,observed_at,source_status,los_nights,guests_count,occupancy_context)")
+      .eq("hotel_id", hotelId).gte("stay_date", range.from).lte("stay_date", range.to)
+      .order("stay_date").order("observed_at", { ascending: false }).limit(5000);
+    if (error) return fail("Lecture des observations Lighthouse impossible", 400, error.message);
+    return json({ ok: true, hotelId, ...range, data });
+  }
+
   if (req.method === "GET" && actionPath === "events") {
     const range = dateRange(url);
     if (!range) return fail("Les paramètres from et to sont obligatoires (maximum 365 jours)");
-    const { data, error } = await supabase.from("event_hotel_impacts")
-      .select("*,events(id,title,category,status,official_url),event_occurrences(id,start_date,end_date,date_status)")
-      .eq("hotel_id", hotelId).gte("event_occurrences.start_date", range.from)
-      .lte("event_occurrences.end_date", range.to).order("final_rm_score", { ascending: false });
-    if (error) return fail("Lecture des impacts événementiels impossible", 400, error.message);
-    return json({ ok: true, hotelId, ...range, data });
+    const { data: eventRows, error: eventError } = await supabase.from("events")
+      .select("id,title,subtitle,category,status,city,country_code,expected_attendance,international_ratio_pct,recurrence_frequency,official_url,created_at,updated_at,venues(id,name,city,country_code,address,latitude,longitude,capacity,verification_status),event_evidence(id,source_name,source_url,excerpt,evidence_type,trust_score,verified_at,event_sources(source_type)),event_occurrences!inner(id,start_date,end_date,date_status,attendance_estimate)")
+      .eq("city", hotel.city)
+      .lte("event_occurrences.start_date", range.to).gte("event_occurrences.end_date", range.from);
+    if (eventError) return fail("Lecture du catalogue événementiel impossible", 400, eventError.message);
+    const occurrences = (eventRows ?? []).flatMap((event: any) => (event.event_occurrences ?? []).map((occurrence: any) => ({ event, occurrence })));
+    const occurrenceIds = occurrences.map((item: any) => item.occurrence.id);
+    let impacts: any[] = [];
+    if (occurrenceIds.length) {
+      const { data: impactRows, error: impactError } = await supabase.from("event_hotel_impacts")
+        .select("*").eq("hotel_id", hotelId).in("occurrence_id", occurrenceIds);
+      if (impactError) return fail("Lecture des impacts propres à l'hôtel impossible", 400, impactError.message);
+      impacts = impactRows ?? [];
+    }
+    const impactByOccurrence = new Map(impacts.map((impact: any) => [impact.occurrence_id, impact]));
+    const data = occurrences.map((item: any) => ({
+      events: item.event,
+      event_occurrences: item.occurrence,
+      ...(impactByOccurrence.get(item.occurrence.id) ?? {}),
+    })).sort((a: any, b: any) => {
+      const scoreA = a.final_rm_score ?? -1, scoreB = b.final_rm_score ?? -1;
+      return scoreB - scoreA || String(a.event_occurrences.start_date).localeCompare(String(b.event_occurrences.start_date));
+    });
+    return json({ ok: true, hotelId, city: hotel.city, ...range, data });
   }
 
   if (req.method === "GET" && actionPath === "inventory-snapshots") {
@@ -132,6 +179,21 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       .order("snapshot_at", { ascending: false }).limit(2000);
     if (error) return fail("Lecture des snapshots impossible", 400, error.message);
     return json({ ok: true, hotelId, ...range, data });
+  }
+
+  if (req.method === "GET" && actionPath === "parameters") {
+    const { data, error } = await supabase.from("hotel_parameters_profiles")
+      .select("*").eq("hotel_id", hotelId).maybeSingle();
+    if (error) return fail("Lecture des paramètres Revenue impossible", 400, error.message);
+    return json({ ok: true, hotelId, data });
+  }
+
+  if (req.method === "GET" && actionPath === "integrations") {
+    const { data, error } = await supabase.from("integration_connections")
+      .select("id,provider,connection_name,connection_status,last_success_at,last_error_at,last_error_code,updated_at")
+      .eq("hotel_id", hotelId).order("provider").order("connection_name");
+    if (error) return fail("Lecture des connexions fournisseur impossible", 400, error.message);
+    return json({ ok: true, hotelId, data });
   }
 
   if (req.method === "GET" && actionPath === "backtests") {
@@ -150,6 +212,13 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       .order("stay_date");
     if (error) return fail("Lecture des prévisions impossible", 400, error.message);
     return json({ ok: true, hotelId, ...range, data });
+  }
+
+  if (actionPath === "calibration-rules") {
+    const {data,error}=await supabase.from("hotel_calibration_rules").select("*")
+      .eq("hotel_id",hotelId).order("created_at",{ascending:false}).limit(100);
+    if (error) return fail("Lecture des règles de calibration impossible",400,error.message);
+    return json({ok:true,data});
   }
 
   if (req.method !== "POST") return fail("Route inconnue", 404);
@@ -183,21 +252,24 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     if (floor === null || ceiling === null || maxChange === null || floor <= 0 || ceiling < floor || maxChange <= 0 || maxChange > 100) {
       return fail("Plancher, plafond et variation quotidienne maximale doivent être renseignés et cohérents");
     }
+    const { data: existingProfile, error: existingProfileError } = await supabase.from("hotel_parameters_profiles")
+      .select("*").eq("hotel_id", hotelId).maybeSingle();
+    if (existingProfileError) return fail("Lecture des paramètres existants impossible", 400, existingProfileError.message);
     const profileRow = {
       organization_id: hotel.organization_id,
       hotel_id: hotelId,
-      currency: typeof body.currency === "string" ? body.currency : hotel.currency,
-      timezone: typeof body.timezone === "string" ? body.timezone : hotel.timezone,
-      target_adr: numberOrNull(body.targetAdr),
-      target_occupancy_pct: numberOrNull(body.targetOccupancyPct),
-      target_revpar: numberOrNull(body.targetRevpar),
+      currency: typeof body.currency === "string" ? body.currency : existingProfile?.currency ?? hotel.currency,
+      timezone: typeof body.timezone === "string" ? body.timezone : existingProfile?.timezone ?? hotel.timezone,
+      target_adr: body.targetAdr !== undefined ? numberOrNull(body.targetAdr) : existingProfile?.target_adr ?? null,
+      target_occupancy_pct: body.targetOccupancyPct !== undefined ? numberOrNull(body.targetOccupancyPct) : existingProfile?.target_occupancy_pct ?? null,
+      target_revpar: body.targetRevpar !== undefined ? numberOrNull(body.targetRevpar) : existingProfile?.target_revpar ?? null,
       floor_rate: floor,
       ceiling_rate: ceiling,
       max_daily_rate_change_pct: maxChange,
-      distribution_cost_pct: numberOrNull(body.distributionCostPct),
-      compset_config: Array.isArray(body.compsetConfig) ? body.compsetConfig : [],
-      room_type_config: Array.isArray(body.roomTypeConfig) ? body.roomTypeConfig : [],
-      demand_thresholds: typeof body.demandThresholds === "object" && body.demandThresholds !== null ? body.demandThresholds : {},
+      distribution_cost_pct: body.distributionCostPct !== undefined ? numberOrNull(body.distributionCostPct) : existingProfile?.distribution_cost_pct ?? null,
+      compset_config: Array.isArray(body.compsetConfig) ? body.compsetConfig : existingProfile?.compset_config ?? [],
+      room_type_config: Array.isArray(body.roomTypeConfig) ? body.roomTypeConfig : existingProfile?.room_type_config ?? [],
+      demand_thresholds: typeof body.demandThresholds === "object" && body.demandThresholds !== null ? body.demandThresholds : existingProfile?.demand_thresholds ?? {},
       updated_by: profile.id,
     };
     const { data, error } = await supabase.from("hotel_parameters_profiles")
@@ -342,13 +414,6 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     }).select("*").single();
     if (ruleError) return fail("Persistance de la règle d'élasticité impossible",409,ruleError.message);
     return json({ok:true,status:"estimated",estimate,calibrationRule:rule,requiresHumanReview:true,automaticActivation:false},201);
-  }
-
-  if (actionPath === "calibration-rules") {
-    const {data,error}=await supabase.from("hotel_calibration_rules").select("*")
-      .eq("hotel_id",hotelId).order("created_at",{ascending:false}).limit(100);
-    if (error) return fail("Lecture des règles de calibration impossible",400,error.message);
-    return json({ok:true,data});
   }
 
   if (actionPath === "reservation-snapshots") {

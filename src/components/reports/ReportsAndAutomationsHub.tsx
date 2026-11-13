@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import type { RevenueRateRow, RevenueForecastRow, RevenueInventoryRow } from '../../services/revenueWorkspace';
+import { RevenueReportsWorkspace } from './RevenueReportsWorkspace';
 import {
   FileText,
   TrendingUp,
@@ -33,6 +35,10 @@ interface ReportsAndAutomationsHubProps {
   hotel?: Hotel;
   onShowToast: (msg: string) => void;
   onNavigateToDecisionCenter?: () => void;
+  backendMode?: boolean;
+  backendRates?: RevenueRateRow[];
+  backendForecasts?: RevenueForecastRow[];
+  backendInventory?: RevenueInventoryRow[];
 }
 
 type ReportType =
@@ -55,7 +61,7 @@ interface ChannelRow {
   commissionRate: number;
 }
 
-export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> = ({
+const LegacyReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> = ({
   hotel,
   onShowToast,
   onNavigateToDecisionCenter,
@@ -1228,4 +1234,18 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       </div>
     </div>
   );
+};
+
+
+export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> = (props) => {
+  if (props.backendMode) {
+    return <RevenueReportsWorkspace
+      hotel={props.hotel}
+      rates={props.backendRates ?? []}
+      forecasts={props.backendForecasts ?? []}
+      inventory={props.backendInventory ?? []}
+      onNavigateToDecisionCenter={props.onNavigateToDecisionCenter}
+    />;
+  }
+  return <LegacyReportsAndAutomationsHub {...props} />;
 };

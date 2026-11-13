@@ -5,6 +5,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from './auth/AuthProvider';
+import { useRevenueWorkspace } from './hooks/useRevenueWorkspace';
+import { RevenueBackendStatus } from './components/backend/RevenueBackendStatus';
 import { PanelLeftOpen, ChevronRight } from 'lucide-react';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar, NavTab, SidebarMode } from './components/layout/Sidebar';
@@ -56,19 +58,12 @@ import { exportCompleteHistoricalExcel } from './services/excelHistoricalExportS
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
-import {
-  INITIAL_HOTELS,
-  INITIAL_VENUES,
-  INITIAL_SUGGESTIONS,
-  INITIAL_SOURCES,
-  generateFullMockEvents,
-} from './data/mockData';
-import { EventItem, FilterState, Hotel, EventProposal } from './types';
+import { EventItem, FilterState, Hotel, EventProposal, EventSuggestion, EventSource, Venue } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 import { exportEventsToPDF } from './utils/pdfExport';
 
 export default function App() {
-  const { user, loading: authLoading, error: authError, recoveryMode, signOut } = useAuth();
+  const { user, supabase, loading: authLoading, error: authError, recoveryMode, signOut } = useAuth();
   const handleLogout = async () => {
     try { await signOut(); }
     catch (error) { console.error('Supabase sign-out failed:', error); showToast('La déconnexion a échoué. Veuillez réessayer.'); }
@@ -130,45 +125,14 @@ export default function App() {
   });
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
-  const [venues, setVenues] = useState(INITIAL_VENUES);
-  const [sources, setSources] = useState(INITIAL_SOURCES);
-  const [suggestions, setSuggestions] = useState(INITIAL_SUGGESTIONS);
-  const [events, setEvents] = useState<EventItem[]>(() => generateFullMockEvents());
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [sources, setSources] = useState<EventSource[]>([]);
+  const [suggestions, setSuggestions] = useState<EventSuggestion[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
 
   // Proposals State (Score RM 30 à 59)
-  const [proposals, setProposals] = useState<EventProposal[]>([
-    {
-      id: 'prop-init-1',
-      title: 'Salon du Vélo Urbain & Mobilités Douces',
-      subtitle: 'Écomobilité & transition urbaine',
-      category: 'salons_foires',
-      city: 'Paris',
-      venueName: 'Porte de Versailles',
-      startDate: '2026-11-27',
-      endDate: '2026-11-29',
-      expectedAttendance: 19000,
-      score: 48,
-      status: 'pending',
-      detectedSource: 'Fédération des Usagers de la Bicyclette (FUB)',
-      impactLevel: 'modere',
-    },
-    {
-      id: 'prop-init-2',
-      title: 'Championnat d’Europe d’Escrime Junior',
-      subtitle: 'Escrime épée & fleuret',
-      category: 'sport',
-      city: 'Paris',
-      venueName: 'Halle Carpentier',
-      startDate: '2026-12-04',
-      endDate: '2026-12-06',
-      expectedAttendance: 8500,
-      score: 36,
-      status: 'pending',
-      detectedSource: 'Fédération Française d’Escrime',
-      impactLevel: 'modere',
-    },
-  ]);
+  const [proposals, setProposals] = useState<EventProposal[]>([]);
 
   // View switch: 'calendar' vs 'table' (default to 'table' so Table View is immediately active)
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
@@ -188,10 +152,26 @@ export default function App() {
     anomaliesOnly: false,
     watchlistOnly: false,
     showSchoolHolidays: true,
-    selectedHotelId: 'hotel-opera',
+    selectedHotelId: '',
     currentYear: 2026,
     currentMonth: 9, // October 2026 (0-indexed)
   });
+
+
+  const { workspace: revenueWorkspace, loading: revenueLoading, error: revenueError, refresh: refreshRevenueWorkspace } =
+    useRevenueWorkspace(supabase, filterState.selectedHotelId);
+
+  useEffect(() => {
+    if (!revenueWorkspace) return;
+    setHotels(revenueWorkspace.hotels);
+    setEvents(revenueWorkspace.events);
+    setSources(revenueWorkspace.sources);
+    setVenues(revenueWorkspace.venues);
+    setSuggestions([]);
+    if (!revenueWorkspace.hotels.some((hotel) => hotel.id === filterState.selectedHotelId)) {
+      setFilterState((previous) => ({ ...previous, selectedHotelId: revenueWorkspace.hotels[0]?.id ?? '' }));
+    }
+  }, [revenueWorkspace, filterState.selectedHotelId]);
 
   // Collapsible advanced filters (open by default like the screenshot)
   const [isFilterExpanded, setIsFilterExpanded] = useState(true);
@@ -241,6 +221,7 @@ export default function App() {
 
   // School holidays converted into EventItem representations
   const schoolHolidayEvents = useMemo(() => {
+    if (!currentHotel) return [];
     const hList = generateSchoolHolidaysForYear(filterState.currentYear);
     return convertSchoolHolidaysToEventItems(hList, currentHotel);
   }, [currentHotel, filterState.currentYear]);
@@ -306,50 +287,28 @@ export default function App() {
   }, [allEventsWithHolidays, filterState]);
 
   // Event interaction handlers
-  const handleToggleFavorite = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, isFavorite: !e.isFavorite } : e))
-    );
-    if (selectedEvent && selectedEvent.id === eventId) {
-      setSelectedEvent((prev) => (prev ? { ...prev, isFavorite: !prev.isFavorite } : null));
-    }
+  const handleToggleFavorite = (_eventId: string) => {
+    showToast('La gestion des favoris sera activée après ajout de sa persistance dans le backend.');
   };
 
-  const handleToggleWatchlist = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, isWatchlist: !e.isWatchlist } : e))
-    );
-    if (selectedEvent && selectedEvent.id === eventId) {
-      setSelectedEvent((prev) => (prev ? { ...prev, isWatchlist: !prev.isWatchlist } : null));
-    }
-    showToast('Statut de surveillance RM mis à jour');
+  const handleToggleWatchlist = (_eventId: string) => {
+    showToast('La liste de surveillance n’est pas encore persistée. Aucun changement local n’est présenté comme enregistré.');
   };
 
-  const handleToggleYieldActive = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, isYieldActive: !e.isYieldActive } : e))
-    );
-    if (selectedEvent && selectedEvent.id === eventId) {
-      setSelectedEvent((prev) => (prev ? { ...prev, isYieldActive: !prev.isYieldActive } : null));
-    }
-    showToast('Politique Yield & Stop-Sell mise à jour pour cet événement');
+  const handleToggleYieldActive = (_eventId: string) => {
+    showToast('L’activation Yield/Stop-Sell n’est pas disponible : aucune écriture PMS n’est connectée.');
   };
 
-  // Add event handler
-  const handleAddEvent = (newEvent: EventItem) => {
-    setEvents((prev) => [newEvent, ...prev]);
-    showToast(`Événement "${newEvent.title}" ajouté avec succès`);
+  const handleAddEvent = (_newEvent: EventItem) => {
+    showToast('Création événementielle non enregistrée : le formulaire sera réactivé après ajout de la route backend sécurisée.');
   };
 
-  const handleOpenAddOnDate = (dateStr: string) => {
-    setAddEventDefaultDate(dateStr);
-    setIsAddModalOpen(true);
+  const handleOpenAddOnDate = (_dateStr: string) => {
+    showToast('Ajout d’événement désactivé tant que le formulaire ne passe pas par une écriture backend sécurisée.');
   };
 
-  // Excel / CSV Import handler
-  const handleImportEvents = (imported: EventItem[]) => {
-    setEvents((prev) => [...imported, ...prev]);
-    showToast(`${imported.length} événements importés dans le référentiel`);
+  const handleImportEvents = (_imported: EventItem[]) => {
+    showToast('Import événementiel non enregistré : aucun événement fictif n’a été ajouté au référentiel.');
   };
 
   // Excel / CSV Export handler
@@ -410,97 +369,33 @@ export default function App() {
 
   // Refresh flow completion
   const handleRefreshComplete = (
-    newHighImpact: EventItem[],
-    newProps: EventProposal[],
+    _newHighImpact: EventItem[],
+    _newProps: EventProposal[],
     stats: { newCount: number; modifiedCount: number; cancelledCount: number; verifiedCount: number }
   ) => {
-    // Score >= 60 auto-integrated
-    if (newHighImpact.length > 0) {
-      setEvents((prev) => [...newHighImpact, ...prev]);
-    }
-    // Score 30-59 added to proposals
-    if (newProps.length > 0) {
-      setProposals((prev) => [...newProps, ...prev]);
-    }
-    showToast(`Actualisation terminée : ${stats.newCount} nouveaux événements détectés`);
+    showToast(`Actualisation terminée côté source : ${stats.newCount} détection(s). La persistance n’est pas activée pour ce flux.`);
+    refreshRevenueWorkspace();
   };
 
-  // Proposal acceptance / refusal
-  const handleAcceptProposal = (propId: string) => {
-    const p = proposals.find((x) => x.id === propId);
-    if (!p) return;
-
-    // 1. Mark as accepted in proposals list
-    setProposals((prev) =>
-      prev.map((x) => (x.id === propId ? { ...x, status: 'accepted' } : x))
-    );
-
-    // 2. Integrate into events calendar immediately
-    const newEvent: EventItem = {
-      id: `ev-accepted-${Date.now()}`,
-      title: p.title,
-      subtitle: p.subtitle,
-      category: p.category,
-      venueId: 'venue-porte-versailles',
-      venueName: p.venueName,
-      city: p.city,
-      country: 'France',
-      startDate: p.startDate,
-      endDate: p.endDate,
-      expectedAttendance: p.expectedAttendance,
-      internationalRatioPercent: 35,
-      status: 'confirmed',
-      impactLevel: p.impactLevel,
-      scoreBreakdown: {
-        attendanceScore: 12,
-        internationalScore: 8,
-        saturationScore: 10,
-        proximityScore: 10,
-        compressionScore: 8,
-        finalRMScore: p.score,
-        confidenceScore: 95,
-      },
-      sources: [p.detectedSource],
-      evidences: [],
-      hotelImpacts: {},
-      isRecurring: false,
-      isFavorite: false,
-      isWatchlist: true,
-      isYieldActive: false,
-      createdAt: new Date().toISOString().slice(0, 10),
-      lastVerifiedAt: new Date().toISOString().slice(0, 10),
-    };
-
-    setEvents((prev) => [newEvent, ...prev]);
-    showToast(`L'événement "${p.title}" a été validé et intégré au calendrier.`);
+  const handleAcceptProposal = (_propId: string) => {
+    showToast('Validation de propositions indisponible tant que leur persistance backend n’est pas implémentée.');
   };
 
-  const handleRefuseProposal = (propId: string) => {
-    setProposals((prev) =>
-      prev.map((x) => (x.id === propId ? { ...x, status: 'refused' } : x))
-    );
-    showToast('Événement refusé (conservé avec mention barrée)');
+  const handleRefuseProposal = (_propId: string) => {
+    showToast('Refus de proposition non persisté : action désactivée.');
   };
 
-  const handleRestoreProposal = (propId: string) => {
-    setProposals((prev) =>
-      prev.map((x) => (x.id === propId ? { ...x, status: 'pending' } : x))
-    );
-    showToast('Proposition rétablie en attente');
+  const handleRestoreProposal = (_propId: string) => {
+    showToast('Restauration de proposition non persistée : action désactivée.');
   };
 
   // Hotel management
-  const handleAddHotel = (newHotel: Hotel) => {
-    setHotels((prev) => [...prev, newHotel]);
-    showToast(`Hôtel "${newHotel.name}" ajouté au portefeuille`);
+  const handleAddHotel = (_newHotel: Hotel) => {
+    showToast('La création d’hôtel sera activée après ajout de la route sécurisée dédiée.');
   };
 
-  const handleDeleteHotel = (hotelId: string) => {
-    setHotels((prev) => prev.filter((h) => h.id !== hotelId));
-    if (filterState.selectedHotelId === hotelId) {
-      setFilterState((prev) => ({ ...prev, selectedHotelId: hotels[0]?.id || 'all' }));
-    }
-    showToast('Hôtel supprimé');
+  const handleDeleteHotel = (_hotelId: string) => {
+    showToast('La suppression d’hôtel est volontairement désactivée : elle nécessite une procédure d’archivage sécurisée.');
   };
 
   const pendingSuggestionsCount = suggestions.filter((s) => s.status === 'pending').length;
@@ -512,6 +407,8 @@ export default function App() {
     </div>
   );
   if (recoveryMode || !user) return <LoginPage authError={authError} recoveryMode={recoveryMode} />;
+  if (revenueLoading && !revenueWorkspace) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="text-center space-y-3"><div className="mx-auto h-9 w-9 rounded-full border-4 border-violet-100 border-t-violet-600 animate-spin"/><p className="text-sm text-slate-600">Chargement des données Revenue Management depuis Supabase…</p></div></div>;
+  if (revenueError || !revenueWorkspace || hotels.length === 0 || !currentHotel) return <div className="min-h-screen bg-slate-50 p-8"><div className="max-w-2xl mx-auto bg-white border border-slate-200 rounded-2xl p-6 space-y-4"><h1 className="text-xl font-bold">Données Revenue Management indisponibles</h1><p className="text-sm text-slate-600">{revenueError || 'Aucun hôtel accessible dans votre organisation.'}</p><button className="px-4 py-2 rounded-lg bg-violet-600 text-white" onClick={refreshRevenueWorkspace}>Réessayer</button><p className="text-xs text-slate-500">Les données de démonstration ne sont pas utilisées comme substitut aux données de production.</p></div></div>;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 antialiased font-sans">
@@ -560,6 +457,7 @@ export default function App() {
         <main
           className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 transition-[margin] duration-200 ease-in-out lg:ml-16 w-full"
         >
+          <RevenueBackendStatus loading={revenueLoading} error={revenueError} loadedAt={revenueWorkspace?.loadedAt} hotelCount={revenueWorkspace?.hotels.length ?? 0} rateCount={revenueWorkspace?.rates.length ?? 0} eventCount={revenueWorkspace?.events.length ?? 0} forecastCount={revenueWorkspace?.forecasts.length ?? 0} onRefresh={refreshRevenueWorkspace} />
           {/* TAB: CALENDRIER & ÉVÉNEMENTS (VUE TABLEAU / CALENDRIER / VACANCES SCOLAIRES) */}
           {activeTab === 'calendar' && (
             <div className="space-y-6">
@@ -612,6 +510,11 @@ export default function App() {
                   onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
                   onSelectEvent={setSelectedEvent}
                   onShowToast={showToast}
+                  backendMode
+                  backendRates={revenueWorkspace.rates}
+                  backendLighthouse={revenueWorkspace.lighthouse}
+                  backendInventory={revenueWorkspace.inventory}
+                  onGoToPricing={() => setActiveTab('pricing')}
                 />
               )}
 
@@ -627,8 +530,8 @@ export default function App() {
                       setViewMode(mode);
                       setCalendarSubTab(mode);
                     }}
-                    onOpenAddModal={() => setIsAddModalOpen(true)}
-                    onOpenImportModal={() => setIsImportModalOpen(true)}
+                    onOpenAddModal={() => showToast('Création d’événement non disponible : la persistance backend n’est pas encore ouverte.')}
+                    onOpenImportModal={() => showToast('Import événementiel non disponible : utilisez l’import historique dans Pricing pour les données hôtelières.')}
                     onDownloadTemplate={handleDownloadTemplate}
                     onExportData={handleExportData}
                     onExportPDF={handleExportPDF}
@@ -691,6 +594,11 @@ export default function App() {
               onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
               onSelectEvent={setSelectedEvent}
               onShowToast={showToast}
+                  backendMode
+                  backendRates={revenueWorkspace.rates}
+                  backendLighthouse={revenueWorkspace.lighthouse}
+                  backendInventory={revenueWorkspace.inventory}
+                  onGoToPricing={() => setActiveTab('pricing')}
             />
           )}
 
@@ -723,6 +631,12 @@ export default function App() {
                 setCalendarSubTab('school_holidays');
               }}
               onGoToOpportunities={() => setActiveTab('opportunities')}
+              onGoToPricing={() => setActiveTab('pricing')}
+              onGoToForecast={() => setActiveTab('forecast')}
+              backendMode
+              backendRates={revenueWorkspace.rates}
+              backendForecasts={revenueWorkspace.forecasts}
+              backendInventory={revenueWorkspace.inventory}
             />
           )}
 
@@ -744,6 +658,13 @@ export default function App() {
               onSelectEvent={setSelectedEvent}
               onGoToExcelUpload={() => setActiveTab('sources')}
               onShowToast={showToast}
+              backendRates={revenueWorkspace.rates}
+              backendLighthouse={revenueWorkspace.lighthouse}
+              backendCalibrationRules={revenueWorkspace.calibrationRules}
+              backendLoading={revenueLoading}
+              backendError={revenueError}
+              supabase={supabase}
+              onBackendRefresh={refreshRevenueWorkspace}
             />
           )}
 
@@ -757,6 +678,12 @@ export default function App() {
               defaultTab="recurrences"
               onOpenProposals={() => setIsProposalsModalOpen(true)}
               pendingProposalsCount={pendingProposalsCount}
+              backendMode
+              supabase={supabase}
+              backendLoading={revenueLoading}
+              backendError={revenueError}
+              onBackendRefresh={refreshRevenueWorkspace}
+              onShowToast={showToast}
             />
           )}
 
@@ -767,19 +694,26 @@ export default function App() {
               events={events}
               onSelectEvent={setSelectedEvent}
               onShowToast={showToast}
+              backendRates={revenueWorkspace.rates}
+              backendLoading={revenueLoading}
+              backendError={revenueError}
+              supabase={supabase}
+              onBackendRefresh={refreshRevenueWorkspace}
             />
           )}
 
           {/* TAB 5: VEILLE GÉOGRAPHIQUE (Périmètres 10/30 km, Découverte & Catégories) */}
           {activeTab === 'geo' && (
-            <GeoIntelligenceView
-              hotels={hotels}
-              selectedHotelId={filterState.selectedHotelId}
-              events={events}
-              onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
-              onSelectEvent={setSelectedEvent}
-              onShowToast={showToast}
-            />
+            currentHotel.lat === 0 || currentHotel.lng === 0
+              ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"><strong>Géolocalisation de l’hôtel indisponible.</strong><p className="mt-1">Les coordonnées de cet hôtel ne sont pas renseignées dans Supabase. La carte et le calcul de proximité sont désactivés pour éviter de placer artificiellement l’établissement à 0,0.</p></div>
+              : <GeoIntelligenceView
+                  hotels={hotels}
+                  selectedHotelId={filterState.selectedHotelId}
+                  events={events}
+                  onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
+                  onSelectEvent={setSelectedEvent}
+                  onShowToast={showToast}
+                />
           )}
 
           {/* TAB 6: SOURCES & COUVERTURE (Crawling audit & Venues directory) */}
@@ -791,6 +725,7 @@ export default function App() {
               hotel={currentHotel}
               onNavigateToPricing={() => setActiveTab('pricing')}
               onShowToast={showToast}
+              backendMode
             />
           )}
 
@@ -800,6 +735,10 @@ export default function App() {
               hotel={currentHotel}
               onNavigateToPricing={() => setActiveTab('pricing')}
               onShowToast={showToast}
+              backendMode
+              backendIntegrations={revenueWorkspace.integrations}
+              backendLoading={revenueLoading}
+              backendError={revenueError}
             />
           )}
 
@@ -810,6 +749,14 @@ export default function App() {
               events={events}
               onSelectEvent={setSelectedEvent}
               onGoToMarket={() => setActiveTab('market')}
+              backendForecasts={revenueWorkspace.forecasts}
+              backendInventory={revenueWorkspace.inventory}
+              backendBacktests={revenueWorkspace.backtests}
+              backendLoading={revenueLoading}
+              backendError={revenueError}
+              supabase={supabase}
+              onBackendRefresh={refreshRevenueWorkspace}
+              onShowToast={showToast}
             />
           )}
 
@@ -819,6 +766,10 @@ export default function App() {
               hotel={currentHotel}
               onShowToast={showToast}
               onNavigateToDecisionCenter={() => setActiveTab('opportunities')}
+              backendMode
+              backendRates={revenueWorkspace.rates}
+              backendForecasts={revenueWorkspace.forecasts}
+              backendInventory={revenueWorkspace.inventory}
             />
           )}
 
@@ -831,6 +782,10 @@ export default function App() {
               selectedHotelId={filterState.selectedHotelId}
               onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
               onShowToast={showToast}
+              backendMode
+              backendParameters={revenueWorkspace.parameters}
+              supabase={supabase}
+              onBackendRefresh={refreshRevenueWorkspace}
             />
           )}
         </main>

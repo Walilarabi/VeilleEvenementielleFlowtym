@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { RevenueSourcesWorkspace } from './RevenueSourcesWorkspace';
 import {
   Database,
   ShieldCheck,
@@ -36,9 +37,10 @@ interface SourcesCoverageViewProps {
   onTriggerSync?: () => void;
   onShowToast?: (msg: string) => void;
   onNavigateToPricing?: () => void;
+  backendMode?: boolean;
 }
 
-export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
+const LegacySourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
   sources,
   venues,
   events = [],
@@ -489,4 +491,17 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
       )}
     </div>
   );
+};
+
+
+export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = (props) => {
+  if (props.backendMode) {
+    return <RevenueSourcesWorkspace
+      sources={props.sources}
+      venues={props.venues}
+      events={props.events?.length ?? 0}
+      hotel={props.hotel}
+    />;
+  }
+  return <LegacySourcesCoverageView {...props} />;
 };

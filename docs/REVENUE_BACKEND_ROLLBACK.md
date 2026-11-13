@@ -8,7 +8,7 @@ For production incidents, prefer a forward-fix migration. The current schema con
 
 ## Edge Function
 
-- Current deployed function: `revenue-api`, version 17, JWT verification enabled.
+- Current deployed function: `revenue-api`, version 21, JWT verification enabled.
 - The function uses the authenticated caller context and RLS; it does not use a service-role key.
 - If a code regression occurs, redeploy the last known-good `index.ts` and `deno.json` from the corresponding Git commit, then verify the function is ACTIVE and JWT verification remains enabled.
 - If access must be stopped immediately, disable the function in the Supabase Dashboard. Do not expose a bypass endpoint.

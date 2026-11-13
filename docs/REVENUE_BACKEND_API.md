@@ -175,3 +175,27 @@ The pre-existing browser-side services `predictiveRevenueEngine`, `demandForecas
 - Tenant tables have RLS enabled. Same-hotel composite foreign keys prevent cross-hotel references.
 - Decision audit rows are append-only for authenticated clients.
 - No automatic tariff publishing, no credentials in database plaintext, and no mock/fixture data promoted to live.
+
+
+## Additional read endpoints used by the Revenue UI
+
+All routes below require a valid authenticated user JWT. Hotel-scoped reads are checked against the user's hotel access and row-level security.
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/hotels/:hotelId/lighthouse-observations?from=&to=` | Persisted Lighthouse competitor observations and extraction provenance |
+| GET | `/hotels/:hotelId/parameters` | Current hotel Revenue guardrails and configuration |
+| GET | `/hotels/:hotelId/integrations` | D-EDGE/Lighthouse connection health; never exposes credentials |
+| GET | `/hotels/:hotelId/calibration-rules` | Learned rules and their human-review status |
+| GET | `/sources` | Shared event source catalog |
+| GET | `/venues?city=` | Venue catalog for the selected hotel's city |
+
+## UI integration behavior
+
+- Revenue screens load through the authenticated `revenue-api` client; browser fixtures are not used as production fallbacks.
+- Empty tables are rendered as empty states, not populated with sample values.
+- Missing coordinates block hotel geospatial calculations instead of defaulting to (0,0).
+- Event listing is city-scoped and returns occurrences even before a hotel impact has been calculated; scoring creates the hotel-specific impact for later review.
+- Historical CSV/XLSX rows are ingested as `imported`, retain the original row in `raw_record`, and are never labeled as live PMS data.
+- Price decisions and event-impact decisions are audited server-side. No route pushes prices to a PMS/channel manager.
+- Provider status is read-only until an official supplier authentication and ingestion contract is configured.

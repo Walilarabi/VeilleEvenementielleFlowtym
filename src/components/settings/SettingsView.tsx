@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { RevenueSettingsWorkspace } from './RevenueSettingsWorkspace';
 import {
   Sliders,
   Building2,
@@ -29,9 +31,13 @@ interface SettingsViewProps {
   selectedHotelId?: string;
   onSelectHotel?: (hotelId: string) => void;
   onShowToast?: (message: string) => void;
+  backendMode?: boolean;
+  backendParameters?: Record<string, unknown> | null;
+  supabase?: SupabaseClient | null;
+  onBackendRefresh?: () => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({
+const LegacySettingsView: React.FC<SettingsViewProps> = ({
   hotels,
   onAddHotel,
   onDeleteHotel,
@@ -591,4 +597,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
     </div>
   );
+};
+
+
+export const SettingsView: React.FC<SettingsViewProps> = (props) => {
+  if (props.backendMode && props.selectedHotelId) {
+    const hotel = props.hotels.find((item) => item.id === props.selectedHotelId) ?? props.hotels[0];
+    if (hotel) return <RevenueSettingsWorkspace
+      hotel={hotel}
+      parameters={props.backendParameters ?? null}
+      supabase={props.supabase ?? null}
+      onRefresh={props.onBackendRefresh ?? (() => undefined)}
+      onShowToast={props.onShowToast ?? (() => undefined)}
+    />;
+  }
+  return <LegacySettingsView {...props} />;
 };

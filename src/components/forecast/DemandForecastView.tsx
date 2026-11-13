@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { RevenueForecastRow, RevenueInventoryRow } from '../../services/revenueWorkspace';
+import { RevenueForecastWorkspace } from './RevenueForecastWorkspace';
 import {
   TrendingUp,
   AlertTriangle,
@@ -47,6 +50,14 @@ interface DemandForecastViewProps {
   events?: EventItem[];
   onSelectEvent?: (event: EventItem) => void;
   onGoToMarket?: () => void;
+  backendForecasts?: RevenueForecastRow[];
+  backendInventory?: RevenueInventoryRow[];
+  backendBacktests?: unknown[];
+  backendLoading?: boolean;
+  backendError?: string | null;
+  supabase?: SupabaseClient | null;
+  onBackendRefresh?: () => void;
+  onShowToast?: (message: string) => void;
 }
 
 export interface TimelinePoint {
@@ -106,7 +117,7 @@ export interface ForecastRowData {
   };
 }
 
-export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
+const LegacyDemandForecastView: React.FC<DemandForecastViewProps> = ({
   hotel,
   events = [],
   onSelectEvent,
@@ -1914,4 +1925,22 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       </div>
     </div>
   );
+};
+
+
+export const DemandForecastView: React.FC<DemandForecastViewProps> = (props) => {
+  if (props.backendForecasts !== undefined) {
+    return <RevenueForecastWorkspace
+      hotel={props.hotel ?? { id: '', name: 'Hôtel', group: '', city: '', country: '', address: '', lat: 0, lng: 0, stars: 0, roomCount: 0, segment: 'Affaires', baseADR: 0 }}
+      forecasts={props.backendForecasts}
+      inventory={props.backendInventory ?? []}
+      backtests={props.backendBacktests ?? []}
+      loading={Boolean(props.backendLoading)}
+      error={props.backendError ?? null}
+      supabase={props.supabase ?? null}
+      onRefresh={props.onBackendRefresh ?? (() => undefined)}
+      onShowToast={props.onShowToast ?? (() => undefined)}
+    />;
+  }
+  return <LegacyDemandForecastView {...props} />;
 };

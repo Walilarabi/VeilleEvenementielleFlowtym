@@ -56,7 +56,7 @@ export const submitRevenueDecision = (
 );
 
 export const generateBaselineForecast = (supabase: SupabaseClient, hotelId: string, startDate: string, endDate: string) =>
-  revenueApiRequest<{ ok: true; forecastRunId: string; datesForecast: number; skippedForInsufficientHistory: number }>(
+  revenueApiRequest<{ ok: true; hotelId: string; asOf: string; models: { modelName: string; modelVersion: string; forecastRunId: string; datesRequested: number; datesForecast: number; skippedForInsufficientHistory: number }[]; forecastingIsBaselineOnly: true }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/forecasts/baseline`,
     { method: "POST", body: { startDate, endDate } },
   );
@@ -177,3 +177,37 @@ export const reviewPriceExperiment = (
   supabase, `/hotels/${encodeURIComponent(hotelId)}/price-experiments/review`,
   { method: "POST", body: { experimentId, action, reasonCode, evidence, reasonText } },
 );
+
+export const getHotelForecasts = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/forecasts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  );
+
+export const getHotelInventorySnapshots = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/inventory-snapshots?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  );
+
+export const getHotelIntegrations = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/integrations`,
+  );
+
+export const getHotelRevenueParameters = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; data: Record<string, unknown> | null }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/parameters`,
+  );
+
+export const getHotelLighthouseObservations = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/lighthouse-observations?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  );
+
+
+export const getRevenueSources = (supabase: SupabaseClient) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(supabase, "/sources");
+
+export const getRevenueVenues = (supabase: SupabaseClient, city: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/venues?city=${encodeURIComponent(city)}`,
+  );

@@ -39,6 +39,7 @@ const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
   corporate_sommet: 'Corporate & sommets',
   culturel: 'Culturel',
   vacances_scolaires: 'Vacances scolaires',
+  autre: 'Autre',
 };
 
 const getTypeLabel = (category: EventCategory, _title: string): string =>
@@ -268,9 +269,9 @@ export const TableView: React.FC<TableViewProps> = ({
             <tbody className="divide-y divide-slate-100">
               {sortedEvents.map((ev) => {
                 const score = ev.scoreBreakdown.finalRMScore;
-                const scoreStyles = getRMScoreColorClasses(score);
-                const accentColor = getAccentBarColor(score);
-                const isRMSPriority = score >= 50;
+                const scoreStyles = getRMScoreColorClasses(ev.scoreUnknown ? 0 : score);
+                const accentColor = ev.scoreUnknown ? 'bg-slate-300' : getAccentBarColor(score);
+                const isRMSPriority = !ev.scoreUnknown && score >= 50;
 
                 return (
                   <tr
@@ -341,7 +342,7 @@ export const TableView: React.FC<TableViewProps> = ({
 
                     {/* Impact RM Column */}
                     <td className="py-4 px-4 whitespace-nowrap">
-                      {renderImpactPill(score, ev.impactLevel)}
+                      {ev.scoreUnknown ? <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold text-slate-600">À calculer</span> : renderImpactPill(score, ev.impactLevel)}
                     </td>
 
                     {/* Score RM Column with horizontal progress gauge + pastel colored badge */}
@@ -357,7 +358,7 @@ export const TableView: React.FC<TableViewProps> = ({
                           className={`inline-flex items-center justify-center px-2.5 py-0.5 rounded-md font-bold text-xs tabular-nums border ${scoreStyles.badge}`}
                           title={`Score RM : ${score}/100 (${scoreStyles.label})`}
                         >
-                          {score}
+                          {ev.scoreUnknown ? '—' : score}
                         </span>
                       </div>
                     </td>

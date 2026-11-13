@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import type { RevenueRateRow, RevenueForecastRow, RevenueInventoryRow } from '../../services/revenueWorkspace';
+import { RevenueFlowboardWorkspace } from './RevenueFlowboardWorkspace';
 import {
   TrendingUp,
   AlertTriangle,
@@ -34,9 +36,15 @@ interface FlowboardViewProps {
   onGoToCalendar: () => void;
   onGoToSchoolHolidays?: () => void;
   onGoToOpportunities?: () => void;
+  onGoToPricing?: () => void;
+  onGoToForecast?: () => void;
+  backendMode?: boolean;
+  backendRates?: RevenueRateRow[];
+  backendForecasts?: RevenueForecastRow[];
+  backendInventory?: RevenueInventoryRow[];
 }
 
-export const FlowboardView: React.FC<FlowboardViewProps> = ({
+const LegacyFlowboardView: React.FC<FlowboardViewProps> = ({
   events,
   suggestions,
   hotels,
@@ -493,4 +501,25 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
       </div>
     </div>
   );
+};
+
+
+export const FlowboardView: React.FC<FlowboardViewProps> = (props) => {
+  if (props.backendMode) {
+    const hotel = props.hotels.find((item) => item.id === props.selectedHotelId) ?? props.hotels[0];
+    if (!hotel) return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Aucun hôtel sélectionné.</div>;
+    return <RevenueFlowboardWorkspace
+      hotel={hotel}
+      events={props.events}
+      rates={props.backendRates ?? []}
+      forecasts={props.backendForecasts ?? []}
+      inventory={props.backendInventory ?? []}
+      onSelectEvent={props.onSelectEvent}
+      onGoToCalendar={props.onGoToCalendar}
+      onGoToPricing={props.onGoToPricing ?? (() => undefined)}
+      onGoToForecast={props.onGoToForecast ?? (() => undefined)}
+      onGoToOpportunities={() => props.onGoToOpportunities?.()}
+    />;
+  }
+  return <LegacyFlowboardView {...props} />;
 };

@@ -4,6 +4,8 @@
  */
 
 import React, { useState } from 'react';
+import type { RevenueIntegrationRow } from '../../services/revenueWorkspace';
+import { RevenueConnectivityWorkspace } from './RevenueConnectivityWorkspace';
 import {
   Database,
   TrendingUp,
@@ -44,9 +46,13 @@ interface HotelConnectivityHubProps {
   hotel: Hotel;
   onShowToast: (message: string) => void;
   onNavigateToPricing?: () => void;
+  backendMode?: boolean;
+  backendIntegrations?: RevenueIntegrationRow[];
+  backendLoading?: boolean;
+  backendError?: string | null;
 }
 
-export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
+const LegacyHotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
   hotel,
   onShowToast,
   onNavigateToPricing,
@@ -688,4 +694,17 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
       )}
     </div>
   );
+};
+
+
+export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = (props) => {
+  if (props.backendMode) {
+    return <RevenueConnectivityWorkspace
+      hotel={props.hotel}
+      integrations={props.backendIntegrations ?? []}
+      loading={Boolean(props.backendLoading)}
+      error={props.backendError ?? null}
+    />;
+  }
+  return <LegacyHotelConnectivityHub {...props} />;
 };

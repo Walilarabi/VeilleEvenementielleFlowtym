@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { RevenueEventWorkspace } from './RevenueEventWorkspace';
 import {
   Sparkles,
   TrendingUp,
@@ -26,9 +28,15 @@ interface EventIntelligenceViewProps {
   defaultTab?: 'compression' | 'recurrences' | 'pricing_rules' | 'revpar_simulator';
   onOpenProposals?: () => void;
   pendingProposalsCount?: number;
+  backendMode?: boolean;
+  supabase?: SupabaseClient | null;
+  backendLoading?: boolean;
+  backendError?: string | null;
+  onBackendRefresh?: () => void;
+  onShowToast?: (message: string) => void;
 }
 
-export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
+const LegacyEventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
   events,
   hotels,
   selectedHotelId,
@@ -374,4 +382,23 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
       )}
     </div>
   );
+};
+
+
+export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = (props) => {
+  if (props.backendMode) {
+    const hotel = props.hotels.find((item) => item.id === props.selectedHotelId) ?? props.hotels[0];
+    if (!hotel) return <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Aucun hôtel sélectionné.</div>;
+    return <RevenueEventWorkspace
+      hotel={hotel}
+      events={props.events}
+      supabase={props.supabase ?? null}
+      loading={Boolean(props.backendLoading)}
+      error={props.backendError ?? null}
+      onRefresh={props.onBackendRefresh ?? (() => undefined)}
+      onShowToast={props.onShowToast ?? (() => undefined)}
+      onSelectEvent={props.onSelectEvent}
+    />;
+  }
+  return <LegacyEventIntelligenceView {...props} />;
 };
