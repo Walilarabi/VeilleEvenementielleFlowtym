@@ -68,6 +68,9 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
   onSelectVenue,
   hoveredEventId,
 }) => {
+  const hasHotelCoordinates = hotel.lat !== null && hotel.lng !== null;
+  const hotelLat = hotel.lat ?? territory.center.lat;
+  const hotelLng = hotel.lng ?? territory.center.lng;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -114,18 +117,19 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
 
   // Helper to recenter and bound to territory
   const fitToTerritoryBounds = useCallback(() => {
+    if (!hasHotelCoordinates) return;
     const map = mapInstanceRef.current;
     const google = window.google;
     if (!map || !google || !google.maps) return;
 
-    const b = getTerritoryBoundsForScope(territory, territoryScope, hotel.lat, hotel.lng);
+    const b = getTerritoryBoundsForScope(territory, territoryScope, hotelLat, hotelLng);
     const googleBounds = new google.maps.LatLngBounds(
       new google.maps.LatLng(b.south, b.west),
       new google.maps.LatLng(b.north, b.east)
     );
 
     // Also include active hotel position
-    googleBounds.extend(new google.maps.LatLng(hotel.lat, hotel.lng));
+    googleBounds.extend(new google.maps.LatLng(hotelLat, hotelLng));
 
     map.fitBounds(googleBounds, {
       top: 50,
@@ -133,10 +137,11 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
       bottom: 50,
       left: 50,
     });
-  }, [hotel.lat, hotel.lng, territory, territoryScope]);
+  }, [hotelLat, hotelLng, territory, territoryScope, hasHotelCoordinates]);
 
   // Initialize Map instance once
   useEffect(() => {
+    if (!hasHotelCoordinates) { setMapError('Coordonnées GPS de l’hôtel manquantes dans Supabase.'); return; }
     let isCancelled = false;
 
     loadGoogleMaps()
@@ -160,14 +165,14 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
           { featureType: 'administrative.locality', elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }, { weight: 3 }] },
         ];
 
-        const initialBounds = getTerritoryBoundsForScope(territory, territoryScope, hotel.lat, hotel.lng);
+        const initialBounds = getTerritoryBoundsForScope(territory, territoryScope, hotelLat, hotelLng);
         const restrictionBounds = new google.maps.LatLngBounds(
           new google.maps.LatLng(initialBounds.south - 0.1, initialBounds.west - 0.15),
           new google.maps.LatLng(initialBounds.north + 0.1, initialBounds.east + 0.15)
         );
 
         const mapOptions: any = {
-          center: { lat: hotel.lat, lng: hotel.lng },
+          center: { lat: hotelLat, lng: hotelLng },
           zoom: territory.defaultZoom || 11,
           minZoom: territory.minZoom || 9.5, // EMPRISE GÉOGRAPHIQUE : empêche le dézoom au niveau national
           maxZoom: 18,
@@ -205,15 +210,15 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [hasHotelCoordinates]);
 
   // Update camera and restriction when territory or scope changes
   useEffect(() => {
     const map = mapInstanceRef.current;
     const google = window.google;
-    if (!map || !mapLoaded || !google || !google.maps) return;
+    if (!hasHotelCoordinates || !map || !mapLoaded || !google || !google.maps) return;
 
-    const b = getTerritoryBoundsForScope(territory, territoryScope, hotel.lat, hotel.lng);
+    const b = getTerritoryBoundsForScope(territory, territoryScope, hotelLat, hotelLng);
     const restrictionBounds = new google.maps.LatLngBounds(
       new google.maps.LatLng(b.south - 0.15, b.west - 0.2),
       new google.maps.LatLng(b.north + 0.15, b.east + 0.2)
@@ -228,7 +233,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
     });
 
     fitToTerritoryBounds();
-  }, [territory, territoryScope, hotel.lat, hotel.lng, mapLoaded, fitToTerritoryBounds]);
+  }, [territory, territoryScope, hotelLat, hotelLng, mapLoaded, fitToTerritoryBounds, hasHotelCoordinates]);
 
   // Highlight marker when an event is hovered in the side list
   useEffect(() => {
@@ -263,7 +268,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
     const bounds = new google.maps.LatLngBounds();
 
     // 1. HOTEL REFERENT MARKER (Target hotel)
-    const hotelPos = new google.maps.LatLng(hotel.lat, hotel.lng);
+    const hotelPos = new google.maps.LatLng(hotelLat, hotelLng);
     bounds.extend(hotelPos);
 
     const hotelMarkerSvg = `
@@ -537,6 +542,10 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
     onSelectVenue,
     territory,
   ]);
+
+  if (!hasHotelCoordinates) {
+    return <div role="status" className="flex min-h-64 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">Carte désactivée : coordonnées GPS réelles de l'hôtel absentes dans Supabase.</div>;
+  }
 
   return (
     <div className="relative w-full h-[620px] rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm bg-slate-100">
