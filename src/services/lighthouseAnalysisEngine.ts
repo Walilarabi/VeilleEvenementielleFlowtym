@@ -145,7 +145,7 @@ export interface LighthouseExtractionMetadata {
   dateRange: string;
   totalDatesCount: number;
   isCustomUpload: boolean;
-  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation';
+  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation' | 'empty';
 }
 
 export interface LighthouseExtractionDataset {
@@ -372,7 +372,7 @@ export function createEmptyLighthouseDataset(): LighthouseExtractionDataset {
       dateRange: '',
       totalDatesCount: 0,
       isCustomUpload: false,
-      sourceStatus: 'live',
+      sourceStatus: 'empty',
     },
     records: [],
   };
