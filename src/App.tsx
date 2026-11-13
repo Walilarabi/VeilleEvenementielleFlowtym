@@ -257,6 +257,7 @@ export default function App() {
 
   // School holidays converted into EventItem representations
   const schoolHolidayEvents = useMemo(() => {
+    if (!currentHotel) return [];
     const hList = generateSchoolHolidaysForYear(filterState.currentYear);
     return convertSchoolHolidaysToEventItems(hList, currentHotel);
   }, [currentHotel, filterState.currentYear]);
@@ -839,7 +840,9 @@ export default function App() {
               backendInventory={revenueWorkspace.inventory}
               backendLoading={revenueLoading}
               backendError={revenueError}
-              onGenerateBaseline={refreshRevenueWorkspace}
+              supabase={supabase}
+              onBackendRefresh={refreshRevenueWorkspace}
+              onShowToast={showToast}
             />
           )}
 
