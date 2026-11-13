@@ -43,13 +43,13 @@ declare
 begin
   select id into v_rate_id
   from public.persist_rm_recommendation(
-    own_org,own_hotel,current_date+29,'EUR',220,245,25,11.36,72,'eleve',78,10,null,230,
+    own_org,own_hotel,current_date+29,'EUR',220,245,25,11.36,72,'eleve',78,10,2,4,7,null,230,
     'PRICING_V1_HIGH','Test recommendation','{"test":true}'::jsonb,80,'valid','{"test":true}'::jsonb,'rls-idempotency-test'
   );
 
   select id into v_rate_id_again
   from public.persist_rm_recommendation(
-    own_org,own_hotel,current_date+29,'EUR',220,250,30,13.64,76,'eleve',80,9,null,235,
+    own_org,own_hotel,current_date+29,'EUR',220,250,30,13.64,76,'eleve',80,9,3,5,8,null,235,
     'PRICING_V1_HIGH','Updated pending recommendation','{"test":true}'::jsonb,85,'valid','{"test":true}'::jsonb,'rls-idempotency-test'
   );
 
@@ -69,7 +69,7 @@ begin
 
   begin
     perform * from public.persist_rm_recommendation(
-      own_org,own_hotel,current_date+29,'EUR',220,255,35,15.91,80,'eleve',85,7,null,240,
+      own_org,own_hotel,current_date+29,'EUR',220,255,35,15.91,80,'eleve',85,7,3,6,9,null,240,
       'PRICING_V1_HIGH','Should not overwrite a decided recommendation','{"test":true}'::jsonb,90,'valid','{"test":true}'::jsonb,'rls-idempotency-test'
     );
     raise exception 'FAIL: recommendation generation overwrote a decided recommendation';
