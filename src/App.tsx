@@ -59,11 +59,9 @@ import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 import {
   INITIAL_HOTELS,
   INITIAL_VENUES,
-  INITIAL_SUGGESTIONS,
   INITIAL_SOURCES,
-  generateFullMockEvents,
 } from './data/mockData';
-import { EventItem, FilterState, Hotel, EventProposal } from './types';
+import { EventItem, EventSuggestion, FilterState, Hotel, EventProposal } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 import { exportEventsToPDF } from './utils/pdfExport';
 
