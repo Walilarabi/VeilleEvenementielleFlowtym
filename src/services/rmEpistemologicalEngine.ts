@@ -40,7 +40,7 @@ export function generateRMEpistemologicalBreakdown(
   const prevision: string[] = [];
   const hypothese: string[] = [];
   const primaryDrivers: string[] = [];
-  const baseADR = baseADR ?? 0;
+  const baseADR = hotel.baseADR ?? 0;
 
   const totalPax = dayEvents.reduce((acc, e) => acc + (e.expectedAttendance || 0), 0);
   const maxScore = dayEvents.length > 0 ? Math.max(...dayEvents.map((e) => e.scoreBreakdown?.finalRMScore ?? 50)) : 0;
