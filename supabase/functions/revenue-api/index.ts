@@ -8,7 +8,7 @@ const cors = {
 };
 
 type Profile = { id: string; organization_id: string | null; role: string; email: string | null };
-type Hotel = { id: string; organization_id: string; name: string; room_count: number | null; timezone: string; currency: string; rate_floor: number | null; rate_ceiling: number | null; max_rate_change_pct: number | null };
+type Hotel = { id: string; organization_id: string; name: string; room_count: number | null; timezone: string; currency: string; rate_floor: number | null; rate_ceiling: number | null; max_rate_change_pct: number | null; lat: number | null; lng: number | null; segment: string | null };
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: cors });
@@ -64,7 +64,7 @@ async function getProfile(supabase: any, userId: string): Promise<Profile | null
 async function getHotel(supabase: any, hotelId: string): Promise<Hotel | null> {
   const { data, error } = await supabase
     .from("hotels")
-    .select("id,organization_id,name,room_count,timezone,currency,rate_floor,rate_ceiling,max_rate_change_pct")
+    .select("id,organization_id,name,room_count,timezone,currency,rate_floor,rate_ceiling,max_rate_change_pct,lat,lng,segment")
     .eq("id", hotelId).maybeSingle();
   if (error || !data) return null;
   return data as Hotel;
@@ -72,6 +72,13 @@ async function getHotel(supabase: any, hotelId: string): Promise<Hotel | null> {
 
 function requireManager(profile: Profile) {
   return ["super_admin", "admin", "revenue_manager"].includes(profile.role);
+}
+
+function haversineKm(lat1:number,lon1:number,lat2:number,lon2:number):number {
+  const rad=(v:number)=>v*Math.PI/180;
+  const dLat=rad(lat2-lat1),dLon=rad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLon/2)**2;
+  return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
 function calculateForecastMetrics(actual: number[], forecast: number[]) {
@@ -338,6 +345,90 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     }).eq("id", run.id);
     if (insertError) return fail("Persistance des prévisions impossible", 400, insertError.message);
     return json({ ok: true, forecastRunId: run.id, datesRequested: eachDate(start,end).length, datesForecast: forecasts.length, skippedForInsufficientHistory: eachDate(start,end).length-forecasts.length }, 201);
+  }
+
+  if (actionPath === "events/score") {
+    const occurrenceId = body.occurrenceId;
+    if (typeof occurrenceId !== "string") return fail("occurrenceId obligatoire");
+    if (hotel.lat === null || hotel.lng === null) return fail("Latitude/longitude de l'hôtel manquante : aucun score de proximité ne sera inventé",422);
+    const [{data:params,error:paramsError},{data:occurrence,error:occurrenceError}] = await Promise.all([
+      supabase.from("hotel_parameters_profiles").select("demand_thresholds").eq("hotel_id",hotelId).maybeSingle(),
+      supabase.from("event_occurrences").select("id,event_id,start_date,end_date,date_status,attendance_estimate,events(id,title,category,status,expected_attendance,international_ratio_pct,recurrence_frequency,official_url,venues(id,name,latitude,longitude,capacity,verification_status),event_evidence(source_name,source_url,trust_score,verified_at))").eq("id",occurrenceId).maybeSingle(),
+    ]);
+    if (paramsError || occurrenceError) return fail("Lecture des paramètres ou de l'événement impossible",400,paramsError?.message ?? occurrenceError?.message);
+    if (!occurrence) return fail("Occurrence événementielle introuvable",404);
+    const event:any = occurrence.events;
+    const venue:any = event?.venues;
+    if (!event || event.status === "cancelled" || occurrence.date_status === "cancelled") return fail("Événement annulé ou non exploitable",422);
+    if (venue?.verification_status !== "verified" || numberOrNull(venue?.latitude)===null || numberOrNull(venue?.longitude)===null) {
+      return fail("Lieu non vérifié ou coordonnées manquantes : score de proximité indisponible",422);
+    }
+    const cfg:any = params?.demand_thresholds?.event_impact_v1;
+    if (!cfg?.weights || !cfg?.scales || !cfg?.recurrence_scores) {
+      return fail("Le modèle event_impact_v1 doit être configuré par hôtel avant le calcul",422);
+    }
+    const weights=cfg.weights as Record<string,number>;
+    const keys=["attendance","international","duration","proximity","capacity","notoriety","recurrence","extra_nights","segment_fit"];
+    const totalWeight=keys.reduce((sum,k)=>sum+(Number(weights[k])||0),0);
+    const scales=cfg.scales as Record<string,number>;
+    if (totalWeight<=0 || keys.some(k=>!Number.isFinite(Number(weights[k])) || Number(weights[k])<0) ||
+        !Number.isFinite(Number(scales.attendance)) || Number(scales.attendance)<=0 ||
+        !Number.isFinite(Number(scales.duration_days)) || Number(scales.duration_days)<=0 ||
+        !Number.isFinite(Number(scales.max_distance_km)) || Number(scales.max_distance_km)<=0 ||
+        !Number.isFinite(Number(scales.venue_capacity)) || Number(scales.venue_capacity)<=0 ||
+        !Number.isFinite(Number(cfg.minimum_weight_coverage_pct)) || Number(cfg.minimum_weight_coverage_pct)<=0 ||
+        !Number.isInteger(Number(cfg.minimum_components)) || Number(cfg.minimum_components)<1) {
+      return fail("Configuration event_impact_v1 invalide : weights, scales et seuils obligatoires",422);
+    }
+    const distance=haversineKm(Number(hotel.lat),Number(hotel.lng),Number(venue.latitude),Number(venue.longitude));
+    const durationDays=Math.max(1,Math.round((Date.parse(occurrence.end_date+"T00:00:00Z")-Date.parse(occurrence.start_date+"T00:00:00Z"))/86400000)+1);
+    const attendance=numberOrNull(occurrence.attendance_estimate) ?? numberOrNull(event.expected_attendance);
+    const evidence=(event.event_evidence??[]).filter((e:any)=>e.verified_at && numberOrNull(e.trust_score)!==null);
+    const notoriety=evidence.length ? evidence.reduce((sum:number,e:any)=>sum+Number(e.trust_score),0)/evidence.length : null;
+    const recurrence=event.recurrence_frequency ? numberOrNull(cfg.recurrence_scores[event.recurrence_frequency]) : null;
+    const segmentFit=hotel.segment && cfg.segment_fit_by_category
+      ? numberOrNull(cfg.segment_fit_by_category[hotel.segment]?.[event.category]) : null;
+    const components:Record<string,number|null>={
+      attendance:attendance===null?null:clamp(attendance/Number(scales.attendance)*100,0,100),
+      international:numberOrNull(event.international_ratio_pct),
+      duration:clamp(durationDays/Number(scales.duration_days)*100,0,100),
+      proximity:clamp(100*(1-distance/Number(scales.max_distance_km)),0,100),
+      capacity:numberOrNull(venue.capacity)===null?null:clamp(Number(venue.capacity)/Number(scales.venue_capacity)*100,0,100),
+      notoriety:notoriety,
+      recurrence:recurrence,
+      extra_nights:null,
+      segment_fit:segmentFit,
+    };
+    const available=keys.filter(k=>components[k]!==null && Number(weights[k])>0);
+    const coveredWeight=available.reduce((sum,k)=>sum+Number(weights[k]),0);
+    const coverage=Math.round(100*coveredWeight/totalWeight);
+    const componentCount=available.length;
+    const score=componentCount>=Number(cfg.minimum_components) && coverage>=Number(cfg.minimum_weight_coverage_pct)
+      ? Math.round(available.reduce((sum,k)=>sum+Number(weights[k])*Number(components[k]),0)/coveredWeight)
+      : null;
+    const scoreComponents={...components,weights,coveredWeight,totalWeight,componentCount,coverageScore:coverage,extraNightsStatus:"not_computed_no_verified_historical_lift_model"};
+    const sourceEvidence=evidence.map((e:any)=>({sourceName:e.source_name,sourceUrl:e.source_url,trustScore:e.trust_score,verifiedAt:e.verified_at}));
+    const {data:existing,error:existingError}=await supabase.from("event_hotel_impacts")
+      .select("id,impact_status").eq("hotel_id",hotelId).eq("occurrence_id",occurrenceId).maybeSingle();
+    if (existingError) return fail("Vérification de l'impact existant impossible",400,existingError.message);
+    if (existing && existing.impact_status!=="to_review") return fail("Impact déjà validé ou écarté : révision explicite requise avant recalcul",409);
+    const impactRow={
+      organization_id:hotel.organization_id,hotel_id:hotelId,event_id:occurrence.event_id,occurrence_id:occurrenceId,
+      distance_km:Math.round(distance*100)/100,drive_time_minutes:null,transit_time_minutes:null,
+      attendance_score:components.attendance,international_score:components.international,
+      duration_score:components.duration,proximity_score:components.proximity,
+      recurrence_score:components.recurrence,capacity_score:components.capacity,
+      notoriety_score:components.notoriety,extra_nights_score:null,segment_fit_score:components.segment_fit,
+      source_confidence_score:coverage,score_components:scoreComponents,source_evidence:sourceEvidence,
+      final_rm_score:score,confidence_score:coverage,estimated_demand_lift_pct:null,estimated_adr_lift_pct:null,
+      recommended_action:score===null?"À compléter — preuves ou composants insuffisants":"À valider par le Revenue Manager",
+      impact_status:"to_review",calculated_at:new Date().toISOString(),
+    };
+    const result=existing
+      ? await supabase.from("event_hotel_impacts").update(impactRow).eq("id",existing.id).select("*").single()
+      : await supabase.from("event_hotel_impacts").insert(impactRow).select("*").single();
+    if (result.error) return fail("Enregistrement de l'impact hôtel impossible",400,result.error.message);
+    return json({ok:true,data:result.data,requiresHumanValidation:true,driveTimeCalculated:false,extraNightsCalculated:false},201);
   }
 
   if (actionPath === "backtests/evaluate") {
