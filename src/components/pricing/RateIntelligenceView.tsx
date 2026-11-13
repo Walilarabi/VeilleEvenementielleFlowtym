@@ -15,7 +15,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { RevenueRateRow } from '../../services/revenueWorkspace';
+import type { RevenueRateRow, RevenueLighthouseRow } from '../../services/revenueWorkspace';
 import { RevenuePricingWorkspace } from './RevenuePricingWorkspace';
 import {
   TrendingUp,
@@ -395,6 +395,7 @@ interface RateIntelligenceViewProps {
   onShowToast: (msg: string) => void;
   initialTab?: 'grid' | 'lighthouse' | 'historical' | 'backtest' | 'learning';
   backendRates?: RevenueRateRow[];
+  backendLighthouse?: RevenueLighthouseRow[];
   backendLoading?: boolean;
   backendError?: string | null;
   supabase?: SupabaseClient | null;
@@ -2976,6 +2977,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = (props)
     return <RevenuePricingWorkspace
       hotel={props.hotel}
       rows={props.backendRates}
+      lighthouse={props.backendLighthouse ?? []}
       loading={Boolean(props.backendLoading)}
       error={props.backendError ?? null}
       supabase={props.supabase ?? null}
