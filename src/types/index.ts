@@ -51,7 +51,7 @@ export interface EventEvidence {
   id: string;
   sourceName: string;
   sourceUrl: string;
-  sourceType: 'official_organizer' | 'venue_calendar' | 'press' | 'ticketing' | 'city_agenda';
+  sourceType: 'official_organizer' | 'venue_calendar' | 'press' | 'ticketing' | 'city_agenda' | 'other';
   verifiedAt: string;
   excerpt: string;
   trustScore: number; // 0-100
