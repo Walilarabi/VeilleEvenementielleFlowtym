@@ -18,83 +18,64 @@ const DEDGE_STORAGE_KEY_PREFIX = 'flowtym_dedge_config_';
  *   4. Guest Management APIs : Profils clients et conformité RGPD.
  */
 export const DEDGE_ARCHITECTURE_SPEC = {
-  name: 'D-EDGE Central Reservation System & Channel Manager',
+  name: 'D-EDGE CRS & Channel Manager',
   loginUrl: 'https://login.d-edge.com/?culture=fr',
   docsUrl: 'https://docs.d-edge.com',
-  pillars: [
-    {
-      pillar: '1. Connectivity APIs (Channel Manager)',
-      purpose: 'Synchronisation bidirectionnelle des tarifs, du stock disponible et des restrictions entre PMS et canaux.',
-      dataAvailable: 'ARI (Availability, Rates, Inventory), Stop-Sell, Minimum Stay, Closed to Arrival (CTA).',
-      apiSupport: 'API REST + Push Webhooks temps réel.',
-    },
-    {
-      pillar: '2. Pricing & Availability APIs',
-      purpose: 'Extraction dynamique des tarifs appliqués et des plans tarifaires par catégorie de chambre.',
-      dataAvailable: 'Daily Rates API, Best Price API, plans tarifaires dérivés et conditions d’annulation.',
-      apiSupport: 'Requêtes GET sécurisées par Bearer token et engineId.',
-    },
-    {
-      pillar: '3. Booking APIs (Production & Pickup)',
-      purpose: 'Suivi des flux de réservations brutes, modifications et annulations.',
-      dataAvailable: 'Nuitées réservées, chiffre d’affaires généré, date de réservation vs date de séjour (Lead Time).',
-      apiSupport: 'Webhooks de notification de réservation + Polling API.',
-    },
-    {
-      pillar: '4. Reporting & PMS Integration',
-      purpose: 'Calcul de l’On The Books (OTB) et analyse du rythme de réservation (Booking Velocity).',
-      dataAvailable: 'Stock restant, Taux d’occupation OTB, Pickup J-1 / J-3 / J-7, vitesse d’absorption.',
-      apiSupport: 'Connecteurs partenaires certifiés ou flux automatisé SFTP.',
-    },
+  integrationStatus: 'not_connected',
+  note: 'Les endpoints, méthodes d’authentification, payloads, webhooks et droits d’accès doivent être confirmés dans le contrat/API officielle du compte hôtelier. Aucun endpoint n’est présumé ici.',
+  requiredCapabilities: [
+    'Lecture des tarifs et plans tarifaires',
+    'Lecture des disponibilités et restrictions',
+    'Lecture des réservations, modifications et annulations',
+    'Écriture tarifaire uniquement après certification et autorisation explicite',
   ],
-  dataClassification: {
-    directApi: [
-      'Nombre de chambres disponibles par date (Inventory)',
-      'Tarif BAR et plans tarifaires actifs (Daily Rates)',
-      'Restrictions en place (Stop-Sell, Min Stay, CTA)',
-      'Flux continu des nouvelles réservations (Booking API)',
-    ],
-    partnerConnector: [
-      'Rapport de Pickup consolidé (J-1, J-3, J-7)',
-      'Vélocité de réservation par segment (Loisir vs Affaires)',
-      'Taux d’occupation prévisionnel (OTB)',
-      'Rythme d’annulation par canal',
-    ],
-    manualExportNeeded: [
-      'Rapports de clôture comptable (Night Audit PMS)',
-      'Détail des codes négociés d’entreprises confidentiels hors CRS',
-      'Segmentation analytique spécifique groupe non distribuée',
-    ],
-  },
+  supportedModes: ['partner_connector', 'night_audit_export', 'direct_api_after_contract_validation'],
 };
 
 export const DEFAULT_DEDGE_CONFIG: DEdgeConfig = {
-  hotelCode: 'FR-PAR-FOLKESTONE-08',
-  engineId: 'dedge_engine_45ch_opera',
-  apiToken: 'dedge_crs_live_token_77e8a9b0c1d2',
-  webhookUrl: 'https://api.flowtym.com/v1/webhooks/dedge/reservations',
+  hotelCode: '',
+  engineId: '',
+  apiToken: '',
+  webhookUrl: '',
   authType: 'bearer_token',
-  status: 'connected',
-  syncMode: 'direct_api',
-  lastSyncAt: new Date().toISOString(),
-  lastHeartbeatStatus: 'ok',
+  status: 'disconnected',
+  syncMode: 'night_audit_export',
+  lastHeartbeatStatus: 'error',
 };
 
 export function getDEdgeConfig(hotelId: string): DEdgeConfig {
   try {
     const raw = localStorage.getItem(`${DEDGE_STORAGE_KEY_PREFIX}${hotelId}`);
     if (raw) {
-      return JSON.parse(raw);
+      const stored = JSON.parse(raw) as Partial<DEdgeConfig>;
+      return {
+        ...DEFAULT_DEDGE_CONFIG,
+        ...stored,
+        apiToken: '',
+        webhookUrl: '',
+        status: 'disconnected',
+        lastSyncAt: undefined,
+        lastHeartbeatStatus: 'error',
+      };
     }
   } catch (e) {
     console.error('Failed to parse D-EDGE config from storage', e);
   }
-  return DEFAULT_DEDGE_CONFIG;
+  return { ...DEFAULT_DEDGE_CONFIG };
 }
 
 export function saveDEdgeConfig(hotelId: string, config: DEdgeConfig): void {
   try {
-    localStorage.setItem(`${DEDGE_STORAGE_KEY_PREFIX}${hotelId}`, JSON.stringify(config));
+    // Provider secrets must be stored in Supabase Edge Function secrets, never browser localStorage.
+    const safeConfig = {
+      ...config,
+      apiToken: '',
+      webhookUrl: '',
+      status: 'disconnected' as const,
+      lastSyncAt: undefined,
+      lastHeartbeatStatus: 'error' as const,
+    };
+    localStorage.setItem(`${DEDGE_STORAGE_KEY_PREFIX}${hotelId}`, JSON.stringify(safeConfig));
   } catch (e) {
     console.error('Failed to save D-EDGE config to storage', e);
   }
@@ -105,30 +86,15 @@ export function saveDEdgeConfig(hotelId: string, config: DEdgeConfig): void {
  */
 export async function testDEdgeConnection(
   hotelCode: string,
-  apiToken: string
+  _apiToken: string
 ): Promise<{ success: boolean; latencyMs: number; message: string; details?: any }> {
-  const start = performance.now();
-  await new Promise((resolve) => setTimeout(resolve, 420));
-  const latencyMs = Math.round(performance.now() - start);
-
-  if (!hotelCode || !apiToken || apiToken.trim().length < 8) {
-    return {
-      success: false,
-      latencyMs,
-      message: 'Erreur d’authentification D-EDGE : Hotel Code ou Bearer Token invalide.',
-    };
-  }
-
   return {
-    success: true,
-    latencyMs,
-    message: `Connecté au CRS D-EDGE (Code: ${hotelCode}). Latence : ${latencyMs}ms. Flux ARI et Booking Webhook opérationnels.`,
-    details: {
-      channelManagerStatus: 'ONLINE (34 canaux connectés)',
-      pmsSyncState: 'BIDIRECTIONAL (Synchronisation complète)',
-      lastHeartbeat: new Date().toISOString(),
-      activeEngineId: 'dedge_engine_45ch_opera',
-    },
+    success: false,
+    latencyMs: 0,
+    message: hotelCode
+      ? 'Aucun appel réseau D-EDGE n’a été effectué. Le contrat technique, les endpoints et les droits du compte doivent être validés avant d’annoncer une connexion.'
+      : 'Connecteur D-EDGE non configuré. Aucun appel réseau n’a été effectué.',
+    details: { status: 'not_connected', sourceStatus: 'unavailable' },
   };
 }
 
@@ -201,6 +167,7 @@ export function getDEdgeInventoryForDate(
     minStayRestriction: occupancyPercent >= 88 ? 2 : 1,
     stopSellActive: roomsAvailable <= 2,
     averageLeadTimeDays: Math.round(18 + factor * 45),
-    lastUpdated: 'Il y a 14 minutes via D-EDGE Webhook',
+    lastUpdated: 'SIMULATION locale — aucune donnée D-EDGE live',
+    sourceStatus: 'simulation',
   };
 }
