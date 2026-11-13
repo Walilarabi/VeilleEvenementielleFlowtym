@@ -39,6 +39,7 @@ const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
   corporate_sommet: 'Corporate & sommets',
   culturel: 'Culturel',
   vacances_scolaires: 'Vacances scolaires',
+  autre: 'Autre',
 };
 
 const getTypeLabel = (category: EventCategory, _title: string): string =>
