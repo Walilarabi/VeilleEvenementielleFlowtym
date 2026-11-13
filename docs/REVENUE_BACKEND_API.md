@@ -7,7 +7,12 @@
 - `revenue-api` is deployed with JWT verification enabled.
 - `flowtym_private.can_access_hotel` controls tenant/hotel reads; `can_manage_hotel` restricts mutations to `super_admin`, `admin` and `revenue_manager`. GM/analyst hotel-directory visibility also requires an explicit `hotel_memberships` row.
 - `record_rm_decision` is an invoker-rights transactional RPC. It updates a pending recommendation and appends the audit row atomically.
+- `persist_rm_recommendation` uses a partial unique index and an atomic upsert: repeated runs update only pending proposals; accepted/rejected decisions cannot be silently overwritten.
 - Price publication to D-EDGE/CRS is deliberately not implemented. Approval is recorded, but no external tariff is changed.
+
+## Database migrations
+
+The current deployment uses additive migrations under `/supabase/migrations` (foundation tables are already present in the live project). For a new Supabase project, read `/supabase/bootstrap/README.md` and apply `/supabase/bootstrap/foundation.sql` first. Never execute the deprecated `src/supabase/schema.sql` as a bootstrap script.
 
 ## API
 
@@ -74,7 +79,7 @@ These values are an example configuration, not pre-approved defaults. Configure 
 - Coverage score: percentage of configured signal weight actually observed. This is a source-coverage indicator, not a statistically calibrated confidence interval.
 - If fewer than two signals are available or coverage is below 60%, the engine emits a HOLD / MAINTAIN recommendation and does not justify a price change.
 
-The engine version is persisted as `pricing_v1`; all inputs and configuration are stored in `input_snapshot` / `evidence`. Every recommendation remains `pending` until a human decision.
+The engine version is persisted as `pricing_v1`; all inputs and configuration are stored in `input_snapshot` / `evidence`. Every recommendation remains `pending` until a human decision. Re-running the same hotel/date/engine is idempotent while the proposal is pending; a finalized proposal is immutable and requires a new engine version for a new proposal.
 
 ## Forecast baseline
 
