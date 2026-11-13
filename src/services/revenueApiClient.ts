@@ -129,3 +129,38 @@ export const decideHotelEventImpact = (
   supabase, `/hotels/${encodeURIComponent(hotelId)}/events/decisions`,
   { method: "POST", body: { occurrenceId, action, reasonCode, reasonText } },
 );
+
+export const createPriceExperiment = (supabase: SupabaseClient, hotelId: string, experiment: Record<string, unknown>) =>
+  revenueApiRequest<{ ok: true; data: unknown; randomizationVerified: false }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/price-experiments`,
+    { method: "POST", body: experiment },
+  );
+
+export const ingestPriceExperimentObservations = (
+  supabase: SupabaseClient,
+  hotelId: string,
+  observations: Record<string, unknown>[],
+) => revenueApiRequest<{ ok: true; inserted: number; data: unknown[] }>(
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/price-experiment-observations`,
+  { method: "POST", body: { observations } },
+);
+
+export const ingestDemandCensoringObservations = (
+  supabase: SupabaseClient,
+  hotelId: string,
+  observations: Record<string, unknown>[],
+) => revenueApiRequest<{ ok: true; inserted: number; data: unknown[] }>(
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/demand-censoring-observations`,
+  { method: "POST", body: { observations } },
+);
+
+export const estimateHotelPriceElasticity = (supabase: SupabaseClient, hotelId: string, experimentId: string) =>
+  revenueApiRequest<{ ok: true; status: string; estimate: unknown; persisted: boolean }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/elasticity/estimate`,
+    { method: "POST", body: { experimentId } },
+  );
+
+export const getHotelCalibrationRules = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/calibration-rules`,
+  );
