@@ -296,6 +296,20 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ok:true,inserted:data?.length??0,data},201);
   }
 
+  if (actionPath === "price-experiments/review") {
+    const experimentId=body.experimentId,action=body.action,reasonCode=body.reasonCode;
+    if (typeof experimentId!=="string"||!["verify_randomization","complete"].includes(action)||
+        typeof reasonCode!=="string"||!reasonCode.trim()) return fail("experimentId, action et reasonCode obligatoires");
+    const evidence=body.evidence&&typeof body.evidence==="object"?body.evidence:null;
+    if (action==="verify_randomization"&&!evidence) return fail("Les preuves de randomisation sont obligatoires");
+    const {data,error}=await supabase.rpc("review_price_experiment",{
+      p_hotel_id:hotelId,p_experiment_id:experimentId,p_action:action,p_reason_code:reasonCode.trim(),
+      p_reason_text:typeof body.reasonText==="string"?body.reasonText:null,p_evidence:evidence,
+    });
+    if (error) return fail("Revue de l'expérience tarifaire impossible",409,error.message);
+    return json({ok:true,data:Array.isArray(data)?data[0]:data,auditAppended:true},200);
+  }
+
   if (actionPath === "elasticity/estimate") {
     const experimentId=body.experimentId;
     if (typeof experimentId!=="string") return fail("experimentId obligatoire");
