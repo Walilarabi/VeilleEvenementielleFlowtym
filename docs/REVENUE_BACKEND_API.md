@@ -97,6 +97,10 @@ Allowed provenance statuses are persisted separately from values:
 
 Zero, NULL, sold-out, unavailable, stale and not-comparable are distinct states. Lighthouse sold-out observations are excluded from rate medians, not converted to zero.
 
+## Legacy UI boundary
+
+The pre-existing browser-side services `predictiveRevenueEngine`, `demandForecastService`, `rateIntelligenceService`, `rmEpistemologicalEngine`, `historicalDataService`, `eventIntelligenceAgent`, `rmDecisionService` and the Lighthouse demo engine are retained for the current interface but marked deprecated/non-authoritative. They contain localStorage/demo logic and, in places, illustrative assumptions. They are not used by the new Edge Function. The UI still needs a separate integration pass to replace those call sites with `revenueApiClient.ts` before any screen can be considered live or production-connected.
+
 ## Security / operational constraints
 
 - No service-role key is sent to the browser or used by this function.
