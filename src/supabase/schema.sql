@@ -15,6 +15,7 @@
 --   /supabase/migrations/20261113000800_persist_pickup_windows.sql
 --   /supabase/migrations/20261113000900_event_impact_evidence_scores.sql
 --   /supabase/migrations/20261113001000_exact_net_pickup_inputs.sql
+--   /supabase/migrations/20261113001100_event_historical_demand_score.sql
 --
 -- The auth baseline remains managed separately by the existing authentication
 -- migrations. Never run the old monolithic schema.sql or recreate organizations,
