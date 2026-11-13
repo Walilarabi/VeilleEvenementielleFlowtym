@@ -56,7 +56,7 @@ export const submitRevenueDecision = (
 );
 
 export const generateBaselineForecast = (supabase: SupabaseClient, hotelId: string, startDate: string, endDate: string) =>
-  revenueApiRequest<{ ok: true; forecastRunId: string; datesForecast: number; skippedForInsufficientHistory: number }>(
+  revenueApiRequest<{ ok: true; hotelId: string; asOf: string; models: { modelName: string; modelVersion: string; forecastRunId: string; datesRequested: number; datesForecast: number; skippedForInsufficientHistory: number }[]; forecastingIsBaselineOnly: true }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/forecasts/baseline`,
     { method: "POST", body: { startDate, endDate } },
   );
