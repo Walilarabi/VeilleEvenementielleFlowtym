@@ -8,7 +8,10 @@
  * Historisation des imports et persistance multi-tenant.
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../../auth/AuthProvider';
+import { resolveAccessibleRmsHotel } from '../../services/lighthouseImportService';
+import { importHotelHistoricalRows } from '../../services/revenueApiClient';
 import {
   FileSpreadsheet,
   Upload,
@@ -29,12 +32,9 @@ import { Hotel } from '../../types';
 import {
   generateOfficialFlowtymHistoricalWorkbook,
   parseAndValidateHistoricalExcel,
-  saveHistoricalRecords,
-  getHistoricalDailyRecords,
   OFFICIAL_DAILY_COLUMNS,
-  IMPORT_LOGS_STORAGE_KEY,
 } from '../../services/historicalDataService';
-import { HistoricalDailyRecord, HistoricalImportLog } from '../../types/historicalData';
+import { HistoricalDailyRecord, HistoricalDemandSnapshot, HistoricalImportLog } from '../../types/historicalData';
 
 interface HistoricalDataImportViewProps {
   hotel: Hotel;
@@ -50,29 +50,81 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
   const [activeTab, setActiveTab] = useState<'import' | 'history' | 'dictionary'>('import');
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { supabase } = useAuth();
+  const [databaseHotelId, setDatabaseHotelId] = useState<string | null>(null);
+  const [currentHistory, setCurrentHistory] = useState<HistoricalDailyRecord[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
 
-  // Données chargées actuellement
-  const [currentHistory, setCurrentHistory] = useState<HistoricalDailyRecord[]>(() =>
-    getHistoricalDailyRecords(hotel.id)
-  );
-
-  // État de prévisualisation du fichier déposé
   const [previewData, setPreviewData] = useState<{
     fileName: string;
     fileSizeKb: number;
     records: HistoricalDailyRecord[];
+    snapshots: HistoricalDemandSnapshot[];
     log: HistoricalImportLog;
   } | null>(null);
 
-  // Historique des imports enregistrés
-  const [importLogs, setImportLogs] = useState<HistoricalImportLog[]>(() => {
-    try {
-      const raw = localStorage.getItem(IMPORT_LOGS_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  });
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDatabaseHistory = async () => {
+      setIsLoadingHistory(true);
+      setDatabaseHotelId(null);
+
+      if (!supabase) {
+        if (!cancelled) {
+          setPersistenceError('Session Supabase indisponible. Les données historiques ne peuvent pas être chargées.');
+          setIsLoadingHistory(false);
+        }
+        return;
+      }
+
+      try {
+        const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+          name: hotel.name,
+          city: hotel.city,
+          country: hotel.country,
+        });
+        const { data, error } = await supabase
+          .from('hotel_historical_daily')
+          .select('id,stay_date,raw_record')
+          .eq('hotel_id', dbHotel.id)
+          .order('stay_date', { ascending: true })
+          .limit(5000);
+        if (error) throw new Error(`Lecture de l'historique Supabase impossible : ${error.message}`);
+
+        const restored = (data ?? []).flatMap((row: any) => {
+          const rawRecord = row.raw_record;
+          if (!rawRecord || typeof rawRecord !== 'object' || typeof rawRecord.dateStr !== 'string') return [];
+          return [{
+            ...rawRecord,
+            id: row.id,
+            hotelId: dbHotel.id,
+            dateStr: row.stay_date,
+          } as HistoricalDailyRecord];
+        });
+
+        if (!cancelled) {
+          setDatabaseHotelId(dbHotel.id);
+          setCurrentHistory(restored);
+          setPersistenceError(
+            restored.length < (data?.length ?? 0)
+              ? 'Certaines lignes historiques anciennes ne contiennent pas leur enregistrement source complet ; elles sont masquées plutôt que reconstituées artificiellement.'
+              : null,
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPersistenceError(error instanceof Error ? error.message : 'Impossible de charger les données historiques.');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingHistory(false);
+      }
+    };
+
+    void loadDatabaseHistory();
+    return () => { cancelled = true; };
+  }, [supabase, hotel.name, hotel.city, hotel.country]);
 
   // Téléchargement du Modèle Officiel FLOWTYM à 3 onglets
   const handleDownloadOfficialTemplate = () => {
@@ -99,10 +151,15 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
   // Traitement du fichier déposé
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
       onShowToast('Veuillez sélectionner un fichier Excel (.xlsx ou .xls)');
+      return;
+    }
+    if (!databaseHotelId) {
+      onShowToast('Hôtel Supabase non résolu : import désactivé pour éviter une écriture sur un identifiant fictif.');
       return;
     }
 
@@ -111,55 +168,188 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
     reader.onload = (event) => {
       try {
         const buffer = event.target?.result as ArrayBuffer;
-        const result = parseAndValidateHistoricalExcel(buffer, file.name, hotel.id);
+        const result = parseAndValidateHistoricalExcel(buffer, file.name, databaseHotelId);
 
         setPreviewData({
           fileName: file.name,
           fileSizeKb: Math.round(file.size / 1024),
           records: result.records,
+          snapshots: result.snapshots,
           log: result.log,
         });
 
         if (result.isValid) {
-          onShowToast(`✓ Fichier "${file.name}" pré-analysé : ${result.records.length} dates exploitables`);
+          onShowToast(`✓ Fichier "${file.name}" pré-analysé : ${result.records.length} dates et ${result.snapshots.length} snapshots OTB`);
         } else {
-          onShowToast(`Attention : Des anomalies ont été détectées dans "${file.name}"`);
+          onShowToast(`Attention : des anomalies ont été détectées dans "${file.name}"`);
         }
       } catch (err) {
         console.error(err);
-        onShowToast('Erreur lors de la lecture du fichier Excel');
+        onShowToast(err instanceof Error ? err.message : 'Erreur lors de la lecture du fichier Excel');
       } finally {
         setIsProcessing(false);
       }
     };
+    reader.onerror = () => {
+      setIsProcessing(false);
+      onShowToast('Erreur lors de la lecture du fichier Excel');
+    };
     reader.readAsArrayBuffer(file);
   };
 
-  // Confirmation et injection dans la base de données
-  const handleConfirmInjection = () => {
+  // Confirmation : les lignes quotidiennes et snapshots OTB sont enregistrés via l'API Revenue protégée par JWT.
+  const handleConfirmInjection = async () => {
     if (!previewData) return;
-
-    // Enregistrement des données historiques
-    saveHistoricalRecords(hotel.id, previewData.records);
-
-    // Enregistrement du log d'import
-    const updatedLogs = [previewData.log, ...importLogs];
-    setImportLogs(updatedLogs);
-    try {
-      localStorage.setItem(IMPORT_LOGS_STORAGE_KEY, JSON.stringify(updatedLogs));
-    } catch (err) {
-      console.error(err);
+    if (!supabase || !databaseHotelId) {
+      onShowToast('Import bloqué : session ou hôtel Supabase non vérifié.');
+      return;
+    }
+    if (previewData.log.errorsCount > 0 || previewData.records.length === 0) {
+      onShowToast("Import bloqué : corrigez les erreurs du fichier avant confirmation.");
+      return;
     }
 
-    // Mise à jour de l'état local
-    setCurrentHistory(getHistoricalDailyRecords(hotel.id));
-    setPreviewData(null);
-    onShowToast(`✓ ${previewData.records.length} dates historiques injectées avec succès pour ${hotel.name}`);
-    if (onDataImported) onDataImported();
+    setIsProcessing(true);
+    try {
+      const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+        name: hotel.name,
+        city: hotel.city,
+        country: hotel.country,
+      });
+      if (dbHotel.id !== databaseHotelId) {
+        throw new Error("L'hôtel sélectionné a changé. Rechargez l'écran avant de relancer l'import.");
+      }
+
+      const rows = previewData.records.map((record) => {
+        const date = new Date(`${record.dateStr}T12:00:00Z`);
+        return {
+          stay_date: record.dateStr,
+          day_of_week: date.getUTCDay(),
+          week_of_year: record.weekOfYear,
+          month_of_year: record.month,
+          year_of_stay: record.year,
+          is_holiday: record.isHoliday,
+          is_school_holiday: record.isSchoolHoliday,
+          school_holiday_zone: record.schoolHolidayZone || null,
+          season: record.season,
+          day_type: record.dayType,
+          event_name: record.eventName || null,
+          event_category: record.eventCategory || null,
+          event_start_date: record.eventStartDate || null,
+          event_end_date: record.eventEndDate || null,
+          event_visitors: record.eventEstimatedVisitors ?? null,
+          event_distance_km: record.eventDistanceKm ?? null,
+          total_marketable_rooms: record.totalMarketableRooms,
+          available_rooms: record.availableRoomsForSale,
+          rooms_sold: record.roomsSold,
+          complimentary_rooms: record.complimentaryRooms,
+          out_of_order_rooms: record.outOfOrderRooms,
+          occupancy_pct: record.occupancyPercent,
+          reservations_count: record.reservationsCount,
+          guests_count: record.guestsCount,
+          adr_net: record.adrNetEur,
+          revpar: record.revparEur,
+          accommodation_revenue: record.accommodationRevenueEur,
+          total_revenue: record.totalHotelRevenueEur ?? null,
+          distribution_cost: record.avgDistributionCostEur ?? null,
+          commission_pct: record.avgCommissionPercent ?? null,
+          net_adr: record.avgNetRateAfterCommissionsEur,
+          otb_j90: record.otbJ90 ?? null,
+          otb_j60: record.otbJ60 ?? null,
+          otb_j30: record.otbJ30 ?? null,
+          otb_j14: record.otbJ14 ?? null,
+          otb_j7: record.otbJ7 ?? null,
+          otb_j3: record.otbJ3 ?? null,
+          otb_j1: record.otbJ1 ?? null,
+          pickup_j90_j60: record.pickupJ90toJ60 ?? null,
+          pickup_j60_j30: record.pickupJ60toJ30 ?? null,
+          pickup_j30_j14: record.pickupJ30toJ14 ?? null,
+          pickup_j14_j7: record.pickupJ14toJ7 ?? null,
+          pickup_j7_j3: record.pickupJ7toJ3 ?? null,
+          pickup_j3_j1: record.pickupJ3toJ1 ?? null,
+          pickup_j1_arrival: record.pickupJ1toArrival ?? null,
+          lead_time_days: record.avgLeadTimeDays ?? null,
+          cancellations_count: record.cancellationsCount ?? null,
+          cancellation_rate_pct: record.cancellationRatePercent ?? null,
+          direct_reservations: record.directReservations ?? null,
+          booking_reservations: record.bookingReservations ?? null,
+          expedia_reservations: record.expediaReservations ?? null,
+          gds_reservations: record.gdsReservations ?? null,
+          group_reservations: record.groupReservations ?? null,
+          corporate_reservations: record.corporateReservations ?? null,
+          other_ota_reservations: record.otherOtaReservations ?? null,
+          public_bar: record.publicBarEur ?? null,
+          compset_avg: record.compsetAvgEur ?? null,
+          compset_min: record.compsetMinEur ?? null,
+          compset_max: record.compsetMaxEur ?? null,
+          rate_position_index: record.ratePositionIndex ?? null,
+          currency: dbHotel.currency,
+          raw_record: { ...record, hotelId: dbHotel.id },
+        };
+      });
+
+      const snapshots = previewData.snapshots.map((snapshot) => ({
+        observation_date: snapshot.observationDate,
+        arrival_date: snapshot.arrivalDate,
+        days_before_arrival: snapshot.daysBeforeArrival,
+        rooms_booked_otb: snapshot.roomsBookedOtb,
+        rooms_available: snapshot.roomsAvailable,
+        projected_occupancy_pct: snapshot.projectedOccupancyPercent,
+        booked_adr: snapshot.bookedAdrEur,
+        booked_revenue: snapshot.bookedRevenueEur,
+        pickup_since_previous: snapshot.pickupSincePrevSnapshot,
+        cancellations_since_previous: snapshot.cancellationsSincePrevSnapshot,
+        public_rate: snapshot.publicRateAtSnapshotEur ?? null,
+        compset_rate: snapshot.compsetRateAtSnapshotEur ?? null,
+      }));
+
+      const imported = await importHotelHistoricalRows(supabase, databaseHotelId, {
+        fileName: previewData.fileName,
+        fileSizeBytes: previewData.fileSizeKb * 1024,
+        sourceName: `flowtym-excel:${previewData.fileName}`,
+        detectedColumns: previewData.log.detectedColumns,
+        rows,
+        snapshots,
+      });
+
+      const { data, error } = await supabase
+        .from('hotel_historical_daily')
+        .select('id,stay_date,raw_record')
+        .eq('hotel_id', databaseHotelId)
+        .order('stay_date', { ascending: true })
+        .limit(5000);
+      if (error) throw new Error(`Import enregistré, mais rechargement de l'historique impossible : ${error.message}`);
+
+      const restored = (data ?? []).flatMap((row: any) => {
+        const rawRecord = row.raw_record;
+        if (!rawRecord || typeof rawRecord !== 'object' || typeof rawRecord.dateStr !== 'string') return [];
+        return [{ ...rawRecord, id: row.id, hotelId: databaseHotelId, dateStr: row.stay_date } as HistoricalDailyRecord];
+      });
+      setCurrentHistory(restored);
+      setPreviewData(null);
+      setPersistenceError(null);
+      onShowToast(`✓ ${imported.imported} journées et ${imported.snapshotsImported} snapshots OTB enregistrés dans Supabase pour ${hotel.name}.`);
+      if (onDataImported) onDataImported();
+    } catch (error) {
+      console.error(error);
+      onShowToast(`Échec de l'import historique : ${error instanceof Error ? error.message : 'erreur inconnue'}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <div className="space-y-6">
+      {isLoadingHistory && (
+        <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+          Chargement de l'historique réel depuis Supabase…
+        </div>
+      )}
+      {persistenceError && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <strong>Données historiques :</strong> {persistenceError}
+        </div>
+      )}
       {/* 1. Header & Navigation des sous-onglets */}
       <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -232,7 +422,13 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
         <div className="space-y-6">
           {/* Zone de Drop */}
           <div
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              if (!databaseHotelId || isLoadingHistory || isProcessing) {
+                onShowToast('Import indisponible tant que l’hôtel réel n’est pas résolu dans Supabase.');
+                return;
+              }
+              fileInputRef.current?.click();
+            }}
             className="border-2 border-dashed border-violet-200 hover:border-violet-400 bg-violet-50/40 hover:bg-violet-50/70 transition-all rounded-3xl p-8 text-center cursor-pointer space-y-3 group"
           >
             <input
@@ -284,7 +480,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                   </button>
                   <button
                     onClick={handleConfirmInjection}
-                    disabled={!previewData.log.recordsCount}
+                    disabled={!previewData.log.recordsCount || previewData.log.errorsCount > 0 || !databaseHotelId || isProcessing}
                     className="px-4 py-2 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" />
