@@ -15,6 +15,13 @@
  * Source : Booking.com · Devise : EUR · LOS : 1 nuit · 2 guests · Primary Compset
  */
 
+/**
+ * @deprecated LEGACY BROWSER / DEMO SERVICE.
+ * Not the authoritative backend and not approved for live Revenue Management decisions.
+ * Live persistence and decisions must use the authenticated Supabase Revenue API
+ * (src/services/revenueApiClient.ts) and its RLS-protected database contracts.
+ */
+
 import * as XLSX from 'xlsx';
 
 export type MarketDemandLevelCategory = 'faible' | 'moderee' | 'forte' | 'tres_forte';
