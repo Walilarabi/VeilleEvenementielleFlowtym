@@ -203,3 +203,11 @@ export const getHotelLighthouseObservations = (supabase: SupabaseClient, hotelId
     supabase, `/hotels/${encodeURIComponent(hotelId)}/lighthouse-observations?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
   );
 
+
+export const getRevenueSources = (supabase: SupabaseClient) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(supabase, "/sources");
+
+export const getRevenueVenues = (supabase: SupabaseClient, city: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/venues?city=${encodeURIComponent(city)}`,
+  );
