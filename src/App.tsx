@@ -552,7 +552,7 @@ export default function App() {
           isMobileOpen={isMobileMenuOpen}
           onCloseMobile={() => setIsMobileMenuOpen(false)}
           onLogout={handleLogout}
-          userInitials={user.name.split(/\\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
+          userInitials={user.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
           userName={user?.name || 'Nabil Amrani'}
         />
 
