@@ -94,11 +94,11 @@ function mapEvent(row:RevenueEventRow,hotelId:string):EventItem|null {
    finalRMScore:score,confidenceScore:confidence,
   },
   sources:evidences.map((e:any)=>e.sourceName),evidences,
-  hotelImpacts:{[hotelId]:{
+  hotelImpacts:row.id?{[hotelId]:{
    hotelId,distanceKm:num(row.distance_km)??0,distanceMins:num(row.drive_time_minutes)??undefined,
    estimatedADRBoostPercent:num(row.estimated_adr_lift_pct)??0,
    recommendedAction:row.recommended_action??undefined,
-  }},
+  }}:{},
   isRecurring:Boolean(event.recurrence_frequency),recurrenceFrequency:event.recurrence_frequency??undefined,
   officialUrl:event.official_url??undefined,createdAt:String(event.created_at??""),
   lastVerifiedAt:String(row.calculated_at??event.updated_at??""),
