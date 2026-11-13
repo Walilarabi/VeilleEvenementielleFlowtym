@@ -344,12 +344,21 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const exceptionalThreshold = Number(thresholds.exceptional);
     const maxObservationAge = Number(cfg.max_observation_age_hours ?? 48);
     const maxInventoryAge = Number(cfg.max_inventory_age_hours ?? 24);
+    const pickupWindowWeights = cfg.pickup_window_weights as Record<string,number> | undefined;
+    const pickupWindowScales = cfg.pickup_scale_rooms as Record<string,number> | undefined;
+    const pickupWindows = ["24h","3d","7d"];
+    const pickupConfigValid = Number(weights.pickup) === 0 || (
+      !!pickupWindowWeights && !!pickupWindowScales &&
+      pickupWindows.every(w => Number.isFinite(Number(pickupWindowWeights[w])) && Number(pickupWindowWeights[w]) >= 0 &&
+        Number.isFinite(Number(pickupWindowScales[w])) && Number(pickupWindowScales[w]) > 0) &&
+      pickupWindows.reduce((s,w)=>s+Number(pickupWindowWeights[w]),0) > 0
+    );
     if (totalWeight <= 0 || keys.some(k => !Number.isFinite(Number(weights[k])) || Number(weights[k]) < 0) ||
         !Number.isFinite(normalThreshold) || !Number.isFinite(highThreshold) || !Number.isFinite(exceptionalThreshold) ||
         normalThreshold < 0 || normalThreshold >= highThreshold || highThreshold >= exceptionalThreshold || exceptionalThreshold > 100 ||
         !["low","normal","high","exceptional"].every(k => Number.isFinite(Number(adjustments[k]))) ||
         !Number.isFinite(maxObservationAge) || maxObservationAge <= 0 ||
-        !Number.isFinite(maxInventoryAge) || maxInventoryAge <= 0) {
+        !Number.isFinite(maxInventoryAge) || maxInventoryAge <= 0 || !pickupConfigValid) {
       return fail("Configuration pricing_v1 invalide : weights, thresholds et rate_adjustments_pct requis", 422);
     }
 
@@ -396,13 +405,31 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       const signals:Record<string,number|null>={occupancy:null,pickup:null,event:eventByDate.get(stayDate)??null,compset:null};
       if (numberOrNull(inv?.occupancy_pct)!==null) signals.occupancy=clamp(Number(inv.occupancy_pct),0,100);
       const snaps=(reservationByDate.get(stayDate)??[]).sort((a,b)=>Date.parse(b.snapshot_at)-Date.parse(a.snapshot_at));
+      const pickups:Record<string,number|null>={"24h":null,"3d":null,"7d":null};
+      const pickupScores:Record<string,number|null>={"24h":null,"3d":null,"7d":null};
       if (snaps.length>=2 && numberOrNull(snaps[0].rooms_otb)!==null) {
         const latestAge=(Date.now()-Date.parse(snaps[0].snapshot_at))/3600000;
-        const prior=latestAge<=30 ? snaps.slice(1).find((s:any)=>{ const h=(Date.parse(snaps[0].snapshot_at)-Date.parse(s.snapshot_at))/3600000; return h>=20 && h<=30; }) : null;
-        if (prior && numberOrNull(prior.rooms_otb)!==null) {
-          const roomsScale=Number(cfg.pickup_scale_rooms);
-          if (Number.isFinite(roomsScale) && roomsScale>0) signals.pickup=clamp(50+50*(Number(snaps[0].rooms_otb)-Number(prior.rooms_otb))/roomsScale,0,100);
+        if (latestAge>=0 && latestAge<=30) {
+          const windows=[{key:"24h",min:20,max:30},{key:"3d",min:60,max:84},{key:"7d",min:144,max:192}];
+          for (const window of windows) {
+            const prior=snaps.slice(1).find((s:any)=>{
+              const hours=(Date.parse(snaps[0].snapshot_at)-Date.parse(s.snapshot_at))/3600000;
+              return hours>=window.min && hours<=window.max;
+            });
+            if (prior && Number.isInteger(Number(prior.rooms_otb)) && Number.isInteger(Number(snaps[0].rooms_otb))) {
+              const netPickup=Number(snaps[0].rooms_otb)-Number(prior.rooms_otb);
+              pickups[window.key]=netPickup;
+              if (pickupWindowScales && Number(pickupWindowScales[window.key])>0) {
+                pickupScores[window.key]=clamp(50+50*netPickup/Number(pickupWindowScales[window.key]),0,100);
+              }
+            }
+          }
         }
+      }
+      if (pickupWindowWeights) {
+        const availableWindows=pickupWindows.filter(w=>pickupScores[w]!==null && Number(pickupWindowWeights[w])>0);
+        const windowWeight=availableWindows.reduce((s,w)=>s+Number(pickupWindowWeights[w]),0);
+        if (windowWeight>0) signals.pickup=availableWindows.reduce((s,w)=>s+Number(pickupWindowWeights[w])*Number(pickupScores[w]),0)/windowWeight;
       }
       const med=median(compByDate.get(stayDate)??[]);
       if (med!==null) signals.compset=clamp(50+100*(med-current)/current,0,100);
@@ -419,7 +446,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       const maxDelta=current*maxChange/100;
       const bounded=clamp(current*(1+requestedPct/100),Math.max(floor,current-maxDelta),Math.min(ceiling,current+maxDelta));
       const suggested=Math.round(bounded*100)/100;
-      const evidence={signals,weights,coveredWeight,totalWeight,confidenceIsSourceCoverage:true,compsetMedian:med,eventScore:eventByDate.get(stayDate)??null,inventorySnapshotAt:inv?.snapshot_at??null,pricingConfig:cfg};
+      const evidence={signals,weights,coveredWeight,totalWeight,confidenceIsSourceCoverage:true,pickupWindows:pickups,pickupWindowScores:pickupScores,pickupWindowWeights:pickupWindowWeights??null,compsetMedian:med,eventScore:eventByDate.get(stayDate)??null,inventorySnapshotAt:inv?.snapshot_at??null,pricingConfig:cfg};
       const explanation=sufficient
         ? `Score demande ${score!.toFixed(1)}/100 (${bucket}); variation paramétrée ${requestedPct}% bornée par plancher/plafond et variation maximale. Couverture des sources: ${confidence}%.`
         : "MAINTENIR : données indépendantes insuffisantes pour justifier une variation tarifaire.";
@@ -428,7 +455,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         current_bar:current,suggested_bar:suggested,delta_amount:Math.round((suggested-current)*100)/100,
         delta_pct:Math.round(((suggested-current)/current)*10000)/100,
         demand_index:score===null?null:Math.round(score),demand_level:sufficient?({low:"faible",normal:"normal",high:"eleve",exceptional:"exceptionnel"} as Record<string,string>)[bucket]:"normal",
-        occupancy_pct:signals.occupancy,rooms_remaining:numberOrNull(inv?.rooms_available),
+        occupancy_pct:signals.occupancy,rooms_remaining:numberOrNull(inv?.rooms_available),pickup_24h:pickups["24h"],pickup_3d:pickups["3d"],pickup_7d:pickups["7d"],
         lighthouse_median:null,flowtym_compset_median:med,strategy_code:sufficient?`PRICING_V1_${bucket.toUpperCase()}`:"HOLD_INSUFFICIENT_DATA",
         explanation, evidence, confidence_score:confidence,
         data_quality_status:sufficient?"valid":"insufficient",input_snapshot:evidence,
@@ -459,7 +486,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       });
       if (persistError) return fail("Persistance idempotente de la recommandation impossible",409,persistError.message);
       const saved=Array.isArray(persisted)?persisted[0]:persisted;
-      output.push({recommendationId:saved?.id,stayDate,currentBar:current,suggestedBar:suggested,demandIndex:row.demand_index,bucket:row.demand_level,coverageScore:confidence,status:row.data_quality_status});
+      output.push({recommendationId:saved?.id,stayDate,currentBar:current,suggestedBar:suggested,demandIndex:row.demand_index,bucket:row.demand_level,pickup24h:pickups["24h"],pickup3d:pickups["3d"],pickup7d:pickups["7d"],coverageScore:confidence,status:row.data_quality_status});
     }
     return json({ok:true,hotelId,engineVersion:"pricing_v1",generated:output.length,requiresHumanApproval:true,automaticPublication:false,data:output},201);
   }
