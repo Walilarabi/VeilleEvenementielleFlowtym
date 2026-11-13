@@ -73,7 +73,7 @@ function mapEvent(row:RevenueEventRow,hotelId:string):EventItem|null {
  const impactLevel:EventItem["impactLevel"]=score>=90?"hyper":score>=75?"critique":score>=50?"modere":"faible";
  const title=String(event.title??"Événement sans titre");
  return {
-  id:String(event.id),title,subtitle:event.subtitle??undefined,category:category(String(event.category??"culturel")),
+  id:String(event.id),occurrenceId:String(occ.id),impactStatus:row.impact_status??undefined,title,subtitle:event.subtitle??undefined,category:category(String(event.category??"culturel")),
   venueId:String(venue?.id??""),venueName:String(venue?.name??"Lieu non renseigné"),
   city:String(venue?.city??event.city??""),country:String(venue?.country_code??event.country_code??"FR"),
   startDate:String(occ.start_date),endDate:String(occ.end_date),
