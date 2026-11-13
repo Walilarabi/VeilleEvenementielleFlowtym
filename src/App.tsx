@@ -361,6 +361,7 @@ export default function App() {
               };
             })
             .filter((row): row is EventEvidence => row !== null);
+          if (eventEvidence.length === 0) continue;
           const hotelImpact: EventHotelImpact = {
             hotelId: currentHotel.id,
             distanceKm: Number(impact.distance_km),
@@ -409,7 +410,7 @@ export default function App() {
             hotelImpacts: { [currentHotel.id]: hotelImpact },
             isRecurring: ['annual', 'biennial'].includes(event.recurrence_frequency),
             ...(event.recurrence_frequency === 'annual' || event.recurrence_frequency === 'biennial' || event.recurrence_frequency === 'one_time' ? { recurrenceFrequency: event.recurrence_frequency } : {}),
-            notes: impact.recommended_action ?? occurrence.notes ?? undefined,
+            notes: [impact.recommended_action, occurrence.notes, occurrence.attendance_estimate == null && event.expected_attendance == null ? 'Fréquentation non renseignée dans les sources.' : null].filter(Boolean).join(' · ') || undefined,
             officialUrl: event.official_url ?? undefined,
             createdAt: event.created_at,
             lastVerifiedAt: event.last_verified_at ?? event.first_verified_at ?? event.created_at,
