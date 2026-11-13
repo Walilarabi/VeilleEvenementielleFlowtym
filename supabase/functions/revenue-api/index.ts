@@ -134,6 +134,14 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ ok: true, hotelId, ...range, data });
   }
 
+  if (req.method === "GET" && actionPath === "integrations") {
+    const { data, error } = await supabase.from("integration_connections")
+      .select("id,provider,connection_name,connection_status,last_success_at,last_error_at,last_error_code,updated_at")
+      .eq("hotel_id", hotelId).order("provider").order("connection_name");
+    if (error) return fail("Lecture des connexions fournisseur impossible", 400, error.message);
+    return json({ ok: true, hotelId, data });
+  }
+
   if (req.method === "GET" && actionPath === "backtests") {
     const { data, error } = await supabase.from("hotel_backtest_evaluations")
       .select("*").eq("hotel_id",hotelId).order("evaluated_at",{ascending:false}).limit(100);
