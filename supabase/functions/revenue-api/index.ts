@@ -410,13 +410,15 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       if (!Number.isInteger(r.month_of_year) || r.month_of_year < 1 || r.month_of_year > 12) return true;
       if (!Number.isInteger(r.year_of_stay) || r.year_of_stay < 2000 || r.year_of_stay > 2100) return true;
       if (!Number.isInteger(r.total_marketable_rooms) || r.total_marketable_rooms < 1) return true;
-      for (const field of ["available_rooms", "rooms_sold", "complimentary_rooms", "out_of_order_rooms", "reservations_count", "guests_count"]) {
-        if (!Number.isInteger(r[field]) || r[field] < 0) return true;
+      if (!Number.isInteger(r.rooms_sold) || r.rooms_sold < 0) return true;
+      for (const field of ["available_rooms", "complimentary_rooms", "out_of_order_rooms", "reservations_count", "guests_count"]) {
+        if (r[field] != null && (!Number.isInteger(r[field]) || r[field] < 0)) return true;
       }
-      for (const field of ["occupancy_pct", "adr_net", "revpar", "accommodation_revenue", "net_adr"]) {
-        if (!Number.isFinite(Number(r[field])) || Number(r[field]) < 0) return true;
+      if (!Number.isFinite(Number(r.occupancy_pct)) || Number(r.occupancy_pct) < 0 || Number(r.occupancy_pct) > 100) return true;
+      for (const field of ["adr_net", "revpar", "accommodation_revenue", "net_adr"]) {
+        if (r[field] != null && (!Number.isFinite(Number(r[field])) || Number(r[field]) < 0)) return true;
       }
-      return Number(r.occupancy_pct) > 100;
+      return false;
     });
     if (invalid.length) {
       return fail("Une ou plusieurs lignes historiques contiennent des dates, capacités ou indicateurs invalides", 422, { invalidRows: invalid.length });
@@ -430,10 +432,11 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         !Number.isInteger(s.rooms_booked_otb) || s.rooms_booked_otb < 0 ||
         !Number.isInteger(s.rooms_available) || s.rooms_available < 0 ||
         !Number.isFinite(Number(s.projected_occupancy_pct)) || Number(s.projected_occupancy_pct) < 0 || Number(s.projected_occupancy_pct) > 100 ||
-        !Number.isFinite(Number(s.booked_adr)) || Number(s.booked_adr) < 0 ||
-        !Number.isFinite(Number(s.booked_revenue)) || Number(s.booked_revenue) < 0 ||
-        !Number.isInteger(s.pickup_since_previous) ||
-        !Number.isInteger(s.cancellations_since_previous) || s.cancellations_since_previous < 0;
+        (s.booked_adr != null && (!Number.isFinite(Number(s.booked_adr)) || Number(s.booked_adr) < 0)) ||
+        (s.booked_revenue != null && (!Number.isFinite(Number(s.booked_revenue)) || Number(s.booked_revenue) < 0)) ||
+        (s.rooms_booked_otb > 0 && s.booked_adr == null && s.booked_revenue == null) ||
+        (s.pickup_since_previous != null && !Number.isInteger(s.pickup_since_previous)) ||
+        (s.cancellations_since_previous != null && (!Number.isInteger(s.cancellations_since_previous) || s.cancellations_since_previous < 0));
     });
     if (invalidSnapshots.length) {
       return fail("Un ou plusieurs snapshots sont invalides : dates, lead time ou métriques OTB incohérentes", 422, { invalidSnapshots: invalidSnapshots.length });
