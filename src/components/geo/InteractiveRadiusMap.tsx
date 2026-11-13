@@ -87,6 +87,10 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
     { name: 'Versailles', lat: 48.801, lng: 2.13 },
   ];
 
+  if (!hasHotelCoordinates) {
+    return <div role="status" className="flex min-h-48 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">Carte de rayon désactivée : coordonnées GPS de l'hôtel absentes.</div>;
+  }
+
   return (
     <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-md select-none">
       {/* Map Header Overlay */}
@@ -338,7 +342,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
 
           {/* Other Hotels Markers */}
           {showOtherHotels &&
-            otherHotels.map((oth) => {
+            otherHotels.filter((oth) => oth.lat !== null && oth.lng !== null).map((oth) => {
               const pt = coordsToSvg(oth.lat, oth.lng);
               return (
                 <g key={`oth-${oth.id}`} className="cursor-pointer">
@@ -451,11 +455,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           <div className="absolute bottom-4 left-4 z-20 max-w-sm bg-slate-900/95 backdrop-blur-md p-4 rounded-2xl border border-slate-700/80 shadow-2xl text-white pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
             {(() => {
               const activeV = hoveredVenue || selectedVenue!;
-              if (!hasHotelCoordinates) {
-    return <div role="status" className="flex min-h-48 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">Carte de rayon désactivée : coordonnées GPS de l'hôtel absentes.</div>;
-  }
-
-  return (
+              return (
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
