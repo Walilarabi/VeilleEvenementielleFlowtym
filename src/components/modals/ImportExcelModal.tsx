@@ -1,10 +1,11 @@
 import React from 'react';
+import { EventItem } from '../../types';
 import { AlertTriangle, Database, X } from 'lucide-react';
 
 interface ImportExcelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImportEvents: (newEvents: never[]) => void;
+  onImportEvents: (newEvents: EventItem[]) => void;
 }
 
 /** Read-only until a persisted event-ingestion endpoint exists. */
