@@ -692,14 +692,16 @@ export default function App() {
 
           {/* TAB 5: VEILLE GÉOGRAPHIQUE (Périmètres 10/30 km, Découverte & Catégories) */}
           {activeTab === 'geo' && (
-            <GeoIntelligenceView
-              hotels={hotels}
-              selectedHotelId={filterState.selectedHotelId}
-              events={events}
-              onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
-              onSelectEvent={setSelectedEvent}
-              onShowToast={showToast}
-            />
+            currentHotel.lat === 0 || currentHotel.lng === 0
+              ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900"><strong>Géolocalisation de l’hôtel indisponible.</strong><p className="mt-1">Les coordonnées de cet hôtel ne sont pas renseignées dans Supabase. La carte et le calcul de proximité sont désactivés pour éviter de placer artificiellement l’établissement à 0,0.</p></div>
+              : <GeoIntelligenceView
+                  hotels={hotels}
+                  selectedHotelId={filterState.selectedHotelId}
+                  events={events}
+                  onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
+                  onSelectEvent={setSelectedEvent}
+                  onShowToast={showToast}
+                />
           )}
 
           {/* TAB 6: SOURCES & COUVERTURE (Crawling audit & Venues directory) */}
