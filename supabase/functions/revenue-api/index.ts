@@ -1,5 +1,6 @@
 import { withSupabase } from "npm:@supabase/server@1";
 import { calculateForecastMetrics, calculateHaversineKm, selectForecastTrainingRows, summarizeForecastSamples } from "./_shared/forecast.ts";
+import { estimatePairedPriceElasticity } from "./_shared/priceElasticity.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -229,6 +230,111 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const { data, error } = await supabase.from("hotel_inventory_snapshots").insert(rows).select("id,stay_date,snapshot_at");
     if (error) return fail("Import des snapshots impossible", 400, error.message);
     return json({ ok: true, inserted: data?.length ?? 0, data }, 201);
+  }
+
+  if (actionPath === "price-experiments") {
+    const experimentCode=body.experimentCode,experimentName=body.experimentName,assignmentUnit=body.assignmentUnit;
+    const startDate=body.startDate,endDate=body.endDate;
+    if (typeof experimentCode!=="string"||!experimentCode.trim()||typeof experimentName!=="string"||!experimentName.trim()||
+        !["stay_date","room_type","rate_plan","channel","stay_date_room_type_rate_plan_channel"].includes(assignmentUnit)||
+        !isDate(startDate)||!isDate(endDate)||endDate<startDate) return fail("Définition d'expérience invalide");
+    const {data,error}=await supabase.from("hotel_price_experiments").insert({
+      organization_id:hotel.organization_id,hotel_id:hotelId,experiment_code:experimentCode.trim(),
+      experiment_name:experimentName.trim(),assignment_unit:assignmentUnit,start_date:startDate,end_date:endDate,
+      hypothesis:typeof body.hypothesis==="string"?body.hypothesis:null,
+      design:body.design&&typeof body.design==="object"?body.design:{},
+      randomization_method:typeof body.randomizationMethod==="string"?body.randomizationMethod:null,
+      randomization_verified:false,created_by:profile.id,
+    }).select("*").single();
+    if (error) return fail("Création de l'expérience tarifaire impossible",400,error.message);
+    return json({ok:true,data,randomizationVerified:false},201);
+  }
+
+  if (actionPath === "price-experiment-observations") {
+    if (!Array.isArray(body.observations)||body.observations.length<1||body.observations.length>2000) return fail("Fournir entre 1 et 2000 observations d'expérience");
+    const rows=body.observations.map((o:any)=>({
+      organization_id:hotel.organization_id,hotel_id:hotelId,experiment_id:o.experiment_id,
+      group_type:o.group_type,stay_date:o.stay_date,room_type_id:o.room_type_id??null,rate_plan_id:o.rate_plan_id??null,
+      channel:o.channel,currency:o.currency??hotel.currency,assigned_price:o.assigned_price,
+      exposure_count:o.exposure_count,rooms_sold:o.rooms_sold,cancelled_rooms:o.cancelled_rooms??0,
+      revenue_net:numberOrNull(o.revenue_net),source_status:o.source_status,source_name:o.source_name,
+      observed_at:o.observed_at,evidence:o.evidence??{},
+    }));
+    for (const row of rows) {
+      if (!isDate(row.stay_date)||!["control","treatment"].includes(row.group_type)||
+          !Number.isFinite(Number(row.assigned_price))||Number(row.assigned_price)<=0||
+          !Number.isInteger(row.exposure_count)||row.exposure_count<=0||
+          !Number.isInteger(row.rooms_sold)||row.rooms_sold<0||
+          !Number.isInteger(row.cancelled_rooms)||row.cancelled_rooms<0||
+          !["live","imported","fixture","simulation"].includes(row.source_status)||
+          typeof row.source_name!=="string"||!row.source_name||
+          !row.observed_at||Number.isNaN(Date.parse(row.observed_at))) return fail("Observation d'expérience invalide");
+    }
+    const {data,error}=await supabase.from("hotel_price_experiment_observations").insert(rows).select("id,experiment_id,stay_date,group_type,source_status");
+    if (error) return fail("Import des observations d'expérience impossible",400,error.message);
+    return json({ok:true,inserted:data?.length??0,data},201);
+  }
+
+  if (actionPath === "demand-censoring-observations") {
+    if (!Array.isArray(body.observations)||body.observations.length<1||body.observations.length>2000) return fail("Fournir entre 1 et 2000 observations de demande censurée");
+    const rows=body.observations.map((o:any)=>({
+      organization_id:hotel.organization_id,hotel_id:hotelId,stay_date:o.stay_date,
+      room_type_id:o.room_type_id??null,rate_plan_id:o.rate_plan_id??null,channel:o.channel??null,currency:o.currency??hotel.currency,
+      censoring_status:o.censoring_status,observed_at:o.observed_at,last_available_at:o.last_available_at??null,sold_out_at:o.sold_out_at??null,
+      search_demand_count:numberOrNull(o.search_demand_count),booking_attempt_count:numberOrNull(o.booking_attempt_count),
+      rejected_attempt_count:numberOrNull(o.rejected_attempt_count),estimated_lost_rooms:numberOrNull(o.estimated_lost_rooms),
+      source_status:o.source_status,source_name:o.source_name,evidence:o.evidence??{},
+    }));
+    for (const row of rows) {
+      if (!isDate(row.stay_date)||!["sold_out","capacity_constrained","unknown"].includes(row.censoring_status)||
+          !row.observed_at||Number.isNaN(Date.parse(row.observed_at))||
+          !["live","imported","fixture","simulation"].includes(row.source_status)||
+          typeof row.source_name!=="string"||!row.source_name) return fail("Observation de demande censurée invalide");
+    }
+    const {data,error}=await supabase.from("hotel_demand_censoring_observations").insert(rows).select("id,stay_date,censoring_status,source_status");
+    if (error) return fail("Import des observations de demande censurée impossible",400,error.message);
+    return json({ok:true,inserted:data?.length??0,data},201);
+  }
+
+  if (actionPath === "elasticity/estimate") {
+    const experimentId=body.experimentId;
+    if (typeof experimentId!=="string") return fail("experimentId obligatoire");
+    const {data:experiment,error:experimentError}=await supabase.from("hotel_price_experiments")
+      .select("id,experiment_code,experiment_status,randomization_verified,start_date,end_date")
+      .eq("id",experimentId).eq("hotel_id",hotelId).maybeSingle();
+    if (experimentError||!experiment) return fail("Expérience tarifaire introuvable",404,experimentError?.message);
+    if (experiment.experiment_status!=="completed"||!experiment.randomization_verified) {
+      return fail("L'estimation exige une expérience terminée et une randomisation vérifiée par un responsable",409);
+    }
+    const {data:params,error:paramsError}=await supabase.from("hotel_parameters_profiles")
+      .select("demand_thresholds").eq("hotel_id",hotelId).maybeSingle();
+    if (paramsError) return fail("Lecture de la configuration d'élasticité impossible",400,paramsError.message);
+    const cfg:any=params?.demand_thresholds?.elasticity_v1;
+    const minPairs=Number(cfg?.min_pairs),minRSquared=Number(cfg?.min_r_squared),maxAbsElasticity=Number(cfg?.max_abs_elasticity);
+    if (!Number.isInteger(minPairs)||minPairs<3||!Number.isFinite(minRSquared)||minRSquared<0||minRSquared>1||
+        !Number.isFinite(maxAbsElasticity)||maxAbsElasticity<=0) return fail("elasticity_v1 doit définir min_pairs (>=3), min_r_squared (0–1) et max_abs_elasticity",422);
+    const {data:observations,error:observationsError}=await supabase.from("hotel_price_experiment_observations")
+      .select("experiment_id,stay_date,room_type_id,rate_plan_id,channel,currency,group_type,assigned_price,exposure_count,rooms_sold,source_status")
+      .eq("hotel_id",hotelId).eq("experiment_id",experimentId).in("source_status",["live","imported"]);
+    if (observationsError) return fail("Lecture des observations d'expérience impossible",400,observationsError.message);
+    const estimate=estimatePairedPriceElasticity(observations??[],{minPairs,minRSquared,maxAbsElasticity});
+    if (estimate.status!=="estimated") return json({ok:true,status:estimate.status,estimate,persisted:false,automaticActivation:false},200);
+    const ruleKey=experiment.experiment_code;
+    const {data:rule,error:ruleError}=await supabase.from("hotel_calibration_rules").insert({
+      organization_id:hotel.organization_id,hotel_id:hotelId,rule_type:"price_elasticity",rule_key:ruleKey,rule_version:1,
+      rule_value:estimate,source_method:"controlled_experiment",sample_count:estimate.samplePairs,
+      r_squared:estimate.rSquared,confidence_level:95,rule_status:"pending_review",
+      valid_from:experiment.start_date,valid_to:experiment.end_date,created_by:profile.id,
+    }).select("*").single();
+    if (ruleError) return fail("Persistance de la règle d'élasticité impossible",409,ruleError.message);
+    return json({ok:true,status:"estimated",estimate,calibrationRule:rule,requiresHumanReview:true,automaticActivation:false},201);
+  }
+
+  if (actionPath === "calibration-rules") {
+    const {data,error}=await supabase.from("hotel_calibration_rules").select("*")
+      .eq("hotel_id",hotelId).order("created_at",{ascending:false}).limit(100);
+    if (error) return fail("Lecture des règles de calibration impossible",400,error.message);
+    return json({ok:true,data});
   }
 
   if (actionPath === "reservation-snapshots") {
