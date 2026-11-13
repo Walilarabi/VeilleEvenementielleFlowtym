@@ -660,7 +660,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const [inventoryResult,reservationResult,compRateResult,impactResult] = await Promise.all([
       supabase.from("hotel_inventory_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
       supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).in("pickup_window_hours",[24,72,168]).not("net_pickup_rooms","is",null).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
-      supabase.from("lighthouse_rate_observations").select("stay_date,competitor_hotel_id,rate_amount,availability_status,observed_at,source_status,los,pos,currency").eq("hotel_id",hotelId).eq("availability_status","available").eq("los",compsetLos).eq("pos",compsetPos).eq("currency",hotel.currency).not("competitor_hotel_id","is",null).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
+      supabase.from("lighthouse_rate_observations").select("stay_date,competitor_id,rate_amount,availability_status,observed_at,source_status,los,pos,currency,room_type,rate_plan,channel").eq("hotel_id",hotelId).eq("availability_status","available").eq("los",compsetLos).eq("pos",compsetPos).eq("currency",hotel.currency).eq("room_type",cfg.compset_room_type).eq("rate_plan",cfg.compset_rate_plan).eq("channel",cfg.compset_channel).not("competitor_id","is",null).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
       supabase.from("event_hotel_impacts").select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)").eq("hotel_id",hotelId).eq("impact_status","validated").gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end).not("final_rm_score","is",null),
     ]);
     const queryError = inventoryResult.error ?? reservationResult.error ?? compRateResult.error ?? impactResult.error;
@@ -677,10 +677,10 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const maxAgeHours = maxObservationAge;
     for (const r of compRates ?? []) {
       const age=(Date.now()-Date.parse(r.observed_at))/3600000;
-      if (age>=0&&age<=maxAgeHours&&Number(r.rate_amount)>0&&r.competitor_hotel_id) {
+      if (age>=0&&age<=maxAgeHours&&Number(r.rate_amount)>0&&r.competitor_id) {
         if (!compByDate.has(r.stay_date)) compByDate.set(r.stay_date,new Map());
         const byCompetitor=compByDate.get(r.stay_date)!;
-        if (!byCompetitor.has(r.competitor_hotel_id)) byCompetitor.set(r.competitor_hotel_id,Number(r.rate_amount));
+        if (!byCompetitor.has(r.competitor_id)) byCompetitor.set(r.competitor_id,Number(r.rate_amount));
       }
     }
     const eventByDate = new Map<string,number>();
