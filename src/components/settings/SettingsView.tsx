@@ -6,7 +6,7 @@ import { useTheme, ThemeMode } from '../../contexts/ThemeContext';
 import { saveHotelRevenueParameters } from '../../services/revenueApiClient';
 
 type DbHotel = {
-  id: string; name: string; city: string; country: string; stars: number | null;
+  id: string; organization_id: string; name: string; city: string; country: string; stars: number | null;
   room_count: number | null; currency: string; timezone: string; rate_floor: number | null;
   rate_ceiling: number | null; max_rate_change_pct: number | null; is_active: boolean;
 };
@@ -36,7 +36,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   const [tab, setTab] = useState<SettingsTab>('hotel');
   const [hotels, setHotels] = useState<DbHotel[]>([]);
   const [hotelId, setHotelId] = useState('');
-  const [profile, setProfile] = useState<any>(null);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [integrations, setIntegrations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +68,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       if (competitorResult.error) throw competitorResult.error;
       if (integrationResult.error) throw integrationResult.error;
       const p = profileResult.data;
-      setProfile(p);
       setForm({
         currency: p?.currency ?? rows.find(h => h.id === chosenId)?.currency ?? 'EUR',
         timezone: p?.timezone ?? rows.find(h => h.id === chosenId)?.timezone ?? 'Europe/Paris',
