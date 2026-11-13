@@ -6,8 +6,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from './auth/AuthProvider';
 import { PanelLeftOpen, ChevronRight } from 'lucide-react';
-import { Navbar } from './components/layout/Navbar';
-import { Sidebar, NavTab, SidebarMode } from './components/layout/Sidebar';
+const Navbar = React.lazy(() => import('./components/layout/Navbar').then((module) => ({ default: module.Navbar })));
+const Sidebar = React.lazy(() => import('./components/layout/Sidebar').then((module) => ({ default: module.Sidebar })));
+import type { NavTab, SidebarMode } from './components/layout/Sidebar';
 const KPIHeader = React.lazy(() => import('./components/kpi/KPIHeader').then((module) => ({ default: module.KPIHeader })));
 
 const SIDEBAR_MODE_STORAGE_KEY = 'flowtym_sidebar_mode_v1';
@@ -23,7 +24,7 @@ const getInitialSidebarMode = (): SidebarMode => {
   }
   return 'full';
 };
-import { CalendarControls } from './components/calendar/CalendarControls';
+const CalendarControls = React.lazy(() => import('./components/calendar/CalendarControls').then((module) => ({ default: module.CalendarControls })));
 const CalendarView = React.lazy(() => import('./components/calendar/CalendarView').then((module) => ({ default: module.CalendarView })));
 const TableView = React.lazy(() => import('./components/calendar/TableView').then((module) => ({ default: module.TableView })));
 const FlowboardView = React.lazy(() => import('./components/flowboard/FlowboardView').then((module) => ({ default: module.FlowboardView })));
@@ -40,7 +41,8 @@ const ProposalsModal = React.lazy(() => import('./components/proposals/Proposals
 import { LoginPage } from './components/auth/LoginPage';
 const MarketCalendarView = React.lazy(() => import('./components/market/MarketCalendarView').then((module) => ({ default: module.MarketCalendarView })));
 const SchoolHolidaysCalendarView = React.lazy(() => import('./components/events/SchoolHolidaysCalendarView').then((module) => ({ default: module.SchoolHolidaysCalendarView })));
-import { CalendarSubNavbar, CalendarSubTabMode } from './components/calendar/CalendarSubNavbar';
+const CalendarSubNavbar = React.lazy(() => import('./components/calendar/CalendarSubNavbar').then((module) => ({ default: module.CalendarSubNavbar })));
+import type { CalendarSubTabMode } from './components/calendar/CalendarSubNavbar';
 const RMDecisionCenter = React.lazy(() => import('./components/intelligence/RMDecisionCenter').then((module) => ({ default: module.RMDecisionCenter })));
 const DemandForecastView = React.lazy(() => import('./components/forecast/DemandForecastView').then((module) => ({ default: module.DemandForecastView })));
 const DateDetailModal = React.lazy(() => import('./components/events/DateDetailModal').then((module) => ({ default: module.DateDetailModal })));
@@ -525,7 +527,7 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 antialiased font-sans">
       {/* Top Navbar */}
-      <Navbar
+      <React.Suspense fallback={null}><Navbar
         hotels={hotels}
         selectedHotelId={filterState.selectedHotelId}
         onSelectHotel={(id) => handleFilterChange({ selectedHotelId: id })}
@@ -551,7 +553,7 @@ export default function App() {
       {/* Main Container: Fixed Sidebar + Content */}
       <div className="flex-1 flex relative">
         {/* Sidebar Navigation (Slim Icon-Rail) */}
-        <Sidebar
+        <React.Suspense fallback={null}><Sidebar
           activeTab={activeTab}
           onChangeTab={(tab) => {
             setActiveTab(tab);
