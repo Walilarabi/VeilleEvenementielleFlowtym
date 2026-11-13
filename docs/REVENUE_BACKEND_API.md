@@ -12,7 +12,7 @@
 
 ## Database migrations
 
-The deployed public schema contains 35 tables; all 35 have row-level security enabled. Existing organization, user and hotel rows were preserved.
+The deployed public schema contains 36 tables; all 36 have row-level security enabled. Existing organization, user and hotel rows were preserved.
 
 The current deployment uses additive migrations under `/supabase/migrations` (foundation tables are already present in the live project). For a new Supabase project, read `/supabase/bootstrap/README.md` and apply `/supabase/bootstrap/foundation.sql` first. Never execute the deprecated `src/supabase/schema.sql` as a bootstrap script.
 
