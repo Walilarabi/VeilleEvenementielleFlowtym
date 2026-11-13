@@ -370,45 +370,93 @@ export function parseAndValidateHistoricalExcel(
         continue;
       }
 
-      // Capacité et chambres vendues
-      const totalRooms = Number(getVal('totalMarketableRooms', 45)) || 45;
-      const roomsSold = Number(getVal('roomsSold', 0));
-      const compRooms = Number(getVal('complimentaryRooms', 0));
-      const oooRooms = Number(getVal('outOfOrderRooms', 0));
-
-      if (roomsSold < 0 || roomsSold > totalRooms + 10) {
-        warningsCount++;
+      // Les métriques absentes restent inconnues : aucune capacité, ADR ou recette fictive.
+      const totalRoomsRaw = getVal('totalMarketableRooms');
+      const roomsSoldRaw = getVal('roomsSold');
+      const totalRooms = Number(totalRoomsRaw);
+      const roomsSold = Number(roomsSoldRaw);
+      if (totalRoomsRaw == null || !Number.isFinite(totalRooms) || totalRooms <= 0 ||
+          roomsSoldRaw == null || !Number.isInteger(roomsSold) || roomsSold < 0) {
         errorsList.push({
           rowNumber,
-          column: 'Chambres vendues (Y)',
-          value: roomsSold,
-          message: `Incohérence : chambres vendues (${roomsSold}) supérieures au stock commercialisable (${totalRooms}).`,
+          column: 'Capacité / chambres vendues',
+          value: { totalRooms: totalRoomsRaw, roomsSold: roomsSoldRaw },
+          message: 'Données de capacité ou de chambres vendues invalides ou absentes ; ligne non importée.',
         });
+        continue;
       }
 
-      // Performance financière et recalcul rigoureux du RevPAR
-      const adrNet = Number(getVal('adrNetEur', getVal('avgSoldRoomPrice', 250))) || 250;
-      let caHeberg = Number(getVal('accommodationRevenueEur', roomsSold * adrNet));
-      if (caHeberg === 0 && roomsSold > 0) {
-        caHeberg = Math.round(roomsSold * adrNet);
+      const compRoomsRaw = getVal('complimentaryRooms');
+      const oooRoomsRaw = getVal('outOfOrderRooms');
+      const compRooms = compRoomsRaw == null ? undefined : Number(compRoomsRaw);
+      const oooRooms = oooRoomsRaw == null ? undefined : Number(oooRoomsRaw);
+      if ((compRooms !== undefined && (!Number.isInteger(compRooms) || compRooms < 0)) ||
+          (oooRooms !== undefined && (!Number.isInteger(oooRooms) || oooRooms < 0))) {
+        errorsList.push({
+          rowNumber,
+          column: 'Chambres offertes / hors service',
+          value: { complimentaryRooms: compRoomsRaw, outOfOrderRooms: oooRoomsRaw },
+          message: 'Valeur de chambres offertes ou hors service invalide.',
+        });
+        continue;
       }
 
-      // RevPAR STRICT = CA Hébergement HT / Total chambres commercialisables (45)
+      const revenueRaw = getVal('accommodationRevenueEur');
+      const adrRaw = getVal('adrNetEur');
+      let caHeberg = revenueRaw == null ? null : Number(revenueRaw);
+      let adrNet = adrRaw == null ? null : Number(adrRaw);
+      if (caHeberg !== null && (!Number.isFinite(caHeberg) || caHeberg < 0)) caHeberg = null;
+      if (adrNet !== null && (!Number.isFinite(adrNet) || adrNet < 0)) adrNet = null;
+
+      if (caHeberg === null && adrNet !== null) caHeberg = roomsSold * adrNet;
+      if (adrNet === null && caHeberg !== null && roomsSold > 0) adrNet = caHeberg / roomsSold;
+      if (caHeberg === null && roomsSold === 0) caHeberg = 0;
+      if (caHeberg === null) {
+        errorsList.push({
+          rowNumber,
+          column: 'ADR net / CA hébergement',
+          value: { adrNet: adrRaw, accommodationRevenue: revenueRaw },
+          message: 'ADR net et CA hébergement absents ou invalides ; ligne non importée.',
+        });
+        continue;
+      }
+
+      if (roomsSold + (compRooms ?? 0) > totalRooms) {
+        errorsList.push({
+          rowNumber,
+          column: 'Occupation / capacité',
+          value: { roomsSold, complimentaryRooms: compRooms, totalRooms },
+          message: 'Occupation supérieure à la capacité commercialisable : ligne invalide.',
+        });
+        continue;
+      }
+
       const calculatedRevpar = Math.round((caHeberg / totalRooms) * 100) / 100;
-      const declaredRevpar = Number(getVal('revparEur', calculatedRevpar));
-
-      if (Math.abs(calculatedRevpar - declaredRevpar) > 2.5) {
+      const declaredRevparRaw = getVal('revparEur');
+      const declaredRevpar = declaredRevparRaw == null ? null : Number(declaredRevparRaw);
+      if (declaredRevpar !== null && Number.isFinite(declaredRevpar) && Math.abs(calculatedRevpar - declaredRevpar) > 2.5) {
         warningsCount++;
-        // Recalcul automatique et signalement
         errorsList.push({
           rowNumber,
           column: 'RevPAR HT (AG)',
           value: declaredRevpar,
-          message: `RevPAR déclaré (${declaredRevpar}€) corrigé vers ${calculatedRevpar}€ (CA Hébergement ${caHeberg}€ / ${totalRooms} chambres commercialisables).`,
+          message: `RevPAR déclaré (${declaredRevpar}€) différent du RevPAR recalculé (${calculatedRevpar}€) à partir du CA et du stock fournis.`,
         });
       }
 
-      const occPercent = Number(getVal('occupancyPercent', (roomsSold / totalRooms) * 100)) || 0;
+      const occupancyRaw = getVal('occupancyPercent');
+      const occPercent = occupancyRaw == null
+        ? compRooms !== undefined ? ((roomsSold + compRooms) / totalRooms) * 100 : null
+        : Number(occupancyRaw);
+      if (occPercent === null || !Number.isFinite(occPercent) || occPercent < 0 || occPercent > 100) {
+        errorsList.push({
+          rowNumber,
+          column: 'Taux d’occupation',
+          value: occupancyRaw,
+          message: 'Taux d’occupation absent ou invalide ; impossible de le calculer sans chambres offertes renseignées.',
+        });
+        continue;
+      }
 
       const record: HistoricalDailyRecord = {
         id: `hist-${hotelId}-${dateStr}`,
