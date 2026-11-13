@@ -342,7 +342,8 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
 
           {/* Other Hotels Markers */}
           {showOtherHotels &&
-            otherHotels.filter((oth) => oth.lat !== null && oth.lng !== null).map((oth) => {
+            otherHotels.map((oth) => {
+              if (oth.lat === null || oth.lng === null) return null;
               const pt = coordsToSvg(oth.lat, oth.lng);
               return (
                 <g key={`oth-${oth.id}`} className="cursor-pointer">
