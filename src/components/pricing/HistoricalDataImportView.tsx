@@ -297,10 +297,10 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
         rooms_booked_otb: snapshot.roomsBookedOtb,
         rooms_available: snapshot.roomsAvailable,
         projected_occupancy_pct: snapshot.projectedOccupancyPercent,
-        booked_adr: snapshot.bookedAdrEur,
-        booked_revenue: snapshot.bookedRevenueEur,
-        pickup_since_previous: snapshot.pickupSincePrevSnapshot,
-        cancellations_since_previous: snapshot.cancellationsSincePrevSnapshot,
+        booked_adr: snapshot.bookedAdrEur ?? null,
+        booked_revenue: snapshot.bookedRevenueEur ?? null,
+        pickup_since_previous: snapshot.pickupSincePrevSnapshot ?? null,
+        cancellations_since_previous: snapshot.cancellationsSincePrevSnapshot ?? null,
         public_rate: snapshot.publicRateAtSnapshotEur ?? null,
         compset_rate: snapshot.compsetRateAtSnapshotEur ?? null,
       }));
@@ -567,11 +567,11 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                             <span className="text-slate-400 text-[10px]">—</span>
                           )}
                         </td>
-                        <td className="py-2.5 px-2 text-center font-bold text-slate-800">{r.occupancyPercent}%</td>
+                        <td className="py-2.5 px-2 text-center font-bold text-slate-800">{r.occupancyPercent != null ? `${r.occupancyPercent}%` : '—'}</td>
                         <td className="py-2.5 px-2 text-right">{r.roomsSold} / {r.totalMarketableRooms}</td>
-                        <td className="py-2.5 px-2 text-right font-bold text-slate-900">{r.adrNetEur} €</td>
-                        <td className="py-2.5 px-2 text-right font-black text-emerald-700">{r.revparEur} €</td>
-                        <td className="py-2.5 px-2 text-right tabular-nums">{r.accommodationRevenueEur.toLocaleString('fr-FR')} €</td>
+                        <td className="py-2.5 px-2 text-right font-bold text-slate-900">{r.adrNetEur != null ? `${r.adrNetEur} €` : '—'}</td>
+                        <td className="py-2.5 px-2 text-right font-black text-emerald-700">{r.revparEur != null ? `${r.revparEur} €` : '—'}</td>
+                        <td className="py-2.5 px-2 text-right tabular-nums">{r.accommodationRevenueEur != null ? `${r.accommodationRevenueEur.toLocaleString('fr-FR')} €` : '—'}</td>
                         <td className="py-2.5 px-2 text-center font-semibold text-slate-700">{r.pickupJ14toJ7 ?? 'N/D'}</td>
                       </tr>
                     ))}
@@ -624,9 +624,9 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                     <td className="py-2.5 px-2 text-slate-600">{r.dayOfWeek.slice(0, 3)}</td>
                     <td className="py-2.5 px-2 text-center">
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                        r.season === 'Haute' ? 'bg-rose-100 text-rose-800' : r.season === 'Moyenne' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                        r.season === 'Haute' ? 'bg-rose-100 text-rose-800' : r.season === 'Moyenne' ? 'bg-amber-100 text-amber-800' : r.season === 'Basse' ? 'bg-slate-100 text-slate-700' : 'bg-slate-50 text-slate-400'
                       }`}>
-                        {r.season}
+                        {r.season ?? 'Non renseignée'}
                       </span>
                     </td>
                     <td className="py-2.5 px-2 text-center">
@@ -639,7 +639,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                       )}
                     </td>
                     <td className="py-2.5 px-2 text-center font-bold text-slate-800">{r.occupancyPercent}%</td>
-                    <td className="py-2.5 px-2 text-right">{r.roomsSold} / 45</td>
+                    <td className="py-2.5 px-2 text-right">{r.roomsSold} / {r.totalMarketableRooms}</td>
                     <td className="py-2.5 px-2 text-right font-bold text-slate-900">{r.adrNetEur} €</td>
                     <td className="py-2.5 px-2 text-right font-black text-emerald-700">{r.revparEur} €</td>
                     <td className="py-2.5 px-2 text-right tabular-nums">{r.accommodationRevenueEur.toLocaleString('fr-FR')} €</td>
