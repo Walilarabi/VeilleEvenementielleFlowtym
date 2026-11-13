@@ -2,13 +2,14 @@ import React,{useMemo,useState} from "react";
 import type {SupabaseClient} from "@supabase/supabase-js";
 import {AlertTriangle,CheckCircle2,RefreshCw,TrendingUp,ShieldCheck,Database,CalendarDays} from "lucide-react";
 import type {Hotel} from "../../types";
-import type {RevenueRateRow} from "../../services/revenueWorkspace";
+import type {RevenueRateRow,RevenueLighthouseRow} from "../../services/revenueWorkspace";
+import {RevenueHistoricalImportPanel} from "./RevenueHistoricalImportPanel";
 import {generatePricingRecommendations,submitRevenueDecision} from "../../services/revenueApiClient";
 
-type Props={hotel:Hotel;rows:RevenueRateRow[];loading:boolean;error:string|null;supabase:SupabaseClient|null;onRefresh:()=>void;onShowToast:(message:string)=>void};
+type Props={hotel:Hotel;rows:RevenueRateRow[];lighthouse:RevenueLighthouseRow[];loading:boolean;error:string|null;supabase:SupabaseClient|null;onRefresh:()=>void;onShowToast:(message:string)=>void};
 const money=(v:number|null)=>v===null?"—":new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(v);
 const pct=(v:number|null)=>v===null?"—":`${v>0?"+":""}${v.toFixed(1)} %`;
-export const RevenuePricingWorkspace:React.FC<Props>=({hotel,rows,loading,error,supabase,onRefresh,onShowToast})=>{
+export const RevenuePricingWorkspace:React.FC<Props>=({hotel,rows,lighthouse,loading,error,supabase,onRefresh,onShowToast})=>{
  const [busy,setBusy]=useState<string|null>(null);
  const [editId,setEditId]=useState<string|null>(null);
  const [editRate,setEditRate]=useState("");
