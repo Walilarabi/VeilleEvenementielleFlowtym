@@ -27,6 +27,7 @@
 --   /supabase/migrations/20261113002000_move_event_decision_definer_private.sql
 --   /supabase/migrations/20261113002100_audited_price_experiment_lifecycle.sql
 --   /supabase/migrations/20261113002200_fix_experiment_observation_policy.sql
+--   /supabase/migrations/20261113002100_audited_price_experiment_lifecycle.sql
 --
 -- The auth baseline remains managed separately by the existing authentication
 -- migrations. Never run the old monolithic schema.sql or recreate organizations,
