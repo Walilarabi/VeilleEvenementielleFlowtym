@@ -75,8 +75,8 @@ export const saveHotelRevenueParameters = (supabase: SupabaseClient, hotelId: st
 export const importHotelHistoricalRows = (
   supabase: SupabaseClient,
   hotelId: string,
-  payload: { fileName?: string; sourceName: string; detectedColumns?: string[]; rows: Record<string, unknown>[]; snapshots?: Record<string, unknown>[] },
-) => revenueApiRequest<{ ok: true; importId: string; imported: number }>(
+  payload: { fileName?: string; fileSizeBytes?: number; sourceName: string; detectedColumns?: string[]; rows: Record<string, unknown>[]; snapshots?: Record<string, unknown>[] },
+) => revenueApiRequest<{ ok: true; importId: string; imported: number; snapshotsImported: number }>(
   supabase, `/hotels/${encodeURIComponent(hotelId)}/historical-import`, { method: "POST", body: payload },
 );
 
