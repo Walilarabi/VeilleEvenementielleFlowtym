@@ -209,21 +209,24 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     if (floor === null || ceiling === null || maxChange === null || floor <= 0 || ceiling < floor || maxChange <= 0 || maxChange > 100) {
       return fail("Plancher, plafond et variation quotidienne maximale doivent être renseignés et cohérents");
     }
+    const { data: existingProfile, error: existingProfileError } = await supabase.from("hotel_parameters_profiles")
+      .select("*").eq("hotel_id", hotelId).maybeSingle();
+    if (existingProfileError) return fail("Lecture des paramètres existants impossible", 400, existingProfileError.message);
     const profileRow = {
       organization_id: hotel.organization_id,
       hotel_id: hotelId,
-      currency: typeof body.currency === "string" ? body.currency : hotel.currency,
-      timezone: typeof body.timezone === "string" ? body.timezone : hotel.timezone,
-      target_adr: numberOrNull(body.targetAdr),
-      target_occupancy_pct: numberOrNull(body.targetOccupancyPct),
-      target_revpar: numberOrNull(body.targetRevpar),
+      currency: typeof body.currency === "string" ? body.currency : existingProfile?.currency ?? hotel.currency,
+      timezone: typeof body.timezone === "string" ? body.timezone : existingProfile?.timezone ?? hotel.timezone,
+      target_adr: body.targetAdr !== undefined ? numberOrNull(body.targetAdr) : existingProfile?.target_adr ?? null,
+      target_occupancy_pct: body.targetOccupancyPct !== undefined ? numberOrNull(body.targetOccupancyPct) : existingProfile?.target_occupancy_pct ?? null,
+      target_revpar: body.targetRevpar !== undefined ? numberOrNull(body.targetRevpar) : existingProfile?.target_revpar ?? null,
       floor_rate: floor,
       ceiling_rate: ceiling,
       max_daily_rate_change_pct: maxChange,
-      distribution_cost_pct: numberOrNull(body.distributionCostPct),
-      compset_config: Array.isArray(body.compsetConfig) ? body.compsetConfig : [],
-      room_type_config: Array.isArray(body.roomTypeConfig) ? body.roomTypeConfig : [],
-      demand_thresholds: typeof body.demandThresholds === "object" && body.demandThresholds !== null ? body.demandThresholds : {},
+      distribution_cost_pct: body.distributionCostPct !== undefined ? numberOrNull(body.distributionCostPct) : existingProfile?.distribution_cost_pct ?? null,
+      compset_config: Array.isArray(body.compsetConfig) ? body.compsetConfig : existingProfile?.compset_config ?? [],
+      room_type_config: Array.isArray(body.roomTypeConfig) ? body.roomTypeConfig : existingProfile?.room_type_config ?? [],
+      demand_thresholds: typeof body.demandThresholds === "object" && body.demandThresholds !== null ? body.demandThresholds : existingProfile?.demand_thresholds ?? {},
       updated_by: profile.id,
     };
     const { data, error } = await supabase.from("hotel_parameters_profiles")
