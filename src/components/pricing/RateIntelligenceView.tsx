@@ -540,7 +540,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       await submitRevenueDecision(supabase, realHotelId, {
         rateIntelligenceId: recommendation.id,
         action,
-        appliedRate: action === 'accept' ? Number(recommendation.suggested_bar) : Number(recommendation.current_bar),
+        ...(action === 'accept' ? { appliedRate: Number(recommendation.suggested_bar) } : {}),
         reasonCode: action === 'accept' ? 'RM_ACCEPTED' : 'RM_REJECTED',
         reasonText: action === 'accept'
           ? 'Recommandation acceptée par le Revenue Manager ; aucune publication automatique.'
