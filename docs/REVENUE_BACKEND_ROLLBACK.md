@@ -8,7 +8,7 @@ For production incidents, prefer a forward-fix migration. The current schema con
 
 ## Edge Function
 
-- Current deployed function: `revenue-api`, version 14, JWT verification enabled.
+- Current deployed function: `revenue-api`, version 16, JWT verification enabled.
 - The function uses the authenticated caller context and RLS; it does not use a service-role key.
 - If a code regression occurs, redeploy the last known-good `index.ts` and `deno.json` from the corresponding Git commit, then verify the function is ACTIVE and JWT verification remains enabled.
 - If access must be stopped immediately, disable the function in the Supabase Dashboard. Do not expose a bypass endpoint.
@@ -30,6 +30,11 @@ For production incidents, prefer a forward-fix migration. The current schema con
 13. `20261113001300_harden_event_impact_decisions.sql`: restrict status changes to the audited RPC.
 14. `20261113001400_fix_event_decision_rpc.sql`: qualify event decision RPC columns.
 15. `20261113001500_lighthouse_los_pos_dimensions.sql`: store explicit rate comparison dimensions.
+16. `20261113001600_price_experiments_and_censoring.sql`: store controlled pricing experiments and censored-demand evidence.
+17. `20261113001700_calibration_rules.sql`: store evidence-backed calibration rules.
+18. `20261113001800_index_experiment_and_audit_fks.sql`: cover experiment/audit foreign keys.
+19. `20261113001900_index_organization_foreign_keys.sql`: cover organization foreign keys.
+20. `20261113002000_move_event_decision_definer_private.sql`: move privileged event audit writer to private schema.
 
 ### Recovery notes
 
