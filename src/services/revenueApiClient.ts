@@ -202,3 +202,8 @@ export const getHotelLighthouseObservations = (supabase: SupabaseClient, hotelId
   revenueApiRequest<{ ok: true; data: unknown[] }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/lighthouse-observations?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
   );
+
+export const getHotelCalibrationRules = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/calibration-rules`,
+  );
