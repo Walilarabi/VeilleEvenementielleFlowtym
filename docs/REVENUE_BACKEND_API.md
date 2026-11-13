@@ -31,6 +31,7 @@ All routes require a valid Supabase user access token.
 | GET | `/hotels/:hotelId/backtests` | Historical model evaluations |
 | POST | `/hotels/:hotelId/backtests/evaluate` | Evaluate a completed forecast run against realized occupancy |
 | POST | `/hotels/:hotelId/decisions` | Accept, modify or reject a recommendation |
+| POST | `/hotels/:hotelId/events/score` | Calculate hotel-specific impact from verified event evidence and configured weights |
 | POST | `/hotels/:hotelId/parameters` | Save hotel pricing parameters |
 | POST | `/hotels/:hotelId/inventory-snapshots` | Ingest up to 500 snapshots |
 | POST | `/hotels/:hotelId/historical-import` | Import up to 5,000 daily historical rows |
@@ -83,6 +84,10 @@ These values are an example configuration, not pre-approved defaults. Configure 
 - If fewer than two signals are available or coverage is below 60%, the engine emits a HOLD / MAINTAIN recommendation and does not justify a price change.
 
 The engine version is persisted as `pricing_v1`; all inputs and configuration are stored in `input_snapshot` / `evidence`. Every recommendation remains `pending` until a human decision. Re-running the same hotel/date/engine is idempotent while the proposal is pending; a finalized proposal is immutable and requires a new engine version for a new proposal.
+
+## Event impact scoring
+
+`event_impact_v1` requires hotel-specific weights and scales in `hotel_parameters_profiles.demand_thresholds`. Inputs are the event attendance estimate, international ratio, occurrence duration, straight-line hotel-to-venue distance, verified venue capacity, verified evidence trust scores, configured recurrence scores and optional segment-fit scores. Components with missing evidence remain NULL and their weights are excluded from the available-weight mean. The result is stored as `to_review`; it is never auto-validated. Drive time and extra-night lift are explicitly not calculated until verified routing and hotel-history models exist. Only confirmed/probable events with confirmed occurrence dates are scored.
 
 ## Forecast baseline
 
