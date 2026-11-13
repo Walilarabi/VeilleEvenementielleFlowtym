@@ -34,6 +34,11 @@ All routes require a valid Supabase user access token.
 | POST | `/hotels/:hotelId/decisions` | Accept, modify or reject a recommendation |
 | POST | `/hotels/:hotelId/events/score` | Calculate hotel-specific impact from verified event evidence and configured weights |
 | POST | `/hotels/:hotelId/events/decisions` | Human validate/dismiss decision with immutable audit row |
+| POST | `/hotels/:hotelId/price-experiments` | Register a controlled pricing experiment (randomization unverified by default) |
+| POST | `/hotels/:hotelId/price-experiment-observations` | Ingest control/treatment exposure and booking outcomes |
+| POST | `/hotels/:hotelId/demand-censoring-observations` | Ingest sold-out/capacity-censored demand evidence |
+| POST | `/hotels/:hotelId/elasticity/estimate` | Estimate elasticity only from completed, verified randomized experiments |
+| GET | `/hotels/:hotelId/calibration-rules` | Read pending/active hotel calibration rules |
 | POST | `/hotels/:hotelId/parameters` | Save hotel pricing parameters |
 | POST | `/hotels/:hotelId/inventory-snapshots` | Ingest up to 500 inventory snapshots |
 | POST | `/hotels/:hotelId/reservation-snapshots` | Ingest OTB snapshots and exact windowed reservation deltas |
@@ -151,6 +156,10 @@ Allowed provenance statuses are persisted separately from values:
 - `fixture` / `simulation`: tests and simulations; never treated as live market data.
 
 Zero, NULL, sold-out, unavailable, stale and not-comparable are distinct states. Lighthouse sold-out observations are excluded from rate medians, not converted to zero.
+
+## Experiments, elasticity and censored demand
+
+The three evidence tables preserve experiment definitions, matched control/treatment observations and sold-out/capacity-censoring observations. The estimator uses conversion (rooms sold / exposure) and paired log price/conversion ratios. It rejects fixture/simulation observations, unverified randomization, insufficient pair counts, non-negative response and unstable fits. Calibration rules remain pending human review. Censoring observations are stored separately; they are not currently used to reconstruct unconstrained demand.
 
 ## Legacy UI boundary
 
