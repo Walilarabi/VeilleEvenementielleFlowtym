@@ -107,7 +107,7 @@ export async function loadRevenueWorkspace(supabase:SupabaseClient,selectedHotel
  if(!selected) return {hotels,rawHotels,rates:[],events:[],rawEvents:[],forecasts:[],inventory:[],backtests:[],integrations:[],parameters:null,loadedAt:new Date().toISOString()};
  const from=new Date(); const to=new Date(from); to.setUTCDate(to.getUTCDate()+180);
  const iso=(d:Date)=>d.toISOString().slice(0,10);
- const [rateResult,eventResult,forecastResult,inventoryResult,backtestResult]=await Promise.all([
+ const [rateResult,eventResult,forecastResult,inventoryResult,backtestResult,integrationResult,parametersResult]=await Promise.all([
   getHotelRates(supabase,selected.id,iso(from),iso(to)),
   getHotelEvents(supabase,selected.id,iso(from),iso(to)),
   getHotelForecasts(supabase,selected.id,iso(from),iso(to)),
