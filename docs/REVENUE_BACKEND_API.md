@@ -33,7 +33,8 @@ All routes require a valid Supabase user access token.
 | POST | `/hotels/:hotelId/decisions` | Accept, modify or reject a recommendation |
 | POST | `/hotels/:hotelId/events/score` | Calculate hotel-specific impact from verified event evidence and configured weights |
 | POST | `/hotels/:hotelId/parameters` | Save hotel pricing parameters |
-| POST | `/hotels/:hotelId/inventory-snapshots` | Ingest up to 500 snapshots |
+| POST | `/hotels/:hotelId/inventory-snapshots` | Ingest up to 500 inventory snapshots |
+| POST | `/hotels/:hotelId/reservation-snapshots` | Ingest OTB snapshots and exact windowed reservation deltas |
 | POST | `/hotels/:hotelId/historical-import` | Import up to 5,000 daily historical rows |
 | POST | `/hotels/:hotelId/forecasts/baseline` | Generate seasonal-naive forecast |
 | POST | `/hotels/:hotelId/recommendations/generate` | Generate deterministic, human-reviewed recommendations |
@@ -75,7 +76,7 @@ These values are an example configuration, not pre-approved defaults. Configure 
 ### v1 deterministic signal definitions
 
 - Occupancy signal: latest non-simulated inventory snapshot occupancy (0–100).
-- Pickup signal: weighted average of net OTB pickup scores for 24h, 3d and 7d. Snapshot pairs are accepted only in 20–30h, 60–84h and 144–192h windows respectively; missing pairs remain NULL. Each window has its own configured weight and room-scale normalization.
+- Pickup signal: weighted average of exact net pickup scores for 24h, 3d and 7d. Each source row must declare its window and period and provide new rooms booked, cancelled rooms and moved-in/moved-out rooms; net pickup is generated as new − cancelled + moved-in − moved-out. OTB snapshot deltas are never relabelled as exact pickup. Missing window-level deltas remain NULL.
 - Event signal: highest validated/available hotel impact score for the stay date.
 - Compset signal: `clamp(50 + 100 × (compset median - current BAR) / current BAR, 0, 100)`, using recent available comparable Lighthouse observations.
 - Demand index: weighted mean of the available signals, re-normalized over available weights.
