@@ -778,6 +778,11 @@ export default function App() {
               onOpenProposals={() => setIsProposalsModalOpen(true)}
               pendingProposalsCount={pendingProposalsCount}
               backendMode
+              supabase={supabase}
+              backendLoading={revenueLoading}
+              backendError={revenueError}
+              onBackendRefresh={refreshRevenueWorkspace}
+              onShowToast={showToast}
             />
           )}
 
