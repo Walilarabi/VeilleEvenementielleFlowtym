@@ -41,8 +41,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ currency: 'EUR', timezone: 'Europe/Paris', targetAdr: '', targetOccupancyPct: '', targetRevpar: '', floorRate: '', ceilingRate: '', maxDailyRateChangePct: '15', distributionCostPct: '' });
-  const [newCompetitor, setNewCompetitor] = useState({ name: '', address: '', stars: '4', distanceKm: '' });
+  const [form, setForm] = useState({ currency: 'EUR', timezone: 'Europe/Paris', targetAdr: '', targetOccupancyPct: '', targetRevpar: '', floorRate: '', ceilingRate: '', maxDailyRateChangePct: '', distributionCostPct: '' });
+  const [newCompetitor, setNewCompetitor] = useState({ name: '', address: '', stars: '', distanceKm: '' });
 
   const activeHotel = useMemo(() => hotels.find(h => h.id === hotelId) ?? null, [hotels, hotelId]);
 
@@ -74,9 +74,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
         targetAdr: p?.target_adr == null ? '' : String(p.target_adr),
         targetOccupancyPct: p?.target_occupancy_pct == null ? '' : String(p.target_occupancy_pct),
         targetRevpar: p?.target_revpar == null ? '' : String(p.target_revpar),
-        floorRate: p?.floor_rate == null ? '' : String(p.floor_rate),
-        ceilingRate: p?.ceiling_rate == null ? '' : String(p.ceiling_rate),
-        maxDailyRateChangePct: p?.max_daily_rate_change_pct == null ? '15' : String(p.max_daily_rate_change_pct),
+        floorRate: p?.floor_rate == null ? (rows.find(h => h.id === chosenId)?.rate_floor == null ? '' : String(rows.find(h => h.id === chosenId)!.rate_floor)) : String(p.floor_rate),
+        ceilingRate: p?.ceiling_rate == null ? (rows.find(h => h.id === chosenId)?.rate_ceiling == null ? '' : String(rows.find(h => h.id === chosenId)!.rate_ceiling)) : String(p.ceiling_rate),
+        maxDailyRateChangePct: p?.max_daily_rate_change_pct == null ? (rows.find(h => h.id === chosenId)?.max_rate_change_pct == null ? '' : String(rows.find(h => h.id === chosenId)!.max_rate_change_pct)) : String(p.max_daily_rate_change_pct),
         distributionCostPct: p?.distribution_cost_pct == null ? '' : String(p.distribution_cost_pct),
       });
       setCompetitors((competitorResult.data ?? []) as Competitor[]);
@@ -126,7 +126,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
         is_active: true,
       });
       if (insertError) throw insertError;
-      setNewCompetitor({ name: '', address: '', stars: '4', distanceKm: '' });
+      setNewCompetitor({ name: '', address: '', stars: '', distanceKm: '' });
       onShowToast?.('Concurrent ajouté au CompSet de cet hôtel.');
       await load();
     } catch (e: any) { setError(e?.message || 'Impossible d’ajouter ce concurrent.'); }
