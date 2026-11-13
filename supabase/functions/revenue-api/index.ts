@@ -365,6 +365,21 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ok:true,hotelId,asOf:asOf.toISOString(),models:modelResults,forecastingIsBaselineOnly:true},201);
   }
 
+  if (actionPath === "events/decisions") {
+    const occurrenceId=body.occurrenceId,action=body.action,reasonCode=body.reasonCode,reasonText=body.reasonText;
+    if (typeof occurrenceId!=="string" || !["validate","dismiss"].includes(action) || typeof reasonCode!=="string" || !reasonCode.trim()) {
+      return fail("occurrenceId, action validate/dismiss et reasonCode sont obligatoires");
+    }
+    const {data:impact,error:impactError}=await supabase.from("event_hotel_impacts")
+      .select("id,impact_status").eq("hotel_id",hotelId).eq("occurrence_id",occurrenceId).maybeSingle();
+    if (impactError||!impact) return fail("Impact événementiel introuvable",404,impactError?.message);
+    const {data,error}=await supabase.rpc("record_event_impact_decision",{
+      p_hotel_id:hotelId,p_impact_id:impact.id,p_action:action,p_reason_code:reasonCode.trim(),p_reason_text:typeof reasonText==="string"?reasonText:null,
+    });
+    if (error) return fail("Décision événementielle impossible",409,error.message);
+    return json({ok:true,data:Array.isArray(data)?data[0]:data,auditAppended:true},200);
+  }
+
   if (actionPath === "events/score") {
     const occurrenceId = body.occurrenceId;
     if (typeof occurrenceId !== "string") return fail("occurrenceId obligatoire");
