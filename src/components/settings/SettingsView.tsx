@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Building2, CheckCircle2, CircleAlert, Database, Moon, Plug, Plus, RefreshCw, Save, Settings2, Sun, Trash2, Monitor } from 'lucide-react';
+import { Building2, CheckCircle2, CircleAlert, Moon, Plug, Plus, RefreshCw, Save, Settings2, Sun, Trash2, Monitor } from 'lucide-react';
 import { Hotel } from '../../types';
 import { useAuth } from '../../auth/AuthProvider';
 import { useTheme, ThemeMode } from '../../contexts/ThemeContext';
@@ -59,7 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       setHotels(rows);
       const chosenId = rows.some(h => h.id === selectedHotelId) ? selectedHotelId! : (rows[0]?.id ?? '');
       setHotelId(chosenId);
-      if (!chosenId) { setProfile(null); setCompetitors([]); setIntegrations([]); return; }
+      if (!chosenId) { setCompetitors([]); setIntegrations([]); return; }
       const [profileResult, competitorResult, integrationResult] = await Promise.all([
         supabase.from('hotel_parameters_profiles').select('*').eq('hotel_id', chosenId).maybeSingle(),
         supabase.from('competitor_hotels').select('id,competitor_name,address,stars,distance_meters,is_active').eq('hotel_id', chosenId).order('competitor_name'),
@@ -120,7 +120,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
     setSaving(true); setError(null);
     try {
       const { error: insertError } = await supabase.from('competitor_hotels').insert({
-        organization_id: (await supabase.from('hotels').select('organization_id').eq('id', hotelId).single()).data?.organization_id,
+        organization_id: activeHotel.organization_id,
         hotel_id: hotelId, competitor_name: newCompetitor.name.trim(),
         address: newCompetitor.address.trim() || null,
         stars: newCompetitor.stars ? Number(newCompetitor.stars) : null,
