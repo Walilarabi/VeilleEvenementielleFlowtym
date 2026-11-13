@@ -242,7 +242,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const experimentCode=body.experimentCode,experimentName=body.experimentName,assignmentUnit=body.assignmentUnit;
     const startDate=body.startDate,endDate=body.endDate;
     if (typeof experimentCode!=="string"||!experimentCode.trim()||typeof experimentName!=="string"||!experimentName.trim()||
-        !["stay_date","room_type","rate_plan","channel","stay_date_room_type_rate_plan_channel"].includes(assignmentUnit)||
+        typeof assignmentUnit!=="string"||!["stay_date","room_type","rate_plan","channel","stay_date_room_type_rate_plan_channel"].includes(assignmentUnit)||
         !isDate(startDate)||!isDate(endDate)||endDate<startDate) return fail("Définition d'expérience invalide");
     const {data,error}=await supabase.from("hotel_price_experiments").insert({
       organization_id:hotel.organization_id,hotel_id:hotelId,experiment_code:experimentCode.trim(),
@@ -304,7 +304,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
 
   if (actionPath === "price-experiments/review") {
     const experimentId=body.experimentId,action=body.action,reasonCode=body.reasonCode;
-    if (typeof experimentId!=="string"||!["verify_randomization","complete"].includes(action)||
+    if (typeof experimentId!=="string"||typeof action!=="string"||!["verify_randomization","complete"].includes(action)||
         typeof reasonCode!=="string"||!reasonCode.trim()) return fail("experimentId, action et reasonCode obligatoires");
     const evidence=body.evidence&&typeof body.evidence==="object"?body.evidence:null;
     if (action==="verify_randomization"&&!evidence) return fail("Les preuves de randomisation sont obligatoires");
@@ -568,7 +568,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
 
   if (actionPath === "events/decisions") {
     const occurrenceId=body.occurrenceId,action=body.action,reasonCode=body.reasonCode,reasonText=body.reasonText;
-    if (typeof occurrenceId!=="string" || !["validate","dismiss"].includes(action) || typeof reasonCode!=="string" || !reasonCode.trim()) {
+    if (typeof occurrenceId!=="string" || typeof action!=="string" || !["validate","dismiss"].includes(action) || typeof reasonCode!=="string" || !reasonCode.trim()) {
       return fail("occurrenceId, action validate/dismiss et reasonCode sont obligatoires");
     }
     const {data:impact,error:impactError}=await supabase.from("event_hotel_impacts")
