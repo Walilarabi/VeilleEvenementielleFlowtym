@@ -16,6 +16,13 @@
  * 10. Exigence de précision et gestion explicite des limites de données.
  */
 
+/**
+ * @deprecated LEGACY BROWSER / DEMO SERVICE.
+ * Not the authoritative backend and not approved for live Revenue Management decisions.
+ * Live persistence and decisions must use the authenticated Supabase Revenue API
+ * (src/services/revenueApiClient.ts) and its RLS-protected database contracts.
+ */
+
 export const TODAY_DATE_STR = '2026-11-04';
 export const HOTEL_TOTAL_ROOMS = 45; // Grand Hôtel Folkestone Opéra (4★)
 export const RATE_FLOOR_EUR = 180; // Tarif plancher de rentabilité minimale
