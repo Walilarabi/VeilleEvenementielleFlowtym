@@ -26,7 +26,7 @@ export type RevenueRateRow = {
   decision_at:string|null; valid_until:string|null; created_at:string; updated_at:string;
 };
 export type RevenueForecastRow = {
-  id:string; hotel_id:string; stay_date:string; occupancy_p10:number|null; occupancy_p50:number|null;
+  id:string; hotel_id:string; forecast_run_id:string; stay_date:string; occupancy_p10:number|null; occupancy_p50:number|null;
   occupancy_p90:number|null; adr_p50:number|null; revpar_p50:number|null; demand_index:number|null;
   confidence_score:number|null; drivers:unknown[]; source_status:string;
   revenue_forecast_runs?:{model_name:string;model_version:string;as_of:string;run_status:string}|null;
