@@ -3,7 +3,7 @@ import { Building2, CheckCircle2, CircleAlert, Moon, Plug, Plus, RefreshCw, Save
 import { Hotel } from '../../types';
 import { useAuth } from '../../auth/AuthProvider';
 import { useTheme, ThemeMode } from '../../contexts/ThemeContext';
-import { saveHotelRevenueParameters } from '../../services/revenueApiClient';
+import { saveHotelRevenueParameters, updateHotelCoordinates } from '../../services/revenueApiClient';
 
 type DbHotel = {
   id: string; organization_id: string; name: string; city: string; country: string; address: string | null; lat: number | null; lng: number | null; stars: number | null;
@@ -150,8 +150,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
     if (lng !== null && (!Number.isFinite(lng) || lng < -180 || lng > 180)) { setError('Longitude invalide : la valeur doit être comprise entre -180 et 180.'); return; }
     setSavingGeo(true); setError(null);
     try {
-      const { error: updateError } = await supabase.from('hotels').update({ lat, lng }).eq('id', hotelId);
-      if (updateError) throw updateError;
+      await updateHotelCoordinates(supabase, hotelId, { lat, lng });
       onHotelCoordinatesUpdated?.(hotelId, lat, lng);
       onShowToast?.('Coordonnées GPS enregistrées dans Supabase.');
       await load();
