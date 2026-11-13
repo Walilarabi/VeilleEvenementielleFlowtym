@@ -59,6 +59,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
   const [previewData, setPreviewData] = useState<{
     fileName: string;
     fileSizeKb: number;
+    fileSizeBytes: number;
     records: HistoricalDailyRecord[];
     snapshots: HistoricalDemandSnapshot[];
     log: HistoricalImportLog;
@@ -173,6 +174,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
         setPreviewData({
           fileName: file.name,
           fileSizeKb: Math.round(file.size / 1024),
+          fileSizeBytes: file.size,
           records: result.records,
           snapshots: result.snapshots,
           log: result.log,
@@ -305,7 +307,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
       const imported = await importHotelHistoricalRows(supabase, databaseHotelId, {
         fileName: previewData.fileName,
-        fileSizeBytes: previewData.fileSizeKb * 1024,
+        fileSizeBytes: previewData.fileSizeBytes,
         sourceName: `flowtym-excel:${previewData.fileName}`,
         detectedColumns: previewData.log.detectedColumns,
         rows,
