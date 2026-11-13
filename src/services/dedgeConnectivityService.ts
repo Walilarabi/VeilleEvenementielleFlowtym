@@ -23,13 +23,18 @@ export const DEDGE_ARCHITECTURE_SPEC = {
   docsUrl: 'https://docs.d-edge.com',
   integrationStatus: 'not_connected',
   note: 'Les endpoints, méthodes d’authentification, payloads, webhooks et droits d’accès doivent être confirmés dans le contrat/API officielle du compte hôtelier. Aucun endpoint n’est présumé ici.',
-  requiredCapabilities: [
-    'Lecture des tarifs et plans tarifaires',
-    'Lecture des disponibilités et restrictions',
-    'Lecture des réservations, modifications et annulations',
-    'Écriture tarifaire uniquement après certification et autorisation explicite',
-  ],
   supportedModes: ['partner_connector', 'night_audit_export', 'direct_api_after_contract_validation'],
+  pillars: [
+    { pillar: 'Disponibilités', purpose: 'Lire les chambres commercialisables et restrictions.', dataAvailable: 'À confirmer dans le contrat du compte.', apiSupport: 'Non validé — aucun appel effectué.' },
+    { pillar: 'Tarifs et plans tarifaires', purpose: 'Lire les tarifs publiés et leurs règles.', dataAvailable: 'À confirmer dans le contrat du compte.', apiSupport: 'Non validé — aucun endpoint présumé.' },
+    { pillar: 'Réservations et pickup', purpose: 'Importer les réservations, modifications et annulations.', dataAvailable: 'À confirmer dans le contrat du compte.', apiSupport: 'Non validé — droits à vérifier.' },
+    { pillar: 'Publication tarifaire', purpose: 'Écrire un tarif après validation humaine.', dataAvailable: 'À confirmer avec D-EDGE et l’hôtel.', apiSupport: 'Désactivé tant que la certification n’est pas obtenue.' },
+  ],
+  dataClassification: {
+    directApi: ['Aucune donnée déclarée disponible en direct avant validation contractuelle.'],
+    partnerConnector: ['Disponibilités, tarifs et réservations : couverture à confirmer avec le connecteur certifié.'],
+    manualExportNeeded: ['Exports Night Audit / historiques : méthode d’import à valider avec l’hôtel.'],
+  },
 };
 
 export const DEFAULT_DEDGE_CONFIG: DEdgeConfig = {
