@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - feat/hoptym-revenue-backend
+      - feat/google-ai-studio-recovery
   pull_request:
     branches:
       - main
       - feat/supabase-auth-protected-app
+      - feat/revenue-ui-api-integration
 
 jobs:
   validate:
