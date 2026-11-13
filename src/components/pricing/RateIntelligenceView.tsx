@@ -435,13 +435,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const [showPastDates, setShowPastDates] = useState<boolean>(false);
 
   // Visibilité des courbes concurrentes dans le graphique Recharts
-  const [visibleCompetitors, setVisibleCompetitors] = useState<Record<string, boolean>>({
-    'Hôtel Saint-Pétersbourg Opéra': false,
-    'Hôtel Charing Cross': false,
-    'Hôtel Astra Opéra': false,
-    'Hotel Indigo Paris-Opéra': false,
-    'Hôtel Saint-Augustin Elysées': false,
-  });
+  const [visibleCompetitors, setVisibleCompetitors] = useState<Record<string, boolean>>({});
 
   // Configuration des colonnes affichées (Roue de Configuration RM)
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnId, boolean>>(() =>
@@ -632,8 +626,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const summaryKpis = useMemo(() => {
     if (!synchronizedRecords.length) {
       return {
-        avgRank: '1.0',
-        avgTotalAvailable: 6,
+        avgRank: '—',
+        avgTotalAvailable: 0,
         avgCurrentBar: 0,
         avgCompsetMedian: 0,
         avgAdrNet: 0,
@@ -741,13 +735,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
     const acceptedCount = auditLogs.filter((l) => l.action === 'accept').length;
     const modifiedCount = auditLogs.filter((l) => l.action === 'modify').length;
     const rejectedCount = auditLogs.filter((l) => l.action === 'reject').length;
-    const agreementRate = totalDecisions > 0 ? Math.round((acceptedCount / totalDecisions) * 100) : 85;
+    const agreementRate = totalDecisions > 0 ? Math.round((acceptedCount / totalDecisions) * 100) : null;
 
     // Écart moyen lors des modifications
     const deltas = auditLogs
       .filter((l) => l.action === 'modify')
       .map((l) => l.finalRateEur - l.suggestedRateEur);
-    const avgDelta = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : 12;
+    const avgDelta = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : null;
 
     return {
       totalDecisions,
@@ -1022,6 +1016,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         />
       ) : activeSubTab === 'grid' ? (
         <>
+          {synchronizedRecords.length === 0 && (
+            <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+              <strong>Aucune recommandation RM réelle disponible sur cette période.</strong>
+              <p className="mt-1 text-xs text-amber-900">
+                Les anciennes séries de démonstration ont été retirées. Les tarifs, le pickup, l'occupation, l'ADR et le RevPAR ne sont pas simulés. La grille restera vide jusqu'à l'import de données PMS/D-EDGE, d'observations Lighthouse comparables et à la configuration du modèle RM.
+              </p>
+            </div>
+          )}
           {/* 2. Cartes Synthétiques de Performance RM & Positionnement */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* KPI 1 : Position Compset & Rang */}
@@ -1036,14 +1038,16 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 </span>
               </div>
               <div className="text-xl font-black text-violet-950 tracking-tight">
-                {Number(summaryKpis.avgRank) <= 1.8
+                {summaryKpis.avgTotalAvailable === 0
+                  ? 'Données insuffisantes'
+                  : Number(summaryKpis.avgRank) <= 1.8
                   ? '1er moins cher du quartier'
                   : Number(summaryKpis.avgRank) <= 2.8
                   ? '2e moins cher'
                   : 'Position Médiane'}
               </div>
               <p className="text-[11px] text-violet-700 leading-tight">
-                BAR Moyen : <strong>{summaryKpis.avgCurrentBar} €</strong> vs Méd. <strong>{summaryKpis.avgCompsetMedian} €</strong>
+                BAR Moyen : <strong>{synchronizedRecords.length ? `${summaryKpis.avgCurrentBar} €` : '—'}</strong> vs Méd. <strong>{synchronizedRecords.length ? `${summaryKpis.avgCompsetMedian} €` : '—'}</strong>
               </p>
             </div>
 
@@ -2297,13 +2301,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
             <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
               <div className="text-xs font-semibold text-emerald-700">Taux de Concordance RM / IA</div>
-              <div className="text-2xl font-black text-emerald-700">{learningStats.agreementRate}%</div>
+              <div className="text-2xl font-black text-emerald-700">{learningStats.agreementRate == null ? '—' : `${learningStats.agreementRate}%`}</div>
               <p className="text-[11px] text-emerald-700/80">Recommandations acceptées sans retouche</p>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
               <div className="text-xs font-semibold text-indigo-700">Écart Moyen lors des Modifications</div>
-              <div className="text-2xl font-black text-indigo-700">+{learningStats.avgDelta} €</div>
+              <div className="text-2xl font-black text-indigo-700">{learningStats.avgDelta == null ? '—' : `+${learningStats.avgDelta} €`}</div>
               <p className="text-[11px] text-indigo-700/80">Biais positif du RM sur les dates à fort potentiel</p>
             </div>
 
