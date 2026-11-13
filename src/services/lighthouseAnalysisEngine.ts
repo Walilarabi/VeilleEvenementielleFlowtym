@@ -23,7 +23,6 @@
  */
 
 import * as XLSX from 'xlsx';
-import { buildDefaultCompSetForHotel } from './rmsSettingsService';
 
 export type MarketDemandLevelCategory = 'faible' | 'moderee' | 'forte' | 'tres_forte';
 
@@ -154,13 +153,19 @@ export interface LighthouseExtractionDataset {
   records: LighthouseDailyItem[];
 }
 
-export const FOLKESTONE_PRIMARY_COMPSET_NAMES = buildDefaultCompSetForHotel({
-  id: 'hotel-opera',
-  city: 'Paris',
-  baseADR: 260,
-})
-  .slice(0, 10)
-  .map((competitor) => competitor.name);
+// Candidats de compset configurables : noms uniquement, jamais utilisés comme tarifs réels.
+export const FOLKESTONE_PRIMARY_COMPSET_NAMES = [
+  'Hôtel Saint-Pétersbourg Opéra & Spa',
+  'Hôtel Charing Cross',
+  'Hôtel Astra Opéra (Astotel)',
+  'Hotel Indigo Paris-Opéra (IHG)',
+  'Hôtel Saint-Augustin Elysées',
+  'Hôtel Pulitzer Paris',
+  'Hôtel Bedford Opéra Madeleine',
+  'Hôtel Le Marquis Faubourg Saint-Honoré',
+  'Hôtel Caumartin Opéra Astotel',
+  'Maison Albar Hotels Le Vendôme',
+];
 
 /**
  * Calcul qualitatif du niveau de demande selon les seuils configurables Flowtym
@@ -352,6 +357,27 @@ export function generateLighthouseAIAlerts(
  * Création du jeu de données déterministe et réaliste pour Grand Hôtel Folkestone Opéra
  * Couvre 60 dates consécutives (du 10 novembre 2026 au 8 janvier 2027)
  */
+export function createEmptyLighthouseDataset(): LighthouseExtractionDataset {
+  return {
+    metadata: {
+      id: 'empty-live-data',
+      fileName: '',
+      extractedAt: '',
+      sourceChannel: 'Lighthouse',
+      currency: 'EUR',
+      los: '1 nuit',
+      occupancy: '2 personnes',
+      compsetName: 'CompSet à configurer',
+      referenceHotel: 'Folkestone Opéra',
+      dateRange: '',
+      totalDatesCount: 0,
+      isCustomUpload: false,
+      sourceStatus: 'live',
+    },
+    records: [],
+  };
+}
+
 export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
   const records: LighthouseDailyItem[] = [];
   const baseDate = new Date('2026-11-10T12:00:00Z');
