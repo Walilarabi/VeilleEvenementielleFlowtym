@@ -4,6 +4,9 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { RevenueRateRow } from '../../services/revenueWorkspace';
+import { RevenueDecisionWorkspace } from './RevenueDecisionWorkspace';
 import {
   AlertTriangle,
   Zap,
@@ -51,9 +54,14 @@ interface RMDecisionCenterProps {
   events: EventItem[];
   onSelectEvent: (event: EventItem) => void;
   onShowToast: (msg: string) => void;
+  backendRates?: RevenueRateRow[];
+  backendLoading?: boolean;
+  backendError?: string | null;
+  supabase?: SupabaseClient | null;
+  onBackendRefresh?: () => void;
 }
 
-export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
+const LegacyRMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
   hotel,
   events,
   onSelectEvent,
@@ -1249,4 +1257,20 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
       )}
     </div>
   );
+};
+
+
+export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = (props) => {
+  if (props.backendRates !== undefined) {
+    return <RevenueDecisionWorkspace
+      hotel={props.hotel}
+      rows={props.backendRates}
+      loading={Boolean(props.backendLoading)}
+      error={props.backendError ?? null}
+      supabase={props.supabase ?? null}
+      onRefresh={props.onBackendRefresh ?? (() => undefined)}
+      onShowToast={props.onShowToast}
+    />;
+  }
+  return <LegacyRMDecisionCenter {...props} />;
 };
