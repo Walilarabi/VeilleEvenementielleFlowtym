@@ -10,6 +10,7 @@ import {
   getHotelIntegrations,
   getHotelRevenueParameters,
   getHotelLighthouseObservations,
+  getHotelCalibrationRules,
 } from "./revenueApiClient";
 
 export type RevenueHotel = {
@@ -34,6 +35,7 @@ export type RevenueForecastRow = {
   confidence_score:number|null; drivers:unknown[]; source_status:string;
   revenue_forecast_runs?:{model_name:string;model_version:string;as_of:string;run_status:string}|null;
 };
+export type RevenueCalibrationRule = {id:string;rule_type:string;rule_key:string;rule_version:number;rule_value:Record<string,unknown>;source_method:string;sample_count:number;r_squared:number|null;confidence_level:number|null;rule_status:string;valid_from:string|null;valid_to:string|null;created_at:string};
 export type RevenueLighthouseRow = {id:string;stay_date:string;competitor_name:string;room_type:string|null;rate_plan:string|null;channel:string|null;currency:string;rate_amount:number|null;availability_status:string;observed_at:string;source_status:string;comparability:Record<string,unknown>;lighthouse_extractions?:{file_name:string|null;observed_at:string;source_status:string;los_nights:number|null;guests_count:number|null;occupancy_context:string|null}|null};
 export type RevenueIntegrationRow = {id:string;provider:string;connection_name:string;connection_status:string;last_success_at:string|null;last_error_at:string|null;last_error_code:string|null;updated_at:string};
 export type RevenueInventoryRow = {
@@ -45,7 +47,7 @@ export type RevenueEventRow = Record<string,any>;
 export type RevenueWorkspace = {
   hotels:Hotel[]; rawHotels:RevenueHotel[]; rates:RevenueRateRow[]; events:EventItem[];
   rawEvents:RevenueEventRow[]; forecasts:RevenueForecastRow[]; inventory:RevenueInventoryRow[];
-  backtests:unknown[]; integrations:RevenueIntegrationRow[]; lighthouse:RevenueLighthouseRow[]; parameters:Record<string,unknown>|null; loadedAt:string;
+  backtests:unknown[]; integrations:RevenueIntegrationRow[]; lighthouse:RevenueLighthouseRow[]; calibrationRules:RevenueCalibrationRule[]; parameters:Record<string,unknown>|null; loadedAt:string;
 };
 
 const num=(v:unknown):number|null=>typeof v==="number"&&Number.isFinite(v)?v:v===null||v===undefined?null:Number.isFinite(Number(v))?Number(v):null;
@@ -106,10 +108,10 @@ export async function loadRevenueWorkspace(supabase:SupabaseClient,selectedHotel
  const rawHotels=(hotelResult.data??[]) as RevenueHotel[];
  const hotels=rawHotels.map(mapHotel);
  const selected=hotels.find(h=>h.id===selectedHotelId)??hotels[0];
- if(!selected) return {hotels,rawHotels,rates:[],events:[],rawEvents:[],forecasts:[],inventory:[],backtests:[],integrations:[],lighthouse:[],parameters:null,loadedAt:new Date().toISOString()};
+ if(!selected) return {hotels,rawHotels,rates:[],events:[],rawEvents:[],forecasts:[],inventory:[],backtests:[],integrations:[],lighthouse:[],calibrationRules:[],parameters:null,loadedAt:new Date().toISOString()};
  const from=new Date(); const to=new Date(from); to.setUTCDate(to.getUTCDate()+180);
  const iso=(d:Date)=>d.toISOString().slice(0,10);
- const [rateResult,eventResult,forecastResult,inventoryResult,backtestResult,integrationResult,parametersResult,lighthouseResult]=await Promise.all([
+ const [rateResult,eventResult,forecastResult,inventoryResult,backtestResult,integrationResult,parametersResult,lighthouseResult,calibrationResult]=await Promise.all([
   getHotelRates(supabase,selected.id,iso(from),iso(to)),
   getHotelEvents(supabase,selected.id,iso(from),iso(to)),
   getHotelForecasts(supabase,selected.id,iso(from),iso(to)),
@@ -118,6 +120,7 @@ export async function loadRevenueWorkspace(supabase:SupabaseClient,selectedHotel
   getHotelIntegrations(supabase,selected.id),
   getHotelRevenueParameters(supabase,selected.id),
   getHotelLighthouseObservations(supabase,selected.id,iso(from),iso(to)),
+  getHotelCalibrationRules(supabase,selected.id),
  ]);
  const rawEvents=(eventResult.data??[]) as RevenueEventRow[];
  return {
@@ -125,6 +128,6 @@ export async function loadRevenueWorkspace(supabase:SupabaseClient,selectedHotel
   events:rawEvents.map(r=>mapEvent(r,selected.id)).filter((e):e is EventItem=>Boolean(e)),
   rawEvents,forecasts:(forecastResult.data??[]) as RevenueForecastRow[],
   inventory:(inventoryResult.data??[]) as RevenueInventoryRow[],
-  backtests:backtestResult.data??[],integrations:(integrationResult.data??[]) as RevenueIntegrationRow[],parameters:parametersResult.data??null,lighthouse:(lighthouseResult.data??[]) as RevenueLighthouseRow[],loadedAt:new Date().toISOString(),
+  backtests:backtestResult.data??[],integrations:(integrationResult.data??[]) as RevenueIntegrationRow[],parameters:parametersResult.data??null,lighthouse:(lighthouseResult.data??[]) as RevenueLighthouseRow[],calibrationRules:(calibrationResult.data??[]) as RevenueCalibrationRule[],loadedAt:new Date().toISOString(),
  };
 }
