@@ -631,6 +631,17 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const pickupWindowWeights = cfg.pickup_window_weights as Record<string,number> | undefined;
     const pickupWindowScales = cfg.pickup_scale_rooms as Record<string,number> | undefined;
     const pickupWindows = ["24h","3d","7d"];
+    const minimumSources=Number(cfg.minimum_sources);
+    const minimumCoverage=Number(cfg.minimum_weight_coverage_pct);
+    const compsetLos=Number(cfg.compset_los);
+    const compsetPos=Number(cfg.compset_pos);
+    const minimumCompsetHotels=Number(cfg.minimum_compset_hotels);
+    const compsetGapScale=Number(cfg.compset_gap_scale_pct);
+    const compsetConfigValid=Number(weights.compset)===0 || (
+      Number.isInteger(compsetLos)&&compsetLos>0&&Number.isInteger(compsetPos)&&compsetPos>0&&
+      Number.isInteger(minimumCompsetHotels)&&minimumCompsetHotels>0&&
+      Number.isFinite(compsetGapScale)&&compsetGapScale>0
+    );
     const pickupConfigValid = Number(weights.pickup) === 0 || (
       !!pickupWindowWeights && !!pickupWindowScales &&
       pickupWindows.every(w => Number.isFinite(Number(pickupWindowWeights[w])) && Number(pickupWindowWeights[w]) >= 0 &&
@@ -642,14 +653,14 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         normalThreshold < 0 || normalThreshold >= highThreshold || highThreshold >= exceptionalThreshold || exceptionalThreshold > 100 ||
         !["low","normal","high","exceptional"].every(k => Number.isFinite(Number(adjustments[k]))) ||
         !Number.isFinite(maxObservationAge) || maxObservationAge <= 0 ||
-        !Number.isFinite(maxInventoryAge) || maxInventoryAge <= 0 || !Number.isFinite(maxPickupSnapshotAge) || maxPickupSnapshotAge <= 0 || !pickupConfigValid) {
+        !Number.isFinite(maxInventoryAge) || maxInventoryAge <= 0 || !Number.isFinite(maxPickupSnapshotAge) || maxPickupSnapshotAge <= 0 || !pickupConfigValid || !compsetConfigValid || !Number.isInteger(minimumSources) || minimumSources<1 || !Number.isFinite(minimumCoverage) || minimumCoverage<0 || minimumCoverage>100) {
       return fail("Configuration pricing_v1 invalide : weights, thresholds et rate_adjustments_pct requis", 422);
     }
 
     const [inventoryResult,reservationResult,compRateResult,impactResult] = await Promise.all([
       supabase.from("hotel_inventory_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
       supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).in("pickup_window_hours",[24,72,168]).not("net_pickup_rooms","is",null).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
-      supabase.from("lighthouse_rate_observations").select("stay_date,rate_amount,availability_status,observed_at,source_status").eq("hotel_id",hotelId).eq("availability_status","available").in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
+      supabase.from("lighthouse_rate_observations").select("stay_date,competitor_hotel_id,rate_amount,availability_status,observed_at,source_status,los,pos,currency").eq("hotel_id",hotelId).eq("availability_status","available").eq("los",compsetLos).eq("pos",compsetPos).eq("currency",hotel.currency).not("competitor_hotel_id","is",null).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
       supabase.from("event_hotel_impacts").select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)").eq("hotel_id",hotelId).eq("impact_status","validated").gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end).not("final_rm_score","is",null),
     ]);
     const queryError = inventoryResult.error ?? reservationResult.error ?? compRateResult.error ?? impactResult.error;
@@ -662,11 +673,15 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     for (const r of inventory ?? []) if (!latestInventory.has(r.stay_date)) latestInventory.set(r.stay_date,r);
     const reservationByDate = new Map<string,any[]>();
     for (const r of reservations ?? []) reservationByDate.set(r.stay_date,[...(reservationByDate.get(r.stay_date)??[]),r]);
-    const compByDate = new Map<string,number[]>();
+    const compByDate = new Map<string,Map<string,number>>();
     const maxAgeHours = maxObservationAge;
     for (const r of compRates ?? []) {
       const age=(Date.now()-Date.parse(r.observed_at))/3600000;
-      if (age >= 0 && age <= maxAgeHours && Number(r.rate_amount)>0) compByDate.set(r.stay_date,[...(compByDate.get(r.stay_date)??[]),Number(r.rate_amount)]);
+      if (age>=0&&age<=maxAgeHours&&Number(r.rate_amount)>0&&r.competitor_hotel_id) {
+        if (!compByDate.has(r.stay_date)) compByDate.set(r.stay_date,new Map());
+        const byCompetitor=compByDate.get(r.stay_date)!;
+        if (!byCompetitor.has(r.competitor_hotel_id)) byCompetitor.set(r.competitor_hotel_id,Number(r.rate_amount));
+      }
     }
     const eventByDate = new Map<string,number>();
     for (const r of impacts ?? []) {
@@ -708,8 +723,9 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         const windowWeight=availableWindows.reduce((s,w)=>s+Number(pickupWindowWeights[w]),0);
         if (windowWeight>0) signals.pickup=availableWindows.reduce((s,w)=>s+Number(pickupWindowWeights[w])*Number(pickupScores[w]),0)/windowWeight;
       }
-      const med=median(compByDate.get(stayDate)??[]);
-      if (med!==null) signals.compset=clamp(50+100*(med-current)/current,0,100);
+      const competitorRates=[...(compByDate.get(stayDate)?.values()??[])];
+      const med=competitorRates.length>=minimumCompsetHotels?median(competitorRates):null;
+      if (med!==null) signals.compset=clamp(50+50*((med-current)/current)/compsetGapScale,0,100);
       const available=keys.filter(k=>signals[k]!==null && Number(weights[k])>0);
       const coveredWeight=available.reduce((s,k)=>s+Number(weights[k]),0);
       const confidence=Math.round(100*coveredWeight/totalWeight);
@@ -718,12 +734,12 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       if (score!==null && score>=Number(thresholds.exceptional)) bucket="exceptional";
       else if (score!==null && score>=Number(thresholds.high)) bucket="high";
       else if (score!==null && score>=Number(thresholds.normal)) bucket="normal";
-      const sufficient=available.length>=2 && confidence>=60 && score!==null;
+      const sufficient=available.length>=minimumSources && confidence>=minimumCoverage && score!==null;
       const requestedPct=sufficient ? Number(adjustments[bucket]) : 0;
       const maxDelta=current*maxChange/100;
       const bounded=clamp(current*(1+requestedPct/100),Math.max(floor,current-maxDelta),Math.min(ceiling,current+maxDelta));
       const suggested=Math.round(bounded*100)/100;
-      const evidence={signals,weights,coveredWeight,totalWeight,confidenceIsSourceCoverage:true,pickupWindows:pickups,pickupWindowScores:pickupScores,pickupWindowWeights:pickupWindowWeights??null,compsetMedian:med,eventScore:eventByDate.get(stayDate)??null,inventorySnapshotAt:inv?.snapshot_at??null,pricingConfig:cfg};
+      const evidence={signals,weights,coveredWeight,totalWeight,confidenceIsSourceCoverage:true,pickupWindows:pickups,pickupWindowScores:pickupScores,pickupWindowWeights:pickupWindowWeights??null,compsetMedian:med,compsetCompetitorCount:competitorRates.length,compsetLos,compsetPos,eventScore:eventByDate.get(stayDate)??null,inventorySnapshotAt:inv?.snapshot_at??null,pricingConfig:cfg};
       const explanation=sufficient
         ? `Score demande ${score!.toFixed(1)}/100 (${bucket}); variation paramétrée ${requestedPct}% bornée par plancher/plafond et variation maximale. Couverture des sources: ${confidence}%.`
         : "MAINTENIR : données indépendantes insuffisantes pour justifier une variation tarifaire.";
@@ -731,9 +747,9 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         organization_id:hotel.organization_id,hotel_id:hotelId,stay_date:stayDate,currency:hotel.currency,
         current_bar:current,suggested_bar:suggested,delta_amount:Math.round((suggested-current)*100)/100,
         delta_pct:Math.round(((suggested-current)/current)*10000)/100,
-        demand_index:score===null?null:Math.round(score),demand_level:sufficient?({low:"faible",normal:"normal",high:"eleve",exceptional:"exceptionnel"} as Record<string,string>)[bucket]:"normal",
+        demand_index:score===null?null:Math.round(score),demand_level:sufficient?({low:"faible",normal:"normal",high:"eleve",exceptional:"exceptionnel"} as Record<string,string>)[bucket]:null,
         occupancy_pct:signals.occupancy,rooms_remaining:numberOrNull(inv?.rooms_available),pickup_24h:pickups["24h"],pickup_3d:pickups["3d"],pickup_7d:pickups["7d"],
-        lighthouse_median:null,flowtym_compset_median:med,strategy_code:sufficient?`PRICING_V1_${bucket.toUpperCase()}`:"HOLD_INSUFFICIENT_DATA",
+        lighthouse_median:med,flowtym_compset_median:null,strategy_code:sufficient?`PRICING_V1_${bucket.toUpperCase()}`:"HOLD_INSUFFICIENT_DATA",
         explanation, evidence, confidence_score:confidence,
         data_quality_status:sufficient?"valid":"insufficient",input_snapshot:evidence,
         engine_version:"pricing_v1",recommendation_status:"pending",
