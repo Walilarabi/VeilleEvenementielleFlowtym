@@ -25,6 +25,8 @@
 --   /supabase/migrations/20261113001800_index_experiment_and_audit_fks.sql
 --   /supabase/migrations/20261113001900_index_organization_foreign_keys.sql
 --   /supabase/migrations/20261113002000_move_event_decision_definer_private.sql
+--   /supabase/migrations/20261113002100_audited_price_experiment_lifecycle.sql
+--   /supabase/migrations/20261113002200_fix_experiment_observation_policy.sql
 --
 -- The auth baseline remains managed separately by the existing authentication
 -- migrations. Never run the old monolithic schema.sql or recreate organizations,
