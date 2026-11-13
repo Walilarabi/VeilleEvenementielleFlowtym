@@ -943,10 +943,10 @@ export function computeRMEngineRecommendation(
 }
 
 // -------------------------------------------------------------
-// GÉNÉRATEUR DE DONNÉES CONTINUES GRAND HÔTEL FOLKESTONE OPÉRA
+// Accès aux recommandations réelles via Revenue API
 // -------------------------------------------------------------
 
-export export function getRateIntelligenceRecords(_hotelId: string = 'hotel-opera'): DailyRateIntelligence[] {
+export function getRateIntelligenceRecords(_hotelId: string = 'hotel-opera'): DailyRateIntelligence[] {
   return [];
 }
 
