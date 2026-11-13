@@ -851,6 +851,9 @@ export function parseLighthouseExcelFile(
       competitorCols.push({ name: colName, idx });
     }
   });
+  if (competitorCols.length === 0) {
+    throw new Error("Aucune colonne concurrent n'a été reconnue dans l'onglet Tarifs.");
+  }
 
   // Mapper Aperçu par Date : aucune valeur de demande ou médiane n'est inventée.
   const apercuMap = new Map<string, { demand: number; medianLh: number }>();
