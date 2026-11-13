@@ -90,9 +90,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
 
   const saveParameters = async () => {
     if (!supabase || !hotelId) return;
-    const floor = Number(form.floorRate), ceiling = Number(form.ceilingRate), maxChange = Number(form.maxDailyRateChangePct);
-    if (!Number.isFinite(floor) || !Number.isFinite(ceiling) || !Number.isFinite(maxChange) || floor <= 0 || ceiling < floor || maxChange <= 0 || maxChange > 100) {
-      setError('Renseignez un plancher positif, un plafond supérieur ou égal au plancher et une variation maximale entre 0 et 100 %.'); return;
+    const floor = form.floorRate === '' ? null : Number(form.floorRate);
+    const ceiling = form.ceilingRate === '' ? null : Number(form.ceilingRate);
+    const maxChange = form.maxDailyRateChangePct === '' ? null : Number(form.maxDailyRateChangePct);
+    if (
+      (floor !== null && (!Number.isFinite(floor) || floor <= 0)) ||
+      (ceiling !== null && (!Number.isFinite(ceiling) || ceiling <= 0)) ||
+      ((floor === null) !== (ceiling === null)) ||
+      (floor !== null && ceiling !== null && ceiling < floor) ||
+      (maxChange !== null && (!Number.isFinite(maxChange) || maxChange <= 0 || maxChange > 100))
+    ) {
+      setError('Le plancher et le plafond doivent être renseignés ensemble et cohérents. La variation maximale, si renseignée, doit être comprise entre 0 et 100 %.'); return;
     }
     setSaving(true); setError(null);
     try {
@@ -162,7 +170,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200"><CircleAlert size={17} className="mt-0.5 shrink-0" />{error}</div>}
     {loading ? <div className={cardClass}>Chargement des paramètres réels…</div> : !activeHotel ? <div className={cardClass}><p className="font-semibold text-slate-900 dark:text-white">Aucun hôtel accessible dans Supabase.</p><p className="mt-1 text-sm text-slate-500">Vérifiez les droits de votre compte et l’association à un établissement.</p></div> : <>
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 size={17} /><span><strong>{activeHotel.name}</strong> · {activeHotel.city}, {activeHotel.country} · {activeHotel.room_count ?? '—'} chambres</span><span className="ml-auto text-xs">Source : Supabase</span></div>
-      {tab === 'hotel' && <section className={cardClass}><h2 className="text-base font-bold text-slate-900 dark:text-white">Paramètres opérationnels et garde-fous tarifaires</h2><p className="mb-5 mt-1 text-sm text-slate-500 dark:text-slate-400">Les champs vides restent non renseignés : aucune cible ni tarif de référence n’est inventé.</p><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {tab === 'hotel' && <section className={cardClass}><h2 className="text-base font-bold text-slate-900 dark:text-white">Paramètres opérationnels et garde-fous tarifaires</h2><p className="mb-5 mt-1 text-sm text-slate-500 dark:text-slate-400">Les champs vides restent non renseignés. Le plancher et le plafond sont facultatifs, mais doivent être saisis ensemble. Aucun seuil n’est inventé.</p><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           ['Devise','currency',form.currency],['Fuseau horaire','timezone',form.timezone],
           ['ADR cible (€)','targetAdr',form.targetAdr],['Occupation cible (%)','targetOccupancyPct',form.targetOccupancyPct],
