@@ -180,8 +180,14 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const floor = numberOrNull(body.floorRate);
     const ceiling = numberOrNull(body.ceilingRate);
     const maxChange = numberOrNull(body.maxDailyRateChangePct);
-    if (floor === null || ceiling === null || maxChange === null || floor <= 0 || ceiling < floor || maxChange <= 0 || maxChange > 100) {
-      return fail("Plancher, plafond et variation quotidienne maximale doivent être renseignés et cohérents");
+    if (
+      (floor !== null && floor <= 0) ||
+      (ceiling !== null && ceiling <= 0) ||
+      ((floor === null) !== (ceiling === null)) ||
+      (floor !== null && ceiling !== null && ceiling < floor) ||
+      (maxChange !== null && (maxChange <= 0 || maxChange > 100))
+    ) {
+      return fail("Le plancher et le plafond doivent être renseignés ensemble et cohérents ; la variation maximale, si renseignée, doit être comprise entre 0 et 100 %");
     }
     const profileRow = {
       organization_id: hotel.organization_id,
