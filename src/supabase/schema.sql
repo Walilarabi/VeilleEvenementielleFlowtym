@@ -16,6 +16,10 @@
 --   /supabase/migrations/20261113000900_event_impact_evidence_scores.sql
 --   /supabase/migrations/20261113001000_exact_net_pickup_inputs.sql
 --   /supabase/migrations/20261113001100_event_historical_demand_score.sql
+--   /supabase/migrations/20261113001200_event_impact_human_decisions.sql
+--   /supabase/migrations/20261113001300_harden_event_impact_decisions.sql
+--   /supabase/migrations/20261113001400_fix_event_decision_rpc.sql
+--   /supabase/migrations/20261113001500_lighthouse_los_pos_dimensions.sql
 --
 -- The auth baseline remains managed separately by the existing authentication
 -- migrations. Never run the old monolithic schema.sql or recreate organizations,
