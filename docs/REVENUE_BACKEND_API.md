@@ -5,7 +5,7 @@
 - PostgreSQL/Supabase is the system of record.
 - Every user-facing database request uses the caller JWT and PostgreSQL RLS. The Edge Function does not use a service-role key.
 - `revenue-api` is deployed with JWT verification enabled.
-- `flowtym_private.can_access_hotel` controls tenant/hotel reads; `can_manage_hotel` restricts mutations to `super_admin`, `admin` and `revenue_manager`.
+- `flowtym_private.can_access_hotel` controls tenant/hotel reads; `can_manage_hotel` restricts mutations to `super_admin`, `admin` and `revenue_manager`. GM/analyst hotel-directory visibility also requires an explicit `hotel_memberships` row.
 - `record_rm_decision` is an invoker-rights transactional RPC. It updates a pending recommendation and appends the audit row atomically.
 - Price publication to D-EDGE/CRS is deliberately not implemented. Approval is recorded, but no external tariff is changed.
 
