@@ -82,6 +82,14 @@ export const saveHotelRevenueParameters = (supabase: SupabaseClient, hotelId: st
     supabase, `/hotels/${encodeURIComponent(hotelId)}/parameters`, { method: "POST", body: parameters },
   );
 
+export const updateHotelCoordinates = (
+  supabase: SupabaseClient,
+  hotelId: string,
+  payload: { lat: number | null; lng: number | null },
+) => revenueApiRequest<{ ok: true; data: { hotel_id: string; lat: number | null; lng: number | null } }>(
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/location`, { method: "POST", body: payload },
+);
+
 export const getHistoricalImportV2Status = (supabase: SupabaseClient, hotelId: string) =>
   revenueApiRequest<{ ok: true; version: 2 }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/historical-import-v2-status`,
