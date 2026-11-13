@@ -45,14 +45,14 @@ import { RMDecisionCenter } from './components/intelligence/RMDecisionCenter';
 import { DemandForecastView } from './components/forecast/DemandForecastView';
 import { DateDetailModal } from './components/events/DateDetailModal';
 import { HotelConnectivityHub } from './components/connectivity/HotelConnectivityHub';
-import { RateIntelligenceView } from './components/pricing/RateIntelligenceView';
+const RateIntelligenceView = React.lazy(() => import('./components/pricing/RateIntelligenceView').then((module) => ({ default: module.RateIntelligenceView })));
 import { RateOpportunityPushNotification } from './components/notifications/RateOpportunityPushNotification';
 import { PushOpportunityAlert } from './services/pushNotificationService';
 import { ReportsAndAutomationsHub } from './components/reports/ReportsAndAutomationsHub';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { CommandPaletteModal } from './components/modals/CommandPaletteModal';
 import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal';
-import { exportCompleteHistoricalExcel } from './services/excelHistoricalExportService';
+
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
@@ -63,7 +63,7 @@ import {
 } from './data/mockData';
 import { EventItem, EventSuggestion, FilterState, Hotel, EventProposal } from './types';
 import { exportEventsToCSV } from './utils/helpers';
-import { exportEventsToPDF } from './utils/pdfExport';
+
 
 export default function App() {
   const { user, loading: authLoading, error: authError, recoveryMode, signOut } = useAuth();
@@ -329,15 +329,13 @@ export default function App() {
   const handleExportPDF = () => {
     const currentHotel = hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0];
     showToast('Génération du rapport PDF en cours...');
-    exportEventsToPDF({
-      events: filteredEvents,
-      hotel: currentHotel,
-      viewMode,
-      filterState,
+    void import('./utils/pdfExport').then(({ exportEventsToPDF }) => {
+      exportEventsToPDF({ events: filteredEvents, hotel: currentHotel, viewMode, filterState });
+      showToast('Rapport PDF généré.');
+    }).catch((error) => {
+      console.error('PDF export failed:', error);
+      showToast('Échec de génération du rapport PDF.');
     });
-    setTimeout(() => {
-      showToast('Rapport PDF téléchargé avec succès');
-    }, 1000);
   };
 
   const handleDownloadTemplate = () => {
@@ -520,6 +518,7 @@ export default function App() {
         <main
           className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 transition-[margin] duration-200 ease-in-out lg:ml-16 w-full"
         >
+          <React.Suspense fallback={<div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">Chargement du module…</div>}>
           {/* TAB: CALENDRIER & ÉVÉNEMENTS (VUE TABLEAU / CALENDRIER / VACANCES SCOLAIRES) */}
           {activeTab === 'calendar' && (
             <div className="space-y-6">
@@ -793,6 +792,7 @@ export default function App() {
               onShowToast={showToast}
             />
           )}
+          </React.Suspense>
         </main>
       </div>
 
@@ -883,8 +883,13 @@ export default function App() {
         onToggleFullscreen={handleToggleFullscreen}
         isFullscreen={isFullscreen}
         onExportExcel={() => {
-          const res = exportCompleteHistoricalExcel({ hotelName: currentHotel.name });
-          showToast(`✓ ${res.totalRows} dates de prix et d'occupation exportées dans "${res.filename}"`);
+          void import('./services/excelHistoricalExportService').then(({ exportCompleteHistoricalExcel }) => {
+            const res = exportCompleteHistoricalExcel({ hotelName: currentHotel.name });
+            showToast(`✓ ${res.totalRows} dates de prix et d'occupation exportées dans "${res.filename}"`);
+          }).catch((error) => {
+            console.error('Historical Excel export failed:', error);
+            showToast("Échec de l'export Excel.");
+          });
         }}
         onOpenShortcutsHelp={() => setIsShortcutsHelpOpen(true)}
       />
