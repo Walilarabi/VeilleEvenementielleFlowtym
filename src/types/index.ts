@@ -83,6 +83,8 @@ export interface EventScoreBreakdown {
 
 export interface EventItem {
   id: string;
+  occurrenceId?: string;
+  impactStatus?: 'to_review' | 'validated' | 'dismissed';
   title: string;
   subtitle?: string;
   category: EventCategory;
