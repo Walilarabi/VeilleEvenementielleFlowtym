@@ -255,6 +255,41 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ ok: true, inserted: data?.length ?? 0, data }, 201);
   }
 
+  if (actionPath === "reservation-snapshots") {
+    if (!Array.isArray(body.snapshots) || body.snapshots.length < 1 || body.snapshots.length > 500) {
+      return fail("Fournir entre 1 et 500 snapshots de réservations");
+    }
+    const rows=body.snapshots.map((s:any)=>({
+      organization_id:hotel.organization_id,hotel_id:hotelId,
+      stay_date:s.stay_date,snapshot_at:s.snapshot_at,source_system:String(s.source_system??"manual").slice(0,80),
+      source_status:["live","imported","fixture","simulation"].includes(s.source_status)?s.source_status:"imported",
+      segment:typeof s.segment==="string"?s.segment:null,channel:typeof s.channel==="string"?s.channel:null,
+      room_type_id:typeof s.room_type_id==="string"?s.room_type_id:null,
+      rooms_otb:numberOrNull(s.rooms_otb),room_nights_otb:numberOrNull(s.room_nights_otb),
+      booked_revenue:numberOrNull(s.booked_revenue),booked_adr:numberOrNull(s.booked_adr),
+      cancellation_count:numberOrNull(s.cancellation_count),lead_time_days:numberOrNull(s.lead_time_days),
+      currency:typeof s.currency==="string"?s.currency:hotel.currency,
+      pickup_window_hours:numberOrNull(s.pickup_window_hours),period_start:s.period_start??null,
+      new_rooms_booked:numberOrNull(s.new_rooms_booked),cancelled_rooms:numberOrNull(s.cancelled_rooms),
+      moved_in_rooms:numberOrNull(s.moved_in_rooms)??0,moved_out_rooms:numberOrNull(s.moved_out_rooms)??0,
+    }));
+    for (let i=0;i<rows.length;i++) {
+      const r:any=rows[i], source:any=body.snapshots[i];
+      if (!isDate(r.stay_date) || !r.snapshot_at || Number.isNaN(Date.parse(r.snapshot_at))) return fail("stay_date/snapshot_at invalide");
+      if (r.pickup_window_hours!==null) {
+        if (![24,72,168].includes(r.pickup_window_hours) || !r.period_start ||
+            numberOrNull(source.new_rooms_booked)===null || numberOrNull(source.cancelled_rooms)===null) {
+          return fail("Un pickup exact exige pickup_window_hours (24/72/168), period_start, new_rooms_booked et cancelled_rooms");
+        }
+        const hours=(Date.parse(r.snapshot_at)-Date.parse(r.period_start))/3600000;
+        if (!Number.isFinite(hours) || Math.abs(hours-r.pickup_window_hours)>1) return fail("La période de pickup ne correspond pas à la fenêtre déclarée (tolérance ±1h)");
+      }
+    }
+    const {data,error}=await supabase.from("hotel_reservation_snapshots").insert(rows).select("id,stay_date,snapshot_at,pickup_window_hours,net_pickup_rooms");
+    if (error) return fail("Import des snapshots de réservations impossible",400,error.message);
+    return json({ok:true,inserted:data?.length??0,data},201);
+  }
+
   if (actionPath === "historical-import") {
     if (!Array.isArray(body.rows) || body.rows.length < 1 || body.rows.length > 5000) {
       return fail("Fournir entre 1 et 5000 lignes historiques");
@@ -508,6 +543,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const exceptionalThreshold = Number(thresholds.exceptional);
     const maxObservationAge = Number(cfg.max_observation_age_hours ?? 48);
     const maxInventoryAge = Number(cfg.max_inventory_age_hours ?? 24);
+    const maxPickupSnapshotAge = Number(cfg.max_pickup_snapshot_age_hours ?? 30);
     const pickupWindowWeights = cfg.pickup_window_weights as Record<string,number> | undefined;
     const pickupWindowScales = cfg.pickup_scale_rooms as Record<string,number> | undefined;
     const pickupWindows = ["24h","3d","7d"];
@@ -522,13 +558,13 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         normalThreshold < 0 || normalThreshold >= highThreshold || highThreshold >= exceptionalThreshold || exceptionalThreshold > 100 ||
         !["low","normal","high","exceptional"].every(k => Number.isFinite(Number(adjustments[k]))) ||
         !Number.isFinite(maxObservationAge) || maxObservationAge <= 0 ||
-        !Number.isFinite(maxInventoryAge) || maxInventoryAge <= 0 || !pickupConfigValid) {
+        !Number.isFinite(maxInventoryAge) || maxInventoryAge <= 0 || !Number.isFinite(maxPickupSnapshotAge) || maxPickupSnapshotAge <= 0 || !pickupConfigValid) {
       return fail("Configuration pricing_v1 invalide : weights, thresholds et rate_adjustments_pct requis", 422);
     }
 
     const [inventoryResult,reservationResult,compRateResult,impactResult] = await Promise.all([
       supabase.from("hotel_inventory_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
-      supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
+      supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).in("pickup_window_hours",[24,72,168]).not("net_pickup_rooms","is",null).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
       supabase.from("lighthouse_rate_observations").select("stay_date,rate_amount,availability_status,observed_at,source_status").eq("hotel_id",hotelId).eq("availability_status","available").in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
       supabase.from("event_hotel_impacts").select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)").eq("hotel_id",hotelId).eq("impact_status","validated").gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end).not("final_rm_score","is",null),
     ]);
@@ -571,23 +607,16 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       const snaps=(reservationByDate.get(stayDate)??[]).sort((a,b)=>Date.parse(b.snapshot_at)-Date.parse(a.snapshot_at));
       const pickups:Record<string,number|null>={"24h":null,"3d":null,"7d":null};
       const pickupScores:Record<string,number|null>={"24h":null,"3d":null,"7d":null};
-      if (snaps.length>=2 && numberOrNull(snaps[0].rooms_otb)!==null) {
-        const latestAge=(Date.now()-Date.parse(snaps[0].snapshot_at))/3600000;
-        if (latestAge>=0 && latestAge<=30) {
-          const windows=[{key:"24h",min:20,max:30},{key:"3d",min:60,max:84},{key:"7d",min:144,max:192}];
-          for (const window of windows) {
-            const prior=snaps.slice(1).find((s:any)=>{
-              const hours=(Date.parse(snaps[0].snapshot_at)-Date.parse(s.snapshot_at))/3600000;
-              return hours>=window.min && hours<=window.max;
-            });
-            if (prior && Number.isInteger(Number(prior.rooms_otb)) && Number.isInteger(Number(snaps[0].rooms_otb))) {
-              const netPickup=Number(snaps[0].rooms_otb)-Number(prior.rooms_otb);
-              pickups[window.key]=netPickup;
-              if (pickupWindowScales && Number(pickupWindowScales[window.key])>0) {
-                pickupScores[window.key]=clamp(50+50*netPickup/Number(pickupWindowScales[window.key]),0,100);
-              }
-            }
-          }
+      const pickupWindowHours:Record<string,number>={"24h":24,"3d":72,"7d":168};
+      for (const window of pickupWindows) {
+        const snapshot=snaps.find((s:any)=>Number(s.pickup_window_hours)===pickupWindowHours[window]);
+        if (!snapshot) continue;
+        const ageHours=(Date.now()-Date.parse(snapshot.snapshot_at))/3600000;
+        const netPickup=numberOrNull(snapshot.net_pickup_rooms);
+        if (ageHours<0 || ageHours>maxPickupSnapshotAge || netPickup===null) continue;
+        pickups[window]=netPickup;
+        if (pickupWindowScales && Number(pickupWindowScales[window])>0) {
+          pickupScores[window]=clamp(50+50*netPickup/Number(pickupWindowScales[window]),0,100);
         }
       }
       if (pickupWindowWeights) {
