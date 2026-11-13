@@ -37,6 +37,7 @@ For production incidents, prefer a forward-fix migration. The current schema con
 20. `20261113002000_move_event_decision_definer_private.sql`: move privileged event audit writer to private schema.
 21. `20261113002100_audited_price_experiment_lifecycle.sql`: add auditable randomization verification and experiment completion.
 22. `20261113002200_fix_experiment_observation_policy.sql`: scope experiment observation writes to the correct parent experiment.
+23. `20261113002100_audited_price_experiment_lifecycle.sql`: audit randomization verification and completion.
 
 ### Recovery notes
 
