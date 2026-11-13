@@ -134,6 +134,13 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ ok: true, hotelId, ...range, data });
   }
 
+  if (req.method === "GET" && actionPath === "parameters") {
+    const { data, error } = await supabase.from("hotel_parameters_profiles")
+      .select("*").eq("hotel_id", hotelId).maybeSingle();
+    if (error) return fail("Lecture des paramètres Revenue impossible", 400, error.message);
+    return json({ ok: true, hotelId, data });
+  }
+
   if (req.method === "GET" && actionPath === "integrations") {
     const { data, error } = await supabase.from("integration_connections")
       .select("id,provider,connection_name,connection_status,last_success_at,last_error_at,last_error_code,updated_at")
