@@ -81,20 +81,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 }) => {
   // Active sub-tab in Analyse de marché: 'calendar' | 'school_holidays' | 'lighthouse'
   const [activeMarketSubTab, setActiveMarketSubTab] = useState<'calendar' | 'school_holidays' | 'lighthouse'>(initialSubTab);
-  // Date du jour pour Flowtym (11 novembre 2026)
-  const todayDateObj = new Date();
-  const todayStr = useMemo(() => {
-    const y = todayDateObj.getFullYear();
-    const m = String(todayDateObj.getMonth() + 1).padStart(2, '0');
-    const d = String(todayDateObj.getDate()).padStart(2, '0');
-    const s = `${y}-${m}-${d}`;
-    return s.startsWith('2026') ? s : '2026-11-11';
-  }, []);
+  // Date locale de l'établissement : aucune date de démonstration codée en dur.
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 
   // Navigation state: start month index (0-indexed) & year
   // Par défaut, initialisé automatiquement sur le mois en cours (Novembre 2026 = mois 10)
-  const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [currentMonth, setCurrentMonth] = useState<number>(10); // 10 = Novembre
+  const [currentYear, setCurrentYear] = useState<number>(() => Number(todayStr.slice(0, 4)));
+  const [currentMonth, setCurrentMonth] = useState<number>(() => Number(todayStr.slice(5, 7)) - 1);0 = Novembre
 
   // Filter by demand level: 'all' | 'forte' | 'moyenne' | 'faible'
   const [demandFilter, setDemandFilter] = useState<'all' | MarketDemandLevel>('all');
@@ -1881,13 +1874,12 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
               <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                 <button
-                  onClick={() => {
-                    onShowToast(`Règle Yield enregistrée pour le ${selectedDateInfo.dateStr}`);
-                  }}
+                  disabled
+                  title="Action non disponible : le flux de validation et de publication Yield n'est pas raccordé."
                   className="px-3.5 py-2 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  Appliquer Règle Yield
+                  Règle Yield non connectée
                 </button>
 
                 <button
