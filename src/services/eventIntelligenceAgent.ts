@@ -3,6 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @deprecated LEGACY BROWSER / DEMO SERVICE.
+ * Not the authoritative backend and not approved for live Revenue Management decisions.
+ * Live persistence and decisions must use the authenticated Supabase Revenue API
+ * (src/services/revenueApiClient.ts) and its RLS-protected database contracts.
+ */
+
 import { EventItem, EventProposal, EventSource, Hotel, RMImpactLevel, ConfirmationStatus } from '../types';
 
 export interface DiscoveredSourceRecord extends EventSource {
