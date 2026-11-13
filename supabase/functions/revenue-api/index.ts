@@ -178,6 +178,13 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ ok: true, hotelId, ...range, data });
   }
 
+  if (actionPath === "calibration-rules") {
+    const {data,error}=await supabase.from("hotel_calibration_rules").select("*")
+      .eq("hotel_id",hotelId).order("created_at",{ascending:false}).limit(100);
+    if (error) return fail("Lecture des règles de calibration impossible",400,error.message);
+    return json({ok:true,data});
+  }
+
   if (req.method !== "POST") return fail("Route inconnue", 404);
   if (!requireManager(profile)) return fail("Droits Revenue Manager ou administrateur requis", 403);
 
@@ -371,13 +378,6 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     }).select("*").single();
     if (ruleError) return fail("Persistance de la règle d'élasticité impossible",409,ruleError.message);
     return json({ok:true,status:"estimated",estimate,calibrationRule:rule,requiresHumanReview:true,automaticActivation:false},201);
-  }
-
-  if (actionPath === "calibration-rules") {
-    const {data,error}=await supabase.from("hotel_calibration_rules").select("*")
-      .eq("hotel_id",hotelId).order("created_at",{ascending:false}).limit(100);
-    if (error) return fail("Lecture des règles de calibration impossible",400,error.message);
-    return json({ok:true,data});
   }
 
   if (actionPath === "reservation-snapshots") {
