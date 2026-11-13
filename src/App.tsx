@@ -509,6 +509,11 @@ export default function App() {
                   onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
                   onSelectEvent={setSelectedEvent}
                   onShowToast={showToast}
+                  backendMode
+                  backendRates={revenueWorkspace.rates}
+                  backendLighthouse={revenueWorkspace.lighthouse}
+                  backendInventory={revenueWorkspace.inventory}
+                  onGoToPricing={() => setActiveTab('pricing')}
                 />
               )}
 
@@ -588,6 +593,11 @@ export default function App() {
               onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
               onSelectEvent={setSelectedEvent}
               onShowToast={showToast}
+                  backendMode
+                  backendRates={revenueWorkspace.rates}
+                  backendLighthouse={revenueWorkspace.lighthouse}
+                  backendInventory={revenueWorkspace.inventory}
+                  onGoToPricing={() => setActiveTab('pricing')}
             />
           )}
 
