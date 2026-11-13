@@ -863,7 +863,10 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const compsetConfigValid=Number(weights.compset)===0 || (
       Number.isInteger(compsetLos)&&compsetLos>0&&Number.isInteger(compsetPos)&&compsetPos>0&&
       Number.isInteger(minimumCompsetHotels)&&minimumCompsetHotels>0&&
-      Number.isFinite(compsetGapScale)&&compsetGapScale>0
+      Number.isFinite(compsetGapScale)&&compsetGapScale>0&&
+      ["compset_room_type","compset_rate_plan","compset_channel"].every((key) =>
+        typeof cfg[key] === "string" && cfg[key].trim().length > 0
+      )
     );
     const pickupConfigValid = Number(weights.pickup) === 0 || (
       !!pickupWindowWeights && !!pickupWindowScales &&
@@ -880,10 +883,13 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       return fail("Configuration pricing_v1 invalide : weights, thresholds et rate_adjustments_pct requis", 422);
     }
 
+    const compRatesPromise = Number(weights.compset) > 0
+      ? supabase.from("lighthouse_rate_observations").select("stay_date,competitor_id,rate_amount,availability_status,observed_at,source_status,los,pos,currency,room_type,rate_plan,channel").eq("hotel_id",hotelId).eq("availability_status","available").eq("los",compsetLos).eq("pos",compsetPos).eq("currency",hotel.currency).eq("room_type",cfg.compset_room_type).eq("rate_plan",cfg.compset_rate_plan).eq("channel",cfg.compset_channel).not("competitor_id","is",null).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000)
+      : Promise.resolve({ data: [], error: null });
     const [inventoryResult,reservationResult,compRateResult,impactResult] = await Promise.all([
       supabase.from("hotel_inventory_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
       supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).in("pickup_window_hours",[24,72,168]).not("net_pickup_rooms","is",null).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
-      supabase.from("lighthouse_rate_observations").select("stay_date,competitor_id,rate_amount,availability_status,observed_at,source_status,los,pos,currency,room_type,rate_plan,channel").eq("hotel_id",hotelId).eq("availability_status","available").eq("los",compsetLos).eq("pos",compsetPos).eq("currency",hotel.currency).eq("room_type",cfg.compset_room_type).eq("rate_plan",cfg.compset_rate_plan).eq("channel",cfg.compset_channel).not("competitor_id","is",null).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
+      compRatesPromise,
       supabase.from("event_hotel_impacts").select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)").eq("hotel_id",hotelId).eq("impact_status","validated").gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end).not("final_rm_score","is",null),
     ]);
     const queryError = inventoryResult.error ?? reservationResult.error ?? compRateResult.error ?? impactResult.error;
