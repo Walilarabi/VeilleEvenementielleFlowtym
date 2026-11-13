@@ -1,0 +1,177 @@
+# HOPTYM / Flowtym Revenue Backend
+
+## Architecture
+
+- PostgreSQL/Supabase is the system of record.
+- Every user-facing database request uses the caller JWT and PostgreSQL RLS. The Edge Function does not use a service-role key.
+- `revenue-api` is deployed with JWT verification enabled.
+- `flowtym_private.can_access_hotel` controls tenant/hotel reads; `can_manage_hotel` restricts mutations to `super_admin`, `admin` and `revenue_manager`. GM/analyst hotel-directory visibility also requires an explicit `hotel_memberships` row.
+- `record_rm_decision` is an invoker-rights transactional RPC. It updates a pending recommendation and appends the audit row atomically.
+- `persist_rm_recommendation` uses a partial unique index and an atomic upsert: repeated runs update only pending proposals; accepted/rejected decisions cannot be silently overwritten.
+- Price publication to D-EDGE/CRS is deliberately not implemented. Approval is recorded, but no external tariff is changed.
+
+## Database migrations
+
+The deployed public schema contains 36 tables; all 36 have row-level security enabled. Existing organization, user and hotel rows were preserved.
+
+The current deployment uses additive migrations under `/supabase/migrations` (foundation tables are already present in the live project). For a new Supabase project, read `/supabase/bootstrap/README.md` and apply `/supabase/bootstrap/foundation.sql` first. Never execute the deprecated `src/supabase/schema.sql` as a bootstrap script.
+
+## API
+
+Base URL: `https://aliploqizujgovnlgjvg.supabase.co/functions/v1/revenue-api`
+
+All routes require a valid Supabase user access token.
+
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/health` | Authenticated API health |
+| GET | `/hotels` | Hotels visible to the caller |
+| GET | `/hotels/:hotelId/rates?from=YYYY-MM-DD&to=YYYY-MM-DD` | Daily rate recommendations |
+| GET | `/hotels/:hotelId/events?from=...&to=...` | Hotel-specific event impacts |
+| GET | `/hotels/:hotelId/inventory-snapshots?from=...&to=...` | Inventory snapshot history |
+| GET | `/hotels/:hotelId/forecasts?from=...&to=...` | Persisted daily forecasts |
+| GET | `/hotels/:hotelId/backtests` | Historical model evaluations |
+| POST | `/hotels/:hotelId/backtests/evaluate` | Evaluate a completed forecast run against realized occupancy |
+| POST | `/hotels/:hotelId/backtests/walk-forward` | Rolling-origin evaluation of four historical baselines |
+| POST | `/hotels/:hotelId/decisions` | Accept, modify or reject a recommendation |
+| POST | `/hotels/:hotelId/events/score` | Calculate hotel-specific impact from verified event evidence and configured weights |
+| POST | `/hotels/:hotelId/events/decisions` | Human validate/dismiss decision with immutable audit row |
+| POST | `/hotels/:hotelId/price-experiments` | Register a controlled pricing experiment (randomization unverified by default) |
+| POST | `/hotels/:hotelId/price-experiment-observations` | Ingest control/treatment exposure and booking outcomes |
+| POST | `/hotels/:hotelId/price-experiments/review` | Audited randomization verification or experiment completion |
+| POST | `/hotels/:hotelId/demand-censoring-observations` | Ingest sold-out/capacity-censored demand evidence |
+| POST | `/hotels/:hotelId/elasticity/estimate` | Estimate elasticity only from completed, verified randomized experiments |
+| GET | `/hotels/:hotelId/calibration-rules` | Read pending/active hotel calibration rules |
+| POST | `/hotels/:hotelId/parameters` | Save hotel pricing parameters |
+| POST | `/hotels/:hotelId/inventory-snapshots` | Ingest up to 500 inventory snapshots |
+| POST | `/hotels/:hotelId/reservation-snapshots` | Ingest OTB snapshots and exact windowed reservation deltas |
+| POST | `/hotels/:hotelId/historical-import` | Import up to 5,000 daily historical rows |
+| POST | `/hotels/:hotelId/forecasts/baseline` | Generate seasonal-naive forecast |
+| POST | `/hotels/:hotelId/recommendations/generate` | Generate deterministic, human-reviewed recommendations |
+
+## Pricing engine v1 configuration
+
+No pricing thresholds are silently assumed. The hotel's `hotel_parameters_profiles.demand_thresholds` must contain a `pricing_v1` object:
+
+```json
+{
+  "pricing_v1": {
+    "weights": {
+      "occupancy": 0.4,
+      "pickup": 0.25,
+      "event": 0.2,
+      "compset": 0.15
+    },
+    "thresholds": {
+      "normal": 40,
+      "high": 65,
+      "exceptional": 85
+    },
+    "rate_adjustments_pct": {
+      "low": -3,
+      "normal": 0,
+      "high": 5,
+      "exceptional": 10
+    },
+    "pickup_window_weights": { "24h": 0.5, "3d": 0.3, "7d": 0.2 },
+    "pickup_scale_rooms": { "24h": 2, "3d": 5, "7d": 8 },
+    "minimum_sources": 2,
+    "minimum_weight_coverage_pct": 60,
+    "compset_los": 1,
+    "compset_pos": 1,
+    "minimum_compset_hotels": 3,
+    "compset_gap_scale_pct": 0.10,
+    "compset_room_type": "Deluxe Queen",
+    "compset_rate_plan": "BAR",
+    "compset_channel": "direct",
+    "max_observation_age_hours": 48,
+    "max_inventory_age_hours": 24,
+    "max_pickup_snapshot_age_hours": 30
+  }
+}
+```
+
+These values are an example configuration, not pre-approved defaults. Configure and validate weights/thresholds per hotel before using the engine.
+
+### v1 deterministic signal definitions
+
+- Occupancy signal: latest non-simulated inventory snapshot occupancy (0–100).
+- Pickup signal: weighted average of exact net pickup scores for 24h, 3d and 7d. Each source row must declare its window and period and provide new rooms booked, cancelled rooms and moved-in/moved-out rooms; net pickup is generated as new − cancelled + moved-in − moved-out. OTB snapshot deltas are never relabelled as exact pickup. Missing window-level deltas remain NULL.
+- Event signal: highest validated/available hotel impact score for the stay date.
+- Compset signal: `clamp(50 + 100 × (compset median - current BAR) / current BAR, 0, 100)`, using recent available comparable Lighthouse observations.
+- Demand index: weighted mean of the available signals, re-normalized over available weights.
+- Rate action: configured percentage adjustment for the demand band, then clamped by the hotel's floor, ceiling and maximum daily rate movement.
+- Coverage score: percentage of configured signal weight actually observed. This is a source-coverage indicator, not a statistically calibrated confidence interval.
+- If fewer than two signals are available or coverage is below 60%, the engine emits a HOLD / MAINTAIN recommendation and does not justify a price change.
+
+The engine version is persisted as `pricing_v1`; all inputs and configuration are stored in `input_snapshot` / `evidence`. Every recommendation remains `pending` until a human decision. Re-running the same hotel/date/engine is idempotent while the proposal is pending; a finalized proposal is immutable and requires a new engine version for a new proposal.
+
+## Event impact scoring
+
+Example configuration only — not a pre-approved set of weights or hotel thresholds:
+
+```json
+{
+  "event_impact_v1": {
+    "weights": {
+      "attendance": 0.20,
+      "international": 0.15,
+      "duration": 0.10,
+      "proximity": 0.15,
+      "capacity": 0.10,
+      "notoriety": 0.10,
+      "recurrence": 0.05,
+      "extra_nights": 0.05,
+      "segment_fit": 0.05,
+      "historical_demand": 0.05
+    },
+    "scales": {
+      "attendance": 50000,
+      "duration_days": 5,
+      "max_distance_km": 20,
+      "venue_capacity": 50000
+    },
+    "recurrence_scores": {
+      "annual": 100,
+      "biennial": 75,
+      "triennial": 55,
+      "one_time": 25
+    },
+    "minimum_weight_coverage_pct": 80,
+    "minimum_components": 4
+  }
+}
+```
+
+`event_impact_v1` requires hotel-specific weights and scales in `hotel_parameters_profiles.demand_thresholds`. Inputs are the event attendance estimate, international ratio, occurrence duration, straight-line hotel-to-venue distance, verified venue capacity, verified evidence trust scores, configured recurrence scores, optional segment-fit scores and the hotel's own occupancy on comparable dates in prior years. Components with missing evidence remain NULL and their weights are excluded from the available-weight mean. The result is stored as `to_review`; it is never auto-validated. A separate manager-only decision endpoint validates or dismisses it through an audited RPC; direct status edits and audit-log mutation are blocked. Drive time and extra-night lift are explicitly not calculated until verified routing and hotel-history models exist. Only confirmed/probable events with confirmed occurrence dates are scored.
+
+## Forecast baselines
+
+The forecast endpoint persists four separate, versioned baseline runs: `seasonal_naive_same_month_weekday`, `same_weekday_last_year`, `seasonal_average_same_month` and `pickup_historical_comparable`. All training rows are restricted to information available before the run's `as_of`; the pickup-comparable baseline matches historical demand snapshots by lead time and uses the realized occupancy of those historical arrival dates. At least three samples are required for the seasonal baselines; the same-weekday-last-year baseline can use one comparable year, but its interval bounds remain NULL until at least three samples exist. Quantiles p10/p50/p90 are persisted when sample size supports them. No complex model is promoted by this baseline layer.
+
+The walk-forward endpoint evaluates those four baselines on a historical test window. Each target date has its own origin (`stay_date - horizonDays`); only training rows and demand snapshots available at that origin are used. It persists WAPE, MAE, RMSE, bias and empirical interval coverage per model. The completed-run evaluator remains available for future live forecasts once actuals arrive.
+
+## Source status and data truth
+
+Allowed provenance statuses are persisted separately from values:
+- `live`: confirmed live provider feed.
+- `real` / `imported`: verified historical/imported observations.
+- `fixture` / `simulation`: tests and simulations; never treated as live market data.
+
+Zero, NULL, sold-out, unavailable, stale and not-comparable are distinct states. Lighthouse sold-out observations are excluded from rate medians, not converted to zero.
+
+## Experiments, elasticity and censored demand
+
+The three evidence tables preserve experiment definitions, matched control/treatment observations and sold-out/capacity-censoring observations. The estimator uses conversion (rooms sold / exposure) and paired log price/conversion ratios. It rejects fixture/simulation observations, unverified randomization, insufficient pair counts, non-negative response and unstable fits. Calibration rules remain pending human review. Censoring observations are stored separately; they are not currently used to reconstruct unconstrained demand.
+
+## Legacy UI boundary
+
+The pre-existing browser-side services `predictiveRevenueEngine`, `demandForecastService`, `rateIntelligenceService`, `rmEpistemologicalEngine`, `historicalDataService`, `eventIntelligenceAgent`, `rmDecisionService` and the Lighthouse demo engine are retained for the current interface but marked deprecated/non-authoritative. They contain localStorage/demo logic and, in places, illustrative assumptions. They are not used by the new Edge Function. The UI still needs a separate integration pass to replace those call sites with `revenueApiClient.ts` before any screen can be considered live or production-connected.
+
+## Security / operational constraints
+
+- No service-role key is sent to the browser or used by this function.
+- Global event reference tables are shared read-only for authenticated users; canonical curation is super-admin-only.
+- Tenant tables have RLS enabled. Same-hotel composite foreign keys prevent cross-hotel references.
+- Decision audit rows are append-only for authenticated clients.
+- No automatic tariff publishing, no credentials in database plaintext, and no mock/fixture data promoted to live.

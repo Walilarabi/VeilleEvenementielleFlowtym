@@ -1,0 +1,29 @@
+name: Revenue Backend CI
+
+on:
+  push:
+    branches:
+      - feat/hoptym-revenue-backend
+  pull_request:
+    branches:
+      - main
+      - feat/supabase-auth-protected-app
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Revenue domain tests
+        run: npm test
+      - name: TypeScript validation
+        run: npm run lint
+      - name: Production build
+        run: npm run build

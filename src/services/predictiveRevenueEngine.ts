@@ -11,6 +11,13 @@
  * - Système de Backtesting et métriques d'erreur (MAE, RMSE, WAPE, Biais)
  */
 
+/**
+ * @deprecated LEGACY BROWSER / DEMO SERVICE.
+ * Not the authoritative backend and not approved for live Revenue Management decisions.
+ * Live persistence and decisions must use the authenticated Supabase Revenue API
+ * (src/services/revenueApiClient.ts) and its RLS-protected database contracts.
+ */
+
 import {
   HistoricalDailyRecord,
   DemandScoreResult,

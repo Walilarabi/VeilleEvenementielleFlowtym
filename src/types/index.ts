@@ -60,10 +60,12 @@ export interface EventEvidence {
 export interface EventHotelImpact {
   hotelId: string;
   distanceKm: number;
-  distanceMins: number;
-  directDemandShare: number; // % estimated demand
-  compressionIndex: number; // 1-10
-  recommendedAction: string;
+  distanceMins?: number;
+  directDemandShare?: number; // % estimated demand; nullable until supported by evidence
+  directImpact?: boolean; // legacy fixture flag, never treated as a verified metric
+  recommendedStrategy?: string; // legacy fixture text, not a verified action
+  compressionIndex?: number; // 1-10; optional until calibrated
+  recommendedAction?: string;
   estimatedADRBoostPercent: number;
   minStayRecommended?: number;
   stopSellSuggested?: boolean;
@@ -385,6 +387,7 @@ export interface LighthouseRateItem {
   pos: string; // Direct Web, Booking.com, Expedia
   observedAt: string;
   deltaPercentVsPriorScrape: number;
+  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation';
 }
 
 // ==========================================
@@ -419,6 +422,7 @@ export interface DEdgeInventoryDay {
   stopSellActive: boolean;
   averageLeadTimeDays: number;
   lastUpdated: string;
+  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation';
 }
 
 // ==========================================

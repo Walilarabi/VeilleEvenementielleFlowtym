@@ -62,7 +62,7 @@ export function isEventGeographicallyRelevant(
   // 1. Si une évaluation d'impact direct existe pour cet hôtel dans l'événement
   const directImpact = event.hotelImpacts?.[hotel.id];
   if (directImpact) {
-    if (directImpact.distanceKm <= 40 || directImpact.directDemandShare > 0) {
+    if (directImpact.distanceKm <= 40 || (directImpact.directDemandShare ?? 0) > 0) {
       return true;
     }
     if (directImpact.distanceKm > 60) {

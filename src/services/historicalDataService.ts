@@ -6,6 +6,13 @@
  * Génère le modèle officiel à 3 onglets (Colonnes A à BZ), analyse les fichiers déposés et gère le catalogue.
  */
 
+/**
+ * @deprecated LEGACY BROWSER / DEMO SERVICE.
+ * Not the authoritative backend and not approved for live Revenue Management decisions.
+ * Live persistence and decisions must use the authenticated Supabase Revenue API
+ * (src/services/revenueApiClient.ts) and its RLS-protected database contracts.
+ */
+
 import * as XLSX from 'xlsx';
 import {
   HistoricalDailyRecord,

@@ -29,6 +29,21 @@ interface TableViewProps {
   onExportPDF?: () => void;
 }
 
+const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
+  salons_foires: 'Salons & foires',
+  congres_medical: 'Congrès & médical',
+  concerts_spectacles: 'Concerts & spectacles',
+  sport: 'Sport',
+  festivals: 'Festivals',
+  mode_luxe: 'Mode & luxe',
+  corporate_sommet: 'Corporate & sommets',
+  culturel: 'Culturel',
+  vacances_scolaires: 'Vacances scolaires',
+};
+
+const getTypeLabel = (category: EventCategory, _title: string): string =>
+  EVENT_CATEGORY_LABELS[category] ?? 'Autre';
+
 type SortColumn = 'title' | 'type' | 'dates' | 'location' | 'impact' | 'score' | 'status';
 type SortDirection = 'asc' | 'desc';
 
@@ -349,7 +364,7 @@ export const TableView: React.FC<TableViewProps> = ({
 
                     {/* Statut Column */}
                     <td className="py-4 px-4 whitespace-nowrap">
-                      {getEventStatusBadge(ev.startDate, ev.endDate)}
+                      {renderStatusBadge(ev)}
                     </td>
                   </tr>
                 );

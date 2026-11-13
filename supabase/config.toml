@@ -1,0 +1,4 @@
+project_id = "aliploqizujgovnlgjvg"
+
+[functions.revenue-api]
+verify_jwt = true

@@ -15,6 +15,13 @@
  * Source : Booking.com · Devise : EUR · LOS : 1 nuit · 2 guests · Primary Compset
  */
 
+/**
+ * @deprecated LEGACY BROWSER / DEMO SERVICE.
+ * Not the authoritative backend and not approved for live Revenue Management decisions.
+ * Live persistence and decisions must use the authenticated Supabase Revenue API
+ * (src/services/revenueApiClient.ts) and its RLS-protected database contracts.
+ */
+
 import * as XLSX from 'xlsx';
 
 export type MarketDemandLevelCategory = 'faible' | 'moderee' | 'forte' | 'tres_forte';
@@ -138,6 +145,7 @@ export interface LighthouseExtractionMetadata {
   dateRange: string;
   totalDatesCount: number;
   isCustomUpload: boolean;
+  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation';
 }
 
 export interface LighthouseExtractionDataset {
@@ -616,6 +624,7 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
       dateRange: '10/11/2026 — 08/01/2027',
       totalDatesCount: records.length,
       isCustomUpload: false,
+      sourceStatus: 'simulation',
     },
     records,
   };
@@ -1060,6 +1069,7 @@ export function parseLighthouseExcelFile(
       dateRange: records.length > 0 ? `${records[0].dateStr} — ${records[records.length - 1].dateStr}` : 'Inconnu',
       totalDatesCount: records.length,
       isCustomUpload: true,
+      sourceStatus: 'imported',
     },
     records,
   };

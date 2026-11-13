@@ -19,73 +19,71 @@ const STORAGE_KEY_PREFIX = 'flowtym_lighthouse_config_';
  *   - GET /v3/historic/roomtyperates : Historique par catégorie de chambre
  */
 export const LIGHTHOUSE_API_SPEC = {
-  name: 'Lighthouse Rate Insight API (OTA Insight)',
-  baseUrl: 'https://api.mylighthouse.com/v3',
+  name: 'Lighthouse Rate Insight API',
+  baseUrl: 'À confirmer — connecteur non configuré',
   docUrl: 'https://api.mylighthouse.com/#introduction-0',
   portalUrl: 'https://app.mylighthouse.com/hotel',
-  authHeader: 'X-Oi-Authorization',
-  version: 'v3.1 (REST JSON)',
-  supportedEndpoints: [
-    {
-      method: 'GET',
-      path: '/v3/rates',
-      description: 'Récupère les tarifs les plus bas du compset par date, durée de séjour (LOS) et point de vente (POS).',
-      params: ['stay_dates', 'los', 'pos', 'competitor_ids'],
-    },
-    {
-      method: 'GET',
-      path: '/v3/roomtyperates',
-      description: 'Extrait les prix détaillés par catégorie de chambre (Standard, Supérieure, Suite, etc.).',
-      params: ['stay_dates', 'los', 'room_type_codes'],
-    },
-    {
-      method: 'GET',
-      path: '/v3/historic/rates',
-      description: 'Accède aux variations tarifaires passées et à l’évolution du rythme de hausse/baisse.',
-      params: ['observation_date_range', 'stay_dates'],
-    },
+  integrationStatus: 'not_connected',
+  authProtocol: 'À confirmer auprès du fournisseur',
+  note: 'Les endpoints, l’authentification, les paramètres LOS/POS, les limites et les droits doivent être confirmés dans la documentation contractuelle du compte. Aucun endpoint n’est présumé ni appelé par ce module.',
+  supportedEndpoints: [] as Array<{method:string;path:string;description:string;params:string[]}>,
+  rateLimits: 'À confirmer auprès de Lighthouse',
+  availabilityHorizons: 'À confirmer auprès de Lighthouse',
+  requiredCapabilities: [
+    'Extraction des tarifs concurrents comparables',
+    'Disponibilités / sold-out et statut de comparabilité',
+    'Historisation des relevés avec horodatage et devise',
+    'Couverture et fraîcheur par date de séjour',
   ],
-  rateLimits: '120 requêtes / minute par clé API contractuelle.',
-  availabilityHorizons: 'Jusqu’à 365 jours d’anticipation.',
 };
 
 export const DEFAULT_LIGHTHOUSE_CONFIG: LighthouseRateConfig = {
   apiKey: '',
-  accountEmail: 'revenue-ops@flowtym.com',
-  baseUrl: 'https://api.mylighthouse.com/v3',
+  accountEmail: '',
+  baseUrl: '',
   authType: 'api_token',
-  isConnected: true, // Pré-configuré en mode connecteur certifié pour la démonstration RM
-  status: 'connected',
-  lastSyncAt: new Date().toISOString(),
-  rateLimitRemaining: 118,
-  rateLimitReset: '60s',
-  compsetIds: [
-    'comp-stpetersbourg',
-    'comp-charing-cross',
-    'comp-astra-opera',
-    'comp-hotel-indigo',
-    'comp-hotel-pulitzer',
-  ],
+  isConnected: false,
+  status: 'disconnected',
+  compsetIds: [],
 };
 
 export function getLighthouseConfig(hotelId: string): LighthouseRateConfig {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${hotelId}`);
     if (raw) {
-      return JSON.parse(raw);
+      const stored = JSON.parse(raw) as Partial<LighthouseRateConfig>;
+      const safeConfig = {
+        ...DEFAULT_LIGHTHOUSE_CONFIG,
+        ...stored,
+        apiKey: '',
+        isConnected: false,
+        status: 'disconnected' as const,
+        lastSyncAt: undefined,
+        rateLimitRemaining: undefined,
+        rateLimitReset: undefined,
+      };
+      localStorage.setItem(`${STORAGE_KEY_PREFIX}${hotelId}`, JSON.stringify(safeConfig));
+      return safeConfig;
     }
   } catch (e) {
     console.error('Failed to parse Lighthouse config from storage', e);
   }
-  return {
-    ...DEFAULT_LIGHTHOUSE_CONFIG,
-    apiKey: 'oi_live_sec_99a8b7c6d5e4f3a2b1c0_opera',
-  };
+  return { ...DEFAULT_LIGHTHOUSE_CONFIG };
 }
 
 export function saveLighthouseConfig(hotelId: string, config: LighthouseRateConfig): void {
   try {
-    localStorage.setItem(`${STORAGE_KEY_PREFIX}${hotelId}`, JSON.stringify(config));
+    // API secrets belong in Supabase Edge Function secrets, never browser localStorage.
+    const safeConfig = {
+      ...config,
+      apiKey: '',
+      isConnected: false,
+      status: 'disconnected' as const,
+      lastSyncAt: undefined,
+      rateLimitRemaining: undefined,
+      rateLimitReset: undefined,
+    };
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}${hotelId}`, JSON.stringify(safeConfig));
   } catch (e) {
     console.error('Failed to save Lighthouse config to storage', e);
   }
@@ -95,34 +93,14 @@ export function saveLighthouseConfig(hotelId: string, config: LighthouseRateConf
  * Test réel de ping et validation du connecteur Lighthouse
  */
 export async function testLighthouseConnection(
-  apiKey: string,
-  hotelId: string
+  _apiKey: string,
+  _hotelId: string
 ): Promise<{ success: boolean; latencyMs: number; message: string; accountInfo?: any }> {
-  const start = performance.now();
-  
-  // Simuler ou exécuter la requête HTTP d'authentification
-  await new Promise((resolve) => setTimeout(resolve, 380));
-  const latencyMs = Math.round(performance.now() - start);
-
-  if (!apiKey || apiKey.trim().length < 8) {
-    return {
-      success: false,
-      latencyMs,
-      message: 'Échec de connexion : Jeton X-Oi-Authorization manquant ou format invalide.',
-    };
-  }
-
   return {
-    success: true,
-    latencyMs,
-    message: `Connexion établie avec succès sur https://api.mylighthouse.com/v3. Latence ${latencyMs}ms. 5 concurrents actifs sur le compset.`,
-    accountInfo: {
-      accountTier: 'Enterprise Rate Insight Plus',
-      quotaTotal: 10000,
-      quotaUsedToday: 412,
-      compsetSize: 5,
-      frequency: 'Relevé automatique toutes les 6 heures',
-    },
+    success: false,
+    latencyMs: 0,
+    message: 'Aucun appel réseau Lighthouse n’a été effectué. Le contrat, les endpoints, l’authentification et les droits du compte doivent être validés avant de déclarer le connecteur opérationnel.',
+    accountInfo: { status: 'not_connected', sourceStatus: 'unavailable' },
   };
 }
 
@@ -164,8 +142,9 @@ export function getLighthouseRatesForDate(
       currency: 'EUR',
       isSoldOut,
       pos: idx === 1 ? 'Booking.com' : idx === 3 ? 'Expedia Group' : 'Site Officiel Direct',
-      observedAt: 'Il y a 23 minutes',
+      observedAt: 'SIMULATION locale — aucune collecte Lighthouse',
       deltaPercentVsPriorScrape: rateDelta > 15 ? 8.5 : rateDelta < -10 ? -4.2 : 0,
+      sourceStatus: 'simulation',
     };
   });
 
