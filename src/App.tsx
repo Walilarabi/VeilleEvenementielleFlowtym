@@ -738,6 +738,12 @@ export default function App() {
                 setCalendarSubTab('school_holidays');
               }}
               onGoToOpportunities={() => setActiveTab('opportunities')}
+              onGoToPricing={() => setActiveTab('pricing')}
+              onGoToForecast={() => setActiveTab('forecast')}
+              backendMode
+              backendRates={revenueWorkspace.rates}
+              backendForecasts={revenueWorkspace.forecasts}
+              backendInventory={revenueWorkspace.inventory}
             />
           )}
 
