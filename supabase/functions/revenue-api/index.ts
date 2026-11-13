@@ -304,7 +304,7 @@ async function handle(req: Request): Promise<Response> {
       const month = d.getUTCMonth() + 1, dow = d.getUTCDay();
       const sample = (history ?? []).filter((r: any) =>
         r.stay_date < today && new Date(r.stay_date + "T00:00:00Z").getUTCMonth()+1 === month &&
-        (r.day_of_week === null || r.day_of_week === dow) && numberOrNull(r.occupancy_pct) !== null
+        ((r.day_of_week ?? new Date(r.stay_date + "T00:00:00Z").getUTCDay()) === dow) && numberOrNull(r.occupancy_pct) !== null
       );
       if (sample.length < 3) continue;
       const occ = sample.map((r: any) => Number(r.occupancy_pct)).filter((n: number) => n >= 0 && n <= 100);
@@ -363,9 +363,9 @@ async function handle(req: Request): Promise<Response> {
     }
 
     const [{ data: inventory },{ data: reservations },{ data: compRates },{ data: impacts }] = await Promise.all([
-      supabase.from("hotel_inventory_snapshots").select("*").eq("hotel_id",hotelId).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
-      supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
-      supabase.from("lighthouse_rate_observations").select("stay_date,rate_amount,availability_status,observed_at,source_status").eq("hotel_id",hotelId).eq("availability_status","available").eq("source_status","live").gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
+      supabase.from("hotel_inventory_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
+      supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
+      supabase.from("lighthouse_rate_observations").select("stay_date,rate_amount,availability_status,observed_at,source_status").eq("hotel_id",hotelId).eq("availability_status","available").in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
       supabase.from("event_hotel_impacts").select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)").eq("hotel_id",hotelId).gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end).not("final_rm_score","is",null),
     ]);
     const latestInventory = new Map<string,any>();
