@@ -49,11 +49,11 @@ export type RevenueWorkspace = {
 const num=(v:unknown):number|null=>typeof v==="number"&&Number.isFinite(v)?v:v===null||v===undefined?null:Number.isFinite(Number(v))?Number(v):null;
 const relation=(v:any)=>Array.isArray(v)?v[0]??null:v??null;
 const category=(v:string):EventItem["category"]=>{
- const allowed=["salons_foires","congres_medical","concerts_spectacles","sport","festivals","mode_luxe","corporate_sommet","culturel","vacances_scolaires"];
+ const allowed=["salons_foires","congres_medical","concerts_spectacles","sport","festivals","mode_luxe","corporate_sommet","culturel","vacances_scolaires","autre"];
  return allowed.includes(v)?v as EventItem["category"]:"culturel";
 };
 const status=(v:string):EventItem["status"]=>{
- const allowed=["confirmed","probable","estime","a_verifier","estimated_recurrent","announced_pending","rumored"];
+ const allowed=["confirmed","probable","estime","a_verifier","estimated_recurrent","announced_pending","rumored","cancelled"];
  return allowed.includes(v)?v as EventItem["status"]:"a_verifier";
 };
 function mapHotel(row:RevenueHotel):Hotel {
@@ -76,7 +76,7 @@ function mapEvent(row:RevenueEventRow,hotelId:string):EventItem|null {
  const impactLevel:EventItem["impactLevel"]=score>=90?"hyper":score>=75?"critique":score>=50?"modere":"faible";
  const title=String(event.title??"Événement sans titre");
  return {
-  id:String(event.id),occurrenceId:String(occ.id),impactStatus:row.impact_status??undefined,title,subtitle:event.subtitle??undefined,category:category(String(event.category??"culturel")),
+  id:String(event.id),occurrenceId:String(occ.id),impactStatus:row.impact_status??undefined,expectedAttendanceUnknown:num(occ.attendance_estimate)===null&&num(event.expected_attendance)===null,confidenceUnknown:num(row.confidence_score)===null,title,subtitle:event.subtitle??undefined,category:category(String(event.category??"culturel")),
   venueId:String(venue?.id??""),venueName:String(venue?.name??"Lieu non renseigné"),
   city:String(venue?.city??event.city??""),country:(venue?.country_code??event.country_code)==="FR"?"France":String(venue?.country_code??event.country_code??"Pays non renseigné"),
   startDate:String(occ.start_date),endDate:String(occ.end_date),
