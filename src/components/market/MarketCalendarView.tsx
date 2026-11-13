@@ -87,7 +87,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
   // Navigation state: start month index (0-indexed) & year
   // Par défaut, initialisé automatiquement sur le mois en cours
   const [currentYear, setCurrentYear] = useState<number>(() => Number(todayStr.slice(0, 4)));
-  const [currentMonth, setCurrentMonth] = useState<number>(() => Number(todayStr.slice(5, 7)) - 1);0 = Novembre
+  const [currentMonth, setCurrentMonth] = useState<number>(() => Number(todayStr.slice(5, 7)) - 1);
 
   // Filter by demand level: 'all' | 'forte' | 'moyenne' | 'faible'
   const [demandFilter, setDemandFilter] = useState<'all' | MarketDemandLevel>('all');
