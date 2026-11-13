@@ -24,6 +24,7 @@ For production incidents, prefer a forward-fix migration. The current schema con
 7. `20261113000700_idempotent_recommendation_persistence.sql`: idempotent pending-recommendation upsert.
 8. `20261113000800_persist_pickup_windows.sql`: persist validated 24h/3d/7d pickup windows.
 9. `20261113000900_event_impact_evidence_scores.sql`: store event-impact scoring components and evidence.
+10. `20261113001000_exact_net_pickup_inputs.sql`: persist reservation-level exact net pickup windows.
 
 ### Recovery notes
 
