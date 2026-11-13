@@ -97,6 +97,8 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              disabled
+              title="Favoris non persistés dans le backend"
               onClick={() => onToggleFavorite(event.id)}
               className={`p-2 rounded-lg border transition-colors ${
                 event.isFavorite
@@ -109,6 +111,8 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             </button>
 
             <button
+              disabled
+              title="Surveillance non persistée dans le backend"
               onClick={() => onToggleWatchlist(event.id)}
               className={`p-2 rounded-lg border transition-colors ${
                 event.isWatchlist
@@ -223,6 +227,8 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               </div>
 
               <button
+                disabled
+                title="Aucune connexion Yield / Stop-Sell active"
                 onClick={() => onToggleYieldActive(event.id)}
                 className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all ${
                   event.isYieldActive
@@ -230,7 +236,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                     : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                {event.isYieldActive ? 'Yield Actif (Stop-sell activé)' : 'Activer Yield Automatique'}
+                Yield / Stop-Sell non connecté
               </button>
             </div>
 
