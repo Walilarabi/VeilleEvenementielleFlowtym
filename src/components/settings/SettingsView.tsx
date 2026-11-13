@@ -6,7 +6,7 @@ import { useTheme, ThemeMode } from '../../contexts/ThemeContext';
 import { saveHotelRevenueParameters } from '../../services/revenueApiClient';
 
 type DbHotel = {
-  id: string; organization_id: string; name: string; city: string; country: string; stars: number | null;
+  id: string; organization_id: string; name: string; city: string; country: string; address: string | null; lat: number | null; lng: number | null; stars: number | null;
   room_count: number | null; currency: string; timezone: string; rate_floor: number | null;
   rate_ceiling: number | null; max_rate_change_pct: number | null; is_active: boolean;
 };
@@ -43,6 +43,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ currency: 'EUR', timezone: 'Europe/Paris', targetAdr: '', targetOccupancyPct: '', targetRevpar: '', floorRate: '', ceilingRate: '', maxDailyRateChangePct: '', distributionCostPct: '' });
   const [pricingConfigJson, setPricingConfigJson] = useState('');
+  const [geoForm, setGeoForm] = useState({ lat: '', lng: '' });
+  const [savingGeo, setSavingGeo] = useState(false);
   const [newCompetitor, setNewCompetitor] = useState({ name: '', address: '', stars: '', distanceKm: '' });
 
   const activeHotel = useMemo(() => hotels.find(h => h.id === hotelId) ?? null, [hotels, hotelId]);
@@ -52,13 +54,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
     setLoading(true); setError(null);
     try {
       const { data: hotelRows, error: hotelError } = await supabase.from('hotels')
-        .select('id,organization_id,name,city,country,stars,room_count,currency,timezone,rate_floor,rate_ceiling,max_rate_change_pct,is_active')
+        .select('id,organization_id,name,city,country,address,lat,lng,stars,room_count,currency,timezone,rate_floor,rate_ceiling,max_rate_change_pct,is_active')
         .eq('is_active', true).order('name');
       if (hotelError) throw hotelError;
       const rows = (hotelRows ?? []) as DbHotel[];
       setHotels(rows);
       const chosenId = rows.some(h => h.id === selectedHotelId) ? selectedHotelId! : (rows[0]?.id ?? '');
       setHotelId(chosenId);
+      const chosenHotel = rows.find(h => h.id === chosenId);
+      setGeoForm({ lat: chosenHotel?.lat == null ? '' : String(chosenHotel.lat), lng: chosenHotel?.lng == null ? '' : String(chosenHotel.lng) });
       if (!chosenId) { setCompetitors([]); setIntegrations([]); return; }
       const [profileResult, competitorResult, integrationResult] = await Promise.all([
         supabase.from('hotel_parameters_profiles').select('*').eq('hotel_id', chosenId).maybeSingle(),
@@ -134,6 +138,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
     finally { setSaving(false); }
   };
 
+  const saveCoordinates = async () => {
+    if (!supabase || !hotelId) return;
+    const latText = geoForm.lat.trim();
+    const lngText = geoForm.lng.trim();
+    if (Boolean(latText) !== Boolean(lngText)) { setError('Renseignez latitude et longitude ensemble, ou laissez les deux champs vides.'); return; }
+    const lat = latText ? Number(latText) : null;
+    const lng = lngText ? Number(lngText) : null;
+    if (lat !== null && (!Number.isFinite(lat) || lat < -90 || lat > 90)) { setError('Latitude invalide : la valeur doit être comprise entre -90 et 90.'); return; }
+    if (lng !== null && (!Number.isFinite(lng) || lng < -180 || lng > 180)) { setError('Longitude invalide : la valeur doit être comprise entre -180 et 180.'); return; }
+    setSavingGeo(true); setError(null);
+    try {
+      const { error: updateError } = await supabase.from('hotels').update({ lat, lng }).eq('id', hotelId);
+      if (updateError) throw updateError;
+      onShowToast?.('Coordonnées GPS enregistrées dans Supabase.');
+      await load();
+    } catch (e: any) {
+      setError(e?.message || 'Impossible d’enregistrer les coordonnées GPS.');
+    } finally {
+      setSavingGeo(false);
+    }
+  };
+
   const addCompetitor = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!supabase || !activeHotel || !newCompetitor.name.trim()) return;
@@ -193,6 +219,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
           ['Tarif plafond (€)','ceilingRate',form.ceilingRate],['Variation max / jour (%)','maxDailyRateChangePct',form.maxDailyRateChangePct],
           ['Coût de distribution (%)','distributionCostPct',form.distributionCostPct],
         ].map(([label,key,value]) => <label key={key as string}><span className={labelClass}>{label}</span><input className={inputClass} value={value as string} onChange={e => setForm(prev => ({...prev,[key as string]:e.target.value}))} /></label>)}
+      </div>
+      <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Localisation de l’établissement</h3>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Coordonnées GPS de la fiche hôtel Supabase. Sans ces deux valeurs, les distances et l’éligibilité des événements géographiques restent bloquées.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label><span className={labelClass}>Latitude</span><input className={inputClass} inputMode="decimal" placeholder="Ex. 48.87…" value={geoForm.lat} onChange={e => setGeoForm(prev => ({ ...prev, lat: e.target.value }))} /></label>
+          <label><span className={labelClass}>Longitude</span><input className={inputClass} inputMode="decimal" placeholder="Ex. 2.32…" value={geoForm.lng} onChange={e => setGeoForm(prev => ({ ...prev, lng: e.target.value }))} /></label>
+        </div>
+        <div className="mt-3 flex justify-end"><button type="button" disabled={savingGeo} onClick={() => void saveCoordinates()} className="rounded-xl border border-violet-200 px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50 dark:border-violet-900 dark:text-violet-300 dark:hover:bg-violet-950/40">{savingGeo ? 'Enregistrement…' : 'Enregistrer les coordonnées'}</button></div>
       </div>
       <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Configuration du moteur pricing_v1</h3>
