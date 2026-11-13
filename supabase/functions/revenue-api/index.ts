@@ -158,6 +158,24 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return fail("Corps JSON invalide"); }
 
+  if (actionPath === "location") {
+    const rawLat = body.lat;
+    const rawLng = body.lng;
+    const lat = rawLat === null ? null : numberOrNull(rawLat);
+    const lng = rawLng === null ? null : numberOrNull(rawLng);
+    if ((rawLat !== null && lat === null) || (rawLng !== null && lng === null)) return fail("Latitude ou longitude invalide");
+    if ((lat === null) !== (lng === null)) return fail("Latitude et longitude doivent être renseignées ensemble");
+    if (lat !== null && (lat < -90 || lat > 90)) return fail("Latitude hors limites");
+    if (lng !== null && (lng < -180 || lng > 180)) return fail("Longitude hors limites");
+    const { data, error } = await supabase.rpc("update_hotel_coordinates", {
+      p_hotel_id: hotelId,
+      p_lat: lat,
+      p_lng: lng,
+    });
+    if (error) return fail("Coordonnées non enregistrées. Vérifiez que la migration hotel_coordinates_rpc est appliquée.", 409, error.message);
+    return json({ ok: true, data });
+  }
+
   if (actionPath === "decisions") {
     const { rateIntelligenceId, action, appliedRate, appliedMinStay, reasonCode, reasonText } = body;
     if (typeof rateIntelligenceId !== "string" || !["accept", "modify", "reject"].includes(String(action))) {
