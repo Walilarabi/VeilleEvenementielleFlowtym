@@ -837,6 +837,10 @@ export default function App() {
               hotel={currentHotel}
               onNavigateToPricing={() => setActiveTab('pricing')}
               onShowToast={showToast}
+              backendMode
+              backendIntegrations={revenueWorkspace.integrations}
+              backendLoading={revenueLoading}
+              backendError={revenueError}
             />
           )}
 
