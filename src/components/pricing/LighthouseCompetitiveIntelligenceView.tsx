@@ -227,6 +227,8 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         if (dbHotel.id !== databaseHotelId) {
           throw new Error('L’hôtel sélectionné a changé depuis le chargement. Rechargez l’écran avant import.');
         }
+        parsed.metadata.currency = dbHotel.currency;
+        parsed.metadata.referenceHotel = dbHotel.name;
 
         const persisted = await persistLighthouseExtraction(supabase, dbHotel, parsed, user.id);
         setDataset(parsed);
