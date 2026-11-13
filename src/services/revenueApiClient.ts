@@ -192,3 +192,8 @@ export const getHotelIntegrations = (supabase: SupabaseClient, hotelId: string) 
   revenueApiRequest<{ ok: true; data: unknown[] }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/integrations`,
   );
+
+export const getHotelRevenueParameters = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; data: Record<string, unknown> | null }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/parameters`,
+  );
