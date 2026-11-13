@@ -138,6 +138,7 @@ export interface LighthouseExtractionMetadata {
   dateRange: string;
   totalDatesCount: number;
   isCustomUpload: boolean;
+  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation';
 }
 
 export interface LighthouseExtractionDataset {
@@ -616,6 +617,7 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
       dateRange: '10/11/2026 — 08/01/2027',
       totalDatesCount: records.length,
       isCustomUpload: false,
+      sourceStatus: 'simulation',
     },
     records,
   };
@@ -1060,6 +1062,7 @@ export function parseLighthouseExcelFile(
       dateRange: records.length > 0 ? `${records[0].dateStr} — ${records[records.length - 1].dateStr}` : 'Inconnu',
       totalDatesCount: records.length,
       isCustomUpload: true,
+      sourceStatus: 'imported',
     },
     records,
   };
