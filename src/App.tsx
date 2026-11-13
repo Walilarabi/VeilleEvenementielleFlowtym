@@ -58,12 +58,7 @@ import { exportCompleteHistoricalExcel } from './services/excelHistoricalExportS
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
-import {
-  INITIAL_VENUES,
-  INITIAL_SUGGESTIONS,
-  INITIAL_SOURCES,
-} from './data/mockData';
-import { EventItem, FilterState, Hotel, EventProposal } from './types';
+import { EventItem, FilterState, Hotel, EventProposal, EventSuggestion } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 import { exportEventsToPDF } from './utils/pdfExport';
 
@@ -131,9 +126,9 @@ export default function App() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [venues, setVenues] = useState(INITIAL_VENUES);
-  const [sources, setSources] = useState(INITIAL_SOURCES);
-  const [suggestions, setSuggestions] = useState<typeof INITIAL_SUGGESTIONS>([]);
+  const [venues, setVenues] = useState([]);
+  const [sources, setSources] = useState([]);
+  const [suggestions, setSuggestions] = useState<EventSuggestion[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
 
   // Proposals State (Score RM 30 à 59)
