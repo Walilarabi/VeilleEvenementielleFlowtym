@@ -359,7 +359,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     if (!occurrence) return fail("Occurrence événementielle introuvable",404);
     const event:any = occurrence.events;
     const venue:any = event?.venues;
-    if (!event || event.status === "cancelled" || occurrence.date_status === "cancelled") return fail("Événement annulé ou non exploitable",422);
+    if (!event || !["confirmed","probable","estimated_recurrent"].includes(event.status) || occurrence.date_status !== "confirmed") return fail("Seuls les événements confirmés ou probables avec dates confirmées sont scorables",422);
     if (venue?.verification_status !== "verified" || numberOrNull(venue?.latitude)===null || numberOrNull(venue?.longitude)===null) {
       return fail("Lieu non vérifié ou coordonnées manquantes : score de proximité indisponible",422);
     }
