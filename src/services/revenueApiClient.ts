@@ -72,12 +72,17 @@ export const saveHotelRevenueParameters = (supabase: SupabaseClient, hotelId: st
     supabase, `/hotels/${encodeURIComponent(hotelId)}/parameters`, { method: "POST", body: parameters },
   );
 
+export const getHistoricalImportV2Status = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; version: 2 }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/historical-import-v2-status`,
+  );
+
 export const importHotelHistoricalRows = (
   supabase: SupabaseClient,
   hotelId: string,
   payload: { fileName?: string; fileSizeBytes?: number; sourceName: string; detectedColumns?: string[]; rows: Record<string, unknown>[]; snapshots?: Record<string, unknown>[] },
 ) => revenueApiRequest<{ ok: true; importId: string; imported: number; snapshotsImported: number }>(
-  supabase, `/hotels/${encodeURIComponent(hotelId)}/historical-import`, { method: "POST", body: payload },
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/historical-import-v2`, { method: "POST", body: payload },
 );
 
 export const getHotelBacktests = (supabase: SupabaseClient, hotelId: string) =>
