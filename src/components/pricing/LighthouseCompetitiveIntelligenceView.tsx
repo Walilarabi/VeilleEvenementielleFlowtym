@@ -12,7 +12,9 @@
  * 5. vs. 7 jours
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useAuth } from '../../auth/AuthProvider';
+import { loadRecentLighthouseExtractions, persistLighthouseExtraction, resolveAccessibleRmsHotel } from '../../services/lighthouseImportService';
 import {
   TrendingUp,
   Download,
@@ -121,6 +123,63 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
   // Selected date for deep drilldown modal
   const [inspectedRecord, setInspectedRecord] = useState<LighthouseDailyItem | null>(null);
+  const { supabase, user } = useAuth();
+  const [databaseHotelId, setDatabaseHotelId] = useState<string | null>(null);
+  const [isLoadingPersisted, setIsLoadingPersisted] = useState(true);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
+
+  // The surrounding application still supplies legacy/mock hotel identifiers.
+  // Resolve the selected hotel through authenticated RLS before reading or writing.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPersistedExtractions = async () => {
+      setIsLoadingPersisted(true);
+      setDatabaseHotelId(null);
+
+      if (!supabase || !hotel) {
+        if (!cancelled) {
+          setPersistenceError('Session Supabase ou hôtel sélectionné indisponible. Import désactivé.');
+          setIsLoadingPersisted(false);
+        }
+        return;
+      }
+
+      try {
+        const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+          name: hotel.name,
+          city: hotel.city,
+          country: hotel.country,
+        });
+        const recent = await loadRecentLighthouseExtractions(supabase, dbHotel.id, 20);
+        if (cancelled) return;
+
+        const restored = recent
+          .map((item) => item.dataset)
+          .filter((item): item is LighthouseExtractionDataset => Boolean(item));
+
+        setDatabaseHotelId(dbHotel.id);
+        setExtractionsHistory(restored);
+        if (restored.length > 0) {
+          setDataset(restored[0]);
+          setSelectedExtractionId(restored[0].metadata.id);
+        } else {
+          setDataset(createEmptyLighthouseDataset());
+          setSelectedExtractionId('');
+        }
+        setPersistenceError(null);
+      } catch (error) {
+        if (!cancelled) {
+          setPersistenceError(error instanceof Error ? error.message : 'Impossible de charger les extractions Lighthouse.');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingPersisted(false);
+      }
+    };
+
+    void loadPersistedExtractions();
+    return () => { cancelled = true; };
+  }, [supabase, hotel?.name, hotel?.city, hotel?.country]);
 
   // Export current dataset to real 5-sheets XLSX
   const handleDownloadXLSX = () => {
@@ -147,24 +206,39 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
   // Upload handler for real Lighthouse Excel file
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
     setIsUploading(true);
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
+        if (!supabase || !user?.id || !hotel || !databaseHotelId) {
+          throw new Error('Aucun hôtel Supabase vérifié ou session Revenue Manager active. Import bloqué.');
+        }
+
         const buffer = event.target?.result as ArrayBuffer;
         const parsed = parseLighthouseExcelFile(buffer, file.name);
+        const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+          name: hotel.name,
+          city: hotel.city,
+          country: hotel.country,
+        });
+        if (dbHotel.id !== databaseHotelId) {
+          throw new Error('L’hôtel sélectionné a changé depuis le chargement. Rechargez l’écran avant import.');
+        }
 
+        const persisted = await persistLighthouseExtraction(supabase, dbHotel, parsed, user.id);
         setDataset(parsed);
         setExtractionsHistory((prev) => [parsed, ...prev]);
         setSelectedExtractionId(parsed.metadata.id);
-        setIsUploading(false);
-        onShowToast(`✓ Fichier "${file.name}" importé avec succès (${parsed.records.length} dates extraites des 5 onglets)`);
+        setPersistenceError(null);
+        onShowToast(`✓ ${file.name} enregistré dans Supabase : ${parsed.records.length} dates et ${persisted.observationsInserted} relevés concurrents.`);
       } catch (err: any) {
-        setIsUploading(false);
         console.error(err);
-        onShowToast(`Erreur d'import : ${err.message || 'Structure de fichier non reconnue'}`);
+        onShowToast(`Échec de l'import Lighthouse : ${err?.message || 'Structure de fichier non reconnue'}`);
+      } finally {
+        setIsUploading(false);
       }
     };
     reader.onerror = () => {
@@ -321,6 +395,16 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         </div>
       )}
     <div className="space-y-6 animate-in fade-in duration-200">
+      {isLoadingPersisted && (
+        <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+          Chargement de l’historique Lighthouse depuis Supabase…
+        </div>
+      )}
+      {persistenceError && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <strong>Import désactivé :</strong> {persistenceError}
+        </div>
+      )}
       {/* Top Banner: Parameters, File Metadata & Actions */}
       <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -394,7 +478,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={handleFileUpload}
-                disabled={isUploading}
+                disabled={isUploading || isLoadingPersisted || !databaseHotelId}
                 className="hidden"
               />
             </label>
