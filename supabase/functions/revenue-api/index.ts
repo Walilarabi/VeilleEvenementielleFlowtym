@@ -96,6 +96,24 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ ok: true, data });
   }
 
+  if (req.method === "GET" && path === "/sources") {
+    const { data, error } = await supabase.from("event_sources")
+      .select("id,name,source_url,source_type,city,reliability_score,is_official,status,last_crawled_at,event_evidence(event_id)")
+      .order("name").limit(1000);
+    if (error) return fail("Lecture du catalogue des sources impossible", 400, error.message);
+    return json({ ok: true, data });
+  }
+
+  if (req.method === "GET" && path === "/venues") {
+    const city = url.searchParams.get("city");
+    if (!city) return fail("Le paramètre city est obligatoire");
+    const { data, error } = await supabase.from("venues")
+      .select("id,name,venue_type,city,country_code,address,latitude,longitude,capacity,verification_status")
+      .eq("city", city).order("name").limit(1000);
+    if (error) return fail("Lecture du répertoire des lieux impossible", 400, error.message);
+    return json({ ok: true, data });
+  }
+
   const match = path.match(/^\/hotels\/([0-9a-f-]{36})(?:\/(.*))?$/i);
   if (!match) return fail("Route inconnue", 404);
   const hotelId = match[1];
