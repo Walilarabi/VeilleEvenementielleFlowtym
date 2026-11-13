@@ -50,7 +50,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
 
   const currentHotel = hotels.find((h) => h.id === selectedHotelId) || hotels[0];
   const hotelImpact = currentHotel ? event.hotelImpacts[currentHotel.id] : null;
-  const impactStyles = getImpactColorClasses(event.impactLevel);
+  const impactStyles = event.scoreUnknown ? { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', badgeBg: 'bg-slate-100 text-slate-700', dotBg: 'bg-slate-400', pillBg: 'bg-slate-50 text-slate-600 border-slate-200' } : getImpactColorClasses(event.impactLevel);
 
   // ICS Export function
   const handleExportICS = () => {
@@ -60,7 +60,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
       'PRODID:-//Flowtym//Event Intelligence//FR',
       'BEGIN:VEVENT',
       `SUMMARY:${event.title}`,
-      `DESCRIPTION:${event.subtitle || ''} - Score RM: ${event.scoreBreakdown.finalRMScore}/100`,
+      `DESCRIPTION:${event.subtitle || ''} - Score RM: ${event.scoreUnknown ? 'non calculé' : event.scoreBreakdown.finalRMScore+'/100'}`,
       `LOCATION:${event.venueName}, ${event.city}`,
       `DTSTART:${event.startDate.replace(/-/g, '')}`,
       `DTEND:${event.endDate.replace(/-/g, '')}`,
@@ -87,11 +87,11 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${impactStyles.badgeBg}`}
             >
               <span className={`w-2 h-2 rounded-full ${impactStyles.dotBg}`} />
-              Impact {event.impactLevel}
+              Impact {event.scoreUnknown ? 'à calculer' : event.impactLevel}
             </span>
             <span className="text-slate-300">|</span>
             <span className="text-xs font-semibold text-slate-600">
-              Score RM: <strong className="text-slate-900 tabular-nums">{event.scoreBreakdown.finalRMScore}/100</strong>
+              Score RM: <strong className="text-slate-900 tabular-nums">{event.scoreUnknown ? 'Non calculé' : event.scoreBreakdown.finalRMScore+'/100'}</strong>
             </span>
           </div>
 
@@ -282,6 +282,11 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
           </div>
 
           {/* RM Score Breakdown Explainability */}
+          {event.scoreUnknown ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+              Le score RM n’a pas encore été calculé pour cet événement. Utilisez l’action « Recalculer le score » depuis Event Intelligence après vérification des données disponibles.
+            </div>
+          ) : (
           <div className="bg-white rounded-2xl border border-slate-200/90 p-5 space-y-3">
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
               Décomposition du Score RM Flowtym ({event.scoreBreakdown.finalRMScore}/100)
@@ -344,6 +349,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               </div>
             </div>
           </div>
+          )}
 
           {/* Sources & Evidences Section (Audit trail & Live Scraper) */}
           <div className="bg-white rounded-2xl border border-slate-200/90 p-5 space-y-4">
