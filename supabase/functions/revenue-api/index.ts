@@ -403,8 +403,24 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     if (snapshots.length > 10000) return fail("Maximum 10000 snapshots historiques par import");
     const sourceName = typeof body.sourceName === "string" && body.sourceName.trim() ? body.sourceName.trim().slice(0,120) : null;
     if (!sourceName) return fail("sourceName est obligatoire pour garantir la déduplication");
-    const invalid = body.rows.filter((r: any) => !isDate(r.stay_date));
-    if (invalid.length) return fail("Une ou plusieurs lignes ont une stay_date invalide", 422, { invalidRows: invalid.length });
+    const invalid = body.rows.filter((r: any) => {
+      if (!isDate(r.stay_date)) return true;
+      if (!Number.isInteger(r.day_of_week) || r.day_of_week < 0 || r.day_of_week > 6) return true;
+      if (!Number.isInteger(r.week_of_year) || r.week_of_year < 1 || r.week_of_year > 53) return true;
+      if (!Number.isInteger(r.month_of_year) || r.month_of_year < 1 || r.month_of_year > 12) return true;
+      if (!Number.isInteger(r.year_of_stay) || r.year_of_stay < 2000 || r.year_of_stay > 2100) return true;
+      if (!Number.isInteger(r.total_marketable_rooms) || r.total_marketable_rooms < 1) return true;
+      for (const field of ["available_rooms", "rooms_sold", "complimentary_rooms", "out_of_order_rooms", "reservations_count", "guests_count"]) {
+        if (!Number.isInteger(r[field]) || r[field] < 0) return true;
+      }
+      for (const field of ["occupancy_pct", "adr_net", "revpar", "accommodation_revenue", "net_adr"]) {
+        if (!Number.isFinite(Number(r[field])) || Number(r[field]) < 0) return true;
+      }
+      return Number(r.occupancy_pct) > 100;
+    });
+    if (invalid.length) {
+      return fail("Une ou plusieurs lignes historiques contiennent des dates, capacités ou indicateurs invalides", 422, { invalidRows: invalid.length });
+    }
 
     const invalidSnapshots = snapshots.filter((s: any) => {
       if (!isDate(s.observation_date) || !isDate(s.arrival_date)) return true;
@@ -438,7 +454,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       ...r, id: undefined, organization_id: hotel.organization_id, hotel_id: hotelId,
       source_name: sourceName, source_status: "imported", import_batch_id: log.id,
       raw_record: r.raw_record && typeof r.raw_record === "object" ? r.raw_record : r,
-      currency: typeof r.currency === "string" ? r.currency : hotel.currency,
+      currency: hotel.currency,
     }));
     const { data, error } = await supabase.from("hotel_historical_daily")
       .upsert(rows, { onConflict: "hotel_id,stay_date,source_name" }).select("id");
