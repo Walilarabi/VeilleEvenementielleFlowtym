@@ -18,7 +18,8 @@ interface FlowboardViewProps {
 
 export const FlowboardView: React.FC<FlowboardViewProps> = ({ events, suggestions, hotels, selectedHotelId, onSelectEvent, onGoToExplorer, onGoToCalendar }) => {
   const hotel = hotels.find((item) => item.id === selectedHotelId) ?? hotels[0];
-  const sortedEvents = [...events].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const operationalEvents = events.filter((event) => event.category !== 'vacances_scolaires');
+  const sortedEvents = [...operationalEvents].sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   return (
     <section className="space-y-5">
@@ -27,7 +28,7 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({ events, suggestion
         <h1 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{hotel?.name ?? 'Portefeuille hôtelier'}</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Vue de synthèse alimentée uniquement par les événements et propositions enregistrés.</p>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800"><div className="text-xs text-slate-500">Événements persistés</div><div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{events.length}</div></div>
+          <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800"><div className="text-xs text-slate-500">Événements persistés</div><div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{operationalEvents.length}</div></div>
           <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800"><div className="text-xs text-slate-500">Propositions en attente</div><div className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{suggestions.filter((item) => item.status === 'pending').length}</div></div>
           <div className="col-span-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-800 sm:col-span-1"><div className="text-xs text-slate-500">Sources connectées</div><div className="mt-1 text-sm font-semibold text-amber-700 dark:text-amber-300">Non raccordées</div></div>
         </div>
