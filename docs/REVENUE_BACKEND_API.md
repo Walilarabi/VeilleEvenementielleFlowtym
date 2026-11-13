@@ -66,7 +66,8 @@ No pricing thresholds are silently assumed. The hotel's `hotel_parameters_profil
     "pickup_window_weights": { "24h": 0.5, "3d": 0.3, "7d": 0.2 },
     "pickup_scale_rooms": { "24h": 2, "3d": 5, "7d": 8 },
     "max_observation_age_hours": 48,
-    "max_inventory_age_hours": 24
+    "max_inventory_age_hours": 24,
+    "max_pickup_snapshot_age_hours": 30
   }
 }
 ```
