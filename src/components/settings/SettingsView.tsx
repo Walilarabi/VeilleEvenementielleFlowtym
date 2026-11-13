@@ -6,13 +6,11 @@ import {
   Key,
   ShieldCheck,
   CheckCircle2,
-  Copy,
   Check,
   Plus,
   Trash2,
   Info,
   ExternalLink,
-  Download,
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
@@ -23,7 +21,6 @@ import {
   saveSupabaseCredentials,
   testSupabaseConnection,
 } from '../../services/supabaseClient';
-import { FULL_SUPABASE_SQL } from '../../supabase/schemaSqlString';
 
 interface SettingsViewProps {
   hotels: Hotel[];
@@ -42,7 +39,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onSelectHotel,
   onShowToast,
 }) => {
-  const [copiedSQL, setCopiedSQL] = useState(false);
   const [activeTab, setActiveTab] = useState<'hotels' | 'geo' | 'rm_rules' | 'supabase'>('hotels');
 
   // Supabase Configuration State
@@ -57,7 +53,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }>({
     tested: !!initialCreds.url && !!initialCreds.anonKey,
   });
-  const [showSqlPreview, setShowSqlPreview] = useState(false);
 
   // RM configuration state
   const [priorityThreshold, setPriorityThreshold] = useState(50);
@@ -97,13 +92,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setNewHotelName('');
   };
 
-  const handleCopySQL = () => {
-    navigator.clipboard.writeText(FULL_SUPABASE_SQL);
-    setCopiedSQL(true);
-    if (onShowToast) onShowToast('Script SQL complet (12 tables) copié dans le presse-papier !');
-    setTimeout(() => setCopiedSQL(false), 2000);
-  };
-
   const handleSaveSupabase = () => {
     saveSupabaseCredentials(supabaseUrl, supabaseAnonKey);
     if (onShowToast) {
@@ -133,17 +121,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       saveSupabaseCredentials(supabaseUrl, supabaseAnonKey);
       if (onShowToast) onShowToast(result.message);
     }
-  };
-
-  const handleDownloadSQL = () => {
-    const blob = new Blob([FULL_SUPABASE_SQL], { type: 'text/sql;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'flowtym_supabase_schema.sql';
-    a.click();
-    URL.revokeObjectURL(url);
-    if (onShowToast) onShowToast('Fichier flowtym_supabase_schema.sql téléchargé !');
   };
 
   return (
@@ -563,217 +540,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Create Tables in Supabase */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Section 2: Versioned database schema */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Création des 12 Tables Métier dans Supabase</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Schéma complet avec extension UUID, contraintes de validation, clés étrangères et politiques RLS
+                <h3 className="text-sm font-bold text-slate-900">Schéma HOPTYM Revenue — migrations versionnées</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Le schéma est déjà déployé sur le projet Supabase HOPTYM. Il est maintenu par des migrations SQL versionnées dans GitHub, pas par un script monolithique à copier-coller.
                 </p>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={handleCopySQL}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-colors cursor-pointer"
-                  title="Copier le script SQL complet de création des 12 tables"
-                >
-                  {copiedSQL ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedSQL ? 'Copié !' : 'Copier tout le script SQL'}</span>
-                </button>
-
-                <button
-                  onClick={handleDownloadSQL}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-colors cursor-pointer"
-                  title="Télécharger le fichier schema.sql"
-                >
-                  <Download className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Télécharger schema.sql</span>
-                </button>
-
-                <a
-                  href="https://supabase.com/dashboard/project/_/sql"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-xl shadow-xs transition-colors"
-                >
-                  <span>Ouvrir l&apos;éditeur SQL Supabase</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="text-lg font-bold text-slate-900 tabular-nums">30</div>
+                <div className="text-[11px] text-slate-500">Tables métier et fondation</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="text-lg font-bold text-slate-900 tabular-nums">30/30</div>
+                <div className="text-[11px] text-slate-500">Tables publiques avec RLS activé</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="text-lg font-bold text-slate-900 tabular-nums">0</div>
+                <div className="text-[11px] text-slate-500">Clés étrangères sans index couvrant</div>
               </div>
             </div>
 
-            {/* 3-Step Execution Instructions Guide */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs">
-              <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0">
-                  1
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">Copier le script SQL</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Cliquez sur le bouton ci-dessus pour copier le schéma complet (179 lignes, 12 tables).
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-violet-100 text-violet-800 font-bold flex items-center justify-center shrink-0">
-                  2
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">Ouvrir le SQL Editor</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Dans votre projet Supabase, ouvrez l&apos;onglet <strong>SQL Editor</strong> puis créez une nouvelle requête.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center shrink-0">
-                  3
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900">Coller et exécuter</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Collez le script et cliquez sur <strong>RUN</strong>. Les 12 tables et règles RLS sont créées instantanément.
-                  </p>
-                </div>
-              </div>
+            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900">
+              <strong>Ne pas exécuter l'ancien script SQL intégré à cette application.</strong>
+              Il correspond à un ancien modèle de démonstration et n'est plus compatible avec le schéma actuel. Les migrations du dépôt constituent la source de vérité.
             </div>
 
-            {/* 12 Tables Grid Checklist */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Liste des 12 Tables Métier Flowtym à Créer :
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-xs">
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">1. organizations</span>
-                    <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">Tenant</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Groupes et organisations hôtelières abonnées.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">2. users</span>
-                    <span className="text-[10px] text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded font-medium">Auth</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Comptes, profils et rôles (admin, revenue_manager).</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">3. hotels</span>
-                    <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded font-medium">Établissements</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Parc hôtelier, coordonnées GPS, étoiles, chambres, ADR base.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">4. cities</span>
-                    <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-medium">Géo</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Villes surveillées (Paris, Lyon, Nice) et scores de couverture.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">5. venues</span>
-                    <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-medium">Infrastructures</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Parcs des expositions, arénas, stades et capacités d&apos;accueil.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">6. events</span>
-                    <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">Événements</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Référentiel des événements, affluence et part internationale.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">7. event_occurrences</span>
-                    <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-medium">Dates</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Dates de début/fin, confirmations et éditions récurrentes.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">8. event_sources</span>
-                    <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-medium">Veille</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Billetteries, Viparis, agendas municipaux et fiabilité.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">9. event_evidence</span>
-                    <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-medium">Preuves</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Extraits vérifiés, URLs sources et indices de confiance.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">10. event_hotel_impacts</span>
-                    <span className="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded font-medium">Scores RM</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Scores RM par hôtel, compression, boost ADR et stop-sell.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">11. event_suggestions</span>
-                    <span className="text-[10px] text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded font-medium">Détection IA</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Propositions à valider et événements pré-détectés.</p>
-                </div>
-
-                <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-900">12. search_jobs</span>
-                    <span className="text-[10px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-medium">Audit</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Historique des crawls, actualisations et détections.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Collapsible SQL Script Preview */}
-            <div className="pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowSqlPreview(!showSqlPreview)}
-                className="text-xs font-semibold text-violet-600 hover:text-violet-800 transition-colors flex items-center gap-1 cursor-pointer"
-              >
-                <span>{showSqlPreview ? 'Masquer l’aperçu du code SQL ▲' : 'Afficher l’aperçu du code SQL (179 lignes) ▼'}</span>
-              </button>
-
-              {showSqlPreview && (
-                <div className="mt-3 relative">
-                  <pre className="p-4 bg-slate-900 text-slate-200 rounded-xl text-[11px] font-mono overflow-x-auto max-h-96 leading-relaxed">
-                    {FULL_SUPABASE_SQL}
-                  </pre>
-                  <button
-                    onClick={handleCopySQL}
-                    className="absolute top-3 right-3 px-3 py-1.5 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors cursor-pointer"
-                  >
-                    {copiedSQL ? 'Copié !' : 'Copier'}
-                  </button>
-                </div>
-              )}
+            <div className="flex flex-wrap gap-2">
+              <a href="https://github.com/Walilarabi/VeilleEvenementielleFlowtym/tree/feat/hoptym-revenue-backend/supabase/migrations"
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 rounded-xl">
+                Voir les migrations SQL GitHub <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <a href="https://supabase.com/dashboard/project/aliploqizujgovnlgjvg"
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl">
+                Ouvrir le projet Supabase <ExternalLink className="w-3.5 h-3.5" />
+              </a>
             </div>
           </div>
         </div>
