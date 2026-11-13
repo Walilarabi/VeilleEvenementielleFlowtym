@@ -89,6 +89,9 @@ export interface EventItem {
   impactStatus?: 'to_review' | 'validated' | 'dismissed';
   expectedAttendanceUnknown?: boolean;
   confidenceUnknown?: boolean;
+  scoreUnknown?: boolean;
+  distanceUnknown?: boolean;
+  adrLiftUnknown?: boolean;
   title: string;
   subtitle?: string;
   category: EventCategory;
