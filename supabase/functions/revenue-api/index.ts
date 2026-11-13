@@ -386,7 +386,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       return fail("Le modèle event_impact_v1 doit être configuré par hôtel avant le calcul",422);
     }
     const weights=cfg.weights as Record<string,number>;
-    const keys=["attendance","international","duration","proximity","capacity","notoriety","recurrence","extra_nights","segment_fit"];
+    const keys=["attendance","international","duration","proximity","capacity","notoriety","recurrence","extra_nights","segment_fit","historical_demand"];
     const totalWeight=keys.reduce((sum,k)=>sum+(Number(weights[k])||0),0);
     const scales=cfg.scales as Record<string,number>;
     if (totalWeight<=0 || keys.some(k=>!Number.isFinite(Number(weights[k])) || Number(weights[k])<0) ||
@@ -406,6 +406,29 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const recurrence=event.recurrence_frequency ? numberOrNull(cfg.recurrence_scores[event.recurrence_frequency]) : null;
     const segmentFit=hotel.segment && cfg.segment_fit_by_category
       ? numberOrNull(cfg.segment_fit_by_category[hotel.segment]?.[event.category]) : null;
+    const historyStart=addDays(occurrence.start_date,-1095);
+    const historyEnd=addDays(occurrence.end_date,-365);
+    const {data:historicalRows,error:historicalError}=await supabase.from("hotel_historical_daily")
+      .select("stay_date,day_of_week,occupancy_pct,source_status")
+      .eq("hotel_id",hotelId).gte("stay_date",historyStart).lte("stay_date",historyEnd)
+      .in("source_status",["real","imported"]).order("stay_date").limit(5000);
+    if (historicalError) return fail("Lecture de l'historique hôtelier pour l'événement impossible",400,historicalError.message);
+    const historicalOccupancies:number[]=[];
+    for (const eventDay of eachDate(occurrence.start_date,occurrence.end_date)) {
+      const eventDow=new Date(eventDay+"T00:00:00Z").getUTCDay();
+      for (const yearOffset of [365,730,1095]) {
+        const comparableDate=addDays(eventDay,-yearOffset);
+        const lower=addDays(comparableDate,-7),upper=addDays(comparableDate,7);
+        const candidates=(historicalRows??[]).filter((r:any)=>
+          r.stay_date>=lower&&r.stay_date<=upper&&
+          (r.day_of_week??new Date(r.stay_date+"T00:00:00Z").getUTCDay())===eventDow&&
+          numberOrNull(r.occupancy_pct)!==null
+        ).sort((a:any,b:any)=>Math.abs(Date.parse(a.stay_date)-Date.parse(comparableDate+"T00:00:00Z"))-
+          Math.abs(Date.parse(b.stay_date)-Date.parse(comparableDate+"T00:00:00Z")));
+        if (candidates.length) historicalOccupancies.push(Number(candidates[0].occupancy_pct));
+      }
+    }
+    const historicalDemand=median(historicalOccupancies);
     const components:Record<string,number|null>={
       attendance:attendance===null?null:clamp(attendance/Number(scales.attendance)*100,0,100),
       international:numberOrNull(event.international_ratio_pct),
@@ -416,6 +439,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       recurrence:recurrence,
       extra_nights:null,
       segment_fit:segmentFit,
+      historical_demand:historicalDemand,
     };
     const available=keys.filter(k=>components[k]!==null && Number(weights[k])>0);
     const coveredWeight=available.reduce((sum,k)=>sum+Number(weights[k]),0);
@@ -424,8 +448,8 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const score=componentCount>=Number(cfg.minimum_components) && coverage>=Number(cfg.minimum_weight_coverage_pct)
       ? Math.round(available.reduce((sum,k)=>sum+Number(weights[k])*Number(components[k]),0)/coveredWeight)
       : null;
-    const scoreComponents={...components,weights,coveredWeight,totalWeight,componentCount,coverageScore:coverage,extraNightsStatus:"not_computed_no_verified_historical_lift_model"};
-    const sourceEvidence=evidence.map((e:any)=>({sourceName:e.source_name,sourceUrl:e.source_url,trustScore:e.trust_score,verifiedAt:e.verified_at}));
+    const scoreComponents={...components,weights,coveredWeight,totalWeight,componentCount,coverageScore:coverage,historicalDemandMethod:"same_weekday_within_7_days_in_prior_1_to_3_years",historicalDemandSampleCount:historicalOccupancies.length,extraNightsStatus:"not_computed_no_verified_historical_lift_model"};
+    const sourceEvidence=[...evidence.map((e:any)=>({sourceName:e.source_name,sourceUrl:e.source_url,trustScore:e.trust_score,verifiedAt:e.verified_at})),{type:"hotel_historical_demand",sampleCount:historicalOccupancies.length,method:"same weekday within ±7 days in prior 1–3 years",sourceStatus:"real_or_imported"}];
     const {data:existing,error:existingError}=await supabase.from("event_hotel_impacts")
       .select("id,impact_status").eq("hotel_id",hotelId).eq("occurrence_id",occurrenceId).maybeSingle();
     if (existingError) return fail("Vérification de l'impact existant impossible",400,existingError.message);
@@ -437,6 +461,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       duration_score:components.duration,proximity_score:components.proximity,
       recurrence_score:components.recurrence,capacity_score:components.capacity,
       notoriety_score:components.notoriety,extra_nights_score:null,segment_fit_score:components.segment_fit,
+      historical_demand_score:components.historical_demand,historical_demand_sample_count:historicalOccupancies.length,
       source_confidence_score:coverage,score_components:scoreComponents,source_evidence:sourceEvidence,
       final_rm_score:score,confidence_score:coverage,estimated_demand_lift_pct:null,estimated_adr_lift_pct:null,
       recommended_action:score===null?"À compléter — preuves ou composants insuffisants":"À valider par le Revenue Manager",
