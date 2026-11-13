@@ -7,6 +7,7 @@ type AccessibleHotel = {
   city: string;
   country: string;
   organization_id: string;
+  currency: string;
 };
 
 function normalizeHotelName(value: string): string {
@@ -30,7 +31,7 @@ export async function resolveAccessibleRmsHotel(
 ): Promise<AccessibleHotel> {
   const { data, error } = await supabase
     .from("hotels")
-    .select("id,name,city,country,organization_id")
+    .select("id,name,city,country,organization_id,currency")
     .eq("is_active", true);
 
   if (error) throw new Error(`Lecture des hôtels accessibles impossible : ${error.message}`);
@@ -89,20 +90,52 @@ export async function persistLighthouseExtraction(
     throw new Error("Seule une extraction Lighthouse réelle et non vide peut être enregistrée.");
   }
 
+  const normalizedDataset: LighthouseExtractionDataset = {
+    ...dataset,
+    metadata: {
+      ...dataset.metadata,
+      currency: hotel.currency,
+      sourceChannel: dataset.metadata.sourceChannel || "Canal non renseigné",
+    },
+  };
+  const { data: configuredCompetitors, error: competitorsError } = await supabase
+    .from("competitor_hotels")
+    .select("id,competitor_name")
+    .eq("hotel_id", hotel.id)
+    .eq("is_active", true);
+
+  if (competitorsError) throw new Error(`Lecture du compset actif impossible : ${competitorsError.message}`);
+
+  const competitorByName = new Map<string, { id: string; competitor_name: string }>();
+  for (const competitor of configuredCompetitors ?? []) {
+    const key = normalizeHotelName(competitor.competitor_name);
+    if (competitorByName.has(key)) {
+      throw new Error(`Le compset contient plusieurs entrées ambiguës pour « ${competitor.competitor_name} ».`);
+    }
+    competitorByName.set(key, competitor);
+  }
+
+  const importedCompetitorNames = [...new Set(normalizedDataset.records.flatMap((record) => record.competitors.map((item) => item.name.trim())))];
+  const unmatchedCompetitors = importedCompetitorNames.filter((name) => !competitorByName.has(normalizeHotelName(name)));
+  if (unmatchedCompetitors.length > 0) {
+    throw new Error(`Import bloqué : configurez et validez d'abord ces concurrents dans Paramètres > Compset : ${unmatchedCompetitors.join(", ")}.`);
+  }
+
   const observedAt = new Date().toISOString();
-  const stayDates = dataset.records.map((record) => record.dateStr).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+  const stayDates = normalizedDataset.records.map((record) => record.dateStr).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
   if (stayDates.length === 0) throw new Error("Aucune date de séjour valide dans l'export Lighthouse.");
 
-  const observationRows = dataset.records.flatMap((record) =>
+  const observationRows = normalizedDataset.records.flatMap((record) =>
     record.competitors.map((competitor) => ({
       organization_id: hotel.organization_id,
       hotel_id: hotel.id,
       stay_date: record.dateStr,
+      competitor_id: competitorByName.get(normalizeHotelName(competitor.name))!.id,
       competitor_name: competitor.name.trim(),
       room_type: null,
       rate_plan: null,
-      channel: dataset.metadata.sourceChannel || null,
-      currency: (dataset.metadata.currency || "EUR").slice(0, 3),
+      channel: normalizedDataset.metadata.sourceChannel === "Canal non renseigné" ? null : normalizedDataset.metadata.sourceChannel,
+      currency: hotel.currency.slice(0, 3),
       rate_amount: competitor.rate,
       availability_status: availabilityStatus(competitor.status),
       observed_at: observedAt,
@@ -113,11 +146,13 @@ export async function persistLighthouseExtraction(
         evolution_1d: competitor.evolution1d,
         evolution_3d: competitor.evolution3d,
         evolution_7d: competitor.evolution7d,
-        source_file: dataset.metadata.fileName,
-        source_channel: dataset.metadata.sourceChannel,
+        source_file: normalizedDataset.metadata.fileName,
+        source_channel: normalizedDataset.metadata.sourceChannel,
+        dimensions_confirmed: false,
+        requires_channel_los_pos_confirmation: true,
       },
-      los: positiveIntegerFromLabel(dataset.metadata.los),
-      pos: positiveIntegerFromLabel(dataset.metadata.occupancy),
+      los: positiveIntegerFromLabel(normalizedDataset.metadata.los),
+      pos: positiveIntegerFromLabel(normalizedDataset.metadata.occupancy),
     })),
   );
 
@@ -130,26 +165,27 @@ export async function persistLighthouseExtraction(
     .insert({
       organization_id: hotel.organization_id,
       hotel_id: hotel.id,
-      file_name: dataset.metadata.fileName,
+      file_name: normalizedDataset.metadata.fileName,
       provider: "lighthouse",
       extraction_type: "manual_import",
       observed_at: observedAt,
       stay_start: stayDates[0],
       stay_end: stayDates[stayDates.length - 1],
-      currency: (dataset.metadata.currency || "EUR").slice(0, 3),
-      occupancy_context: dataset.metadata.occupancy,
-      los_nights: positiveIntegerFromLabel(dataset.metadata.los),
-      guests_count: positiveIntegerFromLabel(dataset.metadata.occupancy),
+      currency: hotel.currency.slice(0, 3),
+      occupancy_context: normalizedDataset.metadata.occupancy,
+      los_nights: positiveIntegerFromLabel(normalizedDataset.metadata.los),
+      guests_count: positiveIntegerFromLabel(normalizedDataset.metadata.occupancy),
       source_status: "imported",
       records_count: observationRows.length,
       imported_by: importedBy,
       metadata: {
-        sourceChannel: dataset.metadata.sourceChannel,
-        compsetName: dataset.metadata.compsetName,
-        referenceHotel: dataset.metadata.referenceHotel,
-        dateRange: dataset.metadata.dateRange,
-        totalDatesCount: dataset.metadata.totalDatesCount,
-        parsedDataset: dataset,
+        sourceChannel: normalizedDataset.metadata.sourceChannel,
+        compsetName: normalizedDataset.metadata.compsetName,
+        referenceHotel: normalizedDataset.metadata.referenceHotel,
+        dateRange: normalizedDataset.metadata.dateRange,
+        totalDatesCount: normalizedDataset.metadata.totalDatesCount,
+        dimensionsConfirmed: false,
+        parsedDataset: normalizedDataset,
       },
     })
     .select("id")
