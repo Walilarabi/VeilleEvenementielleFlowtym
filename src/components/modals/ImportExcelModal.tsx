@@ -1,221 +1,31 @@
-import React, { useState } from 'react';
-import { X, Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
-import { EventItem } from '../../types';
+import React from 'react';
+import { AlertTriangle, Database, X } from 'lucide-react';
 
 interface ImportExcelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImportEvents: (newEvents: EventItem[]) => void;
+  onImportEvents: (newEvents: never[]) => void;
 }
 
-export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
-  isOpen,
-  onClose,
-  onImportEvents,
-}) => {
-  const [dragActive, setDragActive] = useState(false);
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-  const [parsedPreviewCount, setParsedPreviewCount] = useState<number>(0);
-  const [isSuccess, setIsSuccess] = useState(false);
-
+/** Read-only until a persisted event-ingestion endpoint exists. */
+export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
-
-  const handleSimulateFile = (name: string) => {
-    setSelectedFileName(name);
-    setParsedPreviewCount(4); // 4 valid rows parsed
-  };
-
-  const handleConfirmImport = () => {
-    // Generate 4 imported events
-    const imported: EventItem[] = [
-      {
-        id: `ev-imp-${Date.now()}-1`,
-        title: 'Salon International de l’Emballage Paris 2026',
-        subtitle: 'All4Pack Emballage Paris',
-        category: 'salons_foires',
-        venueId: 'venue-nord-villepinte',
-        venueName: 'Paris Nord Villepinte',
-        city: 'Paris',
-        country: 'France',
-        startDate: '2026-11-23',
-        endDate: '2026-11-26',
-        expectedAttendance: 65000,
-        internationalRatioPercent: 48,
-        status: 'confirmed',
-        impactLevel: 'modere',
-        scoreBreakdown: {
-          attendanceScore: 16,
-          internationalScore: 12,
-          saturationScore: 15,
-          proximityScore: 14,
-          compressionScore: 11,
-          finalRMScore: 68,
-          confidenceScore: 98,
-        },
-        sources: ['Fichier Import Excel Utilisateur'],
-        evidences: [],
-        hotelImpacts: {},
-        isRecurring: true,
-        recurrenceFrequency: 'biennial',
-        isFavorite: false,
-        isWatchlist: false,
-        isYieldActive: false,
-        createdAt: new Date().toISOString().slice(0, 10),
-        lastVerifiedAt: new Date().toISOString().slice(0, 10),
-      },
-      {
-        id: `ev-imp-${Date.now()}-2`,
-        title: 'Congrès National de Cardiologie Interventionnelle',
-        subtitle: 'Sessions annuelles plénières',
-        category: 'congres_medical',
-        venueId: 'venue-porte-versailles',
-        venueName: 'Paris Expo Porte de Versailles',
-        city: 'Paris',
-        country: 'France',
-        startDate: '2026-12-02',
-        endDate: '2026-12-04',
-        expectedAttendance: 18000,
-        internationalRatioPercent: 32,
-        status: 'confirmed',
-        impactLevel: 'modere',
-        scoreBreakdown: {
-          attendanceScore: 13,
-          internationalScore: 10,
-          saturationScore: 14,
-          proximityScore: 16,
-          compressionScore: 10,
-          finalRMScore: 63,
-          confidenceScore: 95,
-        },
-        sources: ['Fichier Import Excel Utilisateur'],
-        evidences: [],
-        hotelImpacts: {},
-        isRecurring: true,
-        recurrenceFrequency: 'annual',
-        isFavorite: false,
-        isWatchlist: false,
-        isYieldActive: false,
-        createdAt: new Date().toISOString().slice(0, 10),
-        lastVerifiedAt: new Date().toISOString().slice(0, 10),
-      },
-    ];
-
-    onImportEvents(imported);
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      onClose();
-    }, 1200);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-2xs animate-in fade-in">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
-              <Upload className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Importer un fichier Excel / CSV</h3>
-              <p className="text-[11px] text-slate-500">Ajoutez en bloc votre calendrier d&apos;événements d&apos;entreprise</p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="event-import-title">
+      <section className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"><Database className="h-5 w-5" /></span>
+            <div><h2 id="event-import-title" className="text-base font-bold text-slate-900 dark:text-slate-100">Import événementiel indisponible</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Le fichier ne sera pas importé ni enregistré.</p></div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
-            <X className="w-4 h-4" />
-          </button>
+          <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button>
+        </header>
+        <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+          <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><p>Le backend d'ingestion des événements n'est pas raccordé à cette interface. L'ancien écran simulait la lecture d'un fichier et affichait de faux événements ; ce comportement a été retiré pour éviter de polluer le calendrier.</p></div>
         </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          {/* Dropzone */}
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragActive(true);
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragActive(false);
-              const file = e.dataTransfer.files[0];
-              if (file) handleSimulateFile(file.name);
-            }}
-            className={`border-2 border-dashed rounded-2xl p-6 text-center space-y-2 cursor-pointer transition-colors ${
-              dragActive ? 'border-violet-500 bg-violet-50/50' : 'border-slate-200 hover:border-violet-300 bg-slate-50/50'
-            }`}
-            onClick={() => handleSimulateFile('flowtym_events_import_2026.xlsx')}
-          >
-            <div className="w-12 h-12 rounded-2xl bg-white shadow-xs border border-slate-100 flex items-center justify-center text-violet-600 mx-auto">
-              <FileSpreadsheet className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-800">
-                {selectedFileName || 'Glissez-déposez votre fichier .xlsx ou .csv ici'}
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Ou cliquez pour sélectionner un fichier test compatible Flowtym
-              </p>
-            </div>
-          </div>
-
-          {/* Parsed Preview info */}
-          {selectedFileName && (
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-violet-600" />
-                <span className="font-semibold text-slate-800">{selectedFileName}</span>
-              </div>
-              <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                {parsedPreviewCount} événements valides
-              </span>
-            </div>
-          )}
-
-          {isSuccess && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-800 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Événements importés avec succès !</span>
-            </div>
-          )}
-
-          {/* Footer actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => {
-                const headers = ['titre', 'date_debut', 'date_fin', 'categorie', 'lieu', 'ville', 'participants_attendus', 'statut'];
-                const rows = [
-                  ['Salon International du Luxe 2026', '2026-11-20', '2026-11-22', 'mode_luxe', 'Palais Brongniart', 'Paris', 25000, 'confirmed'],
-                  ['Congrès Européen d’Oncologie', '2026-12-05', '2026-12-08', 'congres_medical', 'Palais des Congrès', 'Paris', 18000, 'confirmed'],
-                ];
-                import('../../utils/helpers').then(({ downloadGenericCsv }) => {
-                  downloadGenericCsv('modele_import_evenements_flowtym.csv', headers, rows);
-                });
-              }}
-              className="text-xs font-bold text-violet-700 hover:text-violet-800 hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <span>Télécharger le modèle (.CSV)</span>
-            </button>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
-              >
-                Annuler
-              </button>
-              <button
-                disabled={!selectedFileName || isSuccess}
-                onClick={handleConfirmImport}
-                className="px-4 py-2 text-xs font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-xl shadow-xs cursor-pointer"
-              >
-                Intégrer les événements
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+        <p className="mt-4 text-xs text-slate-600 dark:text-slate-300">Le raccordement sera activé lorsque l'import réel, la validation des colonnes et l'enregistrement Supabase seront disponibles.</p>
+        <footer className="mt-6 flex justify-end"><button type="button" onClick={onClose} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900">Fermer</button></footer>
+      </section>
     </div>
   );
 };
