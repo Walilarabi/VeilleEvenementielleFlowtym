@@ -117,3 +117,15 @@ export const runWalkForwardBacktest = (
   supabase, `/hotels/${encodeURIComponent(hotelId)}/backtests/walk-forward`,
   { method: "POST", body: { startDate, endDate, horizonDays, minimumSamples } },
 );
+
+export const decideHotelEventImpact = (
+  supabase: SupabaseClient,
+  hotelId: string,
+  occurrenceId: string,
+  action: "validate" | "dismiss",
+  reasonCode: string,
+  reasonText?: string,
+) => revenueApiRequest<{ ok: true; data: unknown; auditAppended: true }>(
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/events/decisions`,
+  { method: "POST", body: { occurrenceId, action, reasonCode, reasonText } },
+);
