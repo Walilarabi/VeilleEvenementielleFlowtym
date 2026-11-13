@@ -1406,7 +1406,6 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         </div>
       )}
     </div>
-  );
     </>
   );
 };
