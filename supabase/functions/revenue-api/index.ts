@@ -529,7 +529,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     if (!Number.isInteger(horizonDays)||horizonDays<1||horizonDays>365||!Number.isInteger(minimumSamples)||minimumSamples<1||minimumSamples>30) {
       return fail("horizonDays (1–365) et minimumSamples (1–30) obligatoires/invalides",422);
     }
-    const cutoff=addDays(start,-1095);
+    const cutoff=addDays(start,-1095-horizonDays);
     const [historyResult,demandResult]=await Promise.all([
       supabase.from("hotel_historical_daily").select("stay_date,day_of_week,occupancy_pct,adr_net,revpar,source_status,updated_at")
         .eq("hotel_id",hotelId).gte("stay_date",cutoff).lte("stay_date",end)
