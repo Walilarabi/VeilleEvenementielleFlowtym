@@ -105,7 +105,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                   ? 'bg-amber-50 border-amber-200 text-amber-500'
                   : 'bg-white border-slate-200 text-slate-400 hover:text-slate-700'
               }`}
-              title="Favoris"
+              aria-label="Favoris"
             >
               <Star className={`w-4 h-4 ${event.isFavorite ? 'fill-amber-400' : ''}`} />
             </button>
@@ -119,7 +119,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                   ? 'bg-violet-50 border-violet-200 text-violet-600'
                   : 'bg-white border-slate-200 text-slate-400 hover:text-slate-700'
               }`}
-              title="Mettre sous surveillance RM"
+              aria-label="Mettre sous surveillance RM"
             >
               <Eye className="w-4 h-4" />
             </button>
