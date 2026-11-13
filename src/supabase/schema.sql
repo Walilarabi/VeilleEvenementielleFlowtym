@@ -13,6 +13,7 @@
 --   /supabase/migrations/20261113000600_hotel_directory_membership_rls.sql
 --   /supabase/migrations/20261113000700_idempotent_recommendation_persistence.sql
 --   /supabase/migrations/20261113000800_persist_pickup_windows.sql
+--   /supabase/migrations/20261113000900_event_impact_evidence_scores.sql
 --
 -- The auth baseline remains managed separately by the existing authentication
 -- migrations. Never run the old monolithic schema.sql or recreate organizations,
