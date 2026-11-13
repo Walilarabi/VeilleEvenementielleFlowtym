@@ -7,6 +7,7 @@ import {
   getHotelForecasts,
   getHotelInventorySnapshots,
   getHotelBacktests,
+  getHotelIntegrations,
 } from "./revenueApiClient";
 
 export type RevenueHotel = {
@@ -31,6 +32,7 @@ export type RevenueForecastRow = {
   confidence_score:number|null; drivers:unknown[]; source_status:string;
   revenue_forecast_runs?:{model_name:string;model_version:string;as_of:string;run_status:string}|null;
 };
+export type RevenueIntegrationRow = {id:string;provider:string;connection_name:string;connection_status:string;last_success_at:string|null;last_error_at:string|null;last_error_code:string|null;updated_at:string};
 export type RevenueInventoryRow = {
   id:string; stay_date:string; snapshot_at:string; source_system:string; source_status:string;
   total_rooms:number|null; sellable_rooms:number|null; rooms_sold:number|null; rooms_available:number|null;
@@ -40,7 +42,7 @@ export type RevenueEventRow = Record<string,any>;
 export type RevenueWorkspace = {
   hotels:Hotel[]; rawHotels:RevenueHotel[]; rates:RevenueRateRow[]; events:EventItem[];
   rawEvents:RevenueEventRow[]; forecasts:RevenueForecastRow[]; inventory:RevenueInventoryRow[];
-  backtests:unknown[]; loadedAt:string;
+  backtests:unknown[]; integrations:RevenueIntegrationRow[]; loadedAt:string;
 };
 
 const num=(v:unknown):number|null=>typeof v==="number"&&Number.isFinite(v)?v:v===null||v===undefined?null:Number.isFinite(Number(v))?Number(v):null;
@@ -101,7 +103,7 @@ export async function loadRevenueWorkspace(supabase:SupabaseClient,selectedHotel
  const rawHotels=(hotelResult.data??[]) as RevenueHotel[];
  const hotels=rawHotels.map(mapHotel);
  const selected=hotels.find(h=>h.id===selectedHotelId)??hotels[0];
- if(!selected) return {hotels,rawHotels,rates:[],events:[],rawEvents:[],forecasts:[],inventory:[],backtests:[],loadedAt:new Date().toISOString()};
+ if(!selected) return {hotels,rawHotels,rates:[],events:[],rawEvents:[],forecasts:[],inventory:[],backtests:[],integrations:[],loadedAt:new Date().toISOString()};
  const from=new Date(); const to=new Date(from); to.setUTCDate(to.getUTCDate()+180);
  const iso=(d:Date)=>d.toISOString().slice(0,10);
  const [rateResult,eventResult,forecastResult,inventoryResult,backtestResult]=await Promise.all([
@@ -110,6 +112,7 @@ export async function loadRevenueWorkspace(supabase:SupabaseClient,selectedHotel
   getHotelForecasts(supabase,selected.id,iso(from),iso(to)),
   getHotelInventorySnapshots(supabase,selected.id,iso(from),iso(to)),
   getHotelBacktests(supabase,selected.id),
+  getHotelIntegrations(supabase,selected.id),
  ]);
  const rawEvents=(eventResult.data??[]) as RevenueEventRow[];
  return {
@@ -117,6 +120,6 @@ export async function loadRevenueWorkspace(supabase:SupabaseClient,selectedHotel
   events:rawEvents.map(r=>mapEvent(r,selected.id)).filter((e):e is EventItem=>Boolean(e)),
   rawEvents,forecasts:(forecastResult.data??[]) as RevenueForecastRow[],
   inventory:(inventoryResult.data??[]) as RevenueInventoryRow[],
-  backtests:backtestResult.data??[],loadedAt:new Date().toISOString(),
+  backtests:backtestResult.data??[],integrations:(integrationResult.data??[]) as RevenueIntegrationRow[],loadedAt:new Date().toISOString(),
  };
 }
