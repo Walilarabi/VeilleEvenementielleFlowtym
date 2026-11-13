@@ -55,7 +55,8 @@ No pricing thresholds are silently assumed. The hotel's `hotel_parameters_profil
       "exceptional": 10
     },
     "pickup_scale_rooms": 5,
-    "max_observation_age_hours": 48
+    "max_observation_age_hours": 48,
+    "max_inventory_age_hours": 24
   }
 }
 ```
