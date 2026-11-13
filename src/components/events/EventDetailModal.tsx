@@ -276,7 +276,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               </div>
             ) : (
               <p className="text-xs text-slate-600">
-                Cet hôtel est situé en dehors de la zone d&apos;influence directe de l&apos;événement, mais subit la compression tarifaire globale du marché ({event.city}).
+                {event.scoreUnknown ? "Aucun impact n’a encore été calculé pour cet hôtel. Le score doit être généré et vérifié avant toute décision tarifaire." : `Cet hôtel est situé en dehors de la zone d’influence directe de l’événement, mais subit la compression tarifaire globale du marché (${event.city}).`}
               </p>
             )}
           </div>
