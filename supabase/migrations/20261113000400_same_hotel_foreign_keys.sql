@@ -15,6 +15,9 @@ begin
   if not exists (select 1 from pg_constraint where conname='lighthouse_extractions_id_hotel_org_unique') then
     alter table public.lighthouse_extractions add constraint lighthouse_extractions_id_hotel_org_unique unique(id,hotel_id,organization_id);
   end if;
+  if not exists (select 1 from pg_constraint where conname='integration_connections_id_hotel_org_unique') then
+    alter table public.integration_connections add constraint integration_connections_id_hotel_org_unique unique(id,hotel_id,organization_id);
+  end if;
   if not exists (select 1 from pg_constraint where conname='event_occurrences_id_event_unique') then
     alter table public.event_occurrences add constraint event_occurrences_id_event_unique unique(id,event_id);
   end if;
