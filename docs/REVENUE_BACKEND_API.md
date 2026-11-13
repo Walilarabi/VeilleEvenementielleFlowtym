@@ -28,6 +28,8 @@ All routes require a valid Supabase user access token.
 | GET | `/hotels/:hotelId/events?from=...&to=...` | Hotel-specific event impacts |
 | GET | `/hotels/:hotelId/inventory-snapshots?from=...&to=...` | Inventory snapshot history |
 | GET | `/hotels/:hotelId/forecasts?from=...&to=...` | Persisted daily forecasts |
+| GET | `/hotels/:hotelId/backtests` | Historical model evaluations |
+| POST | `/hotels/:hotelId/backtests/evaluate` | Evaluate a completed forecast run against realized occupancy |
 | POST | `/hotels/:hotelId/decisions` | Accept, modify or reject a recommendation |
 | POST | `/hotels/:hotelId/parameters` | Save hotel pricing parameters |
 | POST | `/hotels/:hotelId/inventory-snapshots` | Ingest up to 500 snapshots |
@@ -84,7 +86,7 @@ The engine version is persisted as `pricing_v1`; all inputs and configuration ar
 
 ## Forecast baseline
 
-`seasonal_naive_same_month_weekday@1.0.0` uses only historical rows strictly earlier than the forecast run date, grouped by month and weekday. It requires at least three observations per target date and returns empirical p10/p50/p90 occupancy quantiles. It is a baseline, not a production-grade demand model; backtesting against alternatives is required before promotion.
+`seasonal_naive_same_month_weekday@1.0.0` uses only historical rows strictly earlier than the forecast run date, grouped by month and weekday. It requires at least three observations per target date and returns empirical p10/p50/p90 occupancy quantiles. It is a baseline, not a production-grade demand model. The backtest endpoint evaluates completed forecast runs only when actual observations exist strictly after the run's `as_of` timestamp; it persists WAPE, MAE, RMSE, bias and empirical interval coverage. Walk-forward backtest orchestration and multi-model promotion gates remain future work.
 
 ## Source status and data truth
 
