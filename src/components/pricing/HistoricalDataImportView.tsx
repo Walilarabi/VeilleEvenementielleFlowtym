@@ -11,7 +11,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
 import { resolveAccessibleRmsHotel } from '../../services/lighthouseImportService';
-import { importHotelHistoricalRows } from '../../services/revenueApiClient';
+import { getHistoricalImportV2Status, importHotelHistoricalRows } from '../../services/revenueApiClient';
 import {
   FileSpreadsheet,
   Upload,
@@ -52,6 +52,8 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { supabase } = useAuth();
   const [databaseHotelId, setDatabaseHotelId] = useState<string | null>(null);
+  const [historicalImportBackendReady, setHistoricalImportBackendReady] = useState(false);
+  const [historicalImportBackendError, setHistoricalImportBackendError] = useState<string | null>(null);
   const [currentHistory, setCurrentHistory] = useState<HistoricalDailyRecord[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
@@ -75,6 +77,8 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
       if (!supabase) {
         if (!cancelled) {
           setPersistenceError('Session Supabase indisponible. Les données historiques ne peuvent pas être chargées.');
+          setHistoricalImportBackendReady(false);
+          setHistoricalImportBackendError("Le backend d'import historique v2 est indisponible.");
           setIsLoadingHistory(false);
         }
         return;
@@ -86,6 +90,12 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
           city: hotel.city,
           country: hotel.country,
         });
+        let backendError: string | null = null;
+        try {
+          await getHistoricalImportV2Status(supabase, dbHotel.id);
+        } catch {
+          backendError = "Le backend Revenue v2 n'est pas encore déployé sur Supabase. Le fichier peut être prévisualisé, mais l'import est désactivé pour éviter une écriture partielle.";
+        }
         const { data, error } = await supabase
           .from('hotel_historical_daily')
           .select('id,stay_date,raw_record')
@@ -107,6 +117,8 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
         if (!cancelled) {
           setDatabaseHotelId(dbHotel.id);
+          setHistoricalImportBackendReady(!backendError);
+          setHistoricalImportBackendError(backendError);
           setCurrentHistory(restored);
           setPersistenceError(
             restored.length < (data?.length ?? 0)
@@ -117,6 +129,8 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
       } catch (error) {
         if (!cancelled) {
           setPersistenceError(error instanceof Error ? error.message : 'Impossible de charger les données historiques.');
+          setHistoricalImportBackendReady(false);
+          setHistoricalImportBackendError("Le backend Revenue v2 n'a pas pu être vérifié ; import désactivé.");
         }
       } finally {
         if (!cancelled) setIsLoadingHistory(false);
@@ -202,8 +216,8 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
   // Confirmation : les lignes quotidiennes et snapshots OTB sont enregistrés via l'API Revenue protégée par JWT.
   const handleConfirmInjection = async () => {
     if (!previewData) return;
-    if (!supabase || !databaseHotelId) {
-      onShowToast('Import bloqué : session ou hôtel Supabase non vérifié.');
+    if (!supabase || !databaseHotelId || !historicalImportBackendReady) {
+      onShowToast("Import bloqué : le backend Revenue v2 n'est pas déployé ou vérifié.");
       return;
     }
     if (previewData.log.errorsCount > 0 || previewData.records.length === 0) {
@@ -352,6 +366,11 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
           <strong>Données historiques :</strong> {persistenceError}
         </div>
       )}
+      {historicalImportBackendError && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <strong>Import désactivé :</strong> {historicalImportBackendError}
+        </div>
+      )}
       {/* 1. Header & Navigation des sous-onglets */}
       <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -482,7 +501,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                   </button>
                   <button
                     onClick={handleConfirmInjection}
-                    disabled={!previewData.log.recordsCount || previewData.log.errorsCount > 0 || !databaseHotelId || isProcessing}
+                    disabled={!previewData.log.recordsCount || previewData.log.errorsCount > 0 || !databaseHotelId || !historicalImportBackendReady || isProcessing}
                     className="px-4 py-2 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 rounded-xl transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" />
