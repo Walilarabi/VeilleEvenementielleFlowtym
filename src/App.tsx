@@ -690,6 +690,10 @@ export default function App() {
     showToast("Suppression bloquée : aucun hôtel n'est supprimé depuis cette interface non raccordée à un flux d'administration sécurisé.");
   };
 
+  const handleHotelCoordinatesUpdated = (hotelId: string, lat: number | null, lng: number | null) => {
+    setHotels((prev) => prev.map((hotel) => hotel.id === hotelId ? { ...hotel, lat, lng } : hotel));
+  };
+
   const pendingSuggestionsCount = suggestions.filter((s) => s.status === 'pending').length;
   const pendingProposalsCount = proposals.filter((p) => p.status === 'pending').length;
 
@@ -883,6 +887,7 @@ export default function App() {
               onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
               onSelectEvent={setSelectedEvent}
               onShowToast={showToast}
+              onHotelCoordinatesUpdated={handleHotelCoordinatesUpdated}
             />
           )}
 
