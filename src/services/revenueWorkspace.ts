@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { EventItem, Hotel } from "../types";
+import type { EventItem, Hotel, EventSource, Venue } from "../types";
 import {
   listRevenueHotels,
   getHotelRates,
@@ -11,6 +11,8 @@ import {
   getHotelRevenueParameters,
   getHotelLighthouseObservations,
   getHotelCalibrationRules,
+  getRevenueSources,
+  getRevenueVenues,
 } from "./revenueApiClient";
 
 export type RevenueHotel = {
@@ -45,7 +47,7 @@ export type RevenueInventoryRow = {
 };
 export type RevenueEventRow = Record<string,any>;
 export type RevenueWorkspace = {
-  hotels:Hotel[]; rawHotels:RevenueHotel[]; rates:RevenueRateRow[]; events:EventItem[];
+  hotels:Hotel[]; rawHotels:RevenueHotel[]; sources:EventSource[]; venues:Venue[]; rates:RevenueRateRow[]; events:EventItem[];
   rawEvents:RevenueEventRow[]; forecasts:RevenueForecastRow[]; inventory:RevenueInventoryRow[];
   backtests:unknown[]; integrations:RevenueIntegrationRow[]; lighthouse:RevenueLighthouseRow[]; calibrationRules:RevenueCalibrationRule[]; parameters:Record<string,unknown>|null; loadedAt:string;
 };
@@ -108,10 +110,10 @@ export async function loadRevenueWorkspace(supabase:SupabaseClient,selectedHotel
  const rawHotels=(hotelResult.data??[]) as RevenueHotel[];
  const hotels=rawHotels.map(mapHotel);
  const selected=hotels.find(h=>h.id===selectedHotelId)??hotels[0];
- if(!selected) return {hotels,rawHotels,rates:[],events:[],rawEvents:[],forecasts:[],inventory:[],backtests:[],integrations:[],lighthouse:[],calibrationRules:[],parameters:null,loadedAt:new Date().toISOString()};
+ if(!selected) return {hotels,rawHotels,sources:[],venues:[],rates:[],events:[],rawEvents:[],forecasts:[],inventory:[],backtests:[],integrations:[],lighthouse:[],calibrationRules:[],parameters:null,loadedAt:new Date().toISOString()};
  const from=new Date(); const to=new Date(from); to.setUTCDate(to.getUTCDate()+180);
  const iso=(d:Date)=>d.toISOString().slice(0,10);
- const [rateResult,eventResult,forecastResult,inventoryResult,backtestResult,integrationResult,parametersResult,lighthouseResult,calibrationResult]=await Promise.all([
+ const [rateResult,eventResult,forecastResult,inventoryResult,backtestResult,integrationResult,parametersResult,lighthouseResult,calibrationResult,sourcesResult,venuesResult]=await Promise.all([
   getHotelRates(supabase,selected.id,iso(from),iso(to)),
   getHotelEvents(supabase,selected.id,iso(from),iso(to)),
   getHotelForecasts(supabase,selected.id,iso(from),iso(to)),
@@ -121,10 +123,24 @@ export async function loadRevenueWorkspace(supabase:SupabaseClient,selectedHotel
   getHotelRevenueParameters(supabase,selected.id),
   getHotelLighthouseObservations(supabase,selected.id,iso(from),iso(to)),
   getHotelCalibrationRules(supabase,selected.id),
+  getRevenueSources(supabase),
+  getRevenueVenues(supabase,selected.city),
  ]);
  const rawEvents=(eventResult.data??[]) as RevenueEventRow[];
  return {
-  hotels,rawHotels,rates:(rateResult.data??[]) as RevenueRateRow[],
+  hotels,rawHotels,
+  sources:((sourcesResult.data??[]) as any[]).map((r):EventSource=>({
+    id:String(r.id),name:String(r.name),url:String(r.source_url),category:String(r.source_type),
+    city:String(r.city??selected.city),reliabilityScore:num(r.reliability_score)??0,
+    lastCrawledAt:String(r.last_crawled_at??""),status:r.status==="healthy"||r.status==="error"?r.status:"warning",
+    detectedEventsCount:Array.isArray(r.event_evidence)?r.event_evidence.length:0,isOfficial:Boolean(r.is_official),
+  })),
+  venues:((venuesResult.data??[]) as any[]).map((r):Venue=>({
+    id:String(r.id),name:String(r.name),city:String(r.city),country:r.country_code==="FR"?"France":String(r.country_code??""),
+    address:String(r.address??""),lat:num(r.latitude)??0,lng:num(r.longitude)??0,capacity:num(r.capacity)??0,
+    type:(["parc_expositions","arena","stade","centre_congres","theatre","espace_public"].includes(r.venue_type)?r.venue_type:"espace_public") as Venue["type"],
+  })),
+  rates:(rateResult.data??[]) as RevenueRateRow[],
   events:rawEvents.map(r=>mapEvent(r,selected.id)).filter((e):e is EventItem=>Boolean(e)),
   rawEvents,forecasts:(forecastResult.data??[]) as RevenueForecastRow[],
   inventory:(inventoryResult.data??[]) as RevenueInventoryRow[],
