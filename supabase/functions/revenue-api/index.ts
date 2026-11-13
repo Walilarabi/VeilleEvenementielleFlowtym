@@ -434,17 +434,32 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         data_quality_status:sufficient?"valid":"insufficient",input_snapshot:evidence,
         engine_version:"pricing_v1",recommendation_status:"pending",
       };
-      const {data:existing}=await supabase.from("daily_rate_intelligence").select("id,recommendation_status")
-        .eq("hotel_id",hotelId).eq("stay_date",stayDate).eq("engine_version","pricing_v1")
-        .is("room_type_id",null).is("rate_plan_id",null).maybeSingle();
-      if (existing?.recommendation_status==="pending") {
-        const {error}=await supabase.from("daily_rate_intelligence").update(row).eq("id",existing.id);
-        if (error) return fail("Mise à jour d'une recommandation impossible",400,error.message);
-      } else {
-        const {error}=await supabase.from("daily_rate_intelligence").insert(row);
-        if (error) return fail("Enregistrement d'une recommandation impossible",400,error.message);
-      }
-      output.push({stayDate,currentBar:current,suggestedBar:suggested,demandIndex:row.demand_index,bucket:row.demand_level,coverageScore:confidence,status:row.data_quality_status});
+      const {data:persisted,error:persistError}=await supabase.rpc("persist_rm_recommendation",{
+        p_organization_id:hotel.organization_id,
+        p_hotel_id:hotelId,
+        p_stay_date:stayDate,
+        p_currency:hotel.currency,
+        p_current_bar:row.current_bar,
+        p_suggested_bar:row.suggested_bar,
+        p_delta_amount:row.delta_amount,
+        p_delta_pct:row.delta_pct,
+        p_demand_index:row.demand_index,
+        p_demand_level:row.demand_level,
+        p_occupancy_pct:row.occupancy_pct,
+        p_rooms_remaining:row.rooms_remaining,
+        p_lighthouse_median:row.lighthouse_median,
+        p_flowtym_compset_median:row.flowtym_compset_median,
+        p_strategy_code:row.strategy_code,
+        p_explanation:row.explanation,
+        p_evidence:row.evidence,
+        p_confidence_score:row.confidence_score,
+        p_data_quality_status:row.data_quality_status,
+        p_input_snapshot:row.input_snapshot,
+        p_engine_version:row.engine_version,
+      });
+      if (persistError) return fail("Persistance idempotente de la recommandation impossible",409,persistError.message);
+      const saved=Array.isArray(persisted)?persisted[0]:persisted;
+      output.push({recommendationId:saved?.id,stayDate,currentBar:current,suggestedBar:suggested,demandIndex:row.demand_index,bucket:row.demand_level,coverageScore:confidence,status:row.data_quality_status});
     }
     return json({ok:true,hotelId,engineVersion:"pricing_v1",generated:output.length,requiresHumanApproval:true,automaticPublication:false,data:output},201);
   }
