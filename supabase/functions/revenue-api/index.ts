@@ -799,7 +799,29 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ok:true,data:evaluation},201);
   }
 
-  if (actionPath === "recommendations/generate") {
+  if (actionPath === "recommendations-v2-status") {
+    return json({ ok: true, version: 2 });
+  }
+
+  if (actionPath === "recommendations-v2") {
+    const requestUrl = new URL(req.url);
+    const start = requestUrl.searchParams.get("from");
+    const end = requestUrl.searchParams.get("to");
+    if (!start || !end || !isDate(start) || !isDate(end) || start > end || eachDate(start, end).length > 120) {
+      return fail("Période de recommandations invalide (maximum 120 jours)");
+    }
+    const { data, error } = await supabase.from("daily_rate_intelligence")
+      .select("*")
+      .eq("hotel_id", hotelId)
+      .gte("stay_date", start)
+      .lte("stay_date", end)
+      .order("stay_date", { ascending: true })
+      .limit(1000);
+    if (error) return fail("Lecture des recommandations Revenue impossible", 400, error.message);
+    return json({ ok: true, data: data ?? [] });
+  }
+
+  if (actionPath === "recommendations-v2-generate") {
     const start = body.startDate, end = body.endDate;
     if (!isDate(start) || !isDate(end) || start > end || eachDate(start,end).length > 90) {
       return fail("startDate/endDate invalides (maximum 90 jours)");
