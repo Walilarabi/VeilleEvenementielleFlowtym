@@ -15,7 +15,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { RevenueRateRow, RevenueLighthouseRow } from '../../services/revenueWorkspace';
+import type { RevenueRateRow, RevenueLighthouseRow, RevenueCalibrationRule } from '../../services/revenueWorkspace';
 import { RevenuePricingWorkspace } from './RevenuePricingWorkspace';
 import {
   TrendingUp,
@@ -396,6 +396,7 @@ interface RateIntelligenceViewProps {
   initialTab?: 'grid' | 'lighthouse' | 'historical' | 'backtest' | 'learning';
   backendRates?: RevenueRateRow[];
   backendLighthouse?: RevenueLighthouseRow[];
+  backendCalibrationRules?: RevenueCalibrationRule[];
   backendLoading?: boolean;
   backendError?: string | null;
   supabase?: SupabaseClient | null;
@@ -2978,6 +2979,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = (props)
       hotel={props.hotel}
       rows={props.backendRates}
       lighthouse={props.backendLighthouse ?? []}
+      calibrationRules={props.backendCalibrationRules ?? []}
       loading={Boolean(props.backendLoading)}
       error={props.backendError ?? null}
       supabase={props.supabase ?? null}
