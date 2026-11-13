@@ -7,7 +7,8 @@ export type EventCategory =
   | 'mode_luxe'
   | 'corporate_sommet'
   | 'culturel'
-  | 'vacances_scolaires';
+  | 'vacances_scolaires'
+  | 'autre';
 
 export type RMImpactLevel = 'hyper' | 'critique' | 'modere' | 'faible';
 
@@ -18,7 +19,8 @@ export type ConfirmationStatus =
   | 'a_verifier'
   | 'estimated_recurrent'
   | 'announced_pending'
-  | 'rumored';
+  | 'rumored'
+  | 'cancelled';
 
 export interface Venue {
   id: string;
@@ -85,6 +87,8 @@ export interface EventItem {
   id: string;
   occurrenceId?: string;
   impactStatus?: 'to_review' | 'validated' | 'dismissed';
+  expectedAttendanceUnknown?: boolean;
+  confidenceUnknown?: boolean;
   title: string;
   subtitle?: string;
   category: EventCategory;
