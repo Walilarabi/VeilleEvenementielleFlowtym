@@ -339,11 +339,17 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const totalWeight = keys.reduce((s,k)=>s+(Number(weights[k])||0),0);
     const thresholds = cfg.thresholds as Record<string,number>;
     const adjustments = cfg.rate_adjustments_pct as Record<string,number>;
+    const normalThreshold = Number(thresholds.normal);
+    const highThreshold = Number(thresholds.high);
+    const exceptionalThreshold = Number(thresholds.exceptional);
+    const maxObservationAge = Number(cfg.max_observation_age_hours ?? 48);
+    const maxInventoryAge = Number(cfg.max_inventory_age_hours ?? 24);
     if (totalWeight <= 0 || keys.some(k => !Number.isFinite(Number(weights[k])) || Number(weights[k]) < 0) ||
-        !Number.isFinite(Number(thresholds.normal)) || !Number.isFinite(Number(thresholds.high)) ||
-        !Number.isFinite(Number(thresholds.exceptional)) ||
+        !Number.isFinite(normalThreshold) || !Number.isFinite(highThreshold) || !Number.isFinite(exceptionalThreshold) ||
+        normalThreshold < 0 || normalThreshold >= highThreshold || highThreshold >= exceptionalThreshold || exceptionalThreshold > 100 ||
         !["low","normal","high","exceptional"].every(k => Number.isFinite(Number(adjustments[k]))) ||
-        !Number.isFinite(Number(cfg.max_inventory_age_hours ?? 24)) || Number(cfg.max_inventory_age_hours ?? 24) <= 0) {
+        !Number.isFinite(maxObservationAge) || maxObservationAge <= 0 ||
+        !Number.isFinite(maxInventoryAge) || maxInventoryAge <= 0) {
       return fail("Configuration pricing_v1 invalide : weights, thresholds et rate_adjustments_pct requis", 422);
     }
 
@@ -364,7 +370,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const reservationByDate = new Map<string,any[]>();
     for (const r of reservations ?? []) reservationByDate.set(r.stay_date,[...(reservationByDate.get(r.stay_date)??[]),r]);
     const compByDate = new Map<string,number[]>();
-    const maxAgeHours = Number(cfg.max_observation_age_hours ?? 48);
+    const maxAgeHours = maxObservationAge;
     for (const r of compRates ?? []) {
       const age=(Date.now()-Date.parse(r.observed_at))/3600000;
       if (age >= 0 && age <= maxAgeHours && Number(r.rate_amount)>0) compByDate.set(r.stay_date,[...(compByDate.get(r.stay_date)??[]),Number(r.rate_amount)]);
@@ -383,7 +389,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       const current=numberOrNull(inv?.current_bar);
       if (current===null || current<=0) continue;
       const inventoryAgeHours=(Date.now()-Date.parse(inv.snapshot_at))/3600000;
-      if (!Number.isFinite(inventoryAgeHours) || inventoryAgeHours < 0 || inventoryAgeHours > Number(cfg.max_inventory_age_hours ?? 24)) {
+      if (!Number.isFinite(inventoryAgeHours) || inventoryAgeHours < 0 || inventoryAgeHours > maxInventoryAge) {
         output.push({stayDate,status:"skipped",reason:"stale_inventory_snapshot"});
         continue;
       }
