@@ -358,7 +358,8 @@ async function handle(req: Request): Promise<Response> {
     if (totalWeight <= 0 || keys.some(k => !Number.isFinite(Number(weights[k])) || Number(weights[k]) < 0) ||
         !Number.isFinite(Number(thresholds.normal)) || !Number.isFinite(Number(thresholds.high)) ||
         !Number.isFinite(Number(thresholds.exceptional)) ||
-        !["low","normal","high","exceptional"].every(k => Number.isFinite(Number(adjustments[k])))) {
+        !["low","normal","high","exceptional"].every(k => Number.isFinite(Number(adjustments[k]))) ||
+        !Number.isFinite(Number(cfg.max_inventory_age_hours ?? 24)) || Number(cfg.max_inventory_age_hours ?? 24) <= 0) {
       return fail("Configuration pricing_v1 invalide : weights, thresholds et rate_adjustments_pct requis", 422);
     }
 
@@ -397,11 +398,17 @@ async function handle(req: Request): Promise<Response> {
       const inv=latestInventory.get(stayDate);
       const current=numberOrNull(inv?.current_bar);
       if (current===null || current<=0) continue;
+      const inventoryAgeHours=(Date.now()-Date.parse(inv.snapshot_at))/3600000;
+      if (!Number.isFinite(inventoryAgeHours) || inventoryAgeHours < 0 || inventoryAgeHours > Number(cfg.max_inventory_age_hours ?? 24)) {
+        output.push({stayDate,status:"skipped",reason:"stale_inventory_snapshot"});
+        continue;
+      }
       const signals:Record<string,number|null>={occupancy:null,pickup:null,event:eventByDate.get(stayDate)??null,compset:null};
       if (numberOrNull(inv?.occupancy_pct)!==null) signals.occupancy=clamp(Number(inv.occupancy_pct),0,100);
       const snaps=(reservationByDate.get(stayDate)??[]).sort((a,b)=>Date.parse(b.snapshot_at)-Date.parse(a.snapshot_at));
       if (snaps.length>=2 && numberOrNull(snaps[0].rooms_otb)!==null) {
-        const prior=snaps.slice(1).find((s:any)=>Date.parse(snaps[0].snapshot_at)-Date.parse(s.snapshot_at)>=20*3600000);
+        const latestAge=(Date.now()-Date.parse(snaps[0].snapshot_at))/3600000;
+        const prior=latestAge<=30 ? snaps.slice(1).find((s:any)=>{ const h=(Date.parse(snaps[0].snapshot_at)-Date.parse(s.snapshot_at))/3600000; return h>=20 && h<=30; }) : null;
         if (prior && numberOrNull(prior.rooms_otb)!==null) {
           const roomsScale=Number(cfg.pickup_scale_rooms);
           if (Number.isFinite(roomsScale) && roomsScale>0) signals.pickup=clamp(50+50*(Number(snaps[0].rooms_otb)-Number(prior.rooms_otb))/roomsScale,0,100);
@@ -447,7 +454,7 @@ async function handle(req: Request): Promise<Response> {
         const {error}=await supabase.from("daily_rate_intelligence").insert(row);
         if (error) return fail("Enregistrement d'une recommandation impossible",400,error.message);
       }
-      output.push({stayDate,currentBar:current,suggestedBar:suggested,demandIndex:row.demand_index,bucket:row.demand_level,confidenceScore:confidence,status:row.data_quality_status});
+      output.push({stayDate,currentBar:current,suggestedBar:suggested,demandIndex:row.demand_index,bucket:row.demand_level,coverageScore:confidence,status:row.data_quality_status});
     }
     return json({ok:true,hotelId,engineVersion:"pricing_v1",generated:output.length,requiresHumanApproval:true,automaticPublication:false,data:output},201);
   }
