@@ -164,3 +164,16 @@ export const getHotelCalibrationRules = (supabase: SupabaseClient, hotelId: stri
   revenueApiRequest<{ ok: true; data: unknown[] }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/calibration-rules`,
   );
+
+export const reviewPriceExperiment = (
+  supabase: SupabaseClient,
+  hotelId: string,
+  experimentId: string,
+  action: "verify_randomization" | "complete",
+  reasonCode: string,
+  evidence?: Record<string, unknown>,
+  reasonText?: string,
+) => revenueApiRequest<{ ok: true; data: unknown; auditAppended: true }>(
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/price-experiments/review`,
+  { method: "POST", body: { experimentId, action, reasonCode, evidence, reasonText } },
+);
