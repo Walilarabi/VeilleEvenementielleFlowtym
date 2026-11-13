@@ -79,6 +79,15 @@ export interface EventScoreBreakdown {
   compressionScore: number; // e.g. 0-15
   finalRMScore: number; // 0-100
   confidenceScore: number; // 0-100
+  durationScore?: number;
+  recurrenceScore?: number;
+  capacityScore?: number;
+  notorietyScore?: number;
+  extraNightsScore?: number;
+  segmentFitScore?: number;
+  sourceConfidenceScore?: number;
+  historicalDemandScore?: number;
+  historicalDemandSampleCount?: number;
 }
 
 export interface EventItem {
