@@ -53,15 +53,17 @@ export function getDEdgeConfig(hotelId: string): DEdgeConfig {
     const raw = localStorage.getItem(`${DEDGE_STORAGE_KEY_PREFIX}${hotelId}`);
     if (raw) {
       const stored = JSON.parse(raw) as Partial<DEdgeConfig>;
-      return {
+      const safeConfig = {
         ...DEFAULT_DEDGE_CONFIG,
         ...stored,
         apiToken: '',
         webhookUrl: '',
-        status: 'disconnected',
+        status: 'disconnected' as const,
         lastSyncAt: undefined,
-        lastHeartbeatStatus: 'error',
+        lastHeartbeatStatus: 'error' as const,
       };
+      localStorage.setItem(`${DEDGE_STORAGE_KEY_PREFIX}${hotelId}`, JSON.stringify(safeConfig));
+      return safeConfig;
     }
   } catch (e) {
     console.error('Failed to parse D-EDGE config from storage', e);
