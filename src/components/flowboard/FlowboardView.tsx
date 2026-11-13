@@ -36,6 +36,8 @@ interface FlowboardViewProps {
   onGoToCalendar: () => void;
   onGoToSchoolHolidays?: () => void;
   onGoToOpportunities?: () => void;
+  onGoToPricing?: () => void;
+  onGoToForecast?: () => void;
   backendMode?: boolean;
   backendRates?: RevenueRateRow[];
   backendForecasts?: RevenueForecastRow[];
@@ -514,8 +516,8 @@ export const FlowboardView: React.FC<FlowboardViewProps> = (props) => {
       inventory={props.backendInventory ?? []}
       onSelectEvent={props.onSelectEvent}
       onGoToCalendar={props.onGoToCalendar}
-      onGoToPricing={() => props.onGoToOpportunities?.()}
-      onGoToForecast={() => props.onGoToSchoolHolidays?.()}
+      onGoToPricing={props.onGoToPricing ?? (() => undefined)}
+      onGoToForecast={props.onGoToForecast ?? (() => undefined)}
       onGoToOpportunities={() => props.onGoToOpportunities?.()}
     />;
   }
