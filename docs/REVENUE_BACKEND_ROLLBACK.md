@@ -25,6 +25,7 @@ For production incidents, prefer a forward-fix migration. The current schema con
 8. `20261113000800_persist_pickup_windows.sql`: persist validated 24h/3d/7d pickup windows.
 9. `20261113000900_event_impact_evidence_scores.sql`: store event-impact scoring components and evidence.
 10. `20261113001000_exact_net_pickup_inputs.sql`: persist reservation-level exact net pickup windows.
+11. `20261113001100_event_historical_demand_score.sql`: persist comparable historical hotel occupancy for event scoring.
 
 ### Recovery notes
 
