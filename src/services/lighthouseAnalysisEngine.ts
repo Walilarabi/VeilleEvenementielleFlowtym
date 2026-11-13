@@ -809,8 +809,11 @@ export function parseLighthouseExcelFile(
     });
   };
 
-  const apercuName = findSheet(['apercu', 'overview']) || sheets[0];
-  const tarifsName = findSheet(['tarifs', 'rates', 'prices']) || sheets[1] || sheets[0];
+  const apercuName = findSheet(['apercu', 'overview']);
+  const tarifsName = findSheet(['tarifs', 'rates', 'prices']);
+  if (!apercuName || !tarifsName) {
+    throw new Error("Export Lighthouse incomplet : les onglets « Aperçu » et « Tarifs » sont obligatoires.");
+  }
   const vsHierName = findSheet(['vshier', 'hier', 'yesterday', '1d', 'j1']);
   const vs3jName = findSheet(['vs3jours', 'vs3j', '3jours', '3j', '3days']);
   const vs7jName = findSheet(['vs7jours', 'vs7j', '7jours', '7j', '7days']);
@@ -830,12 +833,16 @@ export function parseLighthouseExcelFile(
   if (rawTarifs.length < 2) {
     throw new Error("Le fichier ne contient pas de données dans l'onglet des tarifs.");
   }
+  if (rawApercu.length < 2) {
+    throw new Error("L'onglet Aperçu ne contient aucune donnée exploitable.");
+  }
 
   // Identifier les en-têtes
   const headerRow = rawTarifs[0].map((h: any) => String(h).trim());
   const dateColIdx = headerRow.findIndex((h) => /date/i.test(h));
   const demandColIdx = headerRow.findIndex((h) => /demande/i.test(h));
   const folkestoneColIdx = headerRow.findIndex((h) => /folkestone/i.test(h));
+  if (dateColIdx < 0) throw new Error("Colonne Date absente de l'onglet Tarifs.");
 
   // Les autres colonnes sont les concurrents
   const competitorCols: { name: string; idx: number }[] = [];
@@ -845,23 +852,29 @@ export function parseLighthouseExcelFile(
     }
   });
 
-  // Mapper Aperçu par Date
+  // Mapper Aperçu par Date : aucune valeur de demande ou médiane n'est inventée.
   const apercuMap = new Map<string, { demand: number; medianLh: number }>();
-  if (rawApercu.length > 1) {
-    const apHeaders = rawApercu[0].map((h: any) => String(h).trim());
-    const apDateIdx = apHeaders.findIndex((h) => /date/i.test(h));
-    const apDemandIdx = apHeaders.findIndex((h) => /demande/i.test(h));
-    const apMedianIdx = apHeaders.findIndex((h) => /m[ée]diane/i.test(h));
+  const apHeaders = rawApercu[0].map((h: any) => String(h).trim());
+  const apDateIdx = apHeaders.findIndex((h) => /date/i.test(h));
+  const apDemandIdx = apHeaders.findIndex((h) => /demande/i.test(h));
+  const apMedianIdx = apHeaders.findIndex((h) => /m[ée]diane/i.test(h));
+  if (apDateIdx < 0 || apDemandIdx < 0 || apMedianIdx < 0) {
+    throw new Error("L'onglet Aperçu doit contenir les colonnes Date, Demande et Médiane Lighthouse.");
+  }
 
-    for (let r = 1; r < rawApercu.length; r++) {
-      const row = rawApercu[r];
-      const d = parseExcelDate(row[apDateIdx]);
-      if (d) {
-        const dem = parseFloat(row[apDemandIdx]) || 50;
-        const med = parseFloat(row[apMedianIdx]) || 280;
-        apercuMap.set(d, { demand: dem, medianLh: med });
-      }
+  for (let r = 1; r < rawApercu.length; r++) {
+    const row = rawApercu[r];
+    const d = parseExcelDate(row[apDateIdx]);
+    if (!d) continue;
+    const dem = Number.parseFloat(String(row[apDemandIdx]).replace("%", "").replace(",", "."));
+    const med = Number.parseFloat(String(row[apMedianIdx]).replace(/[€\s]/g, "").replace(",", "."));
+    if (!Number.isFinite(dem) || dem < 0 || dem > 100) {
+      throw new Error(`Indice de demande Lighthouse invalide pour le ${d} : aucune valeur de remplacement ne sera inventée.`);
     }
+    if (!Number.isFinite(med) || med <= 0) {
+      throw new Error(`Médiane Lighthouse invalide pour le ${d} : aucune valeur de remplacement ne sera inventée.`);
+    }
+    apercuMap.set(d, { demand: dem, medianLh: med });
   }
 
   // Mapper les évolutions vs Hier, vs 3j, vs 7j par (date + nom d'hôtel)
@@ -905,7 +918,10 @@ export function parseLighthouseExcelFile(
 
     // Demande
     const apInfo = apercuMap.get(dateStr);
-    const demandIndex = apInfo ? apInfo.demand : demandColIdx >= 0 ? parseFloat(row[demandColIdx]) || 55 : 55;
+    if (!apInfo) {
+      throw new Error(`Aucune donnée Aperçu (demande/médiane) ne correspond à la date ${dateStr} de l'onglet Tarifs.`);
+    }
+    const demandIndex = apInfo.demand;
     const demandLevel = getDemandLevelFromIndex(demandIndex);
 
     // Évolution demande
@@ -960,7 +976,7 @@ export function parseLighthouseExcelFile(
     const compsetAverage =
       availableCompRates.length > 0
         ? Math.round(availableCompRates.reduce((a, b) => a + b, 0) / availableCompRates.length)
-        : folkRate ?? 250;
+        : 0;
 
     const minCompRate = availableCompRates.length > 0 ? Math.min(...availableCompRates) : null;
     const minCompHotel = competitors.find((c) => c.rate === minCompRate);
