@@ -278,8 +278,11 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       if (!isDate(r.stay_date) || !r.snapshot_at || Number.isNaN(Date.parse(r.snapshot_at))) return fail("stay_date/snapshot_at invalide");
       if (r.pickup_window_hours!==null) {
         if (![24,72,168].includes(r.pickup_window_hours) || !r.period_start ||
-            numberOrNull(source.new_rooms_booked)===null || numberOrNull(source.cancelled_rooms)===null) {
-          return fail("Un pickup exact exige pickup_window_hours (24/72/168), period_start, new_rooms_booked et cancelled_rooms");
+            !Number.isInteger(source.new_rooms_booked) || source.new_rooms_booked<0 ||
+            !Number.isInteger(source.cancelled_rooms) || source.cancelled_rooms<0 ||
+            (source.moved_in_rooms!==undefined && (!Number.isInteger(source.moved_in_rooms) || source.moved_in_rooms<0)) ||
+            (source.moved_out_rooms!==undefined && (!Number.isInteger(source.moved_out_rooms) || source.moved_out_rooms<0))) {
+          return fail("Un pickup exact exige une fenêtre 24/72/168h, period_start et des volumes entiers non négatifs de réservations, annulations et déplacements");
         }
         const hours=(Date.parse(r.snapshot_at)-Date.parse(r.period_start))/3600000;
         if (!Number.isFinite(hours) || Math.abs(hours-r.pickup_window_hours)>1) return fail("La période de pickup ne correspond pas à la fenêtre déclarée (tolérance ±1h)");
@@ -541,9 +544,9 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const normalThreshold = Number(thresholds.normal);
     const highThreshold = Number(thresholds.high);
     const exceptionalThreshold = Number(thresholds.exceptional);
-    const maxObservationAge = Number(cfg.max_observation_age_hours ?? 48);
-    const maxInventoryAge = Number(cfg.max_inventory_age_hours ?? 24);
-    const maxPickupSnapshotAge = Number(cfg.max_pickup_snapshot_age_hours ?? 30);
+    const maxObservationAge = Number(cfg.max_observation_age_hours);
+    const maxInventoryAge = Number(cfg.max_inventory_age_hours);
+    const maxPickupSnapshotAge = Number(cfg.max_pickup_snapshot_age_hours);
     const pickupWindowWeights = cfg.pickup_window_weights as Record<string,number> | undefined;
     const pickupWindowScales = cfg.pickup_scale_rooms as Record<string,number> | undefined;
     const pickupWindows = ["24h","3d","7d"];
