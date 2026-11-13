@@ -78,7 +78,7 @@ function mapEvent(row:RevenueEventRow,hotelId:string):EventItem|null {
  return {
   id:String(event.id),occurrenceId:String(occ.id),impactStatus:row.impact_status??undefined,title,subtitle:event.subtitle??undefined,category:category(String(event.category??"culturel")),
   venueId:String(venue?.id??""),venueName:String(venue?.name??"Lieu non renseigné"),
-  city:String(venue?.city??event.city??""),country:String(venue?.country_code??event.country_code??"FR"),
+  city:String(venue?.city??event.city??""),country:(venue?.country_code??event.country_code)==="FR"?"France":String(venue?.country_code??event.country_code??"Pays non renseigné"),
   startDate:String(occ.start_date),endDate:String(occ.end_date),
   expectedAttendance:num(occ.attendance_estimate)??num(event.expected_attendance)??0,
   internationalRatioPercent:num(event.international_ratio_pct)??0,status:status(String(event.status??"a_verifier")),
