@@ -58,7 +58,7 @@ import { exportCompleteHistoricalExcel } from './services/excelHistoricalExportS
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
-import { EventItem, FilterState, Hotel, EventProposal, EventSuggestion } from './types';
+import { EventItem, FilterState, Hotel, EventProposal, EventSuggestion, EventSource, Venue } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 import { exportEventsToPDF } from './utils/pdfExport';
 
@@ -126,8 +126,8 @@ export default function App() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [venues, setVenues] = useState([]);
-  const [sources, setSources] = useState([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [sources, setSources] = useState<EventSource[]>([]);
   const [suggestions, setSuggestions] = useState<EventSuggestion[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
 
@@ -165,6 +165,8 @@ export default function App() {
     if (!revenueWorkspace) return;
     setHotels(revenueWorkspace.hotels);
     setEvents(revenueWorkspace.events);
+    setSources(revenueWorkspace.sources);
+    setVenues(revenueWorkspace.venues);
     setSuggestions([]);
     if (!revenueWorkspace.hotels.some((hotel) => hotel.id === filterState.selectedHotelId)) {
       setFilterState((previous) => ({ ...previous, selectedHotelId: revenueWorkspace.hotels[0]?.id ?? '' }));
