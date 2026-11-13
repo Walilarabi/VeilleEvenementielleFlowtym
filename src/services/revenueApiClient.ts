@@ -105,3 +105,15 @@ export const ingestReservationSnapshots = (
   supabase, `/hotels/${encodeURIComponent(hotelId)}/reservation-snapshots`,
   { method: "POST", body: { snapshots } },
 );
+
+export const runWalkForwardBacktest = (
+  supabase: SupabaseClient,
+  hotelId: string,
+  startDate: string,
+  endDate: string,
+  horizonDays: number,
+  minimumSamples = 3,
+) => revenueApiRequest<{ ok: true; horizonDays: number; rollingOrigin: true; models: unknown[]; comparison: Record<string, unknown> }>(
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/backtests/walk-forward`,
+  { method: "POST", body: { startDate, endDate, horizonDays, minimumSamples } },
+);
