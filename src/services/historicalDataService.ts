@@ -288,6 +288,14 @@ export function generateOfficialFlowtymHistoricalWorkbook(): Uint8Array {
 /**
  * Analyse et valide le fichier Excel déposé par le Revenue Manager
  */
+function parseOptionalBoolean(value: any): boolean | undefined {
+  if (value === null || value === undefined || String(value).trim() === '') return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  if (['oui', 'yes', 'true', '1'].includes(normalized)) return true;
+  if (['non', 'no', 'false', '0'].includes(normalized)) return false;
+  return undefined;
+}
+
 export function parseAndValidateHistoricalExcel(
   buffer: ArrayBuffer,
   fileName: string,
@@ -466,12 +474,12 @@ export function parseAndValidateHistoricalExcel(
         weekOfYear: Number(getVal('weekOfYear', getWeekNumber(dateStr))),
         month: Number(getVal('month', Number(dateStr.slice(5, 7)))),
         year: Number(getVal('year', Number(dateStr.slice(0, 4)))),
-        isHoliday: String(getVal('isHoliday', 'non')).toLowerCase().includes('oui'),
-        isSchoolHoliday: String(getVal('isSchoolHoliday', 'non')).toLowerCase().includes('oui'),
-        schoolHolidayZone: String(getVal('schoolHolidayZone', 'Zone C')),
-        isHolidayEve: String(getVal('isHolidayEve', 'non')).toLowerCase().includes('oui'),
-        season: (getVal('season', 'Moyenne') as any),
-        dayType: (getVal('dayType', 'Semaine') as any),
+        isHoliday: parseOptionalBoolean(getVal('isHoliday')),
+        isSchoolHoliday: parseOptionalBoolean(getVal('isSchoolHoliday')),
+        schoolHolidayZone: getVal('schoolHolidayZone') == null ? undefined : String(getVal('schoolHolidayZone')),
+        isHolidayEve: parseOptionalBoolean(getVal('isHolidayEve')),
+        season: getVal('season') == null ? undefined : (getVal('season') as any),
+        dayType: (getVal('dayType') ?? (['Samedi', 'Dimanche'].includes(getDayOfWeekFr(dateStr)) ? 'Weekend' : 'Semaine')) as any,
 
         eventName: getVal('eventName') ? String(getVal('eventName')) : undefined,
         eventCategory: getVal('eventCategory') ? String(getVal('eventCategory')) : undefined,
@@ -482,28 +490,28 @@ export function parseAndValidateHistoricalExcel(
         eventEstimatedVisitors: getVal('eventEstimatedVisitors') ? Number(getVal('eventEstimatedVisitors')) : undefined,
         eventVenueCapacity: getVal('eventVenueCapacity') ? Number(getVal('eventVenueCapacity')) : undefined,
         eventDistanceKm: getVal('eventDistanceKm') ? Number(getVal('eventDistanceKm')) : undefined,
-        eventIsInternational: String(getVal('eventIsInternational', 'non')).toLowerCase().includes('oui'),
-        hasMultipleEvents: String(getVal('hasMultipleEvents', 'non')).toLowerCase().includes('oui'),
+        eventIsInternational: parseOptionalBoolean(getVal('eventIsInternational')),
+        hasMultipleEvents: parseOptionalBoolean(getVal('hasMultipleEvents')),
 
         totalMarketableRooms: totalRooms,
-        availableRoomsForSale: Number(getVal('availableRoomsForSale', totalRooms - oooRooms)),
+        availableRoomsForSale: getVal('availableRoomsForSale') != null ? Number(getVal('availableRoomsForSale')) : oooRooms !== undefined ? totalRooms - oooRooms : undefined,
         roomsSold,
         complimentaryRooms: compRooms,
         outOfOrderRooms: oooRooms,
         occupancyPercent: Math.round(occPercent * 10) / 10,
-        turnawaysCount: Number(getVal('turnawaysCount', 0)),
-        reservationsCount: Number(getVal('reservationsCount', roomsSold)),
-        guestsCount: Number(getVal('guestsCount', roomsSold * 1.8)),
+        turnawaysCount: getVal('turnawaysCount') == null ? undefined : Number(getVal('turnawaysCount')),
+        reservationsCount: getVal('reservationsCount') == null ? undefined : Number(getVal('reservationsCount')),
+        guestsCount: getVal('guestsCount') == null ? undefined : Number(getVal('guestsCount')),
 
-        adrNetEur: adrNet,
+        adrNetEur: adrNet ?? undefined,
         revparEur: calculatedRevpar,
         accommodationRevenueEur: caHeberg,
-        avgSoldRoomPrice: Number(getVal('avgSoldRoomPrice', adrNet)),
+        avgSoldRoomPrice: getVal('avgSoldRoomPrice') == null ? undefined : Number(getVal('avgSoldRoomPrice')),
         totalHotelRevenueEur: getVal('totalHotelRevenueEur') ? Number(getVal('totalHotelRevenueEur')) : undefined,
         trevparEur: getVal('trevparEur') ? Number(getVal('trevparEur')) : undefined,
         avgDistributionCostEur: getVal('avgDistributionCostEur') ? Number(getVal('avgDistributionCostEur')) : undefined,
         avgCommissionPercent: getVal('avgCommissionPercent') ? Number(getVal('avgCommissionPercent')) : undefined,
-        avgNetRateAfterCommissionsEur: Number(getVal('avgNetRateAfterCommissionsEur', Math.round(adrNet * 0.88))),
+        avgNetRateAfterCommissionsEur: getVal('avgNetRateAfterCommissionsEur') == null ? undefined : Number(getVal('avgNetRateAfterCommissionsEur')),
 
         otbJ90: getVal('otbJ90') ? Number(getVal('otbJ90')) : undefined,
         otbJ60: getVal('otbJ60') ? Number(getVal('otbJ60')) : undefined,
