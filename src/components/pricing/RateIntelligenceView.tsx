@@ -497,7 +497,12 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         setApiRecommendationError(null);
       } catch (error) {
         if (!cancelled) {
-          setApiRecommendationError(error instanceof Error ? error.message : "L'API Revenue v2 n'est pas disponible.");
+          const message = error instanceof Error ? error.message : "L'API Revenue v2 n'est pas disponible.";
+          setApiRecommendationError(
+            message.toLowerCase().includes('route inconnue') || message.includes('404')
+              ? "L'Edge Function Revenue v2 n'est pas encore déployée sur Supabase. Lecture et génération restent désactivées pour éviter d'appeler une ancienne version."
+              : message,
+          );
           setRecommendationsApiReady(false);
           setApiRecommendations([]);
         }
