@@ -32,26 +32,26 @@ const EventIntelligenceView = React.lazy(() => import('./components/intelligence
 const SourcesCoverageView = React.lazy(() => import('./components/sources/SourcesCoverageView').then((module) => ({ default: module.SourcesCoverageView })));
 const SettingsView = React.lazy(() => import('./components/settings/SettingsView').then((module) => ({ default: module.SettingsView })));
 const GeoIntelligenceView = React.lazy(() => import('./components/geo/GeoIntelligenceView').then((module) => ({ default: module.GeoIntelligenceView })));
-import { EventDetailModal } from './components/events/EventDetailModal';
-import { AddEventModal } from './components/modals/AddEventModal';
-import { ImportExcelModal } from './components/modals/ImportExcelModal';
-import { RefreshModal } from './components/modals/RefreshModal';
-import { ProposalsModal } from './components/proposals/ProposalsModal';
+const EventDetailModal = React.lazy(() => import('./components/events/EventDetailModal').then((module) => ({ default: module.EventDetailModal })));
+const AddEventModal = React.lazy(() => import('./components/modals/AddEventModal').then((module) => ({ default: module.AddEventModal })));
+const ImportExcelModal = React.lazy(() => import('./components/modals/ImportExcelModal').then((module) => ({ default: module.ImportExcelModal })));
+const RefreshModal = React.lazy(() => import('./components/modals/RefreshModal').then((module) => ({ default: module.RefreshModal })));
+const ProposalsModal = React.lazy(() => import('./components/proposals/ProposalsModal').then((module) => ({ default: module.ProposalsModal })));
 import { LoginPage } from './components/auth/LoginPage';
 const MarketCalendarView = React.lazy(() => import('./components/market/MarketCalendarView').then((module) => ({ default: module.MarketCalendarView })));
 const SchoolHolidaysCalendarView = React.lazy(() => import('./components/events/SchoolHolidaysCalendarView').then((module) => ({ default: module.SchoolHolidaysCalendarView })));
 import { CalendarSubNavbar, CalendarSubTabMode } from './components/calendar/CalendarSubNavbar';
 const RMDecisionCenter = React.lazy(() => import('./components/intelligence/RMDecisionCenter').then((module) => ({ default: module.RMDecisionCenter })));
 const DemandForecastView = React.lazy(() => import('./components/forecast/DemandForecastView').then((module) => ({ default: module.DemandForecastView })));
-import { DateDetailModal } from './components/events/DateDetailModal';
+const DateDetailModal = React.lazy(() => import('./components/events/DateDetailModal').then((module) => ({ default: module.DateDetailModal })));
 const HotelConnectivityHub = React.lazy(() => import('./components/connectivity/HotelConnectivityHub').then((module) => ({ default: module.HotelConnectivityHub })));
 const RateIntelligenceView = React.lazy(() => import('./components/pricing/RateIntelligenceView').then((module) => ({ default: module.RateIntelligenceView })));
-import { RateOpportunityPushNotification } from './components/notifications/RateOpportunityPushNotification';
+const RateOpportunityPushNotification = React.lazy(() => import('./components/notifications/RateOpportunityPushNotification').then((module) => ({ default: module.RateOpportunityPushNotification })));
 import { PushOpportunityAlert } from './services/pushNotificationService';
 const ReportsAndAutomationsHub = React.lazy(() => import('./components/reports/ReportsAndAutomationsHub').then((module) => ({ default: module.ReportsAndAutomationsHub })));
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
-import { CommandPaletteModal } from './components/modals/CommandPaletteModal';
-import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal';
+const CommandPaletteModal = React.lazy(() => import('./components/modals/CommandPaletteModal').then((module) => ({ default: module.CommandPaletteModal })));
+const KeyboardShortcutsModal = React.lazy(() => import('./components/modals/KeyboardShortcutsModal').then((module) => ({ default: module.KeyboardShortcutsModal })));
 
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
@@ -794,6 +794,7 @@ export default function App() {
         </main>
       </div>
 
+      <React.Suspense fallback={null}>
       {/* Side Drawer: Event Detail Sheet */}
       <EventDetailModal
         event={selectedEvent}
@@ -897,6 +898,7 @@ export default function App() {
         isOpen={isShortcutsHelpOpen}
         onClose={() => setIsShortcutsHelpOpen(false)}
       />
+      </React.Suspense>
 
       {/* Toast Feedback */}
       {toastMessage && (
