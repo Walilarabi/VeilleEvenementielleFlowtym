@@ -8,7 +8,7 @@ For production incidents, prefer a forward-fix migration. The current schema con
 
 ## Edge Function
 
-- Current deployed function: `revenue-api`, version 8, JWT verification enabled.
+- Current deployed function: `revenue-api`, version 14, JWT verification enabled.
 - The function uses the authenticated caller context and RLS; it does not use a service-role key.
 - If a code regression occurs, redeploy the last known-good `index.ts` and `deno.json` from the corresponding Git commit, then verify the function is ACTIVE and JWT verification remains enabled.
 - If access must be stopped immediately, disable the function in the Supabase Dashboard. Do not expose a bypass endpoint.
@@ -26,6 +26,10 @@ For production incidents, prefer a forward-fix migration. The current schema con
 9. `20261113000900_event_impact_evidence_scores.sql`: store event-impact scoring components and evidence.
 10. `20261113001000_exact_net_pickup_inputs.sql`: persist reservation-level exact net pickup windows.
 11. `20261113001100_event_historical_demand_score.sql`: persist comparable historical hotel occupancy for event scoring.
+12. `20261113001200_event_impact_human_decisions.sql`: add event impact decision audit.
+13. `20261113001300_harden_event_impact_decisions.sql`: restrict status changes to the audited RPC.
+14. `20261113001400_fix_event_decision_rpc.sql`: qualify event decision RPC columns.
+15. `20261113001500_lighthouse_los_pos_dimensions.sql`: store explicit rate comparison dimensions.
 
 ### Recovery notes
 
