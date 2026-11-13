@@ -96,15 +96,16 @@ Example configuration only — not a pre-approved set of weights or hotel thresh
 {
   "event_impact_v1": {
     "weights": {
-      "attendance": 0.25,
-      "international": 0.20,
+      "attendance": 0.20,
+      "international": 0.15,
       "duration": 0.10,
       "proximity": 0.15,
       "capacity": 0.10,
       "notoriety": 0.10,
       "recurrence": 0.05,
       "extra_nights": 0.05,
-      "segment_fit": 0.00
+      "segment_fit": 0.05,
+      "historical_demand": 0.05
     },
     "scales": {
       "attendance": 50000,
@@ -124,7 +125,7 @@ Example configuration only — not a pre-approved set of weights or hotel thresh
 }
 ```
 
-`event_impact_v1` requires hotel-specific weights and scales in `hotel_parameters_profiles.demand_thresholds`. Inputs are the event attendance estimate, international ratio, occurrence duration, straight-line hotel-to-venue distance, verified venue capacity, verified evidence trust scores, configured recurrence scores and optional segment-fit scores. Components with missing evidence remain NULL and their weights are excluded from the available-weight mean. The result is stored as `to_review`; it is never auto-validated. Drive time and extra-night lift are explicitly not calculated until verified routing and hotel-history models exist. Only confirmed/probable events with confirmed occurrence dates are scored.
+`event_impact_v1` requires hotel-specific weights and scales in `hotel_parameters_profiles.demand_thresholds`. Inputs are the event attendance estimate, international ratio, occurrence duration, straight-line hotel-to-venue distance, verified venue capacity, verified evidence trust scores, configured recurrence scores, optional segment-fit scores and the hotel's own occupancy on comparable dates in prior years. Components with missing evidence remain NULL and their weights are excluded from the available-weight mean. The result is stored as `to_review`; it is never auto-validated. Drive time and extra-night lift are explicitly not calculated until verified routing and hotel-history models exist. Only confirmed/probable events with confirmed occurrence dates are scored.
 
 ## Forecast baselines
 
