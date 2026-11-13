@@ -52,16 +52,18 @@ export function getLighthouseConfig(hotelId: string): LighthouseRateConfig {
     const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${hotelId}`);
     if (raw) {
       const stored = JSON.parse(raw) as Partial<LighthouseRateConfig>;
-      return {
+      const safeConfig = {
         ...DEFAULT_LIGHTHOUSE_CONFIG,
         ...stored,
         apiKey: '',
         isConnected: false,
-        status: 'disconnected',
+        status: 'disconnected' as const,
         lastSyncAt: undefined,
         rateLimitRemaining: undefined,
         rateLimitReset: undefined,
       };
+      localStorage.setItem(`${STORAGE_KEY_PREFIX}${hotelId}`, JSON.stringify(safeConfig));
+      return safeConfig;
     }
   } catch (e) {
     console.error('Failed to parse Lighthouse config from storage', e);
