@@ -4,6 +4,7 @@
  */
 
 import { RMAlertItem, RMDecisionRecord, RMDecisionAction, StandardDemandLevel } from '../types';
+import { syncRMDecisionToSupabase } from './supabaseSyncService';
 
 const ALERTS_STORAGE_KEY = 'flowtym_rm_alerts_v1';
 const DECISIONS_STORAGE_KEY = 'flowtym_rm_decisions_log_v1';
@@ -47,9 +48,9 @@ export function evaluateRMSafety(
       badgeLabel: isExceeded
         ? `🚨 Dépassement Plafond (${recommendedRate}€ > ${limits.RATE_CEILING_EUR}€)`
         : `⚠️ Plafond Max Atteint (${limits.RATE_CEILING_EUR}€)`,
-      badgeClass: 'bg-rose-100 text-rose-800 border-rose-300 ring-1 ring-rose-400',
-      rowHighlightClass: 'bg-rose-50/60 border-l-4 border-l-rose-500',
-      cellHighlightClass: 'bg-rose-100 text-rose-900 border border-rose-300 ring-2 ring-rose-400/40 font-black',
+      badgeClass: 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800/70 ring-1 ring-rose-400 dark:ring-rose-700',
+      rowHighlightClass: 'bg-rose-50/60 dark:bg-rose-950/25 border-l-4 border-l-rose-500',
+      cellHighlightClass: 'bg-rose-100 dark:bg-rose-950/70 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-800/70 ring-2 ring-rose-400/40 font-black',
       explanation: `Le tarif conseillé (${recommendedRate}€) atteint ou dépasse le tarif plafond configuré (${limits.RATE_CEILING_EUR}€). Risque d'élasticité prix négative et de décrochage du compset.`,
       ruleCode: 'GUARDRAIL_CEILING_LIMIT',
     };
@@ -65,9 +66,9 @@ export function evaluateRMSafety(
       badgeLabel: isUnder
         ? `🚨 Sous-Plancher Interdit (${recommendedRate}€ < ${limits.RATE_FLOOR_EUR}€)`
         : `⚠️ Plancher Min Atteint (${limits.RATE_FLOOR_EUR}€)`,
-      badgeClass: 'bg-amber-100 text-amber-800 border-amber-300 ring-1 ring-amber-400',
-      rowHighlightClass: 'bg-amber-50/60 border-l-4 border-l-amber-500',
-      cellHighlightClass: 'bg-amber-100 text-amber-900 border border-amber-300 ring-2 ring-amber-400/40 font-black',
+      badgeClass: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800/70 ring-1 ring-amber-400 dark:ring-amber-700',
+      rowHighlightClass: 'bg-amber-50/60 dark:bg-amber-950/25 border-l-4 border-l-amber-500',
+      cellHighlightClass: 'bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800/70 ring-2 ring-amber-400/40 font-black',
       explanation: `Le tarif conseillé (${recommendedRate}€) atteint la borne plancher minimale garantie (${limits.RATE_FLOOR_EUR}€). Risque d'érosion de la valeur perçue et de l'ADR net.`,
       ruleCode: 'GUARDRAIL_FLOOR_LIMIT',
     };
@@ -80,9 +81,9 @@ export function evaluateRMSafety(
       severity: 'warning',
       type: 'large_step',
       badgeLabel: `⚡ Saut Brutal (+${gap}€)`,
-      badgeClass: 'bg-orange-100 text-orange-800 border-orange-300',
-      rowHighlightClass: 'bg-orange-50/40 border-l-4 border-l-orange-400',
-      cellHighlightClass: 'bg-orange-100 text-orange-900 border border-orange-300 font-black',
+      badgeClass: 'bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 border-orange-300 dark:border-orange-800/70',
+      rowHighlightClass: 'bg-orange-50/40 dark:bg-orange-950/20 border-l-4 border-l-orange-400',
+      cellHighlightClass: 'bg-orange-100 dark:bg-orange-950/70 text-orange-900 dark:text-orange-200 border border-orange-300 dark:border-orange-800/70 font-black',
       explanation: `Variation unitaire supérieure au saut de sécurité de ${limits.MAX_SINGLE_STEP_EUR}€ (+${gap}€ vs tarif actuel ${currentRate}€). Contrôle de cohérence requis.`,
       ruleCode: 'GUARDRAIL_MAX_STEP_JUMP',
     };
@@ -96,9 +97,9 @@ export function evaluateRMSafety(
       severity: 'info',
       type: 'compset_disconnect',
       badgeLabel: `⚠️ Écart Compset (+${spread}€)`,
-      badgeClass: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-      rowHighlightClass: 'bg-indigo-50/20 border-l-4 border-l-indigo-400',
-      cellHighlightClass: 'text-indigo-900 font-bold',
+      badgeClass: 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/70',
+      rowHighlightClass: 'bg-indigo-50/20 dark:bg-indigo-950/20 border-l-4 border-l-indigo-400',
+      cellHighlightClass: 'text-indigo-900 dark:text-indigo-200 font-bold',
       explanation: `Tarif supérieur de ${spread}€ à la moyenne du compset direct (${compsetAvgRate}€). Vérifier le taux de compression concurrentiel.`,
       ruleCode: 'GUARDRAIL_COMPSET_SPREAD',
     };
@@ -110,9 +111,9 @@ export function evaluateRMSafety(
     severity: 'safe',
     type: 'safe',
     badgeLabel: `🛡️ Conforme [${limits.RATE_FLOOR_EUR}€ - ${limits.RATE_CEILING_EUR}€]`,
-    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    badgeClass: 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70',
     rowHighlightClass: '',
-    cellHighlightClass: 'text-slate-900 font-bold',
+    cellHighlightClass: 'text-slate-900 dark:text-slate-100 font-bold',
     explanation: `Tarif conforme aux bornes de sécurité de l'établissement (${limits.RATE_FLOOR_EUR}€ – ${limits.RATE_CEILING_EUR}€).`,
     ruleCode: 'GUARDRAIL_COMPLIANT',
   };
@@ -137,18 +138,18 @@ export function formatDemandWithPercentage(demandLevel?: string): {
   const percent = getMarketDemandPercentage(demandLevel);
   const l = (demandLevel || '').toLowerCase();
   if (l.includes('excep') || l.includes('critique')) {
-    return { label: 'Exceptionnel', badge: `🔥 Exceptionnel (${percent}%)`, percent, colorClass: 'bg-rose-100 text-rose-800 border-rose-200' };
+    return { label: 'Exceptionnel', badge: `🔥 Exceptionnel (${percent}%)`, percent, colorClass: 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800/70' };
   }
   if (l.includes('tres') || l.includes('très')) {
-    return { label: 'Très fort', badge: `⚡ Très fort (${percent}%)`, percent, colorClass: 'bg-amber-100 text-amber-800 border-amber-200' };
+    return { label: 'Très fort', badge: `⚡ Très fort (${percent}%)`, percent, colorClass: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/70' };
   }
   if (l.includes('elev') || l.includes('élev')) {
-    return { label: 'Élevé', badge: `📈 Élevé (${percent}%)`, percent, colorClass: 'bg-violet-100 text-violet-800 border-violet-200' };
+    return { label: 'Élevé', badge: `📈 Élevé (${percent}%)`, percent, colorClass: 'bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-800/70' };
   }
   if (l.includes('faible')) {
-    return { label: 'Faible', badge: `💤 Faible (${percent}%)`, percent, colorClass: 'bg-slate-100 text-slate-600 border-slate-200' };
+    return { label: 'Faible', badge: `💤 Faible (${percent}%)`, percent, colorClass: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' };
   }
-  return { label: 'Modéré', badge: `⚖️ Modéré (${percent}%)`, percent, colorClass: 'bg-slate-100 text-slate-700 border-slate-200' };
+  return { label: 'Modéré', badge: `⚖️ Modéré (${percent}%)`, percent, colorClass: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700' };
 }
 
 export const INITIAL_RM_ALERTS: RMAlertItem[] = [
@@ -468,6 +469,9 @@ export function recordRMDecision(
   } catch (err) {
     console.error('Failed to save decision record to storage:', err);
   }
+
+  const updatedAlert = updatedAlerts.find((a) => a.id === alert.id);
+  void syncRMDecisionToSupabase(hotelId, newDecision, updatedAlert);
 
   return { updatedAlerts, newDecision };
 }

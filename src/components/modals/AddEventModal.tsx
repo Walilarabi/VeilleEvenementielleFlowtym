@@ -85,19 +85,19 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-2xs animate-in fade-in">
-      <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div className="w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 flex items-center justify-center">
               <Plus className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Ajouter un Événement</h3>
-              <p className="text-[11px] text-slate-500">Ajoutez une manifestation pour intégrer son impact au calcul RM</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Ajouter un Événement</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Ajoutez une manifestation pour intégrer son impact au calcul RM</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -105,7 +105,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+            <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
               Nom de l&apos;événement *
             </label>
             <input
@@ -114,12 +114,12 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Congrès International des Avocats 2026"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+            <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
               Sous-titre / Description courte
             </label>
             <input
@@ -127,17 +127,17 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
               value={subtitle}
               onChange={(e) => setSubtitle(e.target.value)}
               placeholder="Ex: Édition annuelle européenne"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Catégorie</label>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Catégorie</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as any)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 <option value="salons_foires">Salons & Foires</option>
                 <option value="congres_medical">Congrès & Médical</option>
@@ -150,11 +150,11 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Impact RM Estimé</label>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Impact RM Estimé</label>
               <select
                 value={impactLevel}
                 onChange={(e) => setImpactLevel(e.target.value as any)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 <option value="hyper">Hyper (Stop-sell requis)</option>
                 <option value="critique">Critique (Yield actif)</option>
@@ -166,34 +166,34 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Date début</label>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Date début</label>
               <input
                 type="date"
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Date fin</label>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Date fin</label>
               <input
                 type="date"
                 required
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Lieu / Infrastructure</label>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Lieu / Infrastructure</label>
               <select
                 value={venueId}
                 onChange={(e) => setVenueId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 {venues.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -204,13 +204,13 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">Affluence attendue</label>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Affluence attendue</label>
               <input
                 type="number"
                 min={500}
                 value={expectedAttendance}
                 onChange={(e) => setExpectedAttendance(parseInt(e.target.value, 10))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
             </div>
           </div>
@@ -221,19 +221,19 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
               id="recurrent-check"
               checked={isRecurring}
               onChange={(e) => setIsRecurring(e.target.checked)}
-              className="w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500"
+              className="w-4 h-4 text-violet-600 dark:text-violet-400 rounded border-slate-300 dark:border-slate-700 focus:ring-violet-500"
             />
-            <label htmlFor="recurrent-check" className="text-xs text-slate-700 font-medium cursor-pointer">
+            <label htmlFor="recurrent-check" className="text-xs text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
               Événement récurrent (reconduction annuelle prévisible)
             </label>
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800/80">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
               Annuler
             </button>

@@ -51,7 +51,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden flex flex-col animate-in zoom-in-95"
+        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full overflow-hidden flex flex-col animate-in zoom-in-95"
       >
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between">
@@ -79,10 +79,10 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           {categories.map((cat) => (
             <div key={cat} className="space-y-2.5">
-              <h4 className="text-xs font-bold text-violet-700 uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
                 {cat}
               </h4>
-              <div className="bg-slate-50 rounded-2xl border border-slate-200/80 p-2 divide-y divide-slate-200/60">
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-2 divide-y divide-slate-200/60 dark:divide-slate-800/70">
                 {shortcuts
                   .filter((s) => s.category === cat)
                   .map((s, idx) => (
@@ -90,11 +90,11 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
                       key={idx}
                       className="py-2.5 px-3 flex items-center justify-between gap-4 text-xs"
                     >
-                      <span className="text-slate-700 font-medium">{s.description}</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">{s.description}</span>
                       <div className="flex items-center gap-1 shrink-0">
                         {s.keys.map((k, i) => (
                           <React.Fragment key={i}>
-                            <kbd className="px-2 py-1 bg-white border border-slate-300 rounded-lg shadow-2xs font-mono font-bold text-[11px] text-slate-800">
+                            <kbd className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg shadow-2xs font-mono font-bold text-[11px] text-slate-800 dark:text-slate-200">
                               {k}
                             </kbd>
                             {i < s.keys.length - 1 && (
@@ -111,7 +111,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+        <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
           <span>Conseil : appuyez sur <strong>?</strong> à tout moment pour rouvrir cette aide</span>
           <button
             onClick={onClose}

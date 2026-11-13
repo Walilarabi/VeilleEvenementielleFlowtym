@@ -87,7 +87,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
   ];
 
   return (
-    <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-md select-none">
+    <div className="relative bg-slate-900 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-800 shadow-md select-none">
       {/* Map Header Overlay */}
       <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 pointer-events-auto">
         <div className="bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-xl border border-slate-700/80 text-white shadow-lg flex items-center gap-2.5">
@@ -111,7 +111,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
         <div className="flex flex-col bg-slate-900/90 backdrop-blur-md rounded-xl border border-slate-700/80 overflow-hidden shadow-lg">
           <button
             onClick={() => setZoomLevel((z) => Math.min(2.2, z + 0.25))}
-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
             title="Zoom avant"
           >
             <ZoomIn className="w-4 h-4" />
@@ -119,7 +119,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           <div className="h-px bg-slate-800" />
           <button
             onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.25))}
-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
             title="Zoom arrière"
           >
             <ZoomOut className="w-4 h-4" />
@@ -127,7 +127,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           <div className="h-px bg-slate-800" />
           <button
             onClick={() => setZoomLevel(1)}
-            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
             title="Réinitialiser le zoom"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -139,7 +139,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           <button
             onClick={() => setShowMainRadius(!showMainRadius)}
             className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors text-left ${
-              showMainRadius ? 'bg-violet-950/80 text-violet-300 border border-violet-800/60' : 'text-slate-400 hover:bg-slate-800'
+              showMainRadius ? 'bg-violet-950/80 text-violet-300 border border-violet-800/60' : 'text-slate-400 hover:bg-slate-800 dark:hover:bg-slate-700'
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-violet-500" />
@@ -148,7 +148,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           <button
             onClick={() => setShowExtendedRadius(!showExtendedRadius)}
             className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors text-left ${
-              showExtendedRadius ? 'bg-amber-950/80 text-amber-300 border border-amber-800/60' : 'text-slate-400 hover:bg-slate-800'
+              showExtendedRadius ? 'bg-amber-950/80 text-amber-300 border border-amber-800/60' : 'text-slate-400 hover:bg-slate-800 dark:hover:bg-slate-700'
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-amber-500" />
@@ -157,7 +157,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           <button
             onClick={() => setShowOtherHotels(!showOtherHotels)}
             className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors text-left ${
-              showOtherHotels ? 'bg-blue-950/80 text-blue-300 border border-blue-800/60' : 'text-slate-400 hover:bg-slate-800'
+              showOtherHotels ? 'bg-blue-950/80 text-blue-300 border border-blue-800/60' : 'text-slate-400 hover:bg-slate-800 dark:hover:bg-slate-700'
             }`}
           >
             <Building className="w-3 h-3 text-blue-400" />
@@ -176,7 +176,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           <defs>
             {/* Grid Pattern */}
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" strokeWidth="0.75" />
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#252e42" strokeWidth="0.75" />
             </pattern>
 
             {/* Radial Gradient for 10km Primary Zone */}
@@ -200,7 +200,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           </defs>
 
           {/* Background Grid */}
-          <rect width={svgWidth} height={svgHeight} fill="#090d16" />
+          <rect width={svgWidth} height={svgHeight} fill="#141824" />
           <rect width={svgWidth} height={svgHeight} fill="url(#grid)" />
 
           {/* Concentric Distance Rings (5km, 10km, 20km, 30km) */}

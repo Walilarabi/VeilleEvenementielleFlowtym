@@ -54,29 +54,29 @@ export const PredictiveRecommendationDetailDrawer: React.FC<PredictiveRecommenda
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-2xl h-full overflow-y-auto shadow-2xl flex flex-col border-l border-slate-200">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl h-full overflow-y-auto shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800">
         {/* 1. Header du Drawer */}
-        <div className="p-6 border-b border-slate-100 flex items-start justify-between bg-gradient-to-r from-violet-50/50 to-white">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-start justify-between bg-gradient-to-r from-violet-50/50 dark:from-violet-950/50 to-white dark:to-slate-900">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-violet-100 text-violet-800">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
                 {rec.dayOfWeek} {rec.dateStr}
               </span>
               <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${rec.demandScore.colorClass}`}>
                 {rec.demandScore.categoryLabel} ({rec.demandScore.score}/100)
               </span>
             </div>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
               Analyse Prédictive & Recommandation Tarifaire
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {hotelName} (45 chambres) • Décision basée sur 3 années d'historique certifié et signaux de marché
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -85,7 +85,7 @@ export const PredictiveRecommendationDetailDrawer: React.FC<PredictiveRecommenda
         {/* 2. Contenu Déroulant */}
         <div className="p-6 space-y-6 flex-1">
           {/* A. Synthèse du Tarif Recommandé vs Actuel */}
-          <div className="p-5 rounded-3xl bg-slate-900 text-white shadow-xl space-y-4">
+          <div className="p-5 rounded-3xl bg-slate-900 dark:bg-slate-800 text-white shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="text-xs uppercase font-bold text-violet-400 tracking-wider">
                 Recommandation FLOWTYM Optimale
@@ -132,7 +132,7 @@ export const PredictiveRecommendationDetailDrawer: React.FC<PredictiveRecommenda
           {/* B. Les 3 Scénarios Tarifaires (Prudent, Équilibré, Agressif) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase text-slate-700 tracking-wider">
+              <h3 className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">
                 Choix du Scénario d'Optimisation
               </h3>
               <span className="text-[11px] text-slate-400">Arbitrage Volume vs Prix</span>
@@ -151,28 +151,28 @@ export const PredictiveRecommendationDetailDrawer: React.FC<PredictiveRecommenda
                     }}
                     className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2 ${
                       isSelected
-                        ? 'border-violet-600 bg-violet-50/70 shadow-xs ring-2 ring-violet-500/20'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                        ? 'border-violet-600 bg-violet-50/70 dark:bg-violet-950/40 shadow-xs ring-2 ring-violet-500/20'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className={`text-[10px] font-black uppercase tracking-wider ${
-                        scKey === 'prudent' ? 'text-emerald-700' : scKey === 'equilibre' ? 'text-violet-700' : 'text-rose-700'
+                        scKey === 'prudent' ? 'text-emerald-700 dark:text-emerald-300' : scKey === 'equilibre' ? 'text-violet-700 dark:text-violet-300' : 'text-rose-700 dark:text-rose-300'
                       }`}>
                         {scKey}
                       </span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-violet-600" />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />}
                     </div>
 
-                    <div className="text-lg font-black text-slate-900 tabular-nums">
+                    <div className="text-lg font-black text-slate-900 dark:text-slate-100 tabular-nums">
                       {sc.suggestedBarEur} €
                     </div>
 
-                    <div className="text-[11px] text-slate-500 leading-tight">
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                       Occ. <strong>{sc.expectedOccupancyPercent}%</strong> • RevPAR <strong>{sc.projectedRevParEur}€</strong>
                     </div>
 
-                    <p className="text-[10px] text-slate-500 leading-snug pt-1 border-t border-slate-100">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug pt-1 border-t border-slate-100 dark:border-slate-800/80">
                       {sc.riskDescription}
                     </p>
                   </div>
@@ -182,49 +182,49 @@ export const PredictiveRecommendationDetailDrawer: React.FC<PredictiveRecommenda
           </div>
 
           {/* C. Comparaison Historique Multi-Années (N-1, N-2, N-3) */}
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/90 space-y-3">
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-200/90 dark:border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-violet-600" />
+              <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                 <span>Performances Historiques Comparables (Iso-Weekday)</span>
               </h3>
-              <span className="text-[11px] font-semibold text-violet-700">Pondération 50% / 30% / 20%</span>
+              <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">Pondération 50% / 30% / 20%</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                 <div className="text-[10px] uppercase font-bold text-slate-400">Année N-1 (2025)</div>
                 {rec.comparableHistory.n1 ? (
                   <div className="mt-1 space-y-0.5">
-                    <div className="font-black text-slate-900">{rec.comparableHistory.n1.bar} €</div>
-                    <div className="text-[10px] text-slate-500">Occ: {rec.comparableHistory.n1.occ}%</div>
-                    <div className="text-[10px] text-emerald-700 font-bold">RevPAR: {rec.comparableHistory.n1.revpar}€</div>
+                    <div className="font-black text-slate-900 dark:text-slate-100">{rec.comparableHistory.n1.bar} €</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">Occ: {rec.comparableHistory.n1.occ}%</div>
+                    <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">RevPAR: {rec.comparableHistory.n1.revpar}€</div>
                   </div>
                 ) : (
                   <div className="text-slate-400 text-xs mt-1">Non disponible</div>
                 )}
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                 <div className="text-[10px] uppercase font-bold text-slate-400">Année N-2 (2024)</div>
                 {rec.comparableHistory.n2 ? (
                   <div className="mt-1 space-y-0.5">
-                    <div className="font-black text-slate-900">{rec.comparableHistory.n2.bar} €</div>
-                    <div className="text-[10px] text-slate-500">Occ: {rec.comparableHistory.n2.occ}%</div>
-                    <div className="text-[10px] text-emerald-700 font-bold">RevPAR: {rec.comparableHistory.n2.revpar}€</div>
+                    <div className="font-black text-slate-900 dark:text-slate-100">{rec.comparableHistory.n2.bar} €</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">Occ: {rec.comparableHistory.n2.occ}%</div>
+                    <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">RevPAR: {rec.comparableHistory.n2.revpar}€</div>
                   </div>
                 ) : (
                   <div className="text-slate-400 text-xs mt-1">Non disponible</div>
                 )}
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white border border-slate-200">
+              <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                 <div className="text-[10px] uppercase font-bold text-slate-400">Année N-3 (2023)</div>
                 {rec.comparableHistory.n3 ? (
                   <div className="mt-1 space-y-0.5">
-                    <div className="font-black text-slate-900">{rec.comparableHistory.n3.bar} €</div>
-                    <div className="text-[10px] text-slate-500">Occ: {rec.comparableHistory.n3.occ}%</div>
-                    <div className="text-[10px] text-emerald-700 font-bold">RevPAR: {rec.comparableHistory.n3.revpar}€</div>
+                    <div className="font-black text-slate-900 dark:text-slate-100">{rec.comparableHistory.n3.bar} €</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">Occ: {rec.comparableHistory.n3.occ}%</div>
+                    <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">RevPAR: {rec.comparableHistory.n3.revpar}€</div>
                   </div>
                 ) : (
                   <div className="text-slate-400 text-xs mt-1">Non disponible</div>
@@ -232,9 +232,9 @@ export const PredictiveRecommendationDetailDrawer: React.FC<PredictiveRecommenda
               </div>
             </div>
 
-            <div className="text-[11px] text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+            <div className="text-[11px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <span>Moyenne pondérée historique de référence :</span>
-              <span className="font-bold text-slate-900">
+              <span className="font-bold text-slate-900 dark:text-slate-100">
                 Occ. {rec.comparableHistory.weightedAvgOcc}% • ADR {rec.comparableHistory.weightedAvgAdr}€ • RevPAR {rec.comparableHistory.weightedAvgRevpar}€
               </span>
             </div>
@@ -242,53 +242,53 @@ export const PredictiveRecommendationDetailDrawer: React.FC<PredictiveRecommenda
 
           {/* D. Décomposition Épistémologique (Faits, Analyse, Prévision, Hypothèses) */}
           <div className="space-y-2">
-            <h3 className="text-xs font-black uppercase text-slate-700 tracking-wider">
+            <h3 className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">
               Justification & Transparence Algorithmique
             </h3>
 
             <div className="space-y-2 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-violet-600" />
                   <span>1. Faits Observés</span>
                 </div>
-                <ul className="text-slate-600 list-disc list-inside space-y-0.5 pl-2 text-[11px]">
+                <ul className="text-slate-600 dark:text-slate-400 list-disc list-inside space-y-0.5 pl-2 text-[11px]">
                   {rec.justificationNotes.faits.map((f, i) => (
                     <li key={i}>{f}</li>
                   ))}
                 </ul>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-indigo-600" />
                   <span>2. Analyse de Marché</span>
                 </div>
-                <ul className="text-slate-600 list-disc list-inside space-y-0.5 pl-2 text-[11px]">
+                <ul className="text-slate-600 dark:text-slate-400 list-disc list-inside space-y-0.5 pl-2 text-[11px]">
                   {rec.justificationNotes.analyse.map((a, i) => (
                     <li key={i}>{a}</li>
                   ))}
                 </ul>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-1">
+                <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-600" />
                   <span>3. Prévision & Recommandation</span>
                 </div>
-                <ul className="text-slate-600 list-disc list-inside space-y-0.5 pl-2 text-[11px]">
+                <ul className="text-slate-600 dark:text-slate-400 list-disc list-inside space-y-0.5 pl-2 text-[11px]">
                   {rec.justificationNotes.recommandation.map((r, i) => (
                     <li key={i}>{r}</li>
                   ))}
                 </ul>
               </div>
 
-              <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-1">
-                <div className="font-bold text-amber-900 flex items-center gap-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+              <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/70 space-y-1">
+                <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>4. Hypothèses & Garde-fous</span>
                 </div>
-                <ul className="text-amber-800 list-disc list-inside space-y-0.5 pl-2 text-[11px]">
+                <ul className="text-amber-800 dark:text-amber-300 list-disc list-inside space-y-0.5 pl-2 text-[11px]">
                   {rec.justificationNotes.limitesEtHypotheses.map((l, i) => (
                     <li key={i}>{l}</li>
                   ))}
@@ -299,15 +299,15 @@ export const PredictiveRecommendationDetailDrawer: React.FC<PredictiveRecommenda
         </div>
 
         {/* 3. Footer d'Action / Validation par le RM */}
-        <div className="p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-4">
+        <div className="p-5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600">Ajustement manuel :</span>
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Ajustement manuel :</span>
             <div className="relative">
               <input
                 type="number"
                 value={customRate}
                 onChange={(e) => setCustomRate(Number(e.target.value))}
-                className="w-24 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 focus:outline-hidden focus:border-violet-500"
+                className="w-24 px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-hidden focus:border-violet-500"
               />
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">€</span>
             </div>
@@ -316,7 +316,7 @@ export const PredictiveRecommendationDetailDrawer: React.FC<PredictiveRecommenda
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors cursor-pointer"
             >
               Fermer
             </button>

@@ -149,7 +149,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
               handleTestLighthouse();
               handleTestDEdge();
             }}
-            className="px-4 py-2 text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Diagnostiquer les API</span>
@@ -158,13 +158,13 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto text-xs font-bold text-slate-600">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto text-xs font-bold text-slate-600 dark:text-slate-400">
         <button
           onClick={() => setActiveTab('overview')}
           className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
             activeTab === 'overview'
               ? 'bg-violet-600 text-white shadow-2xs'
-              : 'hover:bg-slate-100 hover:text-slate-900'
+              : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
@@ -176,7 +176,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
           className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
             activeTab === 'lighthouse'
               ? 'bg-violet-600 text-white shadow-2xs'
-              : 'hover:bg-slate-100 hover:text-slate-900'
+              : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5" />
@@ -188,7 +188,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
           className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
             activeTab === 'dedge'
               ? 'bg-violet-600 text-white shadow-2xs'
-              : 'hover:bg-slate-100 hover:text-slate-900'
+              : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <Activity className="w-3.5 h-3.5" />
@@ -200,7 +200,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
           className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
             activeTab === 'alternatives'
               ? 'bg-violet-600 text-white shadow-2xs'
-              : 'hover:bg-slate-100 hover:text-slate-900'
+              : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
           <FileSpreadsheet className="w-3.5 h-3.5" />
@@ -213,46 +213,46 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Lighthouse Card */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-sm">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-sm">
                     LH
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-base">Lighthouse Rate Insight</h3>
-                    <p className="text-xs text-slate-500">Veille tarifaire concurrentielle en direct</p>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">Lighthouse Rate Insight</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Veille tarifaire concurrentielle en direct</p>
                   </div>
                 </div>
 
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                   <span>Connecté</span>
                 </span>
               </div>
 
-              <div className="space-y-2 text-xs text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Endpoint API :</span>
-                  <span className="font-mono text-slate-900 font-semibold">{LIGHTHOUSE_API_SPEC.baseUrl}</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Endpoint API :</span>
+                  <span className="font-mono text-slate-900 dark:text-slate-100 font-semibold">{LIGHTHOUSE_API_SPEC.baseUrl}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Protocole Auth :</span>
-                  <span className="text-slate-900 font-semibold">Header X-Oi-Authorization</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Protocole Auth :</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-semibold">Header X-Oi-Authorization</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Compset Surveillé :</span>
-                  <span className="text-slate-900 font-bold">5 hôtels directs (Opéra / Madeleine)</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Compset Surveillé :</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-bold">5 hôtels directs (Opéra / Madeleine)</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Quota restant :</span>
-                  <span className="text-emerald-700 font-bold">{lighthouseConfig.rateLimitRemaining || 118}/120 req/min</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Quota restant :</span>
+                  <span className="text-emerald-700 dark:text-emerald-300 font-bold">{lighthouseConfig.rateLimitRemaining || 118}/120 req/min</span>
                 </div>
               </div>
 
               <button
                 onClick={() => setActiveTab('lighthouse')}
-                className="w-full py-2.5 rounded-xl text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-2.5 rounded-xl text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span>Gérer les clés & le compset Lighthouse</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -260,46 +260,46 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
             </div>
 
             {/* D-EDGE Card */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm">
                     DE
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-base">D-EDGE CRS & Distribution</h3>
-                    <p className="text-xs text-slate-500">Stock, réservations OTB & Pickup</p>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">D-EDGE CRS & Distribution</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Stock, réservations OTB & Pickup</p>
                   </div>
                 </div>
 
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                   <span>Connecté</span>
                 </span>
               </div>
 
-              <div className="space-y-2 text-xs text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Hotel Code :</span>
-                  <span className="font-mono text-slate-900 font-semibold">{dedgeConfig.hotelCode}</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Hotel Code :</span>
+                  <span className="font-mono text-slate-900 dark:text-slate-100 font-semibold">{dedgeConfig.hotelCode}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Mode de Sync :</span>
-                  <span className="text-slate-900 font-semibold">Direct API (ARI + Webhooks)</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Mode de Sync :</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-semibold">Direct API (ARI + Webhooks)</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Parc de Chambres :</span>
-                  <span className="text-slate-900 font-bold">{hotel.roomCount} chambres gérées</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Parc de Chambres :</span>
+                  <span className="text-slate-900 dark:text-slate-100 font-bold">{hotel.roomCount} chambres gérées</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Dernier heartbeat :</span>
-                  <span className="text-emerald-700 font-bold">Actif (latence 42ms)</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Dernier heartbeat :</span>
+                  <span className="text-emerald-700 dark:text-emerald-300 font-bold">Actif (latence 42ms)</span>
                 </div>
               </div>
 
               <button
                 onClick={() => setActiveTab('dedge')}
-                className="w-full py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-2.5 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span>Configurer les paramètres D-EDGE</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -308,9 +308,9 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
           </div>
 
           {/* Business Impact Note */}
-          <div className="bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 p-5 rounded-3xl flex items-start gap-4">
-            <ShieldCheck className="w-5 h-5 text-violet-700 shrink-0 mt-0.5" />
-            <div className="space-y-1 text-xs text-violet-950">
+          <div className="bg-gradient-to-r from-violet-50 dark:from-violet-950/50 to-indigo-50 dark:to-indigo-950/40 border border-violet-200 dark:border-violet-800/70 p-5 rounded-3xl flex items-start gap-4">
+            <ShieldCheck className="w-5 h-5 text-violet-700 dark:text-violet-300 shrink-0 mt-0.5" />
+            <div className="space-y-1 text-xs text-violet-950 dark:text-violet-100">
               <h4 className="font-bold text-sm">Principe de Réalité Métier Flowtym</h4>
               <p className="leading-relaxed">
                 Aucune donnée tarifaire ou de disponibilité n&apos;est simulée à l&apos;aveugle. Lorsque les identifiants d&apos;API ne sont pas encore certifiés par les partenaires techniques, le système active un <strong>Mode Connecteur Pré-certifié</strong> avec des données d&apos;audit explicables ou permet le chargement de fichiers de clôture Night Audit via l&apos;espace d&apos;importation.
@@ -322,19 +322,19 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
 
       {/* VIEW 2: LIGHTHOUSE CONFIG & DETAILS */}
       {activeTab === 'lighthouse' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4">
             <div>
-              <h3 className="font-bold text-slate-900 text-lg">Spécifications API Lighthouse Rate Insight (v3)</h3>
-              <p className="text-xs text-slate-500">
-                Documentation : <a href={LIGHTHOUSE_API_SPEC.docUrl} target="_blank" rel="noreferrer" className="text-violet-600 hover:underline">{LIGHTHOUSE_API_SPEC.docUrl}</a>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">Spécifications API Lighthouse Rate Insight (v3)</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Documentation : <a href={LIGHTHOUSE_API_SPEC.docUrl} target="_blank" rel="noreferrer" className="text-violet-600 dark:text-violet-400 hover:underline">{LIGHTHOUSE_API_SPEC.docUrl}</a>
               </p>
             </div>
             <a
               href={LIGHTHOUSE_API_SPEC.portalUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-xs font-bold text-slate-700 hover:text-slate-900 flex items-center gap-1 border border-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-50 transition-colors"
+              className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 flex items-center gap-1 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
             >
               <span>Portail Lighthouse</span>
               <ExternalLink className="w-3 h-3" />
@@ -345,7 +345,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
             {/* Form */}
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Clé d&apos;Authentification API (Header X-Oi-Authorization)
                 </label>
                 <input
@@ -353,7 +353,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
                   value={lighthouseConfig.apiKey}
                   onChange={(e) => setLighthouseConfig({ ...lighthouseConfig, apiKey: e.target.value })}
                   placeholder="oi_live_sec_..."
-                  className="w-full px-3.5 py-2 text-xs font-mono border border-slate-200 rounded-xl focus:border-violet-500 focus:outline-none"
+                  className="w-full px-3.5 py-2 text-xs font-mono border border-slate-200 dark:border-slate-800 rounded-xl focus:border-violet-500 focus:outline-none"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">
                   Jeton de service lié au compte souscripteur Lighthouse.
@@ -361,26 +361,26 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   URL de Base de l&apos;API
                 </label>
                 <input
                   type="text"
                   value={lighthouseConfig.baseUrl}
                   disabled
-                  className="w-full px-3.5 py-2 text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl text-slate-600"
+                  className="w-full px-3.5 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Courriel du compte administrateur
                 </label>
                 <input
                   type="email"
                   value={lighthouseConfig.accountEmail}
                   onChange={(e) => setLighthouseConfig({ ...lighthouseConfig, accountEmail: e.target.value })}
-                  className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl"
+                  className="w-full px-3.5 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl"
                 />
               </div>
 
@@ -403,7 +403,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
                     saveLighthouseConfig(hotel.id, lighthouseConfig);
                     onShowToast('Paramètres Lighthouse enregistrés');
                   }}
-                  className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
                 >
                   Sauvegarder
                 </button>
@@ -413,14 +413,14 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
                 <div
                   className={`p-3 rounded-xl text-xs flex items-start gap-2 border ${
                     lighthouseTestResult.success
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                      : 'bg-rose-50 border-rose-200 text-rose-900'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/70 text-rose-900 dark:text-rose-200'
                   }`}
                 >
                   {lighthouseTestResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   ) : (
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   )}
                   <span>{lighthouseTestResult.message}</span>
                 </div>
@@ -428,21 +428,21 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
             </div>
 
             {/* Endpoints & Compset Spec */}
-            <div className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-xs">
-              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">
+            <div className="space-y-4 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 text-xs">
+              <h4 className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px]">
                 Endpoints Supportés dans le Contrat
               </h4>
 
               <div className="space-y-3">
                 {LIGHTHOUSE_API_SPEC.supportedEndpoints.map((ep, idx) => (
-                  <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200/70 space-y-1">
+                  <div key={idx} className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/70 dark:border-slate-800/70 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-violet-700 text-[10px] bg-violet-50 px-1.5 py-0.5 rounded">
+                      <span className="font-mono font-bold text-violet-700 dark:text-violet-300 text-[10px] bg-violet-50 dark:bg-violet-950/40 px-1.5 py-0.5 rounded">
                         {ep.method}
                       </span>
-                      <span className="font-mono text-slate-900 font-bold">{ep.path}</span>
+                      <span className="font-mono text-slate-900 dark:text-slate-100 font-bold">{ep.path}</span>
                     </div>
-                    <p className="text-slate-600 text-[11px]">{ep.description}</p>
+                    <p className="text-slate-600 dark:text-slate-400 text-[11px]">{ep.description}</p>
                     <div className="text-[10px] text-slate-400">
                       Paramètres : {ep.params.join(', ')}
                     </div>
@@ -450,7 +450,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
                 ))}
               </div>
 
-              <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-500 space-y-1">
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <div><strong>Quotas :</strong> {LIGHTHOUSE_API_SPEC.rateLimits}</div>
                 <div><strong>Horizons :</strong> {LIGHTHOUSE_API_SPEC.availabilityHorizons}</div>
               </div>
@@ -461,19 +461,19 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
 
       {/* VIEW 3: D-EDGE CRS CONFIG */}
       {activeTab === 'dedge' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4">
             <div>
-              <h3 className="font-bold text-slate-900 text-lg">Intégration D-EDGE CRS & Channel Manager</h3>
-              <p className="text-xs text-slate-500">
-                Documentation : <a href={DEDGE_ARCHITECTURE_SPEC.docsUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">{DEDGE_ARCHITECTURE_SPEC.docsUrl}</a>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">Intégration D-EDGE CRS & Channel Manager</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Documentation : <a href={DEDGE_ARCHITECTURE_SPEC.docsUrl} target="_blank" rel="noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">{DEDGE_ARCHITECTURE_SPEC.docsUrl}</a>
               </p>
             </div>
             <a
               href={DEDGE_ARCHITECTURE_SPEC.loginUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-xs font-bold text-slate-700 hover:text-slate-900 flex items-center gap-1 border border-slate-200 px-3 py-1.5 rounded-xl hover:bg-slate-50 transition-colors"
+              className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 flex items-center gap-1 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
             >
               <span>Accès D-EDGE CRS</span>
               <ExternalLink className="w-3 h-3" />
@@ -482,18 +482,18 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
 
           {/* 4 Pillars Interactive Matrix */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
               Les 4 Piliers Techniques D-EDGE (Directives Officielles)
             </h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               {DEDGE_ARCHITECTURE_SPEC.pillars.map((pil, idx) => (
-                <div key={idx} className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2">
-                  <h5 className="font-bold text-indigo-950 text-xs">{pil.pillar}</h5>
-                  <p className="text-slate-600 text-[11px] leading-relaxed">{pil.purpose}</p>
-                  <div className="pt-2 border-t border-slate-200/60 text-[10px] text-slate-500">
+                <div key={idx} className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 space-y-2">
+                  <h5 className="font-bold text-indigo-950 dark:text-indigo-100 text-xs">{pil.pillar}</h5>
+                  <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">{pil.purpose}</p>
+                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/70 text-[10px] text-slate-500 dark:text-slate-400">
                     <div><strong>Données :</strong> {pil.dataAvailable}</div>
-                    <div className="text-indigo-600 font-semibold mt-0.5">{pil.apiSupport}</div>
+                    <div className="text-indigo-600 dark:text-indigo-400 font-semibold mt-0.5">{pil.apiSupport}</div>
                   </div>
                 </div>
               ))}
@@ -501,45 +501,45 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
           </div>
 
           {/* Form & Credentials */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800/80">
             <div className="space-y-4">
-              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
                 Paramètres de Connexion CRS
               </h4>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Code Hôtel D-EDGE (Hotel Code)
                 </label>
                 <input
                   type="text"
                   value={dedgeConfig.hotelCode}
                   onChange={(e) => setDEdgeConfig({ ...dedgeConfig, hotelCode: e.target.value })}
-                  className="w-full px-3.5 py-2 text-xs font-mono border border-slate-200 rounded-xl"
+                  className="w-full px-3.5 py-2 text-xs font-mono border border-slate-200 dark:border-slate-800 rounded-xl"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Engine ID (Moteur de Réservation)
                 </label>
                 <input
                   type="text"
                   value={dedgeConfig.engineId}
                   onChange={(e) => setDEdgeConfig({ ...dedgeConfig, engineId: e.target.value })}
-                  className="w-full px-3.5 py-2 text-xs font-mono border border-slate-200 rounded-xl"
+                  className="w-full px-3.5 py-2 text-xs font-mono border border-slate-200 dark:border-slate-800 rounded-xl"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Jeton API / Bearer Token
                 </label>
                 <input
                   type="password"
                   value={dedgeConfig.apiToken}
                   onChange={(e) => setDEdgeConfig({ ...dedgeConfig, apiToken: e.target.value })}
-                  className="w-full px-3.5 py-2 text-xs font-mono border border-slate-200 rounded-xl"
+                  className="w-full px-3.5 py-2 text-xs font-mono border border-slate-200 dark:border-slate-800 rounded-xl"
                 />
               </div>
 
@@ -562,7 +562,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
                     saveDEdgeConfig(hotel.id, dedgeConfig);
                     onShowToast('Paramètres D-EDGE sauvegardés');
                   }}
-                  className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
                 >
                   Sauvegarder
                 </button>
@@ -572,14 +572,14 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
                 <div
                   className={`p-3 rounded-xl text-xs flex items-start gap-2 border ${
                     dedgeTestResult.success
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                      : 'bg-rose-50 border-rose-200 text-rose-900'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/70 text-rose-900 dark:text-rose-200'
                   }`}
                 >
                   {dedgeTestResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   ) : (
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   )}
                   <span>{dedgeTestResult.message}</span>
                 </div>
@@ -587,42 +587,42 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
             </div>
 
             {/* Data Classification (Explicitly requested by user) */}
-            <div className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-xs">
-              <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">
+            <div className="space-y-4 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 text-xs">
+              <h4 className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px]">
                 Classification Rigoureuse des Données D-EDGE
               </h4>
 
               <div className="space-y-3">
-                <div className="bg-emerald-50/70 border border-emerald-200 p-3 rounded-xl space-y-1">
-                  <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 p-3 rounded-xl space-y-1">
+                  <div className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>Directement disponibles via API REST / Webhook :</span>
                   </div>
-                  <ul className="list-disc list-inside text-emerald-800 space-y-0.5 text-[11px] pl-1">
+                  <ul className="list-disc list-inside text-emerald-800 dark:text-emerald-300 space-y-0.5 text-[11px] pl-1">
                     {DEDGE_ARCHITECTURE_SPEC.dataClassification.directApi.map((item, i) => (
                       <li key={i}>{item}</li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="bg-blue-50/70 border border-blue-200 p-3 rounded-xl space-y-1">
-                  <div className="font-bold text-blue-900 flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-blue-600" />
+                <div className="bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/70 p-3 rounded-xl space-y-1">
+                  <div className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>Accessibles via connecteur certifié :</span>
                   </div>
-                  <ul className="list-disc list-inside text-blue-800 space-y-0.5 text-[11px] pl-1">
+                  <ul className="list-disc list-inside text-blue-800 dark:text-blue-300 space-y-0.5 text-[11px] pl-1">
                     {DEDGE_ARCHITECTURE_SPEC.dataClassification.partnerConnector.map((item, i) => (
                       <li key={i}>{item}</li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="bg-amber-50/70 border border-amber-200 p-3 rounded-xl space-y-1">
-                  <div className="font-bold text-amber-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                <div className="bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 p-3 rounded-xl space-y-1">
+                  <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                     <span>Nécessitant export manuel / SFTP Night Audit :</span>
                   </div>
-                  <ul className="list-disc list-inside text-amber-800 space-y-0.5 text-[11px] pl-1">
+                  <ul className="list-disc list-inside text-amber-800 dark:text-amber-300 space-y-0.5 text-[11px] pl-1">
                     {DEDGE_ARCHITECTURE_SPEC.dataClassification.manualExportNeeded.map((item, i) => (
                       <li key={i}>{item}</li>
                     ))}
@@ -636,52 +636,52 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
 
       {/* VIEW 4: MODES ALTERNATIFS ET EXPORT SFTP */}
       {activeTab === 'alternatives' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
           <div>
-            <h3 className="font-bold text-slate-900 text-lg">Architecture d&apos;Intégration Évolutive & Fallback</h3>
-            <p className="text-xs text-slate-500">
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg">Architecture d&apos;Intégration Évolutive & Fallback</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Lorsque les accès API directs sont en cours d&apos;homologation ou que l&apos;établissement utilise un serveur SFTP sécurisé
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
-              <div className="w-8 h-8 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold">
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 flex items-center justify-center font-bold">
                 <FileSpreadsheet className="w-4 h-4" />
               </div>
-              <h4 className="font-bold text-slate-900">Import CSV Clôture PMS</h4>
-              <p className="text-slate-600 leading-relaxed text-[11px]">
+              <h4 className="font-bold text-slate-900 dark:text-slate-100">Import CSV Clôture PMS</h4>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[11px]">
                 Importez le fichier de clôture journalière (Night Audit) généré par Opera PMS, Protel, Mews ou Medialog pour mettre à jour l&apos;historique de pickup.
               </p>
               <button
                 onClick={() => onShowToast('Module d’import CSV disponible dans le menu supérieur')}
-                className="text-violet-600 font-bold hover:underline flex items-center gap-1 pt-1"
+                className="text-violet-600 dark:text-violet-400 font-bold hover:underline flex items-center gap-1 pt-1"
               >
                 <span>Utiliser l&apos;importateur CSV</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
-              <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold">
                 <Server className="w-4 h-4" />
               </div>
-              <h4 className="font-bold text-slate-900">Dépôt SFTP Automatisé</h4>
-              <p className="text-slate-600 leading-relaxed text-[11px]">
+              <h4 className="font-bold text-slate-900 dark:text-slate-100">Dépôt SFTP Automatisé</h4>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[11px]">
                 Configurez une tâche cron nocturne envoyant le rapport d&apos;inventaire quotidien sur un serveur SFTP dédié avec chiffrement TLS 1.3.
               </p>
               <div className="text-[10px] text-slate-400 font-mono">sftp://pms-sync.flowtym.com:2222</div>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold">
                 <ShieldCheck className="w-4 h-4" />
               </div>
-              <h4 className="font-bold text-slate-900">Connecteur Partenaire Certifié</h4>
-              <p className="text-slate-600 leading-relaxed text-[11px]">
+              <h4 className="font-bold text-slate-900 dark:text-slate-100">Connecteur Partenaire Certifié</h4>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[11px]">
                 Liaison certifiée D-EDGE Connectivity Partner. Les autorisations sont attribuées via le Connectivity Project Manager D-EDGE sous 48h.
               </p>
-              <div className="text-[10px] text-emerald-700 font-bold">Homologation disponible</div>
+              <div className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">Homologation disponible</div>
             </div>
           </div>
         </div>

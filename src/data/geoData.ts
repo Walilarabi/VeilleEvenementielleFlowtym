@@ -823,7 +823,175 @@ export const MUTUALIZED_VENUES_DATABASE: Omit<VenueGeoDetail, 'distanceKm' | 'dr
     isVerified: true,
     discoveredVia: 'Métropole Nice Côte d’Azur',
   },
+  // --- MÉTROPOLE AIX-MARSEILLE-PROVENCE ---
+  {
+    id: 'venue-parc-chanot',
+    name: 'Parc Chanot — Palais des Congrès et des Expositions',
+    city: 'Marseille',
+    commune: 'Marseille 8e',
+    region: 'Provence-Alpes-Côte d’Azur',
+    country: 'France',
+    address: 'Rond-Point du Prado, 13008 Marseille',
+    lat: 43.2735,
+    lng: 5.3924,
+    capacity: 60000,
+    type: 'parc_expositions',
+    mutualizedHotelsCount: 2,
+    associatedSourcesCount: 8,
+    isVerified: true,
+    discoveredVia: 'Safim & Marseille Tourisme',
+  },
+  {
+    id: 'venue-velodrome',
+    name: 'Orange Vélodrome',
+    city: 'Marseille',
+    commune: 'Marseille 8e',
+    region: 'Provence-Alpes-Côte d’Azur',
+    country: 'France',
+    address: '3 Boulevard Michelet, 13008 Marseille',
+    lat: 43.2698,
+    lng: 5.3959,
+    capacity: 67394,
+    type: 'stade',
+    mutualizedHotelsCount: 2,
+    associatedSourcesCount: 9,
+    isVerified: true,
+    discoveredVia: 'Arema & Olympique de Marseille',
+  },
+  // --- MÉTROPOLE EUROPÉENNE DE LILLE ---
+  {
+    id: 'venue-lille-grand-palais',
+    name: 'Lille Grand Palais & Zénith',
+    city: 'Lille',
+    commune: 'Lille Centre',
+    region: 'Hauts-de-France',
+    country: 'France',
+    address: '1 Boulevard des Cités Unies, 59777 Lille',
+    lat: 50.6295,
+    lng: 3.0778,
+    capacity: 20000,
+    type: 'centre_congres',
+    mutualizedHotelsCount: 2,
+    associatedSourcesCount: 8,
+    isVerified: true,
+    discoveredVia: 'Lille Grand Palais & Hello Lille',
+  },
+  {
+    id: 'venue-stade-pierre-mauroy',
+    name: 'Decathlon Arena — Stade Pierre-Mauroy',
+    city: 'Villeneuve-d’Ascq',
+    commune: 'Villeneuve-d’Ascq (59)',
+    region: 'Hauts-de-France',
+    country: 'France',
+    address: '261 Boulevard de Tournai, 59650 Villeneuve-d’Ascq',
+    lat: 50.6119,
+    lng: 3.1305,
+    capacity: 50186,
+    type: 'stade',
+    mutualizedHotelsCount: 2,
+    associatedSourcesCount: 7,
+    isVerified: true,
+    discoveredVia: 'ELISA & MEL',
+  },
 ];
+
+/**
+ * Référentiel GPS précis des villes et communes limitrophes pour géolocalisation sans ambiguïté
+ */
+export const CITY_COORDINATES_LOOKUP: Record<string, { lat: number; lng: number; territoryKey: string; country: string }> = {
+  paris: { lat: 48.8566, lng: 2.3522, territoryKey: 'Paris', country: 'France' },
+  'paris / île-de-france': { lat: 48.8566, lng: 2.3522, territoryKey: 'Paris', country: 'France' },
+  villepinte: { lat: 48.9719, lng: 2.5186, territoryKey: 'Paris', country: 'France' },
+  nanterre: { lat: 48.8958, lng: 2.2297, territoryKey: 'Paris', country: 'France' },
+  'la défense': { lat: 48.8924, lng: 2.2389, territoryKey: 'Paris', country: 'France' },
+  'saint-denis': { lat: 48.9244, lng: 2.3601, territoryKey: 'Paris', country: 'France' },
+  'le bourget': { lat: 48.9377, lng: 2.4334, territoryKey: 'Paris', country: 'France' },
+  versailles: { lat: 48.8049, lng: 2.1204, territoryKey: 'Paris', country: 'France' },
+  chessy: { lat: 48.8722, lng: 2.7758, territoryKey: 'Paris', country: 'France' },
+  'marne-la-vallée': { lat: 48.8722, lng: 2.7758, territoryKey: 'Paris', country: 'France' },
+  'roissy-en-france': { lat: 49.0097, lng: 2.5479, territoryKey: 'Paris', country: 'France' },
+  boulogne: { lat: 48.8397, lng: 2.2399, territoryKey: 'Paris', country: 'France' },
+  'boulogne-billancourt': { lat: 48.8397, lng: 2.2399, territoryKey: 'Paris', country: 'France' },
+  issy: { lat: 48.8245, lng: 2.2743, territoryKey: 'Paris', country: 'France' },
+  'issy-les-moulineaux': { lat: 48.8245, lng: 2.2743, territoryKey: 'Paris', country: 'France' },
+  lyon: { lat: 45.7578, lng: 4.832, territoryKey: 'Lyon', country: 'France' },
+  chassieu: { lat: 45.7331, lng: 4.9514, territoryKey: 'Lyon', country: 'France' },
+  villeurbanne: { lat: 45.7719, lng: 4.8902, territoryKey: 'Lyon', country: 'France' },
+  'décines-charpieu': { lat: 45.7653, lng: 4.982, territoryKey: 'Lyon', country: 'France' },
+  décines: { lat: 45.7653, lng: 4.982, territoryKey: 'Lyon', country: 'France' },
+  'saint-priest': { lat: 45.6961, lng: 4.9447, territoryKey: 'Lyon', country: 'France' },
+  vénissieux: { lat: 45.6976, lng: 4.8866, territoryKey: 'Lyon', country: 'France' },
+  marseille: { lat: 43.2965, lng: 5.3698, territoryKey: 'Marseille', country: 'France' },
+  'aix-en-provence': { lat: 43.5297, lng: 5.4474, territoryKey: 'Marseille', country: 'France' },
+  marignane: { lat: 43.4163, lng: 5.2149, territoryKey: 'Marseille', country: 'France' },
+  aubagne: { lat: 43.2927, lng: 5.5708, territoryKey: 'Marseille', country: 'France' },
+  vitrolles: { lat: 43.4557, lng: 5.2478, territoryKey: 'Marseille', country: 'France' },
+  lille: { lat: 50.6292, lng: 3.0573, territoryKey: 'Lille', country: 'France' },
+  "villeneuve-d'ascq": { lat: 50.6119, lng: 3.1305, territoryKey: 'Lille', country: 'France' },
+  'villeneuve-d’ascq': { lat: 50.6119, lng: 3.1305, territoryKey: 'Lille', country: 'France' },
+  roubaix: { lat: 50.6927, lng: 3.1778, territoryKey: 'Lille', country: 'France' },
+  tourcoing: { lat: 50.7239, lng: 3.1612, territoryKey: 'Lille', country: 'France' },
+  'marcq-en-barœul': { lat: 50.6703, lng: 3.0964, territoryKey: 'Lille', country: 'France' },
+  nice: { lat: 43.7102, lng: 7.262, territoryKey: 'Nice', country: 'France' },
+  cannes: { lat: 43.5528, lng: 7.0174, territoryKey: 'Nice', country: 'France' },
+  antibes: { lat: 43.5804, lng: 7.1251, territoryKey: 'Nice', country: 'France' },
+  monaco: { lat: 43.7384, lng: 7.4246, territoryKey: 'Nice', country: 'Monaco' },
+  'cagnes-sur-mer': { lat: 43.6644, lng: 7.1489, territoryKey: 'Nice', country: 'France' },
+  bordeaux: { lat: 44.8378, lng: -0.5792, territoryKey: 'Bordeaux', country: 'France' },
+  mérignac: { lat: 44.8386, lng: -0.6436, territoryKey: 'Bordeaux', country: 'France' },
+  pessac: { lat: 44.8067, lng: -0.6311, territoryKey: 'Bordeaux', country: 'France' },
+  floirac: { lat: 44.8364, lng: -0.5258, territoryKey: 'Bordeaux', country: 'France' },
+  barcelone: { lat: 41.3851, lng: 2.1734, territoryKey: 'Barcelone', country: 'Espagne' },
+  barcelona: { lat: 41.3851, lng: 2.1734, territoryKey: 'Barcelone', country: 'Espagne' },
+  londres: { lat: 51.5074, lng: -0.1278, territoryKey: 'Londres', country: 'Royaume-Uni' },
+  london: { lat: 51.5074, lng: -0.1278, territoryKey: 'Londres', country: 'Royaume-Uni' },
+  bruxelles: { lat: 50.8503, lng: 4.3517, territoryKey: 'Bruxelles', country: 'Belgique' },
+  brussels: { lat: 50.8503, lng: 4.3517, territoryKey: 'Bruxelles', country: 'Belgique' },
+};
+
+/**
+ * Résout les coordonnées GPS fiables d'un événement à partir de son lieu (venueId / venueName) ou de sa ville
+ */
+export function resolveEventCoordinates(event: {
+  venueId?: string;
+  venueName?: string;
+  city: string;
+}): { lat: number; lng: number; territoryKey: string } | null {
+  if (event.venueId) {
+    const venueMatch = MUTUALIZED_VENUES_DATABASE.find((v) => v.id === event.venueId);
+    if (venueMatch) {
+      const terr = getTerritoryForCity(venueMatch.city);
+      return { lat: venueMatch.lat, lng: venueMatch.lng, territoryKey: terr.cityKey };
+    }
+  }
+
+  const venueNameLower = (event.venueName || '').toLowerCase();
+  if (venueNameLower) {
+    const venueByName = MUTUALIZED_VENUES_DATABASE.find(
+      (v) =>
+        venueNameLower.includes(v.name.toLowerCase()) ||
+        v.name.toLowerCase().includes(venueNameLower)
+    );
+    if (venueByName) {
+      const terr = getTerritoryForCity(venueByName.city);
+      return { lat: venueByName.lat, lng: venueByName.lng, territoryKey: terr.cityKey };
+    }
+  }
+
+  const cityKey = event.city.trim().toLowerCase();
+  if (CITY_COORDINATES_LOOKUP[cityKey]) {
+    const found = CITY_COORDINATES_LOOKUP[cityKey];
+    return { lat: found.lat, lng: found.lng, territoryKey: found.territoryKey };
+  }
+
+  for (const [k, coords] of Object.entries(CITY_COORDINATES_LOOKUP)) {
+    if (cityKey.includes(k) || k.includes(cityKey)) {
+      return { lat: coords.lat, lng: coords.lng, territoryKey: coords.territoryKey };
+    }
+  }
+
+  return null;
+}
 
 /**
  * Calcul de la distance à vol d'oiseau (Formule Haversine, équivalent ST_Distance PostGIS)

@@ -65,6 +65,12 @@ import {
 import { EventItem, FilterState, Hotel, EventProposal } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 import { exportEventsToPDF } from './utils/pdfExport';
+import {
+  filterEventsByDate,
+  filterEventsByHotelGeography,
+  CURRENT_REFERENCE_DATE,
+} from './utils/eventFilterUtils';
+import { getHotelRMSConfig } from './services/rmsSettingsService';
 
 interface UserSession {
   name: string;
@@ -164,6 +170,7 @@ export default function App() {
   const [sources, setSources] = useState(INITIAL_SOURCES);
   const [suggestions, setSuggestions] = useState(INITIAL_SUGGESTIONS);
   const [events, setEvents] = useState<EventItem[]>(() => generateFullMockEvents());
+  const [configVersion, setConfigVersion] = useState(0);
 
   // Proposals State (Score RM 30 à 59)
   const [proposals, setProposals] = useState<EventProposal[]>([
@@ -204,10 +211,10 @@ export default function App() {
   const [calendarSubTab, setCalendarSubTab] = useState<CalendarSubTabMode>('table');
   const [selectedDateForModal, setSelectedDateForModal] = useState<string | null>(null);
 
-  // Filter state (Matching the reference screenshot default configuration)
+  // Filter state (Initialized on current real date: 12/11/2026 -> November 2026, 0-indexed 10)
   const [filterState, setFilterState] = useState<FilterState>({
     search: '',
-    periodTab: 'all', // "Tous 106" active in screenshot
+    periodTab: 'all',
     impact: 'all',
     category: 'all',
     city: 'all',
@@ -219,7 +226,7 @@ export default function App() {
     showSchoolHolidays: true,
     selectedHotelId: 'hotel-opera',
     currentYear: 2026,
-    currentMonth: 9, // October 2026 (0-indexed)
+    currentMonth: 10, // Novembre 2026 (0-indexed 10)
   });
 
   // Collapsible advanced filters (open by default like the screenshot)
@@ -228,7 +235,7 @@ export default function App() {
   // Modals & Drawers
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [addEventDefaultDate, setAddEventDefaultDate] = useState<string>('2026-10-15');
+  const [addEventDefaultDate, setAddEventDefaultDate] = useState<string>(CURRENT_REFERENCE_DATE);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isRefreshModalOpen, setIsRefreshModalOpen] = useState(false);
   const [isProposalsModalOpen, setIsProposalsModalOpen] = useState(false);
@@ -263,10 +270,15 @@ export default function App() {
     showToast('Filtres réinitialisés');
   };
 
-  // Current Hotel selection
+  // Current Hotel selection & persisted RMS configuration
   const currentHotel = useMemo(() => {
     return hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0];
   }, [hotels, filterState.selectedHotelId]);
+
+  const activeHotelConfig = useMemo(
+    () => getHotelRMSConfig(currentHotel),
+    [currentHotel, configVersion]
+  );
 
   // School holidays converted into EventItem representations
   const schoolHolidayEvents = useMemo(() => {
@@ -274,15 +286,39 @@ export default function App() {
     return convertSchoolHolidaysToEventItems(hList, currentHotel);
   }, [currentHotel, filterState.currentYear]);
 
-  // Combined events pool (merging standard events and official school holidays)
+  // Combined events pool (merging standard events, seasonal periods, and official school holidays without duplicates)
   const allEventsWithHolidays = useMemo(() => {
     if (filterState.showSchoolHolidays === false) return events;
-    return [...events, ...schoolHolidayEvents];
+    const seenIds = new Set<string>();
+    const merged: EventItem[] = [];
+    for (const ev of [...events, ...schoolHolidayEvents]) {
+      if (!seenIds.has(ev.id)) {
+        seenIds.add(ev.id);
+        merged.push(ev);
+      }
+    }
+    return merged;
   }, [events, schoolHolidayEvents, filterState.showSchoolHolidays]);
 
-  // Filtered Events Calculation
+  // Strict Data-Level Geographic & EventWatch Filtering bound to the active hotel
+  const geoFilteredEvents = useMemo(() => {
+    const geoScoped = filterEventsByHotelGeography(
+      allEventsWithHolidays,
+      currentHotel,
+      activeHotelConfig.eventWatch
+    );
+    const enabledCats = new Set(activeHotelConfig.eventWatch.enabledCategories);
+    const minScore = activeHotelConfig.eventWatch.minScoreThreshold || 0;
+    return geoScoped.filter((ev) => {
+      if (!enabledCats.has(ev.category)) return false;
+      if ((ev.scoreBreakdown?.finalRMScore ?? 0) < minScore) return false;
+      return true;
+    });
+  }, [allEventsWithHolidays, currentHotel, activeHotelConfig.eventWatch]);
+
+  // Filtered & Chronologically Sorted Events Calculation (Centralized via filterEventsByDate)
   const filteredEvents = useMemo(() => {
-    return allEventsWithHolidays.filter((ev) => {
+    const attributeFiltered = geoFilteredEvents.filter((ev) => {
       // Search
       if (filterState.search.trim()) {
         const q = filterState.search.toLowerCase();
@@ -290,18 +326,6 @@ export default function App() {
         const matchVenue = ev.venueName.toLowerCase().includes(q);
         const matchCity = ev.city.toLowerCase().includes(q);
         if (!matchTitle && !matchVenue && !matchCity) return false;
-      }
-
-      // Period Tab
-      if (filterState.periodTab === 'upcoming') {
-        if (new Date(ev.startDate) < new Date('2026-10-01')) return false;
-      } else if (filterState.periodTab === 'ongoing') {
-        const inMonth =
-          ev.startDate.startsWith(`${filterState.currentYear}-${String(filterState.currentMonth + 1).padStart(2, '0')}`) ||
-          ev.endDate.startsWith(`${filterState.currentYear}-${String(filterState.currentMonth + 1).padStart(2, '0')}`);
-        if (!inMonth) return false;
-      } else if (filterState.periodTab === 'past') {
-        if (new Date(ev.startDate) >= new Date('2026-10-01')) return false;
       }
 
       // Impact
@@ -332,7 +356,13 @@ export default function App() {
 
       return true;
     });
-  }, [allEventsWithHolidays, filterState]);
+
+    return filterEventsByDate(attributeFiltered, {
+      referenceDate: CURRENT_REFERENCE_DATE,
+      selectedYear: filterState.currentYear,
+      selectedMonth: filterState.currentMonth,
+    });
+  }, [geoFilteredEvents, filterState]);
 
   // Event interaction handlers
   const handleToggleFavorite = (eventId: string) => {
@@ -396,6 +426,7 @@ export default function App() {
       hotel: currentHotel,
       viewMode,
       filterState,
+      referenceDate: CURRENT_REFERENCE_DATE,
     });
     setTimeout(() => {
       showToast('Rapport PDF téléchargé avec succès');
@@ -524,10 +555,19 @@ export default function App() {
     showToast(`Hôtel "${newHotel.name}" ajouté au portefeuille`);
   };
 
+  const handleUpdateHotel = (updatedHotel: Hotel) => {
+    setHotels((prev) => prev.map((h) => (h.id === updatedHotel.id ? updatedHotel : h)));
+  };
+
   const handleDeleteHotel = (hotelId: string) => {
-    setHotels((prev) => prev.filter((h) => h.id !== hotelId));
+    const remaining = hotels.filter((h) => h.id !== hotelId);
+    setHotels(remaining);
     if (filterState.selectedHotelId === hotelId) {
-      setFilterState((prev) => ({ ...prev, selectedHotelId: hotels[0]?.id || 'all' }));
+      setFilterState((prev) => ({
+        ...prev,
+        selectedHotelId: remaining[0]?.id || '',
+        city: 'all',
+      }));
     }
     showToast('Hôtel supprimé');
   };
@@ -541,12 +581,12 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 antialiased font-sans">
+    <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#141824] text-slate-900 dark:text-slate-100 antialiased font-sans">
       {/* Top Navbar */}
       <Navbar
         hotels={hotels}
         selectedHotelId={filterState.selectedHotelId}
-        onSelectHotel={(id) => handleFilterChange({ selectedHotelId: id })}
+        onSelectHotel={(id) => handleFilterChange({ selectedHotelId: id, city: 'all' })}
         pendingSuggestionsCount={pendingSuggestionsCount}
         onOpenSuggestions={() => {
           setActiveTab('flowboard');
@@ -566,14 +606,14 @@ export default function App() {
         onToggleFullscreen={handleToggleFullscreen}
       />
 
-      {/* Sub-header Banner Session Demo matching reference screenshots */}
-      <div className="bg-violet-50/70 border-b border-violet-100/90 px-4 sm:px-6 py-2 text-[11px] text-violet-900 flex flex-wrap items-center justify-between gap-2 z-20">
+      {/* Sub-header Banner Session Demo */}
+      <div className="bg-violet-50/70 dark:bg-violet-950/35 border-b border-violet-100/90 dark:border-violet-900/50 px-4 sm:px-6 py-2 text-[11px] text-violet-900 dark:text-violet-200 flex flex-wrap items-center justify-between gap-2 z-20">
         <div>
           <strong>Accès ouvert — authentification désactivée.</strong> L&apos;interface est accessible sans connexion pour le moment (AUTH_MODE=open). Session de travail : {user?.name || 'Nabil Amrani'} · {user?.email || 'revenue@flowtym.fr'}.
         </div>
         <button
           onClick={handleLogout}
-          className="text-violet-700 hover:text-violet-900 font-bold underline cursor-pointer"
+          className="text-violet-700 dark:text-violet-300 hover:text-violet-900 dark:hover:text-violet-100 font-bold underline cursor-pointer"
         >
           Ouvrir l&apos;écran de connexion
         </button>
@@ -605,7 +645,7 @@ export default function App() {
             <div className="space-y-6">
               {/* Header KPI cards with Actualiser button */}
               <KPIHeader
-                events={events}
+                events={geoFilteredEvents}
                 filterState={filterState}
                 onFilterChange={handleFilterChange}
                 onTriggerRefresh={() => setIsRefreshModalOpen(true)}
@@ -636,20 +676,24 @@ export default function App() {
               {/* View: Explorer Events (Marché & Concurrence) */}
               {calendarSubTab === 'explorer' && (
                 <ExplorerView
-                  events={events}
+                  events={filteredEvents}
                   hotels={hotels}
                   selectedHotelId={filterState.selectedHotelId}
                   onSelectEvent={setSelectedEvent}
+                  filterState={filterState}
+                  onFilterChange={handleFilterChange}
+                  onExportPDF={handleExportPDF}
+                  eventWatchConfig={activeHotelConfig.eventWatch}
                 />
               )}
 
               {/* View 2: Heatmap (Market Tension) */}
               {calendarSubTab === 'heatmap' && (
                 <MarketCalendarView
-                  events={events}
+                  events={geoFilteredEvents}
                   hotels={hotels}
                   selectedHotelId={filterState.selectedHotelId}
-                  onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
+                  onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id, city: 'all' }))}
                   onSelectEvent={setSelectedEvent}
                   onShowToast={showToast}
                 />
@@ -675,14 +719,14 @@ export default function App() {
                     onResetFilters={handleResetFilters}
                     isFilterExpanded={isFilterExpanded}
                     onToggleFilterExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
-                    events={allEventsWithHolidays}
+                    events={geoFilteredEvents}
                   />
 
                   {/* Active View Quick Indicator & One-Click Toggle */}
-                  <div className="flex items-center justify-between bg-violet-50/70 border border-violet-200/80 px-4 py-2.5 rounded-2xl text-xs">
+                  <div className="flex items-center justify-between bg-violet-50/70 dark:bg-violet-950/35 border border-violet-200/80 dark:border-violet-800/60 px-4 py-2.5 rounded-2xl text-xs">
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full bg-violet-600" />
-                      <span className="text-violet-950 font-medium">
+                      <div className="w-2.5 h-2.5 rounded-full bg-violet-600 dark:bg-violet-400" />
+                      <span className="text-violet-950 dark:text-violet-100 font-medium">
                         Affichage actif : <strong className="font-bold">{viewMode === 'table' ? 'Tableau (Vue Liste des événements & vacances)' : 'Calendrier (Planning mensuel des événements & vacances)'}</strong>
                       </span>
                     </div>
@@ -692,7 +736,7 @@ export default function App() {
                         setViewMode(newMode);
                         setCalendarSubTab(newMode);
                       }}
-                      className="font-bold text-violet-700 hover:text-violet-900 bg-white hover:bg-violet-100/60 px-3.5 py-1.5 rounded-xl border border-violet-200 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+                      className="font-bold text-violet-700 dark:text-violet-200 hover:text-violet-900 dark:hover:text-white bg-white dark:bg-slate-900 hover:bg-violet-100/60 dark:hover:bg-slate-800 px-3.5 py-1.5 rounded-xl border border-violet-200 dark:border-violet-800/70 shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
                     >
                       <span>{viewMode === 'table' ? 'Afficher la Vue Calendrier ▦' : 'Afficher la Vue Tableau ⊞'}</span>
                     </button>
@@ -725,10 +769,10 @@ export default function App() {
           {/* TAB: MARCHÉ (Calendrier des dates à surveiller & Niveau de demande) */}
           {activeTab === 'market' && (
             <MarketCalendarView
-              events={events}
+              events={geoFilteredEvents}
               hotels={hotels}
               selectedHotelId={filterState.selectedHotelId}
-              onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
+              onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id, city: 'all' }))}
               onSelectEvent={setSelectedEvent}
               onShowToast={showToast}
             />
@@ -737,7 +781,7 @@ export default function App() {
           {/* TAB 2: FLOWBOARD (Executive RM Dashboard) */}
           {activeTab === 'flowboard' && (
             <FlowboardView
-              events={events}
+              events={geoFilteredEvents}
               suggestions={suggestions}
               hotels={hotels}
               selectedHotelId={filterState.selectedHotelId}
@@ -769,10 +813,14 @@ export default function App() {
           {/* TAB 3: EXPLORER (Deep Search & Discovery) */}
           {activeTab === 'explorer' && (
             <ExplorerView
-              events={events}
+              events={filteredEvents}
               hotels={hotels}
               selectedHotelId={filterState.selectedHotelId}
               onSelectEvent={setSelectedEvent}
+              filterState={filterState}
+              onFilterChange={handleFilterChange}
+              onExportPDF={handleExportPDF}
+              eventWatchConfig={activeHotelConfig.eventWatch}
             />
           )}
 
@@ -780,7 +828,8 @@ export default function App() {
           {activeTab === 'pricing' && (
             <RateIntelligenceView
               hotel={currentHotel}
-              events={events}
+              events={geoFilteredEvents}
+              configVersion={configVersion}
               onSelectEvent={setSelectedEvent}
               onGoToExcelUpload={() => setActiveTab('sources')}
               onShowToast={showToast}
@@ -790,7 +839,7 @@ export default function App() {
           {/* TAB 6: ANALYSES & RÉCURRENCES (Événements récurrents, tendances, historique, validation) */}
           {activeTab === 'intelligence' && (
             <EventIntelligenceView
-              events={events}
+              events={geoFilteredEvents}
               hotels={hotels}
               selectedHotelId={filterState.selectedHotelId}
               onSelectEvent={setSelectedEvent}
@@ -804,7 +853,7 @@ export default function App() {
           {activeTab === 'opportunities' && (
             <RMDecisionCenter
               hotel={currentHotel}
-              events={events}
+              events={geoFilteredEvents}
               onSelectEvent={setSelectedEvent}
               onShowToast={showToast}
             />
@@ -815,8 +864,8 @@ export default function App() {
             <GeoIntelligenceView
               hotels={hotels}
               selectedHotelId={filterState.selectedHotelId}
-              events={events}
-              onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
+              events={geoFilteredEvents}
+              onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id, city: 'all' }))}
               onSelectEvent={setSelectedEvent}
               onShowToast={showToast}
             />
@@ -827,7 +876,7 @@ export default function App() {
             <SourcesCoverageView
               sources={sources}
               venues={venues}
-              events={events}
+              events={geoFilteredEvents}
               hotel={currentHotel}
               onNavigateToPricing={() => setActiveTab('pricing')}
               onShowToast={showToast}
@@ -847,7 +896,7 @@ export default function App() {
           {activeTab === 'forecast' && (
             <DemandForecastView
               hotel={currentHotel}
-              events={events}
+              events={geoFilteredEvents}
               onSelectEvent={setSelectedEvent}
               onGoToMarket={() => setActiveTab('market')}
             />
@@ -862,14 +911,17 @@ export default function App() {
             />
           )}
 
-          {/* TAB 7: PARAMÈTRES (Hotel portfolio, Veille Géo & Supabase) */}
+          {/* TAB 7: PARAMÈTRES (Centre de Commande Flowtym RMS) */}
           {activeTab === 'settings' && (
             <SettingsView
               hotels={hotels}
+              events={allEventsWithHolidays}
               onAddHotel={handleAddHotel}
+              onUpdateHotel={handleUpdateHotel}
               onDeleteHotel={handleDeleteHotel}
               selectedHotelId={filterState.selectedHotelId}
-              onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
+              onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id, city: 'all' }))}
+              onConfigUpdated={() => setConfigVersion((v) => v + 1)}
               onShowToast={showToast}
             />
           )}
@@ -929,7 +981,7 @@ export default function App() {
         onClose={() => setSelectedDateForModal(null)}
         dateStr={selectedDateForModal || ''}
         hotel={currentHotel}
-        events={allEventsWithHolidays}
+        events={geoFilteredEvents}
         onSelectEvent={setSelectedEvent}
         onApplyRecommendation={(dateStr, rate) => {
           showToast(`Tarif recommandé de ${rate}€ validé et appliqué pour le ${dateStr}`);
@@ -959,7 +1011,7 @@ export default function App() {
         onSelectEvent={(ev) => {
           setSelectedEvent(ev);
         }}
-        events={events}
+        events={geoFilteredEvents}
         onToggleFullscreen={handleToggleFullscreen}
         isFullscreen={isFullscreen}
         onExportExcel={() => {

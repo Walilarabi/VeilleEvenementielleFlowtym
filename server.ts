@@ -7,8 +7,13 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
+
+const DEFAULT_SUPABASE_URL = 'https://aliploqizujgovnlgjvg.supabase.co';
 
 const app = express();
 app.use(express.json());
@@ -36,14 +41,100 @@ if (process.env.GEMINI_API_KEY) {
 // In-memory campaign state registry
 const activeCampaigns = new Map<string, any>();
 
+function resolveServerSupabaseConfig(): { url: string; key: string } {
+  const rawUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+  const rawKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
+
+  const looksLikeUrl = (v: string) => /^https?:\/\//i.test(v);
+  const looksLikeKey = (v: string) => Boolean(v) && !looksLikeUrl(v);
+
+  let url = looksLikeUrl(rawUrl) ? rawUrl : looksLikeUrl(rawKey) ? rawKey : DEFAULT_SUPABASE_URL;
+  let key = looksLikeKey(rawKey) ? rawKey : looksLikeKey(rawUrl) ? rawUrl : '';
+
+  if (!url) url = DEFAULT_SUPABASE_URL;
+  return { url, key };
+}
+
 // 1. Health check
 app.get('/api/health', (req, res) => {
+  const { url, key } = resolveServerSupabaseConfig();
   res.json({
     status: 'ok',
     service: 'Flowtym Event Intelligence Agent API',
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    supabaseUrl: url,
+    hasSupabaseKey: Boolean(key),
     time: new Date().toISOString(),
   });
+});
+
+// 1b. Supabase connection & schema status
+app.get('/api/supabase/status', async (req, res) => {
+  const { url, key } = resolveServerSupabaseConfig();
+
+  if (!key) {
+    return res.status(200).json({
+      connected: false,
+      url,
+      hasKey: false,
+      tablesFound: [],
+      message: 'Clé Supabase (VITE_SUPABASE_ANON_KEY ou SUPABASE_SERVICE_ROLE_KEY) non configurée dans .env.',
+    });
+  }
+
+  try {
+    const supabase = createClient(url, key);
+    const tablesToCheck = [
+      'organizations',
+      'hotels',
+      'room_types',
+      'rate_plans',
+      'venues',
+      'events',
+      'reservations',
+      'otb_pace_snapshots',
+      'daily_rate_recommendations',
+      'pricing_guardrails',
+      'hotel_rms_configs',
+      'rm_alerts',
+      'rm_decision_records',
+      'ari_push_jobs',
+      'audit_logs',
+    ];
+    const results = await Promise.all(
+      tablesToCheck.map(async (table) => {
+        const { error } = await supabase.from(table).select('id', { count: 'exact', head: true });
+        return { table, exists: !error, errorCode: error?.code || null, errorMsg: error?.message || null };
+      })
+    );
+    const tablesFound = results.filter((r) => r.exists).map((r) => r.table);
+    return res.json({
+      connected: true,
+      url,
+      hasKey: true,
+      tablesFound,
+      missingTables: results.filter((r) => !r.exists).map((r) => r.table),
+    });
+  } catch (err: any) {
+    return res.status(200).json({
+      connected: false,
+      url,
+      hasKey: true,
+      tablesFound: [],
+      error: err?.message || 'Supabase connection error',
+    });
+  }
+});
+
+// 1c. Serve complete Supabase DDL SQL migration
+app.get('/api/supabase/schema', (req, res) => {
+  try {
+    const sqlPath = path.resolve(process.cwd(), 'src/supabase/migrations/00_complete_flowtym_schema.sql');
+    const sql = fs.readFileSync(sqlPath, 'utf-8');
+    res.type('text/plain').send(sql);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Could not read schema SQL' });
+  }
 });
 
 // 2. Real-time Gemini Search Grounding endpoint

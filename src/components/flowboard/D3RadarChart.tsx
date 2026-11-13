@@ -6,6 +6,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { EventItem, Hotel } from '../../types';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   Users,
   Building2,
@@ -43,6 +44,7 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
   hotel,
   className = '',
 }) => {
+  const { isDark } = useTheme();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoveredDimension, setHoveredDimension] = useState<RadarDimension | null>(null);
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null);
@@ -220,9 +222,9 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
       g.append('path')
         .datum(gridPoints)
         .attr('d', lineGenerator)
-        .attr('fill', lvl % 40 === 0 ? '#f8fafc' : 'none')
-        .attr('fill-opacity', 0.5)
-        .attr('stroke', '#e2e8f0')
+        .attr('fill', lvl % 40 === 0 ? (isDark ? '#252e42' : '#f8fafc') : 'none')
+        .attr('fill-opacity', isDark ? 0.35 : 0.5)
+        .attr('stroke', isDark ? '#333f57' : '#e2e8f0')
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', lvl === 100 ? 'none' : '3,3');
 
@@ -231,7 +233,7 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
         .attr('x', 4)
         .attr('y', -r)
         .attr('dy', '0.4em')
-        .attr('fill', '#94a3b8')
+        .attr('fill', isDark ? '#71819e' : '#94a3b8')
         .attr('font-size', '9px')
         .attr('font-weight', '600')
         .text(`${lvl}%`);
@@ -249,7 +251,7 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
         .attr('y1', 0)
         .attr('x2', x)
         .attr('y2', y)
-        .attr('stroke', '#cbd5e1')
+        .attr('stroke', isDark ? '#4c5a75' : '#cbd5e1')
         .attr('stroke-width', 1.2);
 
       // Outer endpoint node
@@ -291,7 +293,7 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
         .attr('x', lx)
         .attr('y', ly)
         .attr('text-anchor', textAnchor)
-        .attr('fill', '#334155')
+        .attr('fill', isDark ? '#c5cedd' : '#334155')
         .attr('font-size', '11px')
         .attr('font-weight', '700')
         .text(dim.shortLabel);
@@ -374,7 +376,7 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
         .attr('cx', 0)
         .attr('cy', 0)
         .attr('r', 5)
-        .attr('fill', '#ffffff')
+        .attr('fill', isDark ? '#1c2231' : '#ffffff')
         .attr('stroke', dim.color)
         .attr('stroke-width', 2.5)
         .attr('class', 'cursor-pointer transition-transform hover:scale-150');
@@ -409,23 +411,23 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
           setHoveredDimension(null);
         });
     });
-  }, [dimensions]);
+  }, [dimensions, isDark]);
 
   return (
-    <div className={`bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col ${className}`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-xs flex flex-col ${className}`}>
       {/* Header with Title and Score Pill */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-violet-600 animate-pulse" />
-            <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight">
               Radar d’Impact Revenue Management (D3.js)
             </h3>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70">
               6 Dimensions
             </span>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Profil multi-axes pour <strong>{event.title}</strong>
           </p>
         </div>
@@ -433,11 +435,11 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <div className="text-right">
             <div className="text-xs text-slate-400 font-semibold uppercase">Score RM Global</div>
-            <div className="text-lg font-black text-slate-900 tabular-nums">
+            <div className="text-lg font-black text-slate-900 dark:text-slate-100 tabular-nums">
               {event.scoreBreakdown.finalRMScore}/100
             </div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold text-xs border border-violet-200">
+          <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 flex items-center justify-center font-bold text-xs border border-violet-200 dark:border-violet-800/70">
             {event.impactLevel === 'hyper'
               ? '⚡ Hyper'
               : event.impactLevel === 'critique'
@@ -488,10 +490,10 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
       </div>
 
       {/* Chart Legend */}
-      <div className="flex flex-wrap items-center justify-center gap-4 py-2 border-t border-slate-100 text-xs text-slate-600">
+      <div className="flex flex-wrap items-center justify-center gap-4 py-2 border-t border-slate-100 dark:border-slate-800/80 text-xs text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded bg-gradient-to-r from-violet-600 to-indigo-600 border border-violet-700" />
-          <span className="font-semibold text-slate-800">Événement analysé</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-200">Événement analysé</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-0.5 border-t-2 border-dashed border-slate-400" />
@@ -504,7 +506,7 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
       </div>
 
       {/* Breakdown Metrics Grid (6 Categories) */}
-      <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-slate-100">
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800/80">
         {dimensions.map((dim) => (
           <div
             key={dim.key}
@@ -512,22 +514,22 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
             onMouseLeave={() => setHoveredDimension(null)}
             className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
               hoveredDimension?.key === dim.key
-                ? 'bg-violet-50/80 border-violet-300 shadow-2xs'
-                : 'bg-slate-50 border-slate-200/70 hover:bg-slate-100/70'
+                ? 'bg-violet-50/80 dark:bg-violet-950/45 border-violet-300 dark:border-violet-700/70 shadow-2xs'
+                : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/70 dark:border-slate-800/70 hover:bg-slate-100/70 dark:hover:bg-slate-800/80'
             }`}
           >
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-700 flex items-center gap-1.5 truncate">
+              <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 truncate">
                 {dim.icon}
                 <span className="truncate">{dim.shortLabel}</span>
               </span>
-              <span className="font-black text-slate-900 tabular-nums shrink-0 ml-1">
+              <span className="font-black text-slate-900 dark:text-slate-100 tabular-nums shrink-0 ml-1">
                 {dim.normalizedValue}%
               </span>
             </div>
 
             {/* Micro progress bar */}
-            <div className="w-full bg-slate-200/80 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div className="w-full bg-slate-200/80 dark:bg-slate-700/60 h-1.5 rounded-full mt-2 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
@@ -539,7 +541,7 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
 
             <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
               <span>{dim.rawValue}/{dim.maxRaw} {dim.unit}</span>
-              <span className={dim.normalizedValue >= dim.benchmarkValue ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
+              <span className={dim.normalizedValue >= dim.benchmarkValue ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-400'}>
                 {dim.normalizedValue >= dim.benchmarkValue ? `+${dim.normalizedValue - dim.benchmarkValue}%` : `${dim.normalizedValue - dim.benchmarkValue}%`}
               </span>
             </div>

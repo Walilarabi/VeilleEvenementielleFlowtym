@@ -102,7 +102,7 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
       case 'exceptionnel':
         return {
           label: 'Demande Exceptionnelle',
-          color: 'text-rose-700 bg-rose-50 border-rose-200',
+          color: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/70',
           badge: 'bg-rose-600 text-white',
           desc: 'Saturation imminente du marché. Multiples événements ou sold-out compset.',
           adrDelta: '+35% à +50%',
@@ -111,7 +111,7 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
       case 'eleve':
         return {
           label: 'Demande Élevée',
-          color: 'text-amber-800 bg-amber-50 border-amber-200',
+          color: 'text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/70',
           badge: 'bg-amber-600 text-white',
           desc: 'Forte pression événementielle et commerciale. Compset en hausse tarifaire.',
           adrDelta: '+20% à +35%',
@@ -120,7 +120,7 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
       case 'normal':
         return {
           label: 'Demande Normale',
-          color: 'text-sky-800 bg-sky-50 border-sky-200',
+          color: 'text-sky-800 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/70',
           badge: 'bg-sky-600 text-white',
           desc: 'Flux standard pour la période sans surchauffe majeure.',
           adrDelta: 'Tarif BAR Standard',
@@ -130,7 +130,7 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
       default:
         return {
           label: 'Demande Faible',
-          color: 'text-slate-700 bg-slate-50 border-slate-200',
+          color: 'text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800',
           badge: 'bg-slate-600 text-white',
           desc: 'Faible activité événementielle dans le périmètre direct.',
           adrDelta: 'Tarif de stimulation',
@@ -161,7 +161,7 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onClick={onClose} />
 
       {/* Modal Card */}
-      <div className="relative bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200/90 z-10 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+      <div className="relative bg-white dark:bg-slate-900 rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200/90 dark:border-slate-800 z-10 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="space-y-1">
@@ -194,13 +194,13 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
         </div>
 
         {/* Navigation Tabs in Modal Header */}
-        <div className="flex items-center gap-1 px-6 py-2.5 bg-slate-100/80 border-b border-slate-200 shrink-0 text-xs font-semibold text-slate-600 overflow-x-auto">
+        <div className="flex items-center gap-1 px-6 py-2.5 bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-400 overflow-x-auto">
           <button
             onClick={() => setActiveSubTab('reco')}
             className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
               activeSubTab === 'reco'
-                ? 'bg-white text-violet-700 shadow-2xs font-bold'
-                : 'hover:text-slate-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                : 'hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white/50'
             }`}
           >
             <Zap className="w-3.5 h-3.5 text-amber-500" />
@@ -211,11 +211,11 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
             onClick={() => setActiveSubTab('market_compset')}
             className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
               activeSubTab === 'market_compset'
-                ? 'bg-white text-violet-700 shadow-2xs font-bold'
-                : 'hover:text-slate-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                : 'hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white/50'
             }`}
           >
-            <TrendingUp className="w-3.5 h-3.5 text-violet-600" />
+            <TrendingUp className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
             <span>Veille Tarifaire Lighthouse ({compset.soldOutCount}/{compset.totalCompetitors} complets)</span>
           </button>
 
@@ -223,11 +223,11 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
             onClick={() => setActiveSubTab('dedge_inventory')}
             className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
               activeSubTab === 'dedge_inventory'
-                ? 'bg-white text-violet-700 shadow-2xs font-bold'
-                : 'hover:text-slate-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                : 'hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white/50'
             }`}
           >
-            <Activity className="w-3.5 h-3.5 text-indigo-600" />
+            <Activity className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>Stock & Pickup D-EDGE ({dedge.roomsAvailable} ch. dispo)</span>
           </button>
 
@@ -235,47 +235,47 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
             onClick={() => setActiveSubTab('events')}
             className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
               activeSubTab === 'events'
-                ? 'bg-white text-violet-700 shadow-2xs font-bold'
-                : 'hover:text-slate-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 shadow-2xs font-bold'
+                : 'hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white/50'
             }`}
           >
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+            <Calendar className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span>Événements Détectés ({dayEvents.length})</span>
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-800 text-sm">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1 text-slate-800 dark:text-slate-200 text-sm">
           {/* TAB 1: RECOMMANDATION & EXPLICABILITÉ (5 NIVEAUX) */}
           {activeSubTab === 'reco' && (
             <div className="space-y-6">
               {/* Tarifs et Action RM Card */}
-              <div className="bg-gradient-to-br from-violet-50/80 via-purple-50/40 to-white border border-violet-200/90 rounded-2xl p-5 space-y-4">
+              <div className="bg-gradient-to-br from-violet-50/80 dark:from-violet-950/50 via-purple-50/40 dark:via-purple-950/30 to-white dark:to-slate-900 border border-violet-200/90 dark:border-violet-800/70 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-violet-700" />
-                    <h4 className="text-xs font-bold text-violet-950 uppercase tracking-wider">
+                    <Zap className="w-4 h-4 text-violet-700 dark:text-violet-300" />
+                    <h4 className="text-xs font-bold text-violet-950 dark:text-violet-100 uppercase tracking-wider">
                       Proposition Tarifaire & Stratégie Yield
                     </h4>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-violet-200/80 text-violet-900 rounded-full">
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-violet-200/80 dark:bg-violet-900/50 text-violet-900 dark:text-violet-200 rounded-full">
                     Gouvernance RM Active
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-white rounded-xl p-3 border border-violet-200/80">
+                  <div className="bg-white dark:bg-slate-900 rounded-xl p-3 border border-violet-200/80 dark:border-violet-800/70">
                     <div className="text-[10px] font-bold text-slate-400 uppercase">Tarif Actuel (Base)</div>
-                    <div className="text-xl font-bold text-slate-900 mt-1">{hotel.baseADR}€</div>
-                    <div className="text-[10px] text-slate-500">Grille tarifaire standard</div>
+                    <div className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">{hotel.baseADR}€</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">Grille tarifaire standard</div>
                   </div>
 
-                  <div className="bg-white rounded-xl p-3 border border-violet-200/80 relative">
+                  <div className="bg-white dark:bg-slate-900 rounded-xl p-3 border border-violet-200/80 dark:border-violet-800/70 relative">
                     <div className="flex items-center justify-between">
-                      <div className="text-[10px] font-bold text-violet-600 uppercase">Tarif Recommandé</div>
+                      <div className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase">Tarif Recommandé</div>
                       <button
                         onClick={() => setIsEditingRate(!isEditingRate)}
-                        className="text-[10px] text-violet-600 hover:underline font-semibold"
+                        className="text-[10px] text-violet-600 dark:text-violet-400 hover:underline font-semibold"
                       >
                         {isEditingRate ? 'Valider' : 'Modifier'}
                       </button>
@@ -287,33 +287,33 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
                           type="number"
                           value={customRate}
                           onChange={(e) => setCustomRate(Number(e.target.value))}
-                          className="w-20 px-2 py-1 text-sm font-bold border border-violet-400 rounded-md bg-violet-50/50"
+                          className="w-20 px-2 py-1 text-sm font-bold border border-violet-400 rounded-md bg-violet-50/50 dark:bg-violet-950/35"
                         />
-                        <span className="text-xs font-bold text-slate-700">€</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">€</span>
                       </div>
                     ) : (
-                      <div className="text-xl font-bold text-violet-700 mt-1">{customRate}€</div>
+                      <div className="text-xl font-bold text-violet-700 dark:text-violet-300 mt-1">{customRate}€</div>
                     )}
 
-                    <div className="text-[10px] font-bold text-emerald-600 mt-0.5">
+                    <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                       {priceDeltaEur > 0 ? `+${priceDeltaEur}€ (+${priceDeltaPercent}%)` : priceDeltaEur < 0 ? `${priceDeltaEur}€` : 'Aligné sur le base'}
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl p-3 border border-violet-200/80">
+                  <div className="bg-white dark:bg-slate-900 rounded-xl p-3 border border-violet-200/80 dark:border-violet-800/70">
                     <div className="text-[10px] font-bold text-slate-400 uppercase">Séjour Minimum (MLOS)</div>
-                    <div className="text-xl font-bold text-slate-900 mt-1">{demandConfig.minStay}</div>
-                    <div className="text-[10px] text-slate-500">Protection des nuits de pointe</div>
+                    <div className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">{demandConfig.minStay}</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">Protection des nuits de pointe</div>
                   </div>
                 </div>
 
-                <div className="p-3 bg-white/80 border border-violet-100 rounded-xl text-xs text-violet-950 leading-relaxed">
+                <div className="p-3 bg-white/80 dark:bg-slate-900/80 border border-violet-100 dark:border-violet-900/60 rounded-xl text-xs text-violet-950 dark:text-violet-100 leading-relaxed">
                   <strong>Recommandation d&apos;action :</strong> {breakdown.recommandation}
                 </div>
 
                 {/* Direct Action Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-violet-200/50">
-                  <div className="text-[11px] text-slate-500">
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     Chaque arbitrage est tracé et synchronisable avec D-EDGE CRS.
                   </div>
 
@@ -351,22 +351,22 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
               {/* GRILLE D'EXPLICABILITÉ EN 5 NIVEAUX */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <FileCheck2 className="w-4 h-4 text-slate-700" />
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  <FileCheck2 className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
                     Détail de la Justification RM (Cadre Méthodologique en 5 Niveaux)
                   </h4>
                 </div>
 
                 <div className="space-y-2.5">
                   {/* 1. FAIT OBSERVÉ */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-1.5">
+                  <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-slate-900" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                      <span className="w-2 h-2 rounded-full bg-slate-900 dark:bg-slate-800" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
                         1. Fait Observé (Données brutes vérifiables)
                       </span>
                     </div>
-                    <ul className="list-disc list-inside text-xs text-slate-700 space-y-1 pl-1">
+                    <ul className="list-disc list-inside text-xs text-slate-700 dark:text-slate-300 space-y-1 pl-1">
                       {breakdown.faitObserve.map((item, i) => (
                         <li key={i}>{item}</li>
                       ))}
@@ -374,14 +374,14 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
                   </div>
 
                   {/* 2. ANALYSE */}
-                  <div className="bg-blue-50/50 border border-blue-200 rounded-2xl p-4 space-y-1.5">
+                  <div className="bg-blue-50/50 dark:bg-blue-950/35 border border-blue-200 dark:border-blue-800/70 rounded-2xl p-4 space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-blue-600" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-blue-950">
+                      <span className="text-xs font-bold uppercase tracking-wider text-blue-950 dark:text-blue-100">
                         2. Analyse (Interprétation des dynamiques de marché)
                       </span>
                     </div>
-                    <ul className="list-disc list-inside text-xs text-blue-900 space-y-1 pl-1">
+                    <ul className="list-disc list-inside text-xs text-blue-900 dark:text-blue-200 space-y-1 pl-1">
                       {breakdown.analyse.map((item, i) => (
                         <li key={i}>{item}</li>
                       ))}
@@ -389,14 +389,14 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
                   </div>
 
                   {/* 3. PRÉVISION */}
-                  <div className="bg-purple-50/50 border border-purple-200 rounded-2xl p-4 space-y-1.5">
+                  <div className="bg-purple-50/50 dark:bg-purple-950/35 border border-purple-200 dark:border-purple-800/70 rounded-2xl p-4 space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-purple-600" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-purple-950">
+                      <span className="text-xs font-bold uppercase tracking-wider text-purple-950 dark:text-purple-100">
                         3. Prévision (Projections chiffrées & probabilités)
                       </span>
                     </div>
-                    <ul className="list-disc list-inside text-xs text-purple-900 space-y-1 pl-1">
+                    <ul className="list-disc list-inside text-xs text-purple-900 dark:text-purple-200 space-y-1 pl-1">
                       {breakdown.prevision.map((item, i) => (
                         <li key={i}>{item}</li>
                       ))}
@@ -404,27 +404,27 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
                   </div>
 
                   {/* 4. RECOMMANDATION */}
-                  <div className="bg-emerald-50/50 border border-emerald-200 rounded-2xl p-4 space-y-1.5">
+                  <div className="bg-emerald-50/50 dark:bg-emerald-950/35 border border-emerald-200 dark:border-emerald-800/70 rounded-2xl p-4 space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-950">
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 dark:text-emerald-100">
                         4. Recommandation (Action concrète préconisée)
                       </span>
                     </div>
-                    <p className="text-xs text-emerald-900 pl-1 font-medium">
+                    <p className="text-xs text-emerald-900 dark:text-emerald-200 pl-1 font-medium">
                       {breakdown.recommandation}
                     </p>
                   </div>
 
                   {/* 5. HYPOTHÈSE & LIMITES */}
-                  <div className="bg-amber-50/50 border border-amber-200 rounded-2xl p-4 space-y-1.5">
+                  <div className="bg-amber-50/50 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-4 space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-amber-600" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-amber-950">
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-950 dark:text-amber-100">
                         5. Hypothèses & Limites (Conditions de validité)
                       </span>
                     </div>
-                    <ul className="list-disc list-inside text-xs text-amber-900 space-y-1 pl-1">
+                    <ul className="list-disc list-inside text-xs text-amber-900 dark:text-amber-200 space-y-1 pl-1">
                       {breakdown.hypothese.map((item, i) => (
                         <li key={i}>{item}</li>
                       ))}
@@ -440,14 +440,14 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
                     Relevé Concurrentiel Lighthouse Rate Insight (v3)
                   </h4>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     5 établissements comparables dans un rayon de 400m · Relevé direct OTA & Web
                   </p>
                 </div>
-                <span className="text-xs font-bold text-violet-700 bg-violet-50 px-2.5 py-1 rounded-lg border border-violet-200">
+                <span className="text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 px-2.5 py-1 rounded-lg border border-violet-200 dark:border-violet-800/70">
                   Moyenne Compset : {compset.compsetAverage}€
                 </span>
               </div>
@@ -456,27 +456,27 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
                 {compset.competitors.map((comp) => (
                   <div
                     key={comp.id}
-                    className="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-2 shadow-2xs"
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 space-y-2 shadow-2xs"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <h5 className="text-xs font-bold text-slate-900">{comp.name}</h5>
-                        <p className="text-[10px] text-slate-500">
+                        <h5 className="text-xs font-bold text-slate-900 dark:text-slate-100">{comp.name}</h5>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
                           {comp.distanceMeters}m · {comp.stars}★ · {comp.roomCount} ch. · {comp.roomType}
                         </p>
                       </div>
 
                       <div className="text-right shrink-0">
                         {comp.isSoldOut ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70">
                             COMPLET (Sold-out)
                           </span>
                         ) : (
                           <div>
-                            <span className="text-sm font-bold text-slate-900">{comp.currentRate}€</span>
+                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{comp.currentRate}€</span>
                             <span
                               className={`text-[10px] ml-1 font-semibold ${
-                                comp.deltaPercent >= 0 ? 'text-rose-600' : 'text-slate-500'
+                                comp.deltaPercent >= 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'
                               }`}
                             >
                               {comp.deltaPercent >= 0 ? `+${comp.deltaPercent}%` : `${comp.deltaPercent}%`}
@@ -486,7 +486,7 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
                       <span>Source : {comp.scrapedSource}</span>
                       <span>Observé : {comp.lastObservedAt}</span>
                     </div>
@@ -495,8 +495,8 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
               </div>
 
               {compset.soldOutCount >= 2 && (
-                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <div>
                     <strong>Alerte de Compression :</strong> {compset.soldOutCount} hôtels concurrents sur 5 sont complets. La demande se reporte massivement sur les chambres encore ouvertes. Opportunité de relever le tarif sans risque d&apos;érosion du volume.
                   </div>
@@ -510,51 +510,51 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
                     Données Internes CRS D-EDGE & Rythme de Réservation
                   </h4>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Synchronisation temps réel Channel Manager & Booking Engine
                   </p>
                 </div>
-                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
+                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/70">
                   {dedge.lastUpdated}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-center">
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 text-center">
                   <div className="text-[10px] font-bold uppercase text-slate-400">Taux d&apos;Occupation OTB</div>
-                  <div className="text-xl font-black text-slate-900 mt-1">{dedge.occupancyPercent}%</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">
+                  <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">{dedge.occupancyPercent}%</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                     {dedge.roomsSold} / {dedge.totalRooms} ch.
                   </div>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-center">
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 text-center">
                   <div className="text-[10px] font-bold uppercase text-slate-400">Stock Restant à Vendre</div>
-                  <div className="text-xl font-black text-violet-700 mt-1">{dedge.roomsAvailable} ch.</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Disponibles dans le CRS</div>
+                  <div className="text-xl font-black text-violet-700 dark:text-violet-300 mt-1">{dedge.roomsAvailable} ch.</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Disponibles dans le CRS</div>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-center">
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 text-center">
                   <div className="text-[10px] font-bold uppercase text-slate-400">Pickup Récent (24h)</div>
-                  <div className="text-xl font-black text-emerald-600 mt-1">+{dedge.pickup24h} ch.</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">72h : +{dedge.pickup72h} ch.</div>
+                  <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">+{dedge.pickup24h} ch.</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">72h : +{dedge.pickup72h} ch.</div>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-center">
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-3.5 text-center">
                   <div className="text-[10px] font-bold uppercase text-slate-400">Vélocité de Vente</div>
-                  <div className="text-base font-bold text-slate-900 mt-1 capitalize">
+                  <div className="text-base font-bold text-slate-900 dark:text-slate-100 mt-1 capitalize">
                     {dedge.bookingVelocity.replace('_', ' ')}
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Lead time : {dedge.averageLeadTimeDays} j.</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Lead time : {dedge.averageLeadTimeDays} j.</div>
                 </div>
               </div>
 
-              <div className="p-4 bg-indigo-50/60 border border-indigo-200 rounded-2xl text-xs text-indigo-950 space-y-2">
+              <div className="p-4 bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/70 rounded-2xl text-xs text-indigo-950 dark:text-indigo-100 space-y-2">
                 <div className="font-bold flex items-center gap-1.5">
-                  <Activity className="w-4 h-4 text-indigo-600" />
+                  <Activity className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   <span>Synthèse de distribution D-EDGE</span>
                 </div>
                 <p className="leading-relaxed">
@@ -568,16 +568,16 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
           {activeSubTab === 'events' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
                   Événements Détectés ({dayEvents.length})
                 </h4>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   Affluence cumulée : {totalPax.toLocaleString('fr-FR')} personnes
                 </span>
               </div>
 
               {dayEvents.length === 0 ? (
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-center text-xs text-slate-500">
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-500 dark:text-slate-400">
                   Aucun événement d&apos;envergure répertorié à cette date. La demande repose sur les flux réguliers d&apos;affaires ou de loisirs.
                 </div>
               ) : (
@@ -587,7 +587,7 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
                     return (
                       <div
                         key={ev.id}
-                        className="bg-white border border-slate-200 hover:border-violet-300 rounded-2xl p-4 transition-all shadow-2xs space-y-2"
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-violet-300 dark:hover:border-violet-600/70 rounded-2xl p-4 transition-all shadow-2xs space-y-2"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -595,32 +595,32 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${impact.badgeBg}`}>
                                 {ev.impactLevel}
                               </span>
-                              <span className="text-xs font-semibold text-slate-500">
+                              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                                 {getCategoryLabel(ev.category)}
                               </span>
                               <span className="text-slate-300">·</span>
-                              <span className="text-xs text-slate-600 font-medium">{ev.venueName}</span>
+                              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">{ev.venueName}</span>
                             </div>
-                            <h5 className="font-bold text-slate-900 text-sm mt-1">{ev.title}</h5>
-                            <p className="text-xs text-slate-500">
+                            <h5 className="font-bold text-slate-900 dark:text-slate-100 text-sm mt-1">{ev.title}</h5>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
                               {ev.expectedAttendance.toLocaleString('fr-FR')} participants attendus · {ev.internationalRatioPercent}% internationaux
                             </p>
                           </div>
 
                           <div className="text-right shrink-0">
-                            <div className="text-xl font-black text-slate-900">{ev.scoreBreakdown.finalRMScore}</div>
+                            <div className="text-xl font-black text-slate-900 dark:text-slate-100">{ev.scoreBreakdown.finalRMScore}</div>
                             <div className="text-[10px] text-slate-400 font-semibold uppercase">Score RM</div>
                           </div>
                         </div>
 
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                           <span className="text-[11px]">Source officielle : {ev.sources?.[0] || 'Vérifié'}</span>
                           <button
                             onClick={() => {
                               onClose();
                               onSelectEvent(ev);
                             }}
-                            className="text-xs font-bold text-violet-600 hover:text-violet-800 flex items-center gap-1 cursor-pointer"
+                            className="text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 flex items-center gap-1 cursor-pointer"
                           >
                             <span>Consulter la fiche complète</span>
                             <ArrowRight className="w-3 h-3" />

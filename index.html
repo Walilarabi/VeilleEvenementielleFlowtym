@@ -9,6 +9,26 @@
     <meta property="og:description" content="Plateforme SaaS d'Event Intelligence et de veille événementielle pour le Revenue Management hôtelier." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('flowtym_theme_mode_v1') || 'light';
+          var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var resolved = mode === 'system' ? (sysDark ? 'dark' : 'light') : mode;
+          var root = document.documentElement;
+          if (resolved === 'dark') {
+            root.classList.add('dark');
+            root.style.backgroundColor = '#141824';
+            root.style.colorScheme = 'dark';
+          } else {
+            root.classList.remove('dark');
+            root.style.backgroundColor = '#f8fafc';
+            root.style.colorScheme = 'light';
+          }
+          root.dataset.theme = resolved;
+        } catch (e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />

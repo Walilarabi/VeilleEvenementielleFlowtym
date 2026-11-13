@@ -19,8 +19,11 @@ import {
   Layers,
   Flame,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
 } from 'lucide-react';
-import { EventItem, Hotel, EventCategory, RMImpactLevel } from '../../types';
+import { EventItem, Hotel, EventCategory, RMImpactLevel, FilterState } from '../../types';
 import {
   formatEventDateRange,
   getCategoryLabel,
@@ -28,12 +31,29 @@ import {
   getRMScoreColorClasses,
 } from '../../utils/helpers';
 import { getTerritoryForHotel, OFFICIAL_TERRITORIES_DIRECTORY } from '../../data/geoData';
+import {
+  CURRENT_REFERENCE_DATE,
+  sortEventsChronologically,
+  getEventStatusBadgeConfig,
+  getMonthTemporalRelation,
+  evaluateEventGeographyForHotel,
+} from '../../utils/eventFilterUtils';
+import type { HotelEventWatchConfig } from '../../services/rmsSettingsService';
+
+const EXPLORER_MONTH_NAMES = [
+  'Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin',
+  'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.',
+];
 
 interface ExplorerViewProps {
   events: EventItem[];
   hotels: Hotel[];
   selectedHotelId: string;
   onSelectEvent: (event: EventItem) => void;
+  filterState?: FilterState;
+  onFilterChange?: (updates: Partial<FilterState>) => void;
+  onExportPDF?: () => void;
+  eventWatchConfig?: Partial<HotelEventWatchConfig>;
 }
 
 export const ExplorerView: React.FC<ExplorerViewProps> = ({
@@ -41,6 +61,10 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
   hotels,
   selectedHotelId,
   onSelectEvent,
+  filterState,
+  onFilterChange,
+  onExportPDF,
+  eventWatchConfig,
 }) => {
   const currentHotel = hotels.find((h) => h.id === selectedHotelId) || hotels[0];
 
@@ -118,64 +142,16 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
     }
   };
 
-  // Helper to check whether an event belongs to the current hotel's geographic catchment zone
+  // Helper to check whether an event belongs strictly to the current hotel's geographic catchment zone
   const isEventInCatchment = (ev: EventItem): boolean => {
-    // 1. If explicit hotel impact is computed for this specific hotel
-    if (ev.hotelImpacts && ev.hotelImpacts[currentHotel.id]) {
-      return true;
-    }
-
-    const evCity = (ev.city || '').trim().toLowerCase();
-    const hotelCity = (currentHotel.city || '').trim().toLowerCase();
-
-    // 2. Exact match with hotel city
-    if (evCity === hotelCity || evCity.includes(hotelCity) || hotelCity.includes(evCity)) {
-      return true;
-    }
-
-    // 3. Known key communes of this territory
-    const keyCommunes = hotelTerritory.keyCommunes || [];
-    const isInKeyCommunes = keyCommunes.some((commune) => {
-      const c = commune.toLowerCase();
-      return c.includes(evCity) || evCity.includes(c.split(' ')[0]);
-    });
-    if (isInKeyCommunes) {
-      return true;
-    }
-
-    // 4. Exclusion of other distinct metropolitan hubs
-    const distinctHubs = [
-      'paris',
-      'lyon',
-      'nice',
-      'marseille',
-      'bordeaux',
-      'lille',
-      'barcelone',
-      'barcelona',
-      'londres',
-      'london',
-      'bruxelles',
-      'brussels',
-    ];
-
-    const isEvInOtherHub = distinctHubs.some((hub) => {
-      if (hotelCity.includes(hub) || hub.includes(hotelCity)) return false;
-      return evCity.includes(hub) || hub.includes(evCity);
-    });
-
-    if (isEvInOtherHub) {
-      return false;
-    }
-
-    // Default: if it doesn't conflict with other hubs and has no distance conflict
-    return true;
+    const geo = evaluateEventGeographyForHotel(ev, currentHotel, eventWatchConfig);
+    return geo.isEligible;
   };
 
   // 1. Automatically restrict events to the hotel's geographic zone
   const catchmentEvents = useMemo(() => {
     return events.filter(isEventInCatchment);
-  }, [events, currentHotel.id, currentHotel.city, hotelTerritory]);
+  }, [events, currentHotel, eventWatchConfig]);
 
   // 2. Extract strictly the cities present in this hotel's geographic zone
   const availableCities = useMemo(() => {
@@ -209,9 +185,13 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
     }
   }, [availableCities, selectedCity]);
 
-  // Filter logic across the catchment events
+  const activeYear = filterState?.currentYear ?? 2026;
+  const activeMonth = filterState?.currentMonth ?? 10;
+  const isPastPeriod = getMonthTemporalRelation(activeYear, activeMonth, CURRENT_REFERENCE_DATE) === 'past';
+
+  // Filter logic across the catchment events + strict centralized chronological sorting
   const filteredEvents = useMemo(() => {
-    return catchmentEvents.filter((ev) => {
+    const matched = catchmentEvents.filter((ev) => {
       // Text search
       if (query.trim()) {
         const q = query.toLowerCase().trim();
@@ -248,20 +228,23 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
         return false;
       }
 
-      // Radius filter: check hotelImpacts distance if recorded
-      const hotelImp = ev.hotelImpacts ? ev.hotelImpacts[currentHotel.id] : undefined;
-      if (hotelImp && hotelImp.distanceKm > radiusKm) {
+      // Radius filter: check exact Haversine distance against slider radiusKm
+      const geo = evaluateEventGeographyForHotel(ev, currentHotel, eventWatchConfig);
+      const effectiveDistanceKm = ev.hotelImpacts?.[currentHotel.id]?.distanceKm ?? geo.distanceKm;
+      if (effectiveDistanceKm > radiusKm && !geo.isEconomicException) {
         return false;
       }
 
       return true;
     });
-  }, [catchmentEvents, query, selectedCity, selectedCategory, minRMScore, radiusKm, currentHotel.id]);
+
+    return sortEventsChronologically(matched, CURRENT_REFERENCE_DATE, isPastPeriod);
+  }, [catchmentEvents, query, selectedCity, selectedCategory, minRMScore, radiusKm, currentHotel, eventWatchConfig, isPastPeriod]);
 
   return (
     <div className="space-y-6">
       {/* Explorer Central Search Hero */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-violet-600 flex items-center justify-center text-white shadow-xs">
@@ -269,43 +252,103 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                   Explorer & Découverte Événementielle
                 </h2>
-                <span className="text-[11px] font-semibold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full border border-violet-200">
+                <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-800/70">
                   Zone auto-adaptée
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Périmètre restreint automatiquement à la zone géographique proche de{' '}
-                <strong className="text-slate-700 font-semibold">{currentHotel.name}</strong> ({currentHotel.city})
+                <strong className="text-slate-700 dark:text-slate-300 font-semibold">{currentHotel.name}</strong> ({currentHotel.city})
               </p>
             </div>
           </div>
 
-          {/* Catchment Info Chip */}
-          <div className="inline-flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-600 shrink-0">
-            <MapPin className="w-3.5 h-3.5 text-violet-600" />
-            <span>
-              Bassin actif : <strong className="text-slate-900">{hotelTerritory.territoryName}</strong>
-            </span>
+          {/* Catchment Info Chip + Synced Period Selector */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {filterState && onFilterChange && (
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl p-1">
+                <select
+                  value={filterState.currentYear}
+                  onChange={(e) => onFilterChange({ currentYear: parseInt(e.target.value, 10) })}
+                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 px-2 py-1 focus:outline-none cursor-pointer"
+                >
+                  <option value={2025}>2025</option>
+                  <option value={2026}>2026</option>
+                  <option value={2027}>2027</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (filterState.currentMonth === 0) {
+                      onFilterChange({ currentMonth: 11, currentYear: filterState.currentYear - 1 });
+                    } else {
+                      onFilterChange({ currentMonth: filterState.currentMonth - 1 });
+                    }
+                  }}
+                  className="p-1 hover:bg-slate-200/70 rounded-lg text-slate-600 dark:text-slate-400 cursor-pointer"
+                  title="Mois précédent"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <select
+                  value={filterState.currentMonth}
+                  onChange={(e) => onFilterChange({ currentMonth: parseInt(e.target.value, 10) })}
+                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 px-1 py-1 focus:outline-none cursor-pointer"
+                >
+                  {EXPLORER_MONTH_NAMES.map((m, idx) => (
+                    <option key={m} value={idx}>{m}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (filterState.currentMonth === 11) {
+                      onFilterChange({ currentMonth: 0, currentYear: filterState.currentYear + 1 });
+                    } else {
+                      onFilterChange({ currentMonth: filterState.currentMonth + 1 });
+                    }
+                  }}
+                  className="p-1 hover:bg-slate-200/70 rounded-lg text-slate-600 dark:text-slate-400 cursor-pointer"
+                  title="Mois suivant"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onFilterChange({ currentYear: 2026, currentMonth: 10, periodTab: 'all' })}
+                  className="px-2 py-1 text-[11px] font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 rounded-lg cursor-pointer"
+                >
+                  Aujourd&apos;hui
+                </button>
+              </div>
+            )}
+
+            <div className="inline-flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
+              <MapPin className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+              <span>
+                Bassin actif : <strong className="text-slate-900 dark:text-slate-100">{hotelTerritory.territoryName}</strong>
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Central Search Bar */}
         <div className="relative">
-          <Search className="w-4 h-4 text-violet-600 absolute left-4 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-violet-600 dark:text-violet-400 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Ex: Rechercher des salons, congrès ou spectacles à ${currentHotel.city} et environs...`}
-            className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-24 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 shadow-2xs"
+            className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl pl-11 pr-24 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 shadow-2xs"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-700 px-2 py-1"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-2 py-1"
             >
               Effacer
             </button>
@@ -321,7 +364,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
             <button
               key={qs}
               onClick={() => handleApplyQuickSearch(qs)}
-              className="text-xs text-slate-600 bg-slate-100 hover:bg-violet-50 hover:text-violet-700 px-3 py-1 rounded-lg transition-colors border border-transparent hover:border-violet-200 cursor-pointer"
+              className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-violet-950/50 hover:text-violet-700 dark:hover:text-violet-300 px-3 py-1 rounded-lg transition-colors border border-transparent hover:border-violet-200 dark:hover:border-violet-700/70 cursor-pointer"
             >
               {qs}
             </button>
@@ -329,7 +372,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
               Ville ou Région (Périmètre {currentHotel.city})
@@ -337,7 +380,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
             <select
               value={selectedCity}
               onChange={(e) => setSelectedCity(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500 font-medium"
+              className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-500 font-medium"
             >
               <option value="all">
                 Toutes les villes ({hotelTerritory.territoryName})
@@ -357,7 +400,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500 font-medium"
+              className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-500 font-medium"
             >
               <option value="all">Toutes les catégories</option>
               <option value="salons_foires">Salons & Foires</option>
@@ -367,6 +410,8 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
               <option value="mode_luxe">Mode & Luxe</option>
               <option value="corporate_sommet">Sommets & Corporate</option>
               <option value="festivals">Festivals & Culture</option>
+              <option value="vacances_scolaires">Vacances Scolaires</option>
+              <option value="periodes_saisonnieres_fetes">Périodes saisonnières et fêtes</option>
             </select>
           </div>
 
@@ -375,7 +420,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
               <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Rayon d&apos;impact hôtel
               </label>
-              <span className="text-xs font-bold text-violet-700 tabular-nums">
+              <span className="text-xs font-bold text-violet-700 dark:text-violet-300 tabular-nums">
                 &le; {radiusKm} km
               </span>
             </div>
@@ -395,7 +440,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
               <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Score RM Minimum
               </label>
-              <span className="text-xs font-bold text-violet-700 tabular-nums">
+              <span className="text-xs font-bold text-violet-700 dark:text-violet-300 tabular-nums">
                 &ge; {minRMScore}/100
               </span>
             </div>
@@ -413,34 +458,45 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
       </div>
 
       {/* Results Header with View Mode Switch */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="text-xs text-slate-600">
+          <div className="text-xs text-slate-600 dark:text-slate-400">
             <span>Résultats : </span>
-            <strong className="text-slate-900 font-bold tabular-nums">
+            <strong className="text-slate-900 dark:text-slate-100 font-bold tabular-nums">
               {filteredEvents.length} événements qualifiés
             </strong>{' '}
             <span className="hidden sm:inline">sur la zone {hotelTerritory.territoryName}</span>
           </div>
         </div>
 
-        {/* View Mode Toggle: Table vs Cards */}
+        {/* View Mode Toggle: Table vs Cards + Export PDF */}
         <div className="flex items-center gap-2">
+          {onExportPDF && (
+            <button
+              type="button"
+              onClick={onExportPDF}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800/70 rounded-xl transition-all shadow-2xs cursor-pointer mr-1"
+              title="Exporter ces événements filtrés en PDF (ordre chronologique exact)"
+            >
+              <FileText className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+              <span>Exporter en PDF</span>
+            </button>
+          )}
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 hidden md:inline">
             Affichage :
           </span>
-          <div className="bg-slate-100 p-1 rounded-xl inline-flex items-center gap-1 border border-slate-200/80">
+          <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl inline-flex items-center gap-1 border border-slate-200/80 dark:border-slate-800/80">
             <button
               type="button"
               onClick={() => setViewMode('table')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'table'
-                  ? 'bg-white text-violet-700 shadow-2xs font-bold border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 shadow-2xs font-bold border border-slate-200/60 dark:border-slate-800/70'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
               title="Afficher la vue liste structurée sous forme de tableau"
             >
-              <TableIcon className="w-3.5 h-3.5 text-violet-600" />
+              <TableIcon className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
               <span>Vue Tableau</span>
             </button>
             <button
@@ -448,12 +504,12 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
               onClick={() => setViewMode('cards')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'cards'
-                  ? 'bg-white text-violet-700 shadow-2xs font-bold border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 shadow-2xs font-bold border border-slate-200/60 dark:border-slate-800/70'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
               title="Afficher la vue en grille de cartes"
             >
-              <LayoutGrid className="w-3.5 h-3.5 text-violet-600" />
+              <LayoutGrid className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
               <span>Vue Cartes</span>
             </button>
           </div>
@@ -462,14 +518,14 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
 
       {/* Main Results Display: Empty State or Active View */}
       {filteredEvents.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-12 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-12 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mx-auto">
             <Search className="w-6 h-6" />
           </div>
-          <h4 className="text-sm font-bold text-slate-800">
+          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
             Aucun événement ne correspond à cette sélection dans la zone {hotelTerritory.territoryName}
           </h4>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
             Élargissez le rayon kilométrique ou réinitialisez les filtres pour découvrir davantage d&apos;opportunités locales.
           </p>
           <button
@@ -480,18 +536,18 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
               setMinRMScore(0);
               setRadiusKm(50);
             }}
-            className="px-4 py-2 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-xl transition-colors cursor-pointer"
+            className="px-4 py-2 text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 rounded-xl transition-colors cursor-pointer"
           >
             Réinitialiser les critères
           </button>
         </div>
       ) : viewMode === 'table' ? (
         /* ================= VUE TABLEAU ================= */
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <th className="py-3 px-4">Événement</th>
                   <th className="py-3 px-3">Dates</th>
                   <th className="py-3 px-3">Ville & Lieu</th>
@@ -503,7 +559,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
                 {filteredEvents.map((ev) => {
                   const impactStyles = getImpactColorClasses(ev.impactLevel);
                   const scoreClasses = getRMScoreColorClasses(ev.scoreBreakdown.finalRMScore);
@@ -521,17 +577,28 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                           {ev.isRecurring && (
                             <span
                               title="Événement récurrent identifié"
-                              className="mt-0.5 p-1 rounded-md bg-violet-50 text-violet-600 border border-violet-100 shrink-0"
+                              className="mt-0.5 p-1 rounded-md bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-900/60 shrink-0"
                             >
                               <Repeat className="w-3 h-3" />
                             </span>
                           )}
                           <div>
-                            <div className="font-bold text-slate-900 group-hover:text-violet-700 transition-colors leading-snug">
-                              {ev.title}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-violet-700 transition-colors leading-snug">
+                                {ev.title}
+                              </span>
+                              {(() => {
+                                const badgeCfg = getEventStatusBadgeConfig(ev, CURRENT_REFERENCE_DATE);
+                                return (
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${badgeCfg.badgeClass}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${badgeCfg.dotClass}`} />
+                                    <span>{badgeCfg.label}</span>
+                                  </span>
+                                );
+                              })()}
                             </div>
                             {ev.subtitle && (
-                              <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
                                 {ev.subtitle}
                               </div>
                             )}
@@ -540,7 +607,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                       </td>
 
                       {/* 2. Dates de début et de fin */}
-                      <td className="py-3.5 px-3 whitespace-nowrap text-slate-700 font-medium">
+                      <td className="py-3.5 px-3 whitespace-nowrap text-slate-700 dark:text-slate-300 font-medium">
                         <div className="flex items-center gap-1.5">
                           <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <span>{formatEventDateRange(ev.startDate, ev.endDate)}</span>
@@ -552,11 +619,11 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                         <div className="flex items-start gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                           <div className="truncate">
-                            <span className="font-semibold text-slate-800">{ev.city}</span>
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">{ev.city}</span>
                             <span className="text-slate-400"> · </span>
-                            <span className="text-slate-500 text-[11px]">{ev.venueName}</span>
+                            <span className="text-slate-500 dark:text-slate-400 text-[11px]">{ev.venueName}</span>
                             {hotelImp && (
-                              <span className="text-[10px] text-violet-600 font-medium ml-1">
+                              <span className="text-[10px] text-violet-600 dark:text-violet-400 font-medium ml-1">
                                 ({hotelImp.distanceKm} km)
                               </span>
                             )}
@@ -566,7 +633,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
 
                       {/* 4. Catégorie */}
                       <td className="py-3.5 px-3 whitespace-nowrap">
-                        <span className="inline-block px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/70">
+                        <span className="inline-block px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/70 dark:border-slate-800/70">
                           {getCategoryLabel(ev.category)}
                         </span>
                       </td>
@@ -575,7 +642,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                       <td className="py-3.5 px-3 text-right whitespace-nowrap">
                         {ev.expectedAttendance ? (
                           <div>
-                            <div className="font-bold text-slate-800 tabular-nums">
+                            <div className="font-bold text-slate-800 dark:text-slate-200 tabular-nums">
                               {ev.expectedAttendance.toLocaleString('fr-FR')} pax
                             </div>
                             {ev.internationalRatioPercent !== undefined && (
@@ -598,7 +665,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                             <span>{ev.scoreBreakdown.finalRMScore}</span>
                             <span className="text-[10px] opacity-70">/100</span>
                           </span>
-                          <div className="w-12 h-1 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                          <div className="w-12 h-1 bg-slate-100 dark:bg-slate-800 rounded-full mt-1 overflow-hidden">
                             <div
                               className={`h-full ${scoreClasses.barColor}`}
                               style={{ width: `${Math.min(100, ev.scoreBreakdown.finalRMScore)}%` }}
@@ -615,7 +682,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                           {ev.impactLevel}
                         </span>
                         {hotelImp && hotelImp.estimatedADRBoostPercent > 0 && (
-                          <div className="text-[10px] font-semibold text-violet-700 mt-0.5">
+                          <div className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 mt-0.5">
                             ADR +{hotelImp.estimatedADRBoostPercent}%
                           </div>
                         )}
@@ -626,20 +693,20 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
                             ev.status === 'confirmed'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70'
                               : ev.status === 'estimated_recurrent'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/70'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
                           }`}
                         >
                           {ev.status === 'confirmed' ? (
                             <>
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                               <span>Confirmé</span>
                             </>
                           ) : ev.status === 'estimated_recurrent' ? (
                             <>
-                              <Clock className="w-3 h-3 text-amber-600" />
+                              <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                               <span>Estimé récurrent</span>
                             </>
                           ) : ev.status === 'announced_pending' ? (
@@ -658,7 +725,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                             e.stopPropagation();
                             onSelectEvent(ev);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors border border-violet-100 cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 rounded-lg transition-colors border border-violet-100 dark:border-violet-900/60 cursor-pointer"
                         >
                           <span>Détails</span>
                           <ArrowRight className="w-3 h-3" />
@@ -683,18 +750,29 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
               <div
                 key={ev.id}
                 onClick={() => onSelectEvent(ev)}
-                className="bg-white rounded-2xl border border-slate-200/90 p-5 hover:border-violet-300 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 hover:border-violet-300 dark:hover:border-violet-600/70 hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
               >
                 <div className="space-y-2.5">
                   {/* Top metadata tags */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {(() => {
+                        const badgeCfg = getEventStatusBadgeConfig(ev, CURRENT_REFERENCE_DATE);
+                        return (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${badgeCfg.badgeClass}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${badgeCfg.dotClass}`} />
+                            <span>{badgeCfg.label}</span>
+                          </span>
+                        );
+                      })()}
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${impactStyles.badgeBg}`}
+                      >
+                        {ev.impactLevel}
+                      </span>
+                    </div>
                     <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${impactStyles.badgeBg}`}
-                    >
-                      {ev.impactLevel}
-                    </span>
-                    <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-lg border tabular-nums ${scoreClasses.bg} ${scoreClasses.text} ${scoreClasses.border}`}
+                      className={`text-xs font-bold px-2 py-0.5 rounded-lg border tabular-nums shrink-0 ${scoreClasses.bg} ${scoreClasses.text} ${scoreClasses.border}`}
                     >
                       Score RM {ev.scoreBreakdown.finalRMScore}/100
                     </span>
@@ -702,34 +780,34 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
 
                   {/* Title & Dates */}
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-violet-700 transition-colors leading-snug">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-violet-700 transition-colors leading-snug">
                       {ev.title}
                     </h3>
-                    <div className="text-xs font-medium text-slate-500 mt-1 flex items-center gap-1.5">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-slate-400" />
                       <span>{formatEventDateRange(ev.startDate, ev.endDate)}</span>
                     </div>
                   </div>
 
                   {/* Venue & City */}
-                  <div className="text-xs text-slate-600 flex items-center gap-1.5">
+                  <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">
-                      {ev.venueName} · <strong className="text-slate-800">{ev.city}</strong>
+                      {ev.venueName} · <strong className="text-slate-800 dark:text-slate-200">{ev.city}</strong>
                     </span>
                   </div>
 
                   {/* Key Stats */}
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl text-xs border border-slate-100">
+                  <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl text-xs border border-slate-100 dark:border-slate-800/80">
                     <div>
                       <div className="text-[10px] text-slate-400 font-bold uppercase">Affluence</div>
-                      <div className="font-bold text-slate-800 tabular-nums mt-0.5">
+                      <div className="font-bold text-slate-800 dark:text-slate-200 tabular-nums mt-0.5">
                         {ev.expectedAttendance ? `${ev.expectedAttendance.toLocaleString('fr-FR')} pax` : 'NC'}
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] text-slate-400 font-bold uppercase">Clientèle Intl</div>
-                      <div className="font-bold text-slate-800 tabular-nums mt-0.5">
+                      <div className="font-bold text-slate-800 dark:text-slate-200 tabular-nums mt-0.5">
                         {ev.internationalRatioPercent !== undefined ? `${ev.internationalRatioPercent}%` : 'NC'}
                       </div>
                     </div>
@@ -737,10 +815,10 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                 </div>
 
                 {/* Hotel specific distance & yield teaser */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <div className="text-slate-500 truncate mr-2">
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                  <div className="text-slate-500 dark:text-slate-400 truncate mr-2">
                     {hotelImp ? (
-                      <span className="font-medium text-violet-700">
+                      <span className="font-medium text-violet-700 dark:text-violet-300">
                         {hotelImp.distanceKm} km · ADR +{hotelImp.estimatedADRBoostPercent}%
                       </span>
                     ) : (
@@ -748,7 +826,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                     )}
                   </div>
 
-                  <span className="text-violet-600 font-bold text-xs inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
+                  <span className="text-violet-600 dark:text-violet-400 font-bold text-xs inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0">
                     <span>Détails</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>

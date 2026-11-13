@@ -131,12 +131,12 @@ export const MonthlyOwnerReportView: React.FC<MonthlyOwnerReportViewProps> = ({
       </div>
 
       {/* Executive Summary Card */}
-      <div className="bg-gradient-to-r from-violet-50 via-indigo-50/60 to-white rounded-2xl border border-violet-200/90 p-5 shadow-2xs space-y-2">
-        <div className="flex items-center gap-2 text-xs font-bold text-violet-900">
-          <Sparkles className="w-4 h-4 text-violet-600" />
+      <div className="bg-gradient-to-r from-violet-50 dark:from-violet-950/50 via-indigo-50/60 dark:via-indigo-950/30 to-white dark:to-slate-900 rounded-2xl border border-violet-200/90 dark:border-violet-800/70 p-5 shadow-2xs space-y-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-violet-900 dark:text-violet-200">
+          <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
           <span>Synthèse pour le Conseil d&apos;Administration / Propriétaires</span>
         </div>
-        <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+        <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
           {kpis.executiveSummary}
         </p>
       </div>
@@ -144,142 +144,142 @@ export const MonthlyOwnerReportView: React.FC<MonthlyOwnerReportViewProps> = ({
       {/* Primary Financial KPIs Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* CA Hébergement */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-2">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-semibold">Chiffre d&apos;Affaires Net</span>
-            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold text-[10px] border border-emerald-200 flex items-center gap-0.5">
+            <span className="text-slate-500 dark:text-slate-400 font-semibold">Chiffre d&apos;Affaires Net</span>
+            <span className="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full font-bold text-[10px] border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-0.5">
               <ArrowUpRight className="w-3 h-3" />
               <span>+{kpis.roomRevenueDeltaPct}% vs N-1</span>
             </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums">
+          <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tabular-nums">
             {kpis.roomRevenueEur.toLocaleString('fr-FR')} €
           </div>
-          <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
+          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80">
             <span>N-1 : {kpis.roomRevenueN1Eur.toLocaleString('fr-FR')} €</span>
-            <span className="text-emerald-600 font-bold">+{kpis.roomRevenueDeltaEur.toLocaleString('fr-FR')} €</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{kpis.roomRevenueDeltaEur.toLocaleString('fr-FR')} €</span>
           </div>
         </div>
 
         {/* RevPAR */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-2">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-semibold">RevPAR (45 chambres)</span>
-            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold text-[10px] border border-emerald-200 flex items-center gap-0.5">
+            <span className="text-slate-500 dark:text-slate-400 font-semibold">RevPAR (45 chambres)</span>
+            <span className="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full font-bold text-[10px] border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-0.5">
               <ArrowUpRight className="w-3 h-3" />
               <span>+{kpis.revparDeltaPct}%</span>
             </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums">
+          <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tabular-nums">
             {kpis.revparEur} €
           </div>
-          <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
+          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80">
             <span>N-1 : {kpis.revparN1Eur} €</span>
-            <span className="text-emerald-600 font-bold">+{kpis.revparDeltaEur} €</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{kpis.revparDeltaEur} €</span>
           </div>
         </div>
 
         {/* ADR */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-2">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-semibold">Prix Moyen Chambre (ADR)</span>
-            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold text-[10px] border border-emerald-200 flex items-center gap-0.5">
+            <span className="text-slate-500 dark:text-slate-400 font-semibold">Prix Moyen Chambre (ADR)</span>
+            <span className="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full font-bold text-[10px] border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-0.5">
               <ArrowUpRight className="w-3 h-3" />
               <span>+{kpis.adrDeltaPct}%</span>
             </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums">
+          <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tabular-nums">
             {kpis.adrEur} €
           </div>
-          <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
+          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80">
             <span>N-1 : {kpis.adrN1Eur} €</span>
-            <span className="text-emerald-600 font-bold">+{kpis.adrDeltaEur} €</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{kpis.adrDeltaEur} €</span>
           </div>
         </div>
 
         {/* Taux d'Occupation */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-2">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-semibold">Taux d&apos;Occupation (TO)</span>
-            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold text-[10px] border border-emerald-200 flex items-center gap-0.5">
+            <span className="text-slate-500 dark:text-slate-400 font-semibold">Taux d&apos;Occupation (TO)</span>
+            <span className="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full font-bold text-[10px] border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-0.5">
               <ArrowUpRight className="w-3 h-3" />
               <span>+{kpis.occupancyDeltaPct} pts</span>
             </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tabular-nums">
+          <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tabular-nums">
             {kpis.occupancyRate}%
           </div>
-          <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
+          <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80">
             <span>N-1 : {kpis.occupancyRateN1}%</span>
-            <span className="text-slate-700 font-semibold">{kpis.roomNightsSold} nuitées</span>
+            <span className="text-slate-700 dark:text-slate-300 font-semibold">{kpis.roomNightsSold} nuitées</span>
           </div>
         </div>
       </div>
 
       {/* Market Fair Share Indices (RGI / ARI / MPI) */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800/80">
           <div>
             <div className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-violet-600" />
-              <h3 className="text-base font-bold text-slate-900">
+              <Award className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Positionnement Marché & Indices Fair Share (Compset Opéra)
               </h3>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Mesure de la captation de valeur face aux 5 concurrents directs (base neutre = 100.0)
             </p>
           </div>
-          <span className="text-xs font-bold px-3 py-1 bg-violet-100 text-violet-800 rounded-full border border-violet-200">
+          <span className="text-xs font-bold px-3 py-1 bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 rounded-full border border-violet-200 dark:border-violet-800/70">
             Rang Compset : {kpis.compsetRank}
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* RGI */}
-          <div className="p-4 rounded-xl bg-violet-50/60 border border-violet-200/80 space-y-2">
+          <div className="p-4 rounded-xl bg-violet-50/60 dark:bg-violet-950/40 border border-violet-200/80 dark:border-violet-800/70 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-violet-900">RGI (Revenue Generation Index)</span>
-              <span className="text-xs font-black text-violet-800 bg-white px-2 py-0.5 rounded-md border border-violet-200">
+              <span className="text-xs font-bold text-violet-900 dark:text-violet-200">RGI (Revenue Generation Index)</span>
+              <span className="text-xs font-black text-violet-800 dark:text-violet-300 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-violet-200 dark:border-violet-800/70">
                 {kpis.rgi}
               </span>
             </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
               <div className="h-full bg-violet-600 rounded-full" style={{ width: `${Math.min(100, (kpis.rgi / 130) * 100)}%` }} />
             </div>
-            <p className="text-xs text-slate-600 leading-snug">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-snug">
               Surperformance globale de <strong>+22.1% en RevPAR</strong> vs le marché direct.
             </p>
           </div>
 
           {/* ARI */}
-          <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200/80 space-y-2">
+          <div className="p-4 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/70 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-indigo-900">ARI (Average Rate Index)</span>
-              <span className="text-xs font-black text-indigo-800 bg-white px-2 py-0.5 rounded-md border border-indigo-200">
+              <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200">ARI (Average Rate Index)</span>
+              <span className="text-xs font-black text-indigo-800 dark:text-indigo-300 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800/70">
                 {kpis.ari}
               </span>
             </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
               <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${Math.min(100, (kpis.ari / 130) * 100)}%` }} />
             </div>
-            <p className="text-xs text-slate-600 leading-snug">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-snug">
               Tarif moyen supérieur de <strong>+12.4%</strong> à la moyenne du set concurrentiel.
             </p>
           </div>
 
           {/* MPI */}
-          <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200/80 space-y-2">
+          <div className="p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-900">MPI (Market Penetration Index)</span>
-              <span className="text-xs font-black text-emerald-800 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+              <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">MPI (Market Penetration Index)</span>
+              <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/70">
                 {kpis.mpi}
               </span>
             </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${Math.min(100, (kpis.mpi / 130) * 100)}%` }} />
             </div>
-            <p className="text-xs text-slate-600 leading-snug">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-snug">
               Taux d&apos;occupation supérieur de <strong>+8.6%</strong> à la part de marché naturelle.
             </p>
           </div>
@@ -289,30 +289,30 @@ export const MonthlyOwnerReportView: React.FC<MonthlyOwnerReportViewProps> = ({
       {/* Two Columns: Channels Distribution Mix & Room Types Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Channels Mix & Commission Costs */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <PieChart className="w-4 h-4 text-violet-600" />
-              <h4 className="text-sm font-bold text-slate-900">Mix Canaux & Rentabilité Nette</h4>
+              <PieChart className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Mix Canaux & Rentabilité Nette</h4>
             </div>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/70">
               43.5% Direct
             </span>
           </div>
 
           <div className="space-y-3 text-xs">
             {kpis.channels.map((c) => (
-              <div key={c.name} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 space-y-1.5">
-                <div className="flex items-center justify-between font-bold text-slate-900">
+              <div key={c.name} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800/70 space-y-1.5">
+                <div className="flex items-center justify-between font-bold text-slate-900 dark:text-slate-100">
                   <span>{c.name}</span>
                   <span className="tabular-nums">{c.sharePercent}% ({c.roomNights} RN)</span>
                 </div>
-                <div className="flex items-center justify-between text-slate-500 text-[11px]">
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
                   <span>CA Brut: {c.revenueEur.toLocaleString('fr-FR')} € (ADR {c.adrEur}€)</span>
-                  <span className="font-semibold text-emerald-700">ADR Net: {c.netAdrEur}€</span>
+                  <span className="font-semibold text-emerald-700 dark:text-emerald-300">ADR Net: {c.netAdrEur}€</span>
                 </div>
                 {c.commissionPercent > 0 && (
-                  <div className="text-[10px] text-rose-600 flex items-center justify-between pt-1 border-t border-slate-200/60">
+                  <div className="text-[10px] text-rose-600 dark:text-rose-400 flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-800/70">
                     <span>Commission intermédiation ({c.commissionPercent}%)</span>
                     <span className="font-semibold">-{c.commissionEur.toLocaleString('fr-FR')} €</span>
                   </div>
@@ -323,40 +323,40 @@ export const MonthlyOwnerReportView: React.FC<MonthlyOwnerReportViewProps> = ({
         </div>
 
         {/* Right: Room Types Performance */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-violet-600" />
-              <h4 className="text-sm font-bold text-slate-900">Performance par Typologie de Chambre</h4>
+              <Layers className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Performance par Typologie de Chambre</h4>
             </div>
-            <span className="text-xs text-slate-500">45 chambres au total</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">45 chambres au total</span>
           </div>
 
           <div className="space-y-3 text-xs">
             {kpis.roomTypes.map((rt) => (
-              <div key={rt.name} className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 space-y-2">
-                <div className="flex items-center justify-between font-bold text-slate-900">
+              <div key={rt.name} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800/70 space-y-2">
+                <div className="flex items-center justify-between font-bold text-slate-900 dark:text-slate-100">
                   <span>{rt.name} ({rt.roomCount} ch.)</span>
-                  <span className="text-violet-700 font-black tabular-nums">TO: {rt.occupancyPercent}%</span>
+                  <span className="text-violet-700 dark:text-violet-300 font-black tabular-nums">TO: {rt.occupancyPercent}%</span>
                 </div>
-                <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
                   <div className="h-full bg-violet-600 rounded-full" style={{ width: `${rt.occupancyPercent}%` }} />
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <span>ADR Moyen: <strong className="text-slate-800">{rt.adrEur} €</strong></span>
-                  <span>CA Généré: <strong className="text-slate-800">{rt.revenueEur.toLocaleString('fr-FR')} €</strong></span>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>ADR Moyen: <strong className="text-slate-800 dark:text-slate-200">{rt.adrEur} €</strong></span>
+                  <span>CA Généré: <strong className="text-slate-800 dark:text-slate-200">{rt.revenueEur.toLocaleString('fr-FR')} €</strong></span>
                 </div>
               </div>
             ))}
           </div>
 
           {/* Revenue Management Net Value Card */}
-          <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+          <div className="p-3.5 bg-gradient-to-r from-emerald-50 dark:from-emerald-950/40 to-teal-50 dark:to-teal-950/35 border border-emerald-200 dark:border-emerald-800/70 rounded-xl flex items-center justify-between">
             <div>
-              <div className="text-xs font-bold text-emerald-950">Surperformance Flowtym RM</div>
-              <div className="text-[11px] text-emerald-700">Gain net calculé par rapport à une politique tarifaire statique</div>
+              <div className="text-xs font-bold text-emerald-950 dark:text-emerald-100">Surperformance Flowtym RM</div>
+              <div className="text-[11px] text-emerald-700 dark:text-emerald-300">Gain net calculé par rapport à une politique tarifaire statique</div>
             </div>
-            <div className="text-lg font-black text-emerald-800 tabular-nums">
+            <div className="text-lg font-black text-emerald-800 dark:text-emerald-300 tabular-nums">
               +{kpis.rmOptimizedGainEur.toLocaleString('fr-FR')} €
             </div>
           </div>
@@ -364,15 +364,15 @@ export const MonthlyOwnerReportView: React.FC<MonthlyOwnerReportViewProps> = ({
       </div>
 
       {/* Strategic Owner Directives */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
-        <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-3">
+        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           <span>Axes d&apos;Amélioration et Recommandations Propriétaires</span>
         </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-700">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-700 dark:text-slate-300">
           {kpis.strategicRecommendations.map((rec, i) => (
-            <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 flex items-start gap-2">
-              <span className="w-5 h-5 rounded-full bg-violet-100 text-violet-700 font-bold flex items-center justify-center shrink-0 text-[10px]">
+            <div key={i} className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-800/70 flex items-start gap-2">
+              <span className="w-5 h-5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-bold flex items-center justify-center shrink-0 text-[10px]">
                 {i + 1}
               </span>
               <span className="leading-relaxed">{rec}</span>

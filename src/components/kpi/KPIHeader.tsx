@@ -44,10 +44,10 @@ export const KPIHeader: React.FC<KPIHeaderProps> = ({
             <CalendarDays className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
               Veille Événementielle
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Suivez les événements qui impactent la demande, les prix et les décisions RMS
             </p>
           </div>
@@ -74,25 +74,25 @@ export const KPIHeader: React.FC<KPIHeaderProps> = ({
               watchlistOnly: false,
             })
           }
-          className={`bg-white border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
+          className={`bg-white dark:bg-slate-900 border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
             filterState.periodTab === 'all' && filterState.impact === 'all' && !filterState.rmsPrioritiesOnly && !filterState.watchlistOnly
-              ? 'border-violet-300 ring-2 ring-violet-100'
-              : 'border-slate-200/80 hover:border-slate-300'
+              ? 'border-violet-300 dark:border-violet-600/70 ring-2 ring-violet-100 dark:ring-violet-500/25'
+              : 'border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+              <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
                 {totalEvents}
               </div>
-              <div className="text-xs font-semibold text-slate-700 mt-0.5">
+              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
                 Total événements
               </div>
               <div className="text-[11px] text-slate-400 mt-1">
                 {upcomingCount} à venir
               </div>
             </div>
-            <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
               <CalendarDays className="w-4 h-4" />
             </div>
           </div>
@@ -105,25 +105,25 @@ export const KPIHeader: React.FC<KPIHeaderProps> = ({
               impact: filterState.impact === 'hyper' ? 'all' : 'hyper',
             })
           }
-          className={`bg-white border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
+          className={`bg-white dark:bg-slate-900 border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
             filterState.impact === 'hyper'
-              ? 'border-rose-400 ring-2 ring-rose-100'
-              : 'border-slate-200/80 hover:border-rose-200'
+              ? 'border-rose-400 dark:border-rose-600/70 ring-2 ring-rose-100 dark:ring-rose-500/25'
+              : 'border-slate-200/80 dark:border-slate-800/80 hover:border-rose-200 dark:hover:border-rose-700/70'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+              <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
                 {hyperCount}
               </div>
-              <div className="text-xs font-semibold text-slate-700 mt-0.5">
+              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
                 Événements Hyper
               </div>
               <div className="text-[11px] text-rose-500 font-medium mt-1">
                 Stop-sell requis
               </div>
             </div>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
               <Zap className="w-4 h-4" />
             </div>
           </div>
@@ -136,25 +136,25 @@ export const KPIHeader: React.FC<KPIHeaderProps> = ({
               impact: filterState.impact === 'critique' ? 'all' : 'critique',
             })
           }
-          className={`bg-white border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
+          className={`bg-white dark:bg-slate-900 border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
             filterState.impact === 'critique'
-              ? 'border-amber-400 ring-2 ring-amber-100'
-              : 'border-slate-200/80 hover:border-amber-200'
+              ? 'border-amber-400 dark:border-amber-600/70 ring-2 ring-amber-100 dark:ring-amber-500/25'
+              : 'border-slate-200/80 dark:border-slate-800/80 hover:border-amber-200 dark:hover:border-amber-700/70'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+              <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
                 {criticalCount}
               </div>
-              <div className="text-xs font-semibold text-slate-700 mt-0.5">
+              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
                 Événements critiques
               </div>
-              <div className="text-[11px] text-amber-600 font-medium mt-1">
+              <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-1">
                 Yield actif
               </div>
             </div>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
@@ -167,25 +167,25 @@ export const KPIHeader: React.FC<KPIHeaderProps> = ({
               rmsPrioritiesOnly: !filterState.rmsPrioritiesOnly,
             })
           }
-          className={`bg-white border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
+          className={`bg-white dark:bg-slate-900 border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
             filterState.rmsPrioritiesOnly
-              ? 'border-blue-400 ring-2 ring-blue-100'
-              : 'border-slate-200/80 hover:border-blue-200'
+              ? 'border-blue-400 dark:border-blue-600/70 ring-2 ring-blue-100 dark:ring-blue-500/25'
+              : 'border-slate-200/80 dark:border-slate-800/80 hover:border-blue-200 dark:hover:border-blue-700/70'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+              <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
                 {rmsPrioritiesCount}
               </div>
-              <div className="text-xs font-semibold text-slate-700 mt-0.5">
+              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
                 Priorités RMS
               </div>
-              <div className="text-[11px] text-blue-600 font-medium mt-1">
+              <div className="text-[11px] text-blue-600 dark:text-blue-400 font-medium mt-1">
                 Score ≥ 50
               </div>
             </div>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
@@ -198,45 +198,45 @@ export const KPIHeader: React.FC<KPIHeaderProps> = ({
               watchlistOnly: !filterState.watchlistOnly,
             })
           }
-          className={`bg-white border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
+          className={`bg-white dark:bg-slate-900 border rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden ${
             filterState.watchlistOnly
-              ? 'border-amber-400 ring-2 ring-amber-100'
-              : 'border-slate-200/80 hover:border-amber-200'
+              ? 'border-amber-400 dark:border-amber-600/70 ring-2 ring-amber-100 dark:ring-amber-500/25'
+              : 'border-slate-200/80 dark:border-slate-800/80 hover:border-amber-200 dark:hover:border-amber-700/70'
           }`}
         >
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+              <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
                 {watchlistCount}
               </div>
-              <div className="text-xs font-semibold text-slate-700 mt-0.5">
+              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
                 À surveiller
               </div>
-              <div className="text-[11px] text-amber-600 font-medium mt-1">
+              <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-1">
                 Alerte pricing
               </div>
             </div>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
               <Eye className="w-4 h-4" />
             </div>
           </div>
         </div>
 
         {/* Card 6: Score RM moyen */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-2xs relative overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-2xs relative overflow-hidden">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+              <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight tabular-nums">
                 {avgRMScore}
               </div>
-              <div className="text-xs font-semibold text-slate-700 mt-0.5">
+              <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
                 Score RM moyen
               </div>
-              <div className="text-[11px] text-emerald-600 font-medium mt-1">
+              <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
                 sur 100
               </div>
             </div>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>

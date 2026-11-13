@@ -35,17 +35,17 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
   holidaysCount = 57,
 }) => {
   return (
-    <div className="flex items-center gap-1 border-b border-slate-200/90 bg-white px-2 pt-1 pb-0 rounded-2xl shadow-2xs overflow-x-auto">
+    <div className="flex items-center gap-1 border-b border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 pt-1 pb-0 rounded-2xl shadow-2xs overflow-x-auto">
       {/* 1. Liste */}
       <button
         onClick={() => onChangeTab('table')}
         className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative border-b-2 cursor-pointer whitespace-nowrap ${
           activeTab === 'table'
-            ? 'text-violet-900 border-violet-600 font-extrabold'
-            : 'text-slate-600 hover:text-slate-900 border-transparent hover:border-slate-300'
+            ? 'text-violet-900 dark:text-violet-200 border-violet-600 font-extrabold'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border-transparent hover:border-slate-300 dark:hover:border-slate-700'
         }`}
       >
-        <LayoutList className={`w-4 h-4 ${activeTab === 'table' ? 'text-violet-600' : 'text-slate-400'}`} />
+        <LayoutList className={`w-4 h-4 ${activeTab === 'table' ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400'}`} />
         <span>Liste</span>
       </button>
 
@@ -54,11 +54,11 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
         onClick={() => onChangeTab('calendar')}
         className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative border-b-2 cursor-pointer whitespace-nowrap ${
           activeTab === 'calendar'
-            ? 'text-violet-900 border-violet-600 font-extrabold'
-            : 'text-slate-600 hover:text-slate-900 border-transparent hover:border-slate-300'
+            ? 'text-violet-900 dark:text-violet-200 border-violet-600 font-extrabold'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border-transparent hover:border-slate-300 dark:hover:border-slate-700'
         }`}
       >
-        <Calendar className={`w-4 h-4 ${activeTab === 'calendar' ? 'text-violet-600' : 'text-slate-400'}`} />
+        <Calendar className={`w-4 h-4 ${activeTab === 'calendar' ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400'}`} />
         <span>Calendrier</span>
       </button>
 
@@ -67,11 +67,11 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
         onClick={() => onChangeTab('explorer')}
         className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative border-b-2 cursor-pointer whitespace-nowrap ${
           activeTab === 'explorer'
-            ? 'text-violet-900 border-violet-600 font-extrabold'
-            : 'text-slate-600 hover:text-slate-900 border-transparent hover:border-slate-300'
+            ? 'text-violet-900 dark:text-violet-200 border-violet-600 font-extrabold'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border-transparent hover:border-slate-300 dark:hover:border-slate-700'
         }`}
       >
-        <Compass className={`w-4 h-4 ${activeTab === 'explorer' ? 'text-violet-600' : 'text-slate-400'}`} />
+        <Compass className={`w-4 h-4 ${activeTab === 'explorer' ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400'}`} />
         <span>Explorer Events</span>
       </button>
 
@@ -80,11 +80,11 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
         onClick={() => onChangeTab('heatmap')}
         className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative border-b-2 cursor-pointer whitespace-nowrap ${
           activeTab === 'heatmap'
-            ? 'text-violet-900 border-violet-600 font-extrabold'
-            : 'text-slate-600 hover:text-slate-900 border-transparent hover:border-slate-300'
+            ? 'text-violet-900 dark:text-violet-200 border-violet-600 font-extrabold'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border-transparent hover:border-slate-300 dark:hover:border-slate-700'
         }`}
       >
-        <Flame className={`w-4 h-4 ${activeTab === 'heatmap' ? 'text-violet-600' : 'text-slate-400'}`} />
+        <Flame className={`w-4 h-4 ${activeTab === 'heatmap' ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400'}`} />
         <span>Heatmap</span>
       </button>
 
@@ -93,13 +93,13 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
         onClick={() => onChangeTab('school_holidays')}
         className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold transition-all relative border-b-2 cursor-pointer whitespace-nowrap ${
           activeTab === 'school_holidays'
-            ? 'text-violet-900 border-violet-600 font-extrabold'
-            : 'text-slate-600 hover:text-slate-900 border-transparent hover:border-slate-300'
+            ? 'text-violet-900 dark:text-violet-200 border-violet-600 font-extrabold'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border-transparent hover:border-slate-300 dark:hover:border-slate-700'
         }`}
       >
-        <Calendar className={`w-4 h-4 ${activeTab === 'school_holidays' ? 'text-violet-600' : 'text-slate-400'}`} />
+        <Calendar className={`w-4 h-4 ${activeTab === 'school_holidays' ? 'text-violet-600 dark:text-violet-400' : 'text-slate-400'}`} />
         <span>Vacances scolaires</span>
-        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-violet-100 text-violet-800">
+        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
           {holidaysCount}
         </span>
       </button>
@@ -108,9 +108,9 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
       {onOpenGeo && (
         <button
           onClick={onOpenGeo}
-          className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap"
+          className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border-b-2 border-transparent hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer whitespace-nowrap"
         >
-          <MapPin className="w-4 h-4 text-violet-600" />
+          <MapPin className="w-4 h-4 text-violet-600 dark:text-violet-400" />
           <span>Veille géographique (Carte)</span>
         </button>
       )}
@@ -118,7 +118,7 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
       {/* 6. Sources & API */}
       <button
         onClick={onOpenSources}
-        className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap"
+        className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border-b-2 border-transparent hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer whitespace-nowrap"
       >
         <Database className="w-4 h-4 text-slate-400" />
         <span>Sources & API</span>
@@ -127,7 +127,7 @@ export const CalendarSubNavbar: React.FC<CalendarSubNavbarProps> = ({
       {/* 7. Import & Historique */}
       <button
         onClick={onOpenImportHistory}
-        className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border-b-2 border-transparent hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap"
+        className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border-b-2 border-transparent hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer whitespace-nowrap"
       >
         <History className="w-4 h-4 text-slate-400" />
         <span>Import & Historique</span>

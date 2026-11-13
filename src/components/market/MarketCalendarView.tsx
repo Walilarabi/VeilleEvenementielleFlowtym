@@ -59,6 +59,8 @@ import {
 import { exportMarketDemandReportPDF } from '../../utils/exportMarketPdf';
 import { SchoolHolidaysImpactView } from './SchoolHolidaysImpactView';
 import { LighthouseCompetitiveIntelligenceView } from '../pricing/LighthouseCompetitiveIntelligenceView';
+import { CURRENT_REFERENCE_DATE } from '../../utils/eventFilterUtils';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface MarketCalendarViewProps {
   events: EventItem[];
@@ -79,17 +81,11 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
   onShowToast,
   initialSubTab = 'calendar',
 }) => {
+  const { chartTokens } = useTheme();
   // Active sub-tab in Analyse de marché: 'calendar' | 'school_holidays' | 'lighthouse'
   const [activeMarketSubTab, setActiveMarketSubTab] = useState<'calendar' | 'school_holidays' | 'lighthouse'>(initialSubTab);
-  // Date du jour pour Flowtym (11 novembre 2026)
-  const todayDateObj = new Date();
-  const todayStr = useMemo(() => {
-    const y = todayDateObj.getFullYear();
-    const m = String(todayDateObj.getMonth() + 1).padStart(2, '0');
-    const d = String(todayDateObj.getDate()).padStart(2, '0');
-    const s = `${y}-${m}-${d}`;
-    return s.startsWith('2026') ? s : '2026-11-11';
-  }, []);
+  // Date de référence du jour pour Flowtym (12 novembre 2026)
+  const todayStr = CURRENT_REFERENCE_DATE;
 
   // Navigation state: start month index (0-indexed) & year
   // Par défaut, initialisé automatiquement sur le mois en cours (Novembre 2026 = mois 10)
@@ -244,11 +240,15 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
   // Seuil critique d'alerte Revenue Management (80% tension ou forte demande)
   const CRITICAL_THRESHOLD = 80;
 
-  // Identification de l'ensemble des dates critiques sous tension maximale sur les 3 mois affichés
+  // Identification des alertes de seuil critique UNIQUEMENT sur les dates en cours et à venir (>= date du jour)
   const criticalDaysInView = useMemo(() => {
     const combined = [...monthData1.days, ...monthData2.days, ...monthData3.days];
-    return combined.filter((d) => d.intensity >= CRITICAL_THRESHOLD || d.demandLevel === 'forte');
-  }, [monthData1, monthData2, monthData3]);
+    return combined.filter(
+      (d) =>
+        d.dateStr >= todayStr &&
+        (d.intensity >= CRITICAL_THRESHOLD || d.demandLevel === 'forte')
+    );
+  }, [monthData1, monthData2, monthData3, todayStr]);
 
   // Données structurées pour la courbe d'évolution et les barres Recharts
   const chartData = useMemo(() => {
@@ -454,27 +454,27 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     return (
       <div
         key={`month-col-${monthData.year}-${monthData.month}`}
-        className="flex flex-col bg-slate-50/60 p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs"
+        className="flex flex-col bg-slate-50/60 dark:bg-slate-800/50 p-3 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs"
       >
         {/* Entête de colonne du mois */}
-        <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200/80">
+        <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200/80 dark:border-slate-800/80">
           <div className="flex items-center gap-2">
-            <h3 className="text-base font-extrabold text-slate-900 capitalize tracking-tight flex items-center gap-1.5">
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100 capitalize tracking-tight flex items-center gap-1.5">
               <span>{monthData.monthName}</span>
               {isCurrentActiveMonth && (
-                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200 uppercase tracking-wider">
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 uppercase tracking-wider">
                   Actuel
                 </span>
               )}
             </h3>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
-            <span className="text-rose-600 font-extrabold flex items-center gap-1">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+            <span className="text-rose-600 dark:text-rose-400 font-extrabold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
               {monthData.stats.forteCount} j.
             </span>
             <span className="text-slate-300">·</span>
-            <span className="text-violet-700 font-extrabold">{monthData.stats.avgOccupancy}% TO</span>
+            <span className="text-violet-700 dark:text-violet-300 font-extrabold">{monthData.stats.avgOccupancy}% TO</span>
           </div>
         </div>
 
@@ -518,27 +518,27 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             if (isPast) {
               // Journée passée : gris clair atténué, information conservée, pleinement interactive
               cellClasses +=
-                'bg-slate-100 text-slate-500 border border-slate-200/80 hover:bg-slate-200/80 hover:text-slate-900 hover:scale-105 active:scale-95 ';
+                'bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 hover:text-slate-900 dark:hover:text-slate-100 hover:scale-105 active:scale-95 ';
             } else if (dayInfo.demandLevel === 'forte') {
-              // Forte tension : Rose/Corail #fb7185
+              // Forte tension : Rose/Corail doux en mode sombre
               cellClasses +=
-                'bg-[#fb7185] text-slate-900 shadow-2xs hover:brightness-95 hover:scale-105 active:scale-95 ';
+                'bg-[#fb7185] dark:bg-rose-900/55 text-slate-950 dark:text-rose-200 dark:border dark:border-rose-700/45 shadow-2xs hover:brightness-95 dark:hover:brightness-110 hover:scale-105 active:scale-95 ';
             } else if (dayInfo.demandLevel === 'moyenne') {
-              // Moyenne tension : Orange #fbb664
+              // Moyenne tension : Ambre adouci en mode sombre
               cellClasses +=
-                'bg-[#fbb664] text-slate-900 shadow-2xs hover:brightness-95 hover:scale-105 active:scale-95 ';
+                'bg-[#fbb664] dark:bg-amber-900/45 text-slate-950 dark:text-amber-200 dark:border dark:border-amber-700/45 shadow-2xs hover:brightness-95 dark:hover:brightness-110 hover:scale-105 active:scale-95 ';
             } else {
-              // Faible tension : Vert d'eau #6ee7b7
+              // Faible tension : Émeraude adouci en mode sombre
               cellClasses +=
-                'bg-[#6ee7b7] text-slate-900 shadow-2xs hover:brightness-95 hover:scale-105 active:scale-95 ';
+                'bg-[#6ee7b7] dark:bg-emerald-900/45 text-slate-950 dark:text-emerald-200 dark:border dark:border-emerald-700/45 shadow-2xs hover:brightness-95 dark:hover:brightness-110 hover:scale-105 active:scale-95 ';
             }
 
             if (isToday) {
               // Mise en avant forte et indiscutable de la date du jour (Aujourd'hui)
               cellClasses +=
-                ' ring-2 ring-violet-600 ring-offset-2 z-10 font-black shadow-md scale-102';
+                ' ring-2 ring-violet-600 dark:ring-violet-400 ring-offset-2 dark:ring-offset-[#1c2231] z-10 font-black shadow-md scale-102';
             } else if (isSelected) {
-              cellClasses += ' ring-2 ring-slate-900 ring-offset-2 z-10';
+              cellClasses += ' ring-2 ring-slate-900 dark:ring-slate-200 ring-offset-2 dark:ring-offset-[#1c2231] z-10';
             }
 
             return (
@@ -586,15 +586,15 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                     title={`Alerte seuil critique : tension ${dayInfo.intensity}%`}
                   >
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600 border border-white items-center justify-center shadow-2xs">
-                      <span className="w-1 h-1 rounded-full bg-white" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600 border border-white/90 items-center justify-center shadow-2xs">
+                      <span className="w-1 h-1 rounded-full bg-white/95" />
                     </span>
                   </span>
                 )}
 
                 {/* Point d'événement identifié (Aujourd'hui & Futur) */}
                 {!isPast && dayInfo.eventCount > 0 && (
-                  <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-slate-900/60" />
+                  <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-slate-900/60 dark:bg-slate-100/70" />
                 )}
               </div>
             );
@@ -609,7 +609,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
       ref={containerRef}
       className={
         isFullscreen
-          ? 'fixed inset-0 z-50 overflow-y-auto bg-slate-100 p-4 sm:p-6 lg:p-8 space-y-6'
+          ? 'fixed inset-0 z-50 overflow-y-auto bg-slate-100 dark:bg-slate-800 p-4 sm:p-6 lg:p-8 space-y-6'
           : 'space-y-6 pb-16'
       }
     >
@@ -655,14 +655,14 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
       )}
 
       {/* Sub-Navigation Tabs in Analyse de Marché */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-2 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-bold text-slate-600">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-2 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-bold text-slate-600 dark:text-slate-400">
           <button
             onClick={() => setActiveMarketSubTab('calendar')}
             className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeMarketSubTab === 'calendar'
                 ? 'bg-violet-600 text-white shadow-2xs font-extrabold'
-                : 'hover:bg-slate-100 hover:text-slate-900 text-slate-700 bg-slate-50 border border-slate-200/60'
+                : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800/70'
             }`}
           >
             <CalendarIcon className="w-4 h-4" />
@@ -674,7 +674,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeMarketSubTab === 'school_holidays'
                 ? 'bg-violet-600 text-white shadow-2xs font-extrabold'
-                : 'hover:bg-slate-100 hover:text-slate-900 text-slate-700 bg-slate-50 border border-slate-200/60'
+                : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800/70'
             }`}
           >
             <Users className="w-4 h-4" />
@@ -683,7 +683,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                 activeMarketSubTab === 'school_holidays'
                   ? 'bg-white/20 text-white'
-                  : 'bg-violet-100 text-violet-800'
+                  : 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300'
               }`}
             >
               Nouveau
@@ -695,7 +695,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             className={`px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeMarketSubTab === 'lighthouse'
                 ? 'bg-violet-600 text-white shadow-2xs font-extrabold'
-                : 'hover:bg-slate-100 hover:text-slate-900 text-slate-700 bg-slate-50 border border-slate-200/60'
+                : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800/70'
             }`}
           >
             <TrendingUp className="w-4 h-4" />
@@ -704,7 +704,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                 activeMarketSubTab === 'lighthouse'
                   ? 'bg-white/20 text-white'
-                  : 'bg-amber-100 text-amber-800'
+                  : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
               }`}
             >
               5 Onglets
@@ -712,8 +712,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 self-end sm:self-auto">
-          <Building2 className="w-3.5 h-3.5 text-violet-600" />
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 self-end sm:self-auto">
+          <Building2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
           <span>{currentHotel.name}</span>
         </div>
       </div>
@@ -731,7 +731,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
       ) : (
         <>
           {/* Top Banner: Market Intelligence Header */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 lg:p-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 lg:p-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
@@ -739,13 +739,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 <Flame className="w-5 h-5" />
               </span>
               <div>
-                <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
                   Marché & Dates à Surveiller
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70">
                     Revenue Management
                   </span>
                 </h1>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Cartographie dynamique des niveaux de tension de la demande hôtelière basée sur la pression événementielle & les scores RM.
                 </p>
               </div>
@@ -755,13 +755,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
           {/* Quick controls: Hotel selector + Year toggle + Plein écran + Export PDF */}
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Hotel Selector */}
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-              <Building2 className="w-4 h-4 text-slate-500" />
-              <span className="text-xs font-medium text-slate-600">Hôtel cible :</span>
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-xl">
+              <Building2 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Hôtel cible :</span>
               <select
                 value={selectedHotelId}
                 onChange={(e) => onSelectHotel(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer"
+                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
               >
                 {hotels.map((h) => (
                   <option key={h.id} value={h.id}>
@@ -772,13 +772,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             </div>
 
             {/* Year Switcher (2026 / 2027) */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold">
               <button
                 onClick={() => handleSetYear(2026)}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   currentYear === 2026
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 2026
@@ -787,8 +787,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 onClick={() => handleSetYear(2027)}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   currentYear === 2027
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 2027 (Paris)
@@ -800,8 +800,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               onClick={handleToggleFullscreen}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                 isFullscreen
-                  ? 'bg-violet-50 text-violet-800 border-violet-300 ring-2 ring-violet-200'
-                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs'
+                  ? 'bg-violet-50 dark:bg-violet-950/45 text-violet-800 dark:text-violet-300 border-violet-300 dark:border-violet-700/70 ring-2 ring-violet-200 dark:ring-violet-500/30'
+                  : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 shadow-2xs'
               }`}
               title={
                 isFullscreen
@@ -811,12 +811,12 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             >
               {isFullscreen ? (
                 <>
-                  <Minimize2 className="w-3.5 h-3.5 text-violet-600" />
+                  <Minimize2 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                   <span>Quitter plein écran</span>
                 </>
               ) : (
                 <>
-                  <Maximize2 className="w-3.5 h-3.5 text-slate-600" />
+                  <Maximize2 className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                   <span>Plein écran</span>
                 </>
               )}
@@ -845,23 +845,23 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
         </div>
 
         {/* Dynamic Geographic Catchment & Relevance Indicator */}
-        <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-violet-50 text-violet-700">
+            <span className="p-1.5 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300">
               <MapPin className="w-3.5 h-3.5" />
             </span>
-            <span className="text-slate-600">
-              <strong className="text-slate-800">Périmètre de pertinence :</strong> {catchmentInfo.zoneName} ({catchmentInfo.scopeRadius})
+            <span className="text-slate-600 dark:text-slate-400">
+              <strong className="text-slate-800 dark:text-slate-200">Périmètre de pertinence :</strong> {catchmentInfo.zoneName} ({catchmentInfo.scopeRadius})
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-semibold text-[11px] border border-emerald-200">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold text-[11px] border border-emerald-200 dark:border-emerald-800/70">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               {relevantEvents.length} événements influents retenus
             </span>
             {excludedCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-medium text-[11px] border border-slate-200" title="Événements situés dans d'autres villes éloignées (Lyon, Nice, etc.) sans impact direct sur la demande locale de cet hôtel">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium text-[11px] border border-slate-200 dark:border-slate-800" title="Événements situés dans d'autres villes éloignées (Lyon, Nice, etc.) sans impact direct sur la demande locale de cet hôtel">
                 <Filter className="w-3 h-3 text-slate-400" />
                 {excludedCount} distants hors-bassin exclus
               </span>
@@ -870,27 +870,27 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
         </div>
 
         {/* 4 Summary KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mt-4 pt-4 border-t border-slate-100">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
           {/* KPI 1: Forte Demande */}
           <div
             onClick={() => setDemandFilter(demandFilter === 'forte' ? 'all' : 'forte')}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               demandFilter === 'forte'
-                ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-300'
-                : 'bg-rose-50/50 border-rose-200 hover:bg-rose-50'
+                ? 'bg-rose-50 dark:bg-rose-950/45 border-rose-400 dark:border-rose-700/80 ring-2 ring-rose-300 dark:ring-rose-500/25'
+                : 'bg-rose-50/50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/55 hover:bg-rose-50 dark:hover:bg-rose-950/45'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+              <span className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
                 Forte Demande
               </span>
-              <span className="text-xs text-rose-600 font-semibold">Tension Max</span>
+              <span className="text-xs text-rose-600 dark:text-rose-400 font-semibold">Tension Max</span>
             </div>
-            <div className="text-2xl font-black text-rose-950 mt-1 tabular-nums">
-              {totalForte} <span className="text-xs font-semibold text-rose-700">jours</span>
+            <div className="text-2xl font-black text-rose-950 dark:text-rose-100 mt-1 tabular-nums">
+              {totalForte} <span className="text-xs font-semibold text-rose-700 dark:text-rose-300">jours</span>
             </div>
-            <div className="text-[11px] text-rose-700 mt-1">
+            <div className="text-[11px] text-rose-700 dark:text-rose-300 mt-1">
               Hausse ADR requise (+25% à +45%) · Min stay 3 nuits
             </div>
           </div>
@@ -900,21 +900,21 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             onClick={() => setDemandFilter(demandFilter === 'moyenne' ? 'all' : 'moyenne')}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               demandFilter === 'moyenne'
-                ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300'
-                : 'bg-amber-50/50 border-amber-200 hover:bg-amber-50'
+                ? 'bg-amber-50 dark:bg-amber-950/45 border-amber-400 dark:border-amber-700/80 ring-2 ring-amber-300 dark:ring-amber-500/25'
+                : 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/55 hover:bg-amber-50 dark:hover:bg-amber-950/45'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+              <span className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                 Demande Moyenne
               </span>
-              <span className="text-xs text-amber-600 font-semibold">Soutenu</span>
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold">Soutenu</span>
             </div>
-            <div className="text-2xl font-black text-amber-950 mt-1 tabular-nums">
-              {totalMoyenne} <span className="text-xs font-semibold text-amber-700">jours</span>
+            <div className="text-2xl font-black text-amber-950 dark:text-amber-100 mt-1 tabular-nums">
+              {totalMoyenne} <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">jours</span>
             </div>
-            <div className="text-[11px] text-amber-700 mt-1">
+            <div className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">
               Pilotage actif du pickup · ADR +10% à +20%
             </div>
           </div>
@@ -924,47 +924,47 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             onClick={() => setDemandFilter(demandFilter === 'faible' ? 'all' : 'faible')}
             className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               demandFilter === 'faible'
-                ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-300'
-                : 'bg-emerald-50/50 border-emerald-200 hover:bg-emerald-50'
+                ? 'bg-emerald-50 dark:bg-emerald-950/45 border-emerald-400 dark:border-emerald-700/80 ring-2 ring-emerald-300 dark:ring-emerald-500/25'
+                : 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/55 hover:bg-emerald-50 dark:hover:bg-emerald-950/45'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+              <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 Faible Demande
               </span>
-              <span className="text-xs text-emerald-600 font-semibold">Opportunité</span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">Opportunité</span>
             </div>
-            <div className="text-2xl font-black text-emerald-950 mt-1 tabular-nums">
-              {totalFaible} <span className="text-xs font-semibold text-emerald-700">jours</span>
+            <div className="text-2xl font-black text-emerald-950 dark:text-emerald-100 mt-1 tabular-nums">
+              {totalFaible} <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">jours</span>
             </div>
-            <div className="text-[11px] text-emerald-700 mt-1">
+            <div className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-1">
               Actions commerciales · Packages & Annulation libre
             </div>
           </div>
 
           {/* KPI 4: TO Prévisionnel Moyen */}
-          <div className="p-3.5 rounded-xl border border-violet-200 bg-violet-50/50">
+          <div className="p-3.5 rounded-xl border border-violet-200 dark:border-violet-800/70 bg-violet-50/50 dark:bg-violet-950/35">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-violet-800 flex items-center gap-1.5">
-                <Percent className="w-3.5 h-3.5 text-violet-600" />
+              <span className="text-xs font-bold text-violet-800 dark:text-violet-300 flex items-center gap-1.5">
+                <Percent className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                 TO Prévisionnel
               </span>
-              <span className="text-xs text-violet-600 font-semibold">{currentHotel.name}</span>
+              <span className="text-xs text-violet-600 dark:text-violet-400 font-semibold">{currentHotel.name}</span>
             </div>
-            <div className="text-2xl font-black text-violet-950 mt-1 tabular-nums">
+            <div className="text-2xl font-black text-violet-950 dark:text-violet-100 mt-1 tabular-nums">
               {combinedAvgTO}%
             </div>
-            <div className="text-[11px] text-violet-700 mt-1">
+            <div className="text-[11px] text-violet-700 dark:text-violet-300 mt-1">
               Moyenne estimée sur les 3 mois consécutifs
             </div>
           </div>
         </div>
 
         {/* Filter bar: Level pills & Legend */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-100">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/80">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mr-1">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mr-1">
               <SlidersHorizontal className="w-3.5 h-3.5" />
               Filtrer par niveau :
             </span>
@@ -972,8 +972,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               onClick={() => setDemandFilter('all')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 demandFilter === 'all'
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-slate-900 dark:bg-slate-800 text-white shadow-2xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               }`}
             >
               Tous les niveaux
@@ -982,8 +982,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               onClick={() => setDemandFilter('forte')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 demandFilter === 'forte'
-                  ? 'bg-rose-500 text-white shadow-2xs'
-                  : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                  ? 'bg-rose-500 dark:bg-rose-800/80 text-white dark:text-rose-100 shadow-2xs'
+                  : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-900/60'
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-rose-500" />
@@ -993,8 +993,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               onClick={() => setDemandFilter('moyenne')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 demandFilter === 'moyenne'
-                  ? 'bg-amber-400 text-slate-900 shadow-2xs'
-                  : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                  ? 'bg-amber-400 dark:bg-amber-800/80 text-slate-900 dark:text-amber-100 shadow-2xs'
+                  : 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/60'
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-amber-500" />
@@ -1004,8 +1004,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               onClick={() => setDemandFilter('faible')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 demandFilter === 'faible'
-                  ? 'bg-emerald-400 text-slate-900 shadow-2xs'
-                  : 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
+                  ? 'bg-emerald-400 dark:bg-emerald-800/80 text-slate-900 dark:text-emerald-100 shadow-2xs'
+                  : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-900/60'
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -1017,7 +1017,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleResetToToday}
-              className="text-xs font-semibold text-violet-700 hover:text-violet-900 hover:underline cursor-pointer flex items-center gap-1"
+              className="text-xs font-semibold text-violet-700 dark:text-violet-300 hover:text-violet-900 dark:hover:text-violet-100 hover:underline cursor-pointer flex items-center gap-1"
             >
               <Clock className="w-3.5 h-3.5" />
               <span>Aujourd'hui (Nov. 2026 - Janv. 2027)</span>
@@ -1027,22 +1027,22 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
       </div>
 
       {/* 1. COURBE D'ÉVOLUTION DE LA DEMANDE (RECHARTS) & PICS DE TENSION */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-5 lg:p-6 space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs p-5 lg:p-6 space-y-4">
         {/* Header bar of the chart card */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-200/60">
+              <span className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/60">
                 <Activity className="w-4 h-4" />
               </span>
-              <h2 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
                 Courbe d'Évolution de la Demande & Pics de Tension
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800">
                   Recharts Analytics
                 </span>
               </h2>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Visualisation continue de la pression du marché jour par jour sur les 3 mois pour identifier immédiatement les pics de tension et ajuster le Yield.
             </p>
           </div>
@@ -1050,13 +1050,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
           {/* Controls: Scope Switcher, View Mode, Bar Coloring, Metric Toggle & PDF Export */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Scope Toggle: Mois 1, Mois 2, Mois 3, 3 Mois */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold">
               <button
                 onClick={() => setChartScope('month1')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer capitalize ${
                   chartScope === 'month1'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 {monthData1.monthName.split(' ')[0]}
@@ -1065,8 +1065,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 onClick={() => setChartScope('month2')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer capitalize ${
                   chartScope === 'month2'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 {monthData2.monthName.split(' ')[0]}
@@ -1075,8 +1075,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 onClick={() => setChartScope('month3')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer capitalize ${
                   chartScope === 'month3'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 {monthData3.monthName.split(' ')[0]}
@@ -1085,8 +1085,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 onClick={() => setChartScope('all3')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                   chartScope === 'all3'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 3 Mois
@@ -1094,13 +1094,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             </div>
 
             {/* Chart Mode: Combo / Bars Only / Curve Only */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold">
               <button
                 onClick={() => setChartViewMode('bars-combo')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
                   chartViewMode === 'bars-combo'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
                 title="Barres pour chaque date avec courbe d'évolution superposée"
               >
@@ -1111,8 +1111,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 onClick={() => setChartViewMode('bars-only')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
                   chartViewMode === 'bars-only'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
                 title="Barres seules pour chaque date (fidèle à la capture)"
               >
@@ -1122,8 +1122,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 onClick={() => setChartViewMode('curve-only')}
                 className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
                   chartViewMode === 'curve-only'
-                    ? 'bg-white text-slate-900 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
                 title="Courbe fluide seule"
               >
@@ -1133,13 +1133,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
             {/* Bar Styling Theme Toggle */}
             {chartViewMode !== 'curve-only' && (
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-medium">
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium">
                 <button
                   onClick={() => setBarColorTheme('slate')}
                   className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
                     barColorTheme === 'slate'
                       ? 'bg-slate-700 text-white font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                   title="Barres couleur ardoise neutre fidèle à la capture"
                 >
@@ -1150,8 +1150,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   onClick={() => setBarColorTheme('dynamic')}
                   className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
                     barColorTheme === 'dynamic'
-                      ? 'bg-white text-slate-900 font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                   title="Barres colorées selon le niveau de tension (Rouge, Orange, Vert)"
                 >
@@ -1163,13 +1163,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
             {/* Metric Toggle (visible in combo or curve mode) */}
             {chartViewMode !== 'bars-only' && (
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-semibold">
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold">
                 <button
                   onClick={() => setChartMetric('tension')}
                   className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                     chartMetric === 'tension'
                       ? 'bg-rose-500 text-white font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                 >
                   Tension (%)
@@ -1179,7 +1179,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                     chartMetric === 'occupancy'
                       ? 'bg-violet-600 text-white font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                 >
                   TO Projeté (%)
@@ -1188,8 +1188,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   onClick={() => setChartMetric('both')}
                   className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                     chartMetric === 'both'
-                      ? 'bg-slate-900 text-white font-bold shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-slate-900 dark:bg-slate-700 text-white font-bold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                 >
                   Combiné
@@ -1216,8 +1216,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
         {/* Peak Tension Callout Pill Chips */}
         {peakTensionDays.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
-            <span className="font-bold text-slate-700 flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 text-xs">
+            <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
               <Zap className="w-3.5 h-3.5 text-amber-500" />
               Pics de tension détectés :
             </span>
@@ -1225,7 +1225,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               <button
                 key={peak.dateStr}
                 onClick={() => setSelectedDateInfo(peak.dayInfo)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-violet-50 text-slate-800 hover:text-violet-900 border border-slate-200 hover:border-violet-300 font-medium text-xs transition-all cursor-pointer group"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-violet-50 dark:hover:bg-violet-950/50 text-slate-800 dark:text-slate-200 hover:text-violet-900 border border-slate-200 dark:border-slate-800 hover:border-violet-300 font-medium text-xs transition-all cursor-pointer group"
                 title="Cliquer pour inspecter cette date en détail"
               >
                 <span
@@ -1239,7 +1239,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                     month: 'short',
                   })}
                 </strong>
-                <span className="text-[11px] font-extrabold text-rose-600 tabular-nums">
+                <span className="text-[11px] font-extrabold text-rose-600 dark:text-rose-400 tabular-nums">
                   {peak.intensity}% tension
                 </span>
                 {peak.topEvents && peak.topEvents.length > 0 && (
@@ -1289,14 +1289,14 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 />
               ))}
 
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridStroke} vertical={false} />
 
               {/* X-Axis with rotated date labels matching screenshot */}
               <XAxis
                 dataKey="axisLabel"
                 tickLine={false}
-                axisLine={{ stroke: '#cbd5e1' }}
-                tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }}
+                axisLine={{ stroke: chartTokens.axisLineColor }}
+                tick={{ fontSize: 10, fill: chartTokens.axisTickColor, fontWeight: 500 }}
                 angle={-45}
                 textAnchor="end"
                 height={52}
@@ -1308,8 +1308,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 yAxisId="left"
                 orientation="left"
                 tickLine={false}
-                axisLine={{ stroke: '#f1f5f9' }}
-                tick={{ fontSize: 10, fill: '#64748b' }}
+                axisLine={{ stroke: chartTokens.gridStroke }}
+                tick={{ fontSize: 10, fill: chartTokens.axisTickColor }}
                 tickFormatter={(val) => `€ ${val}`}
                 domain={[
                   (dataMin: number) => Math.floor(Math.max(90, dataMin * 0.9)),
@@ -1324,14 +1324,14 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 domain={[0, 100]}
                 ticks={[10, 25, 40, 55, 70, 85, 100]}
                 tickLine={false}
-                axisLine={{ stroke: '#f1f5f9' }}
-                tick={{ fontSize: 10, fill: '#64748b' }}
+                axisLine={{ stroke: chartTokens.gridStroke }}
+                tick={{ fontSize: 10, fill: chartTokens.axisTickColor }}
                 tickFormatter={(val) => `${val}%`}
                 label={{
                   value: 'Demande du marché',
                   angle: 90,
                   position: 'insideRight',
-                  fill: '#475569',
+                  fill: chartTokens.axisTickColor,
                   fontSize: 11,
                   fontWeight: 600,
                   offset: 15,
@@ -1354,8 +1354,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                             dInfo.demandLevel === 'forte'
                               ? 'bg-rose-500 text-white'
                               : dInfo.demandLevel === 'moyenne'
-                              ? 'bg-amber-400 text-slate-900'
-                              : 'bg-emerald-400 text-slate-900'
+                              ? 'bg-amber-400 text-slate-900 dark:text-slate-100'
+                              : 'bg-emerald-400 text-slate-900 dark:text-slate-100'
                           }`}
                         >
                           {dInfo.demandLevel}
@@ -1415,13 +1415,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               <ReferenceLine
                 yAxisId="right"
                 y={CRITICAL_THRESHOLD}
-                stroke="#e11d48"
+                stroke={chartTokens.referenceLineColor}
                 strokeDasharray="4 4"
                 strokeWidth={1.5}
                 label={{
                   value: 'Seuil Critique (80%)',
                   position: 'insideTopRight',
-                  fill: '#e11d48',
+                  fill: chartTokens.referenceLineColor,
                   fontSize: 10,
                   fontWeight: 700,
                 }}
@@ -1443,7 +1443,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   }}
                 >
                   {chartData.map((entry, index) => {
-                    let cellFill = '#54657e'; // Screenshot default slate-blue tone
+                    let cellFill = chartTokens.barNeutralFill; // Theme-aware slate tone
                     if (barColorTheme === 'dynamic') {
                       if (entry.demandLevel === 'forte') cellFill = '#f43f5e';
                       else if (entry.demandLevel === 'moyenne') cellFill = '#f59e0b';
@@ -1510,7 +1510,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
       {/* 2. BANDEAU D'ALERTE VISUELLE (SEUIL CRITIQUE DÉPASSÉ) */}
       {criticalDaysInView.length > 0 && (
-        <div className="bg-gradient-to-r from-rose-50 via-amber-50 to-rose-50 border border-rose-300 rounded-2xl p-4 shadow-xs">
+        <div className="bg-gradient-to-r from-rose-50 via-amber-50 to-rose-50 dark:from-rose-950/60 dark:via-amber-950/35 dark:to-rose-950/50 border border-rose-300 dark:border-rose-700/70 rounded-2xl p-4 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <span className="relative flex h-3.5 w-3.5 mt-1 shrink-0">
@@ -1519,38 +1519,35 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               </span>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-extrabold text-rose-950 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-rose-600" />
-                    Alerte Seuil Critique : {criticalDaysInView.length} date{criticalDaysInView.length > 1 ? 's' : ''} sous tension maximale
+                  <h3 className="text-sm font-extrabold text-rose-950 dark:text-rose-100 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    Alerte Seuil Critique : {criticalDaysInView.length} date{criticalDaysInView.length > 1 ? 's' : ''} à venir sous tension maximale
                   </h3>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-200 text-rose-900">
-                    Tension ≥ {CRITICAL_THRESHOLD}%
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-200 dark:bg-rose-900/70 text-rose-900 dark:text-rose-200">
+                    Tension ≥ {CRITICAL_THRESHOLD}% · Dès le {todayStr.slice(8, 10)}/{todayStr.slice(5, 7)}
                   </span>
                 </div>
-                <p className="text-xs text-rose-900/80 mt-0.5">
-                  Pics de tension identifiés avec saturation prévisionnelle de la capacité hôtelière. Décision immédiate recommandée : fermeture des tarifs promotionnels (OTA), hausse de l'ADR (+25% à +45%) et application d'un séjour minimum (MinLOS 2-3 nuits).
+                <p className="text-xs text-rose-900/80 dark:text-rose-200/85 mt-0.5">
+                  Pics de tension à venir identifiés avec saturation prévisionnelle de la capacité hôtelière. Décision recommandée : fermeture des tarifs promotionnels (OTA), hausse de l'ADR (+25% à +45%) et application d'un séjour minimum (MinLOS 2-3 nuits).
                 </p>
               </div>
             </div>
 
-            {/* Quick date inspection pills */}
+            {/* Quick date inspection pills (upcoming/today only, timezone-safe DD/MM) */}
             <div className="flex items-center gap-1.5 flex-wrap self-end md:self-auto shrink-0">
-              <span className="text-[11px] font-semibold text-rose-800 mr-1">Inspecter :</span>
+              <span className="text-[11px] font-semibold text-rose-800 dark:text-rose-300 mr-1">Inspecter :</span>
               {criticalDaysInView.slice(0, 6).map((cd) => (
                 <button
                   key={cd.dateStr}
                   onClick={() => setSelectedDateInfo(cd)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-rose-800 hover:bg-rose-100 border border-rose-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1 hover:scale-105 active:scale-95"
-                  title={`Ouvrir le diagnostic pour le ${cd.dateStr}`}
+                  className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 text-rose-800 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-300 dark:border-rose-700/70 shadow-2xs transition-all cursor-pointer flex items-center gap-1 hover:scale-105 active:scale-95 tabular-nums"
+                  title={`Ouvrir le diagnostic pour le ${cd.dateStr.slice(8, 10)}/${cd.dateStr.slice(5, 7)}/${cd.dateStr.slice(0, 4)}`}
                 >
                   <Flame className="w-3 h-3 text-rose-500" />
                   <span>
-                    {new Date(cd.dateStr).toLocaleDateString('fr-FR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                    })}
+                    {cd.dateStr.slice(8, 10)}/{cd.dateStr.slice(5, 7)}
                   </span>
-                  <span className="text-[10px] text-rose-600 font-extrabold">({cd.intensity}%)</span>
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400 font-extrabold">({cd.intensity}%)</span>
                 </button>
               ))}
             </div>
@@ -1559,14 +1556,14 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
       )}
 
       {/* Main Multi-Month Calendar Surface: 3 Consecutive Months */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-6 lg:p-7 space-y-6 w-full">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm p-5 sm:p-6 lg:p-7 space-y-6 w-full">
         {/* Navigation Bar with Controls and 3 Month Headers */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
           <div className="flex items-center gap-1.5 self-start sm:self-auto">
             <button
               onClick={handlePrevQuarter}
               title="Reculer de 3 mois"
-              className="px-2.5 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer text-xs font-bold border border-slate-200/70 flex items-center gap-1"
+              className="px-2.5 py-1.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer text-xs font-bold border border-slate-200/70 dark:border-slate-800/70 flex items-center gap-1"
             >
               <span>-3 m.</span>
             </button>
@@ -1574,15 +1571,15 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               onClick={handlePrev}
               aria-label="Mois précédent"
               title="Reculer d'un mois"
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200/70"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer border border-slate-200/70 dark:border-slate-800/70"
             >
               <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
             </button>
           </div>
 
           <div className="flex-1 flex flex-wrap items-center justify-center gap-2 sm:gap-4 md:gap-6 text-center">
-            <div className="flex items-center gap-1.5 text-base sm:text-lg font-black text-slate-900 capitalize tracking-tight">
-              <span className="text-violet-900">{monthData1.monthName}</span>
+            <div className="flex items-center gap-1.5 text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 capitalize tracking-tight">
+              <span className="text-violet-900 dark:text-violet-200">{monthData1.monthName}</span>
               <span className="text-slate-300">/</span>
               <span>{monthData2.monthName}</span>
               <span className="text-slate-300">/</span>
@@ -1593,7 +1590,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
           <div className="flex items-center gap-1.5 self-end sm:self-auto">
             <button
               onClick={handleResetToToday}
-              className="px-3 py-1.5 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-700 hover:text-violet-900 border border-violet-200 text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              className="px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 hover:text-violet-900 border border-violet-200 dark:border-violet-800/70 text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
               title="Revenir instantanément à la date du jour (Novembre 2026)"
             >
               <Clock className="w-3.5 h-3.5" />
@@ -1603,14 +1600,14 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               onClick={handleNext}
               aria-label="Mois suivant"
               title="Avancer d'un mois"
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200/70"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer border border-slate-200/70 dark:border-slate-800/70"
             >
               <ChevronRight className="w-5 h-5 stroke-[2.5]" />
             </button>
             <button
               onClick={handleNextQuarter}
               title="Avancer de 3 mois"
-              className="px-2.5 py-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer text-xs font-bold border border-slate-200/70 flex items-center gap-1"
+              className="px-2.5 py-1.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer text-xs font-bold border border-slate-200/70 dark:border-slate-800/70 flex items-center gap-1"
             >
               <span>+3 m.</span>
             </button>
@@ -1628,36 +1625,36 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
         </div>
 
         {/* Legend bar at the bottom matching user specifications */}
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-5 border-t border-slate-100 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-5 border-t border-slate-100 dark:border-slate-800/80 text-xs text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
-            <span className="w-3.5 h-3.5 rounded-md bg-[#fb7185] border border-rose-300 inline-block shadow-2xs" />
-            <span className="font-bold text-slate-800">Rouge :</span>
+            <span className="w-3.5 h-3.5 rounded-md bg-[#fb7185] border border-rose-300 dark:border-rose-700/70 inline-block shadow-2xs" />
+            <span className="font-bold text-slate-800 dark:text-slate-200">Rouge :</span>
             <span>Forte demande (Tension max)</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="w-3.5 h-3.5 rounded-md bg-[#fbb664] border border-amber-300 inline-block shadow-2xs" />
-            <span className="font-bold text-slate-800">Orange :</span>
+            <span className="w-3.5 h-3.5 rounded-md bg-[#fbb664] border border-amber-300 dark:border-amber-700/70 inline-block shadow-2xs" />
+            <span className="font-bold text-slate-800 dark:text-slate-200">Orange :</span>
             <span>Demande moyenne (Soutenu)</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="w-3.5 h-3.5 rounded-md bg-[#6ee7b7] border border-emerald-300 inline-block shadow-2xs" />
-            <span className="font-bold text-slate-800">Vert :</span>
+            <span className="w-3.5 h-3.5 rounded-md bg-[#6ee7b7] border border-emerald-300 dark:border-emerald-700/70 inline-block shadow-2xs" />
+            <span className="font-bold text-slate-800 dark:text-slate-200">Vert :</span>
             <span>Faible demande (Calme)</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="w-3.5 h-3.5 rounded-md bg-slate-100 border border-slate-300 inline-flex items-center justify-center text-[9px] text-slate-500 font-bold">
+            <span className="w-3.5 h-3.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 inline-flex items-center justify-center text-[9px] text-slate-500 dark:text-slate-400 font-bold">
               •
             </span>
-            <span className="font-bold text-slate-800">Gris clair :</span>
+            <span className="font-bold text-slate-800 dark:text-slate-200">Gris clair :</span>
             <span>Journées passées (Historique / Réalisé)</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="w-3.5 h-3.5 rounded-md bg-white border-2 border-violet-600 ring-1 ring-violet-400 inline-block shadow-2xs" />
-            <span className="font-bold text-violet-800">Contour violet :</span>
+            <span className="w-3.5 h-3.5 rounded-md bg-white dark:bg-slate-900 border-2 border-violet-600 ring-1 ring-violet-400 inline-block shadow-2xs" />
+            <span className="font-bold text-violet-800 dark:text-violet-300">Contour violet :</span>
             <span>Date du jour (Aujourd'hui)</span>
           </div>
         </div>
@@ -1718,8 +1715,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                       d.demandLevel === 'forte'
                         ? 'bg-rose-500 text-white shadow-xs'
                         : d.demandLevel === 'moyenne'
-                        ? 'bg-amber-400 text-slate-900 font-black'
-                        : 'bg-emerald-400 text-slate-900 font-black'
+                        ? 'bg-amber-400 text-slate-900 dark:text-slate-100 font-black'
+                        : 'bg-emerald-400 text-slate-900 dark:text-slate-100 font-black'
                     }`}
                   >
                     Demande {d.demandLevel}
@@ -1824,19 +1821,19 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
           aria-labelledby="modal-date-title"
         >
           <div
-            className="relative w-full max-w-4xl max-h-[88vh] bg-white rounded-3xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            className="relative w-full max-w-4xl max-h-[88vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Sticky Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 sm:py-5 border-b border-slate-100 bg-white sticky top-0 z-10 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 sm:py-5 border-b border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-900 sticky top-0 z-10 gap-3">
               <div className="flex items-center gap-3.5">
                 <div
                   className={`w-13 h-13 rounded-2xl flex flex-col items-center justify-center font-black shadow-xs shrink-0 ${
                     selectedDateInfo.demandLevel === 'forte'
-                      ? 'bg-[#fb7185] text-slate-900'
+                      ? 'bg-[#fb7185] dark:bg-rose-900/55 text-slate-950 dark:text-rose-200 dark:border dark:border-rose-700/45'
                       : selectedDateInfo.demandLevel === 'moyenne'
-                      ? 'bg-[#fbb664] text-slate-900'
-                      : 'bg-[#6ee7b7] text-slate-900'
+                      ? 'bg-[#fbb664] dark:bg-amber-900/45 text-slate-950 dark:text-amber-200 dark:border dark:border-amber-700/45'
+                      : 'bg-[#6ee7b7] dark:bg-emerald-900/45 text-slate-950 dark:text-emerald-200 dark:border dark:border-emerald-700/45'
                   }`}
                 >
                   <span className="text-2xl leading-none font-black">{selectedDateInfo.dayNumber}</span>
@@ -1849,7 +1846,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 id="modal-date-title" className="text-xl font-extrabold text-slate-900 capitalize">
+                    <h2 id="modal-date-title" className="text-xl font-extrabold text-slate-900 dark:text-slate-100 capitalize">
                       {new Date(selectedDateInfo.dateStr).toLocaleDateString('fr-FR', {
                         weekday: 'long',
                         day: 'numeric',
@@ -1860,16 +1857,16 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                     <span
                       className={`text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                         selectedDateInfo.demandLevel === 'forte'
-                          ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                          ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70'
                           : selectedDateInfo.demandLevel === 'moyenne'
-                          ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                          : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                          ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800/70'
+                          : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800/70'
                       }`}
                     >
                       Demande {selectedDateInfo.demandLevel}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                     <span>Établissement : <strong>{currentHotel.name}</strong> ({currentHotel.city})</span>
                     <span className="text-slate-300">·</span>
                     <span>Capacité {currentHotel.roomCount} ch.</span>
@@ -1892,7 +1889,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
                 <button
                   onClick={() => setSelectedDateInfo(null)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-all cursor-pointer"
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
                   aria-label="Fermer la fenêtre (Échap)"
                   title="Fermer la fenêtre (Échap)"
                 >
@@ -1904,14 +1901,14 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             {/* Modal Scrollable Internal Body */}
             <div className="p-6 overflow-y-auto space-y-6">
               {/* Geographic Catchment Notice */}
-              <div className="bg-slate-50 border border-slate-200/70 rounded-2xl p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-2">
+              <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 rounded-2xl p-3 px-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 dark:text-slate-400 gap-2">
                 <div className="flex items-center gap-2">
-                  <Compass className="w-4 h-4 text-violet-600 shrink-0" />
+                  <Compass className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
                   <span>
                     <strong>Bassin de pertinence :</strong> {catchmentInfo.zoneName} ({catchmentInfo.scopeRadius})
                   </span>
                 </div>
-                <span className="text-slate-500 text-[11px]">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">
                   Seuls les événements générateurs de flux locaux sont comptabilisés
                 </span>
               </div>
@@ -1919,21 +1916,21 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               {/* 3 Columns Breakdown */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {/* Col 1: Pression & TO Prévisionnel */}
-                <div className="bg-slate-50/70 rounded-2xl p-4 border border-slate-200/80 space-y-3.5 flex flex-col justify-between">
+                <div className="bg-slate-50/70 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 space-y-3.5 flex flex-col justify-between">
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 mb-3">
-                      <Percent className="w-4 h-4 text-violet-600" />
+                    <div className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-3">
+                      <Percent className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                       Indicateurs Prévisionnels
                     </div>
 
                     <div>
                       <div className="flex justify-between items-center text-xs mb-1">
-                        <span className="text-slate-600 font-medium">Intensité de tension globale</span>
-                        <span className="font-extrabold text-slate-900 tabular-nums">
+                        <span className="text-slate-600 dark:text-slate-400 font-medium">Intensité de tension globale</span>
+                        <span className="font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
                           {selectedDateInfo.intensity}%
                         </span>
                       </div>
-                      <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
                             selectedDateInfo.demandLevel === 'forte'
@@ -1948,22 +1945,22 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-200/70 space-y-2.5">
+                  <div className="pt-3 border-t border-slate-200/70 dark:border-slate-800/70 space-y-2.5">
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-600">Taux d'occupation estimé :</span>
-                      <span className="font-extrabold text-slate-900 tabular-nums">
+                      <span className="text-slate-600 dark:text-slate-400">Taux d'occupation estimé :</span>
+                      <span className="font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
                         {selectedDateInfo.projectedOccupancy}% ({Math.round((selectedDateInfo.projectedOccupancy / 100) * currentHotel.roomCount)} ch.)
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-600">Score RM max enregistré :</span>
-                      <span className="font-bold text-violet-700 tabular-nums">
+                      <span className="text-slate-600 dark:text-slate-400">Score RM max enregistré :</span>
+                      <span className="font-bold text-violet-700 dark:text-violet-300 tabular-nums">
                         {selectedDateInfo.maxRMScore > 0 ? `${selectedDateInfo.maxRMScore} / 100` : '—'}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-600">Affluence cumulée estimée :</span>
-                      <span className="font-bold text-slate-800 tabular-nums">
+                      <span className="text-slate-600 dark:text-slate-400">Affluence cumulée estimée :</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 tabular-nums">
                         {selectedDateInfo.totalAttendance.toLocaleString('fr-FR')} pax
                       </span>
                     </div>
@@ -1971,32 +1968,32 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 </div>
 
                 {/* Col 2: Recommandation Tarifaire & Yield */}
-                <div className="bg-slate-50/70 rounded-2xl p-4 border border-slate-200/80 space-y-3 flex flex-col justify-between">
+                <div className="bg-slate-50/70 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 space-y-3 flex flex-col justify-between">
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5 mb-3">
-                      <DollarSign className="w-4 h-4 text-emerald-600" />
+                    <div className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mb-3">
+                      <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       Stratégie Tarifaire Recommandée
                     </div>
 
-                    <div className="bg-white rounded-xl p-3 border border-slate-200/60 space-y-2">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl p-3 border border-slate-200/60 dark:border-slate-800/70 space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Ajustement ADR conseillé :</span>
-                        <span className="font-black text-emerald-700 text-sm">
+                        <span className="text-slate-500 dark:text-slate-400">Ajustement ADR conseillé :</span>
+                        <span className="font-black text-emerald-700 dark:text-emerald-300 text-sm">
                           {selectedDateInfo.adrAdvice}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Restriction de séjour (MinLOS) :</span>
-                        <span className="font-bold text-slate-800">
+                        <span className="text-slate-500 dark:text-slate-400">Restriction de séjour (MinLOS) :</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
                           {selectedDateInfo.minStayAdvice}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-600 leading-relaxed bg-white rounded-xl p-3 border border-slate-200/60">
-                    <div className="font-bold text-slate-800 mb-1 flex items-center gap-1">
-                      <ShieldAlert className="w-3.5 h-3.5 text-violet-600" />
+                  <div className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed bg-white dark:bg-slate-900 rounded-xl p-3 border border-slate-200/60 dark:border-slate-800/70">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center gap-1">
+                      <ShieldAlert className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                       Consigne Revenue Management :
                     </div>
                     {selectedDateInfo.yieldStrategy}
@@ -2004,10 +2001,10 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                 </div>
 
                 {/* Col 3: Événements moteurs ce jour */}
-                <div className="bg-slate-50/70 rounded-2xl p-4 border border-slate-200/80 space-y-2.5 flex flex-col">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                <div className="bg-slate-50/70 dark:bg-slate-800/50 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800/80 space-y-2.5 flex flex-col">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <CalendarIcon className="w-4 h-4 text-violet-600" />
+                      <CalendarIcon className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                       Événements Pertinents ({selectedDateInfo.eventCount})
                     </span>
                     <span className="text-[10px] text-slate-400">Clic pour fiche</span>
@@ -2024,10 +2021,10 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                         <div
                           key={ev.id}
                           onClick={() => onSelectEvent(ev)}
-                          className="bg-white p-2.5 rounded-xl border border-slate-200/70 hover:border-violet-300 hover:shadow-xs transition-all cursor-pointer flex items-center justify-between group"
+                          className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-800/70 hover:border-violet-300 dark:hover:border-violet-600/70 hover:shadow-xs transition-all cursor-pointer flex items-center justify-between group"
                         >
                           <div className="min-w-0 pr-2">
-                            <div className="text-xs font-bold text-slate-900 truncate group-hover:text-violet-700">
+                            <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-violet-700">
                               {ev.title}
                             </div>
                             <div className="text-[10px] text-slate-400 truncate flex items-center gap-1">
@@ -2041,10 +2038,10 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                             <span
                               className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md tabular-nums ${
                                 ev.scoreBreakdown?.finalRMScore >= 80
-                                  ? 'bg-rose-100 text-rose-800'
+                                  ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
                                   : ev.scoreBreakdown?.finalRMScore >= 60
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-slate-100 text-slate-700'
+                                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                               }`}
                             >
                               {ev.scoreBreakdown?.finalRMScore ?? 50}
@@ -2060,16 +2057,16 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             </div>
 
             {/* Modal Sticky Footer */}
-            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <div className="px-6 py-3.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                <kbd className="px-1.5 py-0.5 text-[10px] font-bold bg-white border border-slate-200 rounded shadow-2xs text-slate-600">
+                <kbd className="px-1.5 py-0.5 text-[10px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded shadow-2xs text-slate-600 dark:text-slate-400">
                   Échap
                 </kbd>
                 <span>ou clic à l'extérieur pour fermer</span>
               </span>
               <button
                 onClick={() => setSelectedDateInfo(null)}
-                className="px-4 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                className="px-4 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer transition-colors"
               >
                 Fermer
               </button>

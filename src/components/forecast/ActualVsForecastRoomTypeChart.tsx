@@ -36,6 +36,7 @@ import {
   Info,
 } from 'lucide-react';
 import { Hotel } from '../../types';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export interface RoomTypeConfig {
   id: string;
@@ -62,6 +63,7 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
   hotel,
   className = '',
 }) => {
+  const { chartTokens } = useTheme();
   // Active room types filter (multi-select)
   const [activeTypeIds, setActiveTypeIds] = useState<string[]>(['classique', 'superieure', 'deluxe', 'suite_famille']);
   
@@ -195,31 +197,31 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
   const remainingPickup = Math.max(0, totalForecastRooms - totalActualRooms);
 
   return (
-    <div className={`bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-6 shadow-sm space-y-5 ${className}`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-5 ${className}`}>
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-violet-600 animate-pulse" />
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
               Comparatif Prévisions (Forecast) vs Réservations Réelles (OTB)
             </h3>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70">
               Multi-Typologies
             </span>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Suivi dynamique des nuitées acquises vs le modèle prédictif · Filtrez par type de chambre pour analyser la montée en charge
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Metric Selector */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
             <button
               onClick={() => setMetricMode('rooms')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                metricMode === 'rooms' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                metricMode === 'rooms' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               Nuitées (Chambres)
@@ -227,7 +229,7 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
             <button
               onClick={() => setMetricMode('occupancy')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                metricMode === 'occupancy' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                metricMode === 'occupancy' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               Taux d’Occupation (%)
@@ -235,7 +237,7 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
             <button
               onClick={() => setMetricMode('revenue')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                metricMode === 'revenue' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                metricMode === 'revenue' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               Chiffre d’Affaires (€)
@@ -243,13 +245,13 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
           </div>
 
           {/* Date Horizon Selector */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
             {[7, 14, 30, 60].map((d) => (
               <button
                 key={d}
                 onClick={() => setDayRange(d)}
                 className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  dayRange === d ? 'bg-white text-violet-700 font-bold shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                  dayRange === d ? 'bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 font-bold shadow-2xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
                 {d}j
@@ -260,13 +262,13 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
       </div>
 
       {/* Room Types Interactive Filter Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-800/80">
         <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-violet-600 shrink-0" />
-          <span className="text-xs font-bold text-slate-800">
+          <Layers className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
             Filtrer par type de chambre :
           </span>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
             ({selectedCapacity} ch. actives sur 45)
           </span>
         </div>
@@ -277,7 +279,7 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
             className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
               activeTypeIds.length === HOTEL_ROOM_TYPES.length
                 ? 'bg-violet-600 text-white border-violet-600 shadow-2xs'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             Toutes (45 ch.)
@@ -291,8 +293,8 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
                 onClick={() => toggleRoomType(t.id)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-white text-slate-900 border-slate-300 shadow-2xs ring-2 ring-violet-500/20'
-                    : 'bg-slate-100 text-slate-400 border-transparent opacity-60 hover:opacity-100'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 shadow-2xs ring-2 ring-violet-500/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent opacity-60 hover:opacity-100'
                 }`}
               >
                 <div
@@ -302,7 +304,7 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
                 <span>{t.shortName}</span>
                 <span className="text-[10px] font-bold text-slate-400">({t.totalRooms} ch.)</span>
                 {isSelected ? (
-                  <Eye className="w-3 h-3 text-emerald-600 ml-0.5" />
+                  <Eye className="w-3 h-3 text-emerald-600 dark:text-emerald-400 ml-0.5" />
                 ) : (
                   <EyeOff className="w-3 h-3 text-slate-400 ml-0.5" />
                 )}
@@ -314,47 +316,47 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-        <div className="p-3 bg-violet-50/70 border border-violet-200/80 rounded-2xl">
-          <div className="text-[10px] uppercase font-bold text-violet-700">Taux de Réalisation Forecast</div>
-          <div className="text-xl font-black text-violet-950 mt-1 tabular-nums flex items-baseline gap-1">
+        <div className="p-3 bg-violet-50/70 dark:bg-violet-950/40 border border-violet-200/80 dark:border-violet-800/70 rounded-2xl">
+          <div className="text-[10px] uppercase font-bold text-violet-700 dark:text-violet-300">Taux de Réalisation Forecast</div>
+          <div className="text-xl font-black text-violet-950 dark:text-violet-100 mt-1 tabular-nums flex items-baseline gap-1">
             <span>{achievementRate}%</span>
-            <span className="text-xs font-bold text-emerald-700">
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
               {achievementRate >= 100 ? '✓ En avance' : 'En cours'}
             </span>
           </div>
-          <div className="text-[10px] text-violet-600 mt-0.5">
+          <div className="text-[10px] text-violet-600 dark:text-violet-400 mt-0.5">
             {totalActualRooms} nuitées réelles vs {totalForecastRooms} prévues
           </div>
         </div>
 
-        <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl">
-          <div className="text-[10px] uppercase font-bold text-slate-500">Pickup Résiduel Attendu</div>
-          <div className="text-xl font-black text-slate-900 mt-1 tabular-nums">
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl">
+          <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Pickup Résiduel Attendu</div>
+          <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
             {remainingPickup} chambres
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">
+          <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
             Sur les prochains {dayRange} jours
           </div>
         </div>
 
-        <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-2xl">
-          <div className="text-[10px] uppercase font-bold text-emerald-700">CA Hébergement OTB</div>
-          <div className="text-xl font-black text-emerald-950 mt-1 tabular-nums">
+        <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 rounded-2xl">
+          <div className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300">CA Hébergement OTB</div>
+          <div className="text-xl font-black text-emerald-950 dark:text-emerald-100 mt-1 tabular-nums">
             {totalActualRevenue.toLocaleString('fr-FR')} €
           </div>
-          <div className="text-[10px] text-emerald-700 mt-0.5 flex items-center gap-1 font-semibold">
+          <div className="text-[10px] text-emerald-700 dark:text-emerald-300 mt-0.5 flex items-center gap-1 font-semibold">
             <ArrowUpRight className="w-3 h-3" />
             <span>Objectif Forecast: {totalForecastRevenue.toLocaleString('fr-FR')} €</span>
           </div>
         </div>
 
-        <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl">
-          <div className="text-[10px] uppercase font-bold text-amber-800">Écart Valeur Cumulé</div>
-          <div className="text-xl font-black text-amber-950 mt-1 tabular-nums">
+        <div className="p-3 bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/70 rounded-2xl">
+          <div className="text-[10px] uppercase font-bold text-amber-800 dark:text-amber-300">Écart Valeur Cumulé</div>
+          <div className="text-xl font-black text-amber-950 dark:text-amber-100 mt-1 tabular-nums">
             {totalActualRevenue >= totalForecastRevenue ? '+' : ''}
             {(totalActualRevenue - totalForecastRevenue).toLocaleString('fr-FR')} €
           </div>
-          <div className="text-[10px] text-amber-700 mt-0.5">
+          <div className="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5">
             {totalActualRevenue >= totalForecastRevenue ? 'Surperformance budgétaire' : 'Potentiel de capture restant'}
           </div>
         </div>
@@ -370,16 +372,16 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
                 <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridStroke} vertical={false} />
             <XAxis
               dataKey="dayLabel"
-              tick={{ fontSize: 10, fill: '#64748b' }}
-              axisLine={{ stroke: '#cbd5e1' }}
+              tick={{ fontSize: 10, fill: chartTokens.axisTickColor }}
+              axisLine={{ stroke: chartTokens.axisLineColor }}
               tickLine={false}
             />
             <YAxis
-              tick={{ fontSize: 10, fill: '#64748b' }}
-              axisLine={{ stroke: '#cbd5e1' }}
+              tick={{ fontSize: 10, fill: chartTokens.axisTickColor }}
+              axisLine={{ stroke: chartTokens.axisLineColor }}
               tickLine={false}
               unit={metricMode === 'occupancy' ? '%' : metricMode === 'revenue' ? '€' : ''}
               domain={metricMode === 'occupancy' ? [0, 100] : [0, 'auto']}

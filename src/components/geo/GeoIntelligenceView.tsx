@@ -349,26 +349,26 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Header Card */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-violet-50 border border-violet-200/80 flex items-center justify-center text-violet-600 shrink-0 shadow-2xs">
+            <div className="w-12 h-12 rounded-2xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200/80 dark:border-violet-800/70 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0 shadow-2xs">
               <Compass className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-violet-600 bg-violet-50 px-2.5 py-0.5 rounded-full border border-violet-200 flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 px-2.5 py-0.5 rounded-full border border-violet-200 dark:border-violet-800/70 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   Google Maps Platform • Active
                 </span>
-                <span className="text-xs font-semibold text-slate-500">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                   Carte Événementielle Interactive
                 </span>
               </div>
-              <h1 className="text-xl font-bold text-slate-900 mt-1">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1">
                 Veille Géographique & Visualisation d’Impact RM
               </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Google Maps dynamique, cercles d’influence (15 km, 8 km, 3 km), filtrage mensuel et calculs d’accessibilité personnalisés.
               </p>
             </div>
@@ -376,14 +376,14 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
           {/* Hotel Selector & Actions */}
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-              <Building className="w-4 h-4 text-violet-600" />
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-xl">
+              <Building className="w-4 h-4 text-violet-600 dark:text-violet-400" />
               <div className="text-xs">
                 <div className="text-[10px] text-slate-400 font-semibold uppercase">Hôtel Référent</div>
                 <select
                   value={currentHotel.id}
                   onChange={(e) => onSelectHotel(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 text-xs focus:outline-none cursor-pointer"
+                  className="bg-transparent font-bold text-slate-800 dark:text-slate-200 text-xs focus:outline-none cursor-pointer"
                 >
                   {hotels.map((h) => (
                     <option key={h.id} value={h.id}>
@@ -419,9 +419,9 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                 );
               }}
               title="Détecter automatiquement la position GPS de l'hôtel"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-all cursor-pointer border border-slate-200"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs transition-all cursor-pointer border border-slate-200 dark:border-slate-800"
             >
-              <Compass className="w-3.5 h-3.5 text-violet-600" />
+              <Compass className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
               <span className="hidden sm:inline">Détecter GPS</span>
             </button>
 
@@ -429,9 +429,9 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
             <button
               onClick={() => setIsEditingGPS(true)}
               title="Saisir manuellement les coordonnées ou modifier la zone d'influence"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-all cursor-pointer border border-slate-200"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs transition-all cursor-pointer border border-slate-200 dark:border-slate-800"
             >
-              <Sliders className="w-3.5 h-3.5 text-slate-600" />
+              <Sliders className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
               <span>Périmètre & GPS</span>
             </button>
 
@@ -447,7 +447,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
         </div>
 
         {/* Sub-navigation Tabs */}
-        <div className="flex items-center gap-2 border-t border-slate-100 pt-3 overflow-x-auto">
+        <div className="flex items-center gap-2 border-t border-slate-100 dark:border-slate-800/80 pt-3 overflow-x-auto">
           {[
             { id: 'carte_google', label: 'Carte Événementielle Google Maps', icon: MapPin },
             { id: 'debordement_metropolitain', label: 'Règle des 10/30 km & Débordement', icon: Train },
@@ -464,7 +464,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'bg-violet-600 text-white shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -548,16 +548,16 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
           </div>
 
           {/* Controls Bar: Time Navigation, Category & Impact Filters (PRD Section 5 & 10) */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
             {/* Row 1: Month Stepper & Year Picker */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
               {/* Left: Year & Month Bar */}
               <div className="flex flex-wrap items-center gap-2">
                 {/* Year Selector */}
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-                  className="bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer"
+                  className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer"
                 >
                   <option value={2025}>2025</option>
                   <option value={2026}>2026</option>
@@ -565,10 +565,10 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                 </select>
 
                 {/* Steppers */}
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800">
                   <button
                     onClick={handlePrevMonth}
-                    className="p-1.5 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg transition-colors"
                     title="Mois précédent"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
@@ -576,7 +576,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   <button
                     onClick={() => setSelectedMonthIndex(-1)}
                     className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                      selectedMonthIndex === -1 ? 'bg-violet-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                      selectedMonthIndex === -1 ? 'bg-violet-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                     }`}
                   >
                     Tous les mois
@@ -586,7 +586,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                       key={name}
                       onClick={() => setSelectedMonthIndex(idx)}
                       className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                        selectedMonthIndex === idx ? 'bg-violet-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                        selectedMonthIndex === idx ? 'bg-violet-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                       }`}
                     >
                       {name}
@@ -594,7 +594,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   ))}
                   <button
                     onClick={handleNextMonth}
-                    className="p-1.5 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                    className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg transition-colors"
                     title="Mois suivant"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -604,13 +604,13 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
               {/* Right: Dynamic Counters (PRD Section 9) */}
               <div className="flex items-center gap-3 text-xs">
-                <div className="px-3 py-1.5 rounded-xl bg-violet-50 border border-violet-200 text-violet-800 font-bold">
+                <div className="px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800/70 text-violet-800 dark:text-violet-300 font-bold">
                   {filteredEventsForMonth.length} événement(s)
                 </div>
-                <div className="px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-bold">
+                <div className="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-800 dark:text-rose-300 font-bold">
                   {highImpactCount} impact fort
                 </div>
-                <div className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 font-medium">
+                <div className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-medium">
                   {calculatedVenues.length} infrastructures
                 </div>
               </div>
@@ -627,8 +627,8 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   onClick={() => setImpactFilter('all')}
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                     impactFilter === 'all'
-                      ? 'bg-slate-900 text-white border-slate-900'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      ? 'bg-slate-900 dark:bg-slate-800 text-white border-slate-900'
+                      : 'bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
                   Tous
@@ -638,7 +638,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                     impactFilter === 'high'
                       ? 'bg-rose-500 text-white border-rose-500 shadow-xs'
-                      : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                      : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/70 hover:bg-rose-100 dark:hover:bg-rose-900/50'
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-rose-500" />
@@ -649,7 +649,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                     impactFilter === 'medium'
                       ? 'bg-orange-500 text-white border-orange-500 shadow-xs'
-                      : 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100'
+                      : 'bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800/70 hover:bg-orange-100 dark:hover:bg-orange-900/50'
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-orange-500" />
@@ -660,7 +660,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                     impactFilter === 'low'
                       ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
-                      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                      : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -670,22 +670,22 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
               {/* Toggles: Circles & Inactive Venues */}
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={showImpactCircles}
                     onChange={(e) => setShowImpactCircles(e.target.checked)}
-                    className="rounded text-violet-600 focus:ring-violet-500 cursor-pointer"
+                    className="rounded text-violet-600 dark:text-violet-400 focus:ring-violet-500 cursor-pointer"
                   />
                   <span>Cercles d’impact</span>
                 </label>
 
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={hideVenuesWithoutEvents}
                     onChange={(e) => setHideVenuesWithoutEvents(e.target.checked)}
-                    className="rounded text-violet-600 focus:ring-violet-500 cursor-pointer"
+                    className="rounded text-violet-600 dark:text-violet-400 focus:ring-violet-500 cursor-pointer"
                   />
                   <span>Masquer lieux sans événement</span>
                 </label>
@@ -718,27 +718,27 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                 }}
                 hoveredEventId={hoveredEventId}
               />
-              <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
                 <span className="flex items-center gap-1.5">
                   <Info className="w-3.5 h-3.5 text-slate-400" />
                   <span>
                     Survolez un marqueur pour afficher l’infobulle détaillée, ou cliquez pour inspecter le calendrier complet.
                   </span>
                 </span>
-                <span className="font-semibold text-violet-700">
+                <span className="font-semibold text-violet-700 dark:text-violet-300">
                   {currentHotel.name} • {currentHotel.city}
                 </span>
               </div>
             </div>
 
             {/* Side Events Panel (1 col = 25%) */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-4 flex flex-col h-[620px] overflow-hidden">
-              <div className="space-y-2 border-b border-slate-100 pb-3">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs p-4 flex flex-col h-[620px] overflow-hidden">
+              <div className="space-y-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
                     Événements du Mois ({sideListEvents.length})
                   </h3>
-                  <span className="text-[11px] font-semibold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md">
+                  <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md">
                     {selectedMonthIndex === -1 ? 'Année ' + selectedYear : `${MONTH_NAMES[selectedMonthIndex]} ${selectedYear}`}
                   </span>
                 </div>
@@ -751,7 +751,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                     placeholder="Filtrer un salon ou une salle..."
                     value={sideListSearch}
                     onChange={(e) => setSideListSearch(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                 </div>
               </div>
@@ -761,7 +761,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                 {sideListEvents.length === 0 ? (
                   <div className="text-center py-12 px-3 space-y-2 text-slate-400">
                     <Calendar className="w-8 h-8 mx-auto text-slate-300" />
-                    <p className="text-xs font-semibold text-slate-600">Aucun événement ne correspond aux filtres</p>
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">Aucun événement ne correspond aux filtres</p>
                     <p className="text-[11px] text-slate-400">
                       Essayez de sélectionner un autre mois ou d’élargir les critères d’impact.
                     </p>
@@ -786,14 +786,14 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                           }
                           if (onSelectEvent) onSelectEvent(ev);
                         }}
-                        className="p-3 bg-slate-50/70 hover:bg-violet-50/50 rounded-xl border border-slate-200/80 hover:border-violet-300 transition-all cursor-pointer group space-y-2"
+                        className="p-3 bg-slate-50/70 dark:bg-slate-800/50 hover:bg-violet-50/50 rounded-xl border border-slate-200/80 dark:border-slate-800/80 hover:border-violet-300 dark:hover:border-violet-600/70 transition-all cursor-pointer group space-y-2"
                       >
                         <div className="flex items-start justify-between gap-1.5">
                           <div>
-                            <div className="text-xs font-bold text-slate-900 group-hover:text-violet-700 transition-colors line-clamp-1">
+                            <div className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-violet-700 transition-colors line-clamp-1">
                               {ev.title}
                             </div>
-                            <div className="text-[11px] text-slate-500 font-medium line-clamp-1">
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium line-clamp-1">
                               {ev.venueName} ({ev.city})
                             </div>
                           </div>
@@ -804,12 +804,12 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                           </span>
                         </div>
 
-                        <div className="flex items-center justify-between text-[10.5px] text-slate-500 pt-1 border-t border-slate-200/60">
+                        <div className="flex items-center justify-between text-[10.5px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200/60 dark:border-slate-800/70">
                           <span className="tabular-nums">
                             {ev.startDate.slice(5)} → {ev.endDate.slice(5)}
                           </span>
                           {matchingVenue && (
-                            <span className="font-semibold text-violet-700">
+                            <span className="font-semibold text-violet-700 dark:text-violet-300">
                               {matchingVenue.distanceKm} km (~{matchingVenue.driveTimeMins}m)
                             </span>
                           )}
@@ -827,13 +827,13 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
       {/* TAB 2: LES 7 CATÉGORIES ÉVÉNEMENTIELLES OFFICIELLES */}
       {activeGeoTab === 'categories' && (
         <div className="space-y-4">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                   Les 7 Catégories Événementielles Officielles à Surveiller
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Ces catégories constituent le standard de Flowtym Event Intelligence. Vous pouvez activer ou désactiver chaque catégorie spécifiquement pour {currentHotel.name}.
                 </p>
               </div>
@@ -847,7 +847,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                     );
                     onShowToast('Toutes les 7 catégories activées par défaut');
                   }}
-                  className="px-3 py-1.5 bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 rounded-xl text-xs font-semibold transition-colors"
+                  className="px-3 py-1.5 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800/70 rounded-xl text-xs font-semibold transition-colors"
                 >
                   Tout activer
                 </button>
@@ -864,8 +864,8 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                     key={cat.id}
                     className={`rounded-2xl border p-5 transition-all ${
                       isEnabled
-                        ? 'bg-white border-slate-200 shadow-2xs'
-                        : 'bg-slate-50/60 border-slate-200/60 opacity-60'
+                        ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-2xs'
+                        : 'bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/60 dark:border-slate-800/70 opacity-60'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -878,18 +878,18 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-bold text-slate-900">{cat.name}</h4>
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">{cat.name}</h4>
                             <span
                               className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                                 isEnabled
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-slate-100 text-slate-500'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                               }`}
                             >
                               {isEnabled ? 'Active' : 'Désactivée'}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-500 mt-1">{cat.description}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{cat.description}</p>
                         </div>
                       </div>
 
@@ -901,7 +901,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                         }`}
                       >
                         <div
-                          className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                          className={`bg-white dark:bg-slate-900 w-4 h-4 rounded-full shadow-md transform transition-transform ${
                             isEnabled ? 'translate-x-5' : 'translate-x-0'
                           }`}
                         />
@@ -909,14 +909,14 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                     </div>
 
                     {/* Subcategories list */}
-                    <div className="mt-4 pt-3 border-t border-slate-100">
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                           {cat.subcategories.length} sous-types surveillés
                         </span>
                         <button
                           onClick={() => setExpandedCategory(isExpanded ? null : cat.id)}
-                          className="text-xs font-semibold text-violet-600 hover:text-violet-800 flex items-center gap-1 cursor-pointer"
+                          className="text-xs font-semibold text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 flex items-center gap-1 cursor-pointer"
                         >
                           <span>{isExpanded ? 'Masquer' : 'Afficher les détails'}</span>
                           {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -928,7 +928,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                           {cat.subcategories.map((sub) => (
                             <span
                               key={sub}
-                              className="text-xs px-2.5 py-1 bg-slate-100/90 text-slate-700 rounded-lg border border-slate-200/80 font-medium"
+                              className="text-xs px-2.5 py-1 bg-slate-100/90 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-200/80 dark:border-slate-800/80 font-medium"
                             >
                               • {sub}
                             </span>
@@ -947,18 +947,18 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
       {/* TAB 3: TABLEAU DU RÉFÉRENTIEL DES INFRASTRUCTURES */}
       {activeGeoTab === 'venues_table' && (
         <div className="space-y-4">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Référentiel des Lieux & Distances Spatiales
                   </h3>
-                  <span className="text-[10px] font-bold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800/70 px-2 py-0.5 rounded-full">
                     {currentTerritory.territoryName}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Calculs individualisés pour <strong>{currentHotel.name}</strong> • {currentTerritory.description}
                 </p>
               </div>
@@ -972,16 +972,16 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                     placeholder="Filtrer par nom ou commune..."
                     value={tableSearch}
                     onChange={(e) => setTableSearch(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                 </div>
 
                 {/* Zone Filter */}
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                   <button
                     onClick={() => setTableFilterZone('all')}
                     className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                      tableFilterZone === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
+                      tableFilterZone === 'all' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs' : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
                     Tous ({calculatedVenues.length})
@@ -989,7 +989,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   <button
                     onClick={() => setTableFilterZone('main_10km')}
                     className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                      tableFilterZone === 'main_10km' ? 'bg-white text-violet-700 shadow-2xs' : 'text-slate-600'
+                      tableFilterZone === 'main_10km' ? 'bg-white dark:bg-slate-900 text-violet-700 dark:text-violet-300 shadow-2xs' : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
                     Rayon 10 km ({mainRadiusVenues.length})
@@ -997,7 +997,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   <button
                     onClick={() => setTableFilterZone('extended_30km')}
                     className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
-                      tableFilterZone === 'extended_30km' ? 'bg-white text-amber-700 shadow-2xs' : 'text-slate-600'
+                      tableFilterZone === 'extended_30km' ? 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-300 shadow-2xs' : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
                     Rayon 30 km ({extendedRadiusVenues.length})
@@ -1008,37 +1008,37 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
             {/* Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50/70 border-b border-slate-200">
+              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+                <thead className="bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className="py-3 px-4 font-bold text-slate-500 uppercase">Infrastructure</th>
-                    <th className="py-3 px-4 font-bold text-slate-500 uppercase">Commune / Zone</th>
-                    <th className="py-3 px-4 font-bold text-slate-500 uppercase">Vol d’oiseau</th>
-                    <th className="py-3 px-4 font-bold text-slate-500 uppercase">Temps Voiture</th>
-                    <th className="py-3 px-4 font-bold text-slate-500 uppercase">Transports (RER)</th>
-                    <th className="py-3 px-4 font-bold text-slate-500 uppercase">Mutualisation</th>
-                    <th className="py-3 px-4 font-bold text-slate-500 uppercase">Sources</th>
+                    <th className="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 uppercase">Infrastructure</th>
+                    <th className="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 uppercase">Commune / Zone</th>
+                    <th className="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 uppercase">Vol d’oiseau</th>
+                    <th className="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 uppercase">Temps Voiture</th>
+                    <th className="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 uppercase">Transports (RER)</th>
+                    <th className="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 uppercase">Mutualisation</th>
+                    <th className="py-3 px-4 font-bold text-slate-500 dark:text-slate-400 uppercase">Sources</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                   {calculatedVenues.map((v) => {
                     return (
-                      <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={v.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/70 transition-colors">
                         <td className="py-3.5 px-4 font-medium">
-                          <div className="font-bold text-slate-900">{v.name}</div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="font-bold text-slate-900 dark:text-slate-100">{v.name}</div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
                             Capacité : {v.capacity.toLocaleString('fr-FR')} • {v.type}
                           </div>
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="font-semibold text-slate-800">{v.commune}</div>
+                          <div className="font-semibold text-slate-800 dark:text-slate-200">{v.commune}</div>
                           <span
                             className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md mt-0.5 ${
                               v.zone === 'main_10km'
-                                ? 'bg-violet-50 text-violet-700 border border-violet-200'
+                                ? 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70'
                                 : v.zone === 'extended_30km'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-slate-100 text-slate-600'
+                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                             }`}
                           >
                             {v.zone === 'main_10km'
@@ -1048,29 +1048,29 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                               : 'Hors périmètre'}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-900">
+                        <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-900 dark:text-slate-100">
                           {v.distanceKm} km
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                          <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/70">
                             <Car className="w-3 h-3" />
                             ~{v.driveTimeMins} min
                           </span>
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
+                          <span className="inline-flex items-center gap-1 font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 rounded-md border border-sky-200 dark:border-sky-800/70">
                             <Train className="w-3 h-3" />
                             ~{v.transitTimeMins} min
                           </span>
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 text-slate-600">
+                          <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-400">
                             <Share2 className="w-3 h-3 text-violet-500" />
                             <span>{v.mutualizedHotelsCount} hôtels</span>
                           </span>
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="text-slate-600 font-semibold">
+                          <span className="text-slate-600 dark:text-slate-400 font-semibold">
                             {v.associatedSourcesCount} sources
                           </span>
                         </td>
@@ -1086,14 +1086,14 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
       {/* TAB 4: SCHÉMA SUPABASE POSTGIS */}
       {activeGeoTab === 'supabase_schema' && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Database className="w-4 h-4 text-violet-600" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Database className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                 <span>Architecture Supabase PostGIS — Version 1.0</span>
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 DDL SQL complet avec tables géographiques, index GiST et fonction spatiale `get_venues_within_radii`.
               </p>
             </div>
@@ -1106,7 +1106,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
             </button>
           </div>
 
-          <pre className="p-4 bg-slate-900 text-slate-100 rounded-xl text-xs font-mono overflow-x-auto max-h-[550px] leading-relaxed border border-slate-800">
+          <pre className="p-4 bg-slate-900 dark:bg-slate-800 text-slate-100 rounded-xl text-xs font-mono overflow-x-auto max-h-[550px] leading-relaxed border border-slate-800">
             {SUPABASE_POSTGIS_SCHEMA_SQL}
           </pre>
         </div>
@@ -1134,166 +1134,166 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
           {/* Comparative Case Studies (Requested by user) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Cas 1: Lointain mais impact massif */}
-            <div className="bg-white rounded-3xl border border-rose-200 p-5 space-y-4 shadow-2xs">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-rose-200 dark:border-rose-800/70 p-5 space-y-4 shadow-2xs">
               <div className="flex items-start justify-between">
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70">
                   Distance : 31 km · Fort Impact
                 </span>
-                <span className="text-lg font-black text-rose-600">94/100</span>
+                <span className="text-lg font-black text-rose-600 dark:text-rose-400">94/100</span>
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-900 text-sm">Mondial de l&apos;Auto & SIAL Paris</h4>
-                <p className="text-xs text-slate-500 mt-0.5">Parc des Expositions Paris Nord Villepinte</p>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Mondial de l&apos;Auto & SIAL Paris</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Parc des Expositions Paris Nord Villepinte</p>
               </div>
 
-              <div className="space-y-2 text-xs text-slate-700 bg-rose-50/50 p-3 rounded-2xl border border-rose-100">
+              <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300 bg-rose-50/50 dark:bg-rose-950/35 p-3 rounded-2xl border border-rose-100 dark:border-rose-900/60">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Affluence :</span>
-                  <span className="font-bold text-slate-900">490 000 pax (42% internat.)</span>
+                  <span className="text-slate-500 dark:text-slate-400">Affluence :</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">490 000 pax (42% internat.)</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Transport direct :</span>
-                  <span className="font-bold text-slate-900">RER B direct (28 min)</span>
+                  <span className="text-slate-500 dark:text-slate-400">Transport direct :</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">RER B direct (28 min)</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Concurrence locale :</span>
-                  <span className="font-bold text-rose-700">100% Sold-out (12 000 ch.)</span>
+                  <span className="text-slate-500 dark:text-slate-400">Concurrence locale :</span>
+                  <span className="font-bold text-rose-700 dark:text-rose-300">100% Sold-out (12 000 ch.)</span>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 <strong>Mécanisme de Débordement :</strong> La périphérie immédiate de Villepinte ne pouvant absorber 490k visiteurs, la demande se déverse en totalité sur les quartiers centraux parisiens reliés directement par le RER B (Gare du Nord, Châtelet, Opéra).
               </p>
 
-              <div className="pt-2 border-t border-slate-100 text-[11px] font-bold text-rose-700">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] font-bold text-rose-700 dark:text-rose-300">
                 Action RM : Hausse tarifaire de +35% à +50% et Minimum Stay 3 nuits justifiés.
               </div>
             </div>
 
             {/* Cas 2: Proche mais impact nul */}
-            <div className="bg-white rounded-3xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 space-y-4 shadow-2xs">
               <div className="flex items-start justify-between">
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800">
                   Distance : 5.8 km · Impact Nul
                 </span>
                 <span className="text-lg font-black text-slate-400">12/100</span>
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-900 text-sm">Salon du Livre Jeunesse & Événements Locaux</h4>
-                <p className="text-xs text-slate-500 mt-0.5">Espace Paris-Est Montreuil / Halle Locale</p>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Salon du Livre Jeunesse & Événements Locaux</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Espace Paris-Est Montreuil / Halle Locale</p>
               </div>
 
-              <div className="space-y-2 text-xs text-slate-700 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+              <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Affluence :</span>
-                  <span className="font-bold text-slate-900">160 000 entrées déclarées</span>
+                  <span className="text-slate-500 dark:text-slate-400">Affluence :</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">160 000 entrées déclarées</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Origine visiteurs :</span>
-                  <span className="font-bold text-slate-900">94% résidents franciliens</span>
+                  <span className="text-slate-500 dark:text-slate-400">Origine visiteurs :</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">94% résidents franciliens</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Nuitées générées :</span>
-                  <span className="font-bold text-slate-500">Quasi nulles (&lt;40 ch.)</span>
+                  <span className="text-slate-500 dark:text-slate-400">Nuitées générées :</span>
+                  <span className="font-bold text-slate-500 dark:text-slate-400">Quasi nulles (&lt;40 ch.)</span>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 <strong>Absence de Nuitées :</strong> Malgré une affluence massive en apparence, les visiteurs possèdent un titre de transport Navigo et rentrent dormir à leur domicile le soir même.
               </p>
 
-              <div className="pt-2 border-t border-slate-100 text-[11px] font-bold text-slate-500">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] font-bold text-slate-500 dark:text-slate-400">
                 Alerte RM : Ne pas augmenter les tarifs. Risque majeur de perte de taux d&apos;occupation.
               </div>
             </div>
 
             {/* Cas 3: Proximité & prestige ciblé */}
-            <div className="bg-white rounded-3xl border border-emerald-200 p-5 space-y-4 shadow-2xs">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-emerald-200 dark:border-emerald-800/70 p-5 space-y-4 shadow-2xs">
               <div className="flex items-start justify-between">
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70">
                   Distance : 6.8 km · Très Ciblé
                 </span>
-                <span className="text-lg font-black text-emerald-600">88/100</span>
+                <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">88/100</span>
               </div>
 
               <div>
-                <h4 className="font-bold text-slate-900 text-sm">Tournoi de Roland-Garros (Internationaux)</h4>
-                <p className="text-xs text-slate-500 mt-0.5">Stade Roland-Garros · Porte d&apos;Auteuil</p>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Tournoi de Roland-Garros (Internationaux)</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Stade Roland-Garros · Porte d&apos;Auteuil</p>
               </div>
 
-              <div className="space-y-2 text-xs text-slate-700 bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
+              <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300 bg-emerald-50/50 dark:bg-emerald-950/35 p-3 rounded-2xl border border-emerald-100 dark:border-emerald-900/60">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Durée :</span>
-                  <span className="font-bold text-slate-900">15 jours consécutifs</span>
+                  <span className="text-slate-500 dark:text-slate-400">Durée :</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">15 jours consécutifs</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Profil clientèle :</span>
-                  <span className="font-bold text-slate-900">Haut pouvoir d&apos;achat / VIP</span>
+                  <span className="text-slate-500 dark:text-slate-400">Profil clientèle :</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">Haut pouvoir d&apos;achat / VIP</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Liaison hôtelière :</span>
-                  <span className="font-bold text-emerald-800">Métro 9 direct (18 min)</span>
+                  <span className="text-slate-500 dark:text-slate-400">Liaison hôtelière :</span>
+                  <span className="font-bold text-emerald-800 dark:text-emerald-300">Métro 9 direct (18 min)</span>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 <strong>Adéquation Typologique :</strong> Forte affinité avec les hôtels 4★ et 5★ parisiens. Les spectateurs internationaux privilégient le séjour au centre-ville d&apos;Opéra pour combiner tennis et shopping de luxe.
               </p>
 
-              <div className="pt-2 border-t border-slate-100 text-[11px] font-bold text-emerald-800">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
                 Action RM : Protéger les catégories de chambres supérieures et forfaits multi-nuits.
               </div>
             </div>
           </div>
 
           {/* Les 10 Critères Métier de Modélisation Spatiale */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-2xs">
-            <h3 className="font-bold text-slate-900 text-base">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-2xs">
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">
               Les 10 Facteurs Analytiques Pris en Compte par Flowtym
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">1. Capacité du lieu</span>
-                <p className="text-slate-600 text-[11px]">Jauge maximale et surfaces d&apos;exposition m².</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">1. Capacité du lieu</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">Jauge maximale et surfaces d&apos;exposition m².</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">2. Visiteurs attendus</span>
-                <p className="text-slate-600 text-[11px]">Volume réel vs simples inscrits ou estimations.</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">2. Visiteurs attendus</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">Volume réel vs simples inscrits ou estimations.</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">3. Provenance géo</span>
-                <p className="text-slate-600 text-[11px]">Part des internationaux et provinciaux nécessitant un hébergement.</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">3. Provenance géo</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">Part des internationaux et provinciaux nécessitant un hébergement.</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">4. Durée & Rythme</span>
-                <p className="text-slate-600 text-[11px]">Événement multi-jours (salons) vs concert ponctuel (2h).</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">4. Durée & Rythme</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">Événement multi-jours (salons) vs concert ponctuel (2h).</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">5. Attractivité / Pouvoir</span>
-                <p className="text-slate-600 text-[11px]">Budget hébergement de la cible (B2B vs loisir économique).</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">5. Attractivité / Pouvoir</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">Budget hébergement de la cible (B2B vs loisir économique).</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">6. Transports directs</span>
-                <p className="text-slate-600 text-[11px]">RER, Métro, tramway sans correspondance complexe.</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">6. Transports directs</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">RER, Métro, tramway sans correspondance complexe.</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">7. Temps de trajet réel</span>
-                <p className="text-slate-600 text-[11px]">Temps porte-à-porte en minutes plutôt que distance brute en km.</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">7. Temps de trajet réel</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">Temps porte-à-porte en minutes plutôt que distance brute en km.</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">8. Génération de nuitées</span>
-                <p className="text-slate-600 text-[11px]">Taux de conversion affluence / nuitées marchandes.</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">8. Génération de nuitées</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">Taux de conversion affluence / nuitées marchandes.</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">9. Saturation compset</span>
-                <p className="text-slate-600 text-[11px]">Niveau de sold-out des hôtels environnant le lieu.</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">9. Saturation compset</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">Niveau de sold-out des hôtels environnant le lieu.</p>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
-                <span className="font-bold text-violet-700">10. Arbitrage de séjour</span>
-                <p className="text-slate-600 text-[11px]">Volonté du client de loger au cœur de la ville ou près du salon.</p>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 space-y-1">
+                <span className="font-bold text-violet-700 dark:text-violet-300">10. Arbitrage de séjour</span>
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">Volonté du client de loger au cœur de la ville ou près du salon.</p>
               </div>
             </div>
           </div>
@@ -1303,22 +1303,22 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
       {/* GPS Coordinates & Zone d'Influence Modal */}
       {isEditingGPS && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 flex items-center justify-center">
                   <Compass className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                     Géolocalisation & Zone d&apos;Influence
                   </h3>
-                  <p className="text-xs text-slate-500">{currentHotel.name}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{currentHotel.name}</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsEditingGPS(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1326,7 +1326,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
             <div className="space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Adresse de l&apos;établissement
                 </label>
                 <input
@@ -1335,34 +1335,34 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   onChange={(e) => {
                     currentHotel.address = e.target.value;
                   }}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl"
                   placeholder="Ex: 14 Rue de Castellane, 75008 Paris"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Latitude</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Latitude</label>
                   <input
                     type="text"
                     value={tempLat}
                     onChange={(e) => setTempLat(e.target.value)}
-                    className="w-full px-3 py-2 font-mono border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 font-mono border border-slate-200 dark:border-slate-800 rounded-xl"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Longitude</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Longitude</label>
                   <input
                     type="text"
                     value={tempLng}
                     onChange={(e) => setTempLng(e.target.value)}
-                    className="w-full px-3 py-2 font-mono border border-slate-200 rounded-xl"
+                    className="w-full px-3 py-2 font-mono border border-slate-200 dark:border-slate-800 rounded-xl"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Rayon d&apos;influence principal : {currentSettings.mainRadiusKm} km
                 </label>
                 <input
@@ -1381,7 +1381,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Rayon d&apos;influence étendu (Grands pôles) : {currentSettings.extendedRadiusKm} km
                 </label>
                 <input
@@ -1400,10 +1400,10 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
               <button
                 onClick={() => setIsEditingGPS(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
               >
                 Annuler
               </button>
@@ -1441,16 +1441,16 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
       {/* Discovery Scanner Progression Modal */}
       {isScanning && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 animate-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-600 animate-spin">
+              <div className="w-12 h-12 rounded-2xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center text-violet-600 dark:text-violet-400 animate-spin">
                 <RotateCw className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                   Découverte Spatiale & Ingestion Géographique
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Établissement cible : <strong>{currentHotel.name}</strong>
                 </p>
               </div>
@@ -1458,11 +1458,11 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
             {/* Steps progress */}
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-semibold text-slate-700">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
                 <span>Étape {scanStep} sur 6</span>
                 <span>{Math.round((scanStep / 6) * 100)}%</span>
               </div>
-              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
                 <div
                   className="bg-violet-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${(scanStep / 6) * 100}%` }}

@@ -7,7 +7,8 @@ export type EventCategory =
   | 'mode_luxe'
   | 'corporate_sommet'
   | 'culturel'
-  | 'vacances_scolaires';
+  | 'vacances_scolaires'
+  | 'periodes_saisonnieres_fetes';
 
 export type RMImpactLevel = 'hyper' | 'critique' | 'modere' | 'faible';
 

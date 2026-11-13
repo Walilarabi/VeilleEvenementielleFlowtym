@@ -243,7 +243,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
           <button
             onClick={() => setActiveTab('alerts')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'alerts' ? 'bg-white text-slate-900 shadow-xs' : 'text-violet-200 hover:bg-white/10'
+              activeTab === 'alerts' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' : 'text-violet-200 hover:bg-white/10'
             }`}
           >
             Alertes & Recommandations RM ({activeAlertsCount})
@@ -251,19 +251,19 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
           <button
             onClick={() => setActiveTab('trends')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'trends' ? 'bg-white text-slate-900 shadow-xs' : 'text-violet-200 hover:bg-white/10'
+              activeTab === 'trends' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' : 'text-violet-200 hover:bg-white/10'
             }`}
           >
-            <TrendingUp className="w-3.5 h-3.5 text-violet-600" />
+            <TrendingUp className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
             <span>Évolution ADR & RevPAR (Recharts)</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800">
+            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
               Historique + Prévisionnel
             </span>
           </button>
           <button
             onClick={() => setActiveTab('history')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'history' ? 'bg-white text-slate-900 shadow-xs' : 'text-violet-200 hover:bg-white/10'
+              activeTab === 'history' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs' : 'text-violet-200 hover:bg-white/10'
             }`}
           >
             <History className="w-3.5 h-3.5" />
@@ -276,19 +276,19 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
       {activeTab === 'alerts' && (
         <div className="space-y-4">
           {/* Quick Inline Trend Widget Toggle */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="p-2 rounded-xl bg-violet-100 text-violet-700">
+              <span className="p-2 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
                 <TrendingUp className="w-4 h-4" />
               </span>
               <div>
-                <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <span>Trajectoire de Performance : ADR Net & RevPAR Réalisé vs Prévisionnel</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">
                     45 chambres · D-EDGE & Night Audit
                   </span>
                 </h3>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Visualisez immédiatement l'impact des décisions tarifaires sur vos indicateurs clés avant arbitrage.
                 </p>
               </div>
@@ -296,13 +296,13 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowInlineTrendInAlerts(!showInlineTrendInAlerts)}
-                className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
               >
                 {showInlineTrendInAlerts ? 'Réduire le graphique' : 'Afficher le graphique'}
               </button>
               <button
                 onClick={() => setActiveTab('trends')}
-                className="text-xs font-bold text-violet-700 hover:text-violet-900 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                className="text-xs font-bold text-violet-700 dark:text-violet-300 hover:text-violet-900 dark:hover:text-violet-100 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800/70 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
               >
                 Ouvrir en plein écran →
               </button>
@@ -315,32 +315,32 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
             </div>
           )}
           {/* Bannière de Contrôle des Bornes de Sécurité Tarifaire */}
-          <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 border border-amber-200/90 rounded-2xl p-4 shadow-2xs space-y-3">
+          <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 dark:bg-none dark:bg-slate-900 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-4 shadow-2xs space-y-3">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
-                <div className="p-2.5 rounded-xl bg-amber-100 text-amber-900 shrink-0 border border-amber-300">
-                  <ShieldAlert className="w-5 h-5 text-amber-700 animate-pulse" />
+                <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 shrink-0 border border-amber-300 dark:border-amber-700/70">
+                  <ShieldAlert className="w-5 h-5 text-amber-700 dark:text-amber-300 animate-pulse" />
                 </div>
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                    <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                       <span>Système d'Alertes Visuelles & Bornes de Sécurité RM</span>
                     </h4>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-900 text-white tracking-wider">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-900 dark:bg-slate-800 text-white tracking-wider">
                       {hotel.name} · {hotel.roomCount || 45} ch.
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                     Garde-fous stricts configurés :{' '}
-                    <span className="font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                    <span className="font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/70">
                       Plancher min : {RM_HOTEL_SAFETY_LIMITS.RATE_FLOOR_EUR}€
                     </span>{' '}
                     ·{' '}
-                    <span className="font-bold text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                    <span className="font-bold text-rose-800 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800/70">
                       Plafond max : {RM_HOTEL_SAFETY_LIMITS.RATE_CEILING_EUR}€
                     </span>{' '}
                     ·{' '}
-                    <span className="font-bold text-orange-800 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+                    <span className="font-bold text-orange-800 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.5 rounded border border-orange-200 dark:border-orange-800/70">
                       Saut unitaire max : {RM_HOTEL_SAFETY_LIMITS.MAX_SINGLE_STEP_EUR}€
                     </span>
                     . Les tarifs suggérés en incohérence ou atteignant une borne sont automatiquement surlignés avec icônes d'avertissement.
@@ -352,31 +352,31 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <span
                   className={`px-2.5 py-1 rounded-xl text-xs font-bold border flex items-center gap-1 ${
-                    ceilingBreachCount > 0 ? 'bg-rose-100 text-rose-800 border-rose-300 ring-1 ring-rose-400' : 'bg-slate-100 text-slate-600 border-slate-200'
+                    ceilingBreachCount > 0 ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700/70 ring-1 ring-rose-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
                   }`}
                   title="Tarifs atteignant ou dépassant le tarif plafond configuré (550€)"
                 >
-                  <AlertOctagon className="w-3.5 h-3.5 text-rose-600" />
+                  <AlertOctagon className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                   <span>{ceilingBreachCount} Plafond (550€)</span>
                 </span>
 
                 <span
                   className={`px-2.5 py-1 rounded-xl text-xs font-bold border flex items-center gap-1 ${
-                    floorBreachCount > 0 ? 'bg-amber-100 text-amber-800 border-amber-300 ring-1 ring-amber-400' : 'bg-slate-100 text-slate-600 border-slate-200'
+                    floorBreachCount > 0 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70 ring-1 ring-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
                   }`}
                   title="Tarifs atteignant le tarif plancher minimal garanti (180€)"
                 >
-                  <Lock className="w-3.5 h-3.5 text-amber-600" />
+                  <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>{floorBreachCount} Plancher (180€)</span>
                 </span>
 
                 <span
                   className={`px-2.5 py-1 rounded-xl text-xs font-bold border flex items-center gap-1 ${
-                    largeStepCount > 0 ? 'bg-orange-100 text-orange-800 border-orange-300' : 'bg-slate-100 text-slate-600 border-slate-200'
+                    largeStepCount > 0 ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300 border-orange-300 dark:border-orange-700/70' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
                   }`}
                   title="Sauts tarifaires unitaires supérieurs à 100€"
                 >
-                  <Zap className="w-3.5 h-3.5 text-orange-600" />
+                  <Zap className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
                   <span>{largeStepCount} Saut &gt; 100€</span>
                 </span>
 
@@ -385,7 +385,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                   className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
                     safetyFilterOnly
                       ? 'bg-rose-600 text-white ring-2 ring-rose-400'
-                      : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-300'
+                      : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
                   }`}
                 >
                   <ShieldAlert className="w-3.5 h-3.5" />
@@ -396,13 +396,13 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
           </div>
 
           {/* Filters Bar & View Switcher */}
-          <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-bold text-slate-700">Statut :</span>
+              <span className="font-bold text-slate-700 dark:text-slate-300">Statut :</span>
               <button
                 onClick={() => setStatusFilter('active')}
                 className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
-                  statusFilter === 'active' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  statusFilter === 'active' ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
                 Actives ({activeAlertsCount})
@@ -410,7 +410,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
               <button
                 onClick={() => setStatusFilter('processed')}
                 className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
-                  statusFilter === 'processed' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  statusFilter === 'processed' ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
                 Traitées ({alerts.length - activeAlertsCount})
@@ -418,7 +418,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
               <button
                 onClick={() => setStatusFilter('all')}
                 className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
-                  statusFilter === 'all' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  statusFilter === 'all' ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
                 Toutes ({alerts.length})
@@ -428,11 +428,11 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
             <div className="flex flex-wrap items-center gap-3">
               {/* Filtre Urgence & Bornes */}
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-700">Filtre Priorité :</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300">Filtre Priorité :</span>
                 <select
                   value={urgencyFilter}
                   onChange={(e) => setUrgencyFilter(e.target.value as any)}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 font-semibold text-slate-700 focus:outline-hidden cursor-pointer"
+                  className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 font-semibold text-slate-700 dark:text-slate-300 focus:outline-hidden cursor-pointer"
                 >
                   <option value="all">Toutes alertes</option>
                   <option value="safety">🚨 Bornes de Sécurité Uniquement ({safetyViolationsCount})</option>
@@ -443,25 +443,25 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
               </div>
 
               {/* View Switcher: Table vs Cards */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
                 <button
                   onClick={() => setViewMode('table')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    viewMode === 'table' ? 'bg-white text-violet-800 shadow-2xs ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-900'
+                    viewMode === 'table' ? 'bg-white dark:bg-slate-900 text-violet-800 dark:text-violet-300 shadow-2xs ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                   title="Vue Grille / Table de Recommandation Tarifaire"
                 >
-                  <TableIcon className="w-3.5 h-3.5 text-violet-600" />
+                  <TableIcon className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                   <span>Table Recommandation RM</span>
                 </button>
                 <button
                   onClick={() => setViewMode('cards')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    viewMode === 'cards' ? 'bg-white text-violet-800 shadow-2xs ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-900'
+                    viewMode === 'cards' ? 'bg-white dark:bg-slate-900 text-violet-800 dark:text-violet-300 shadow-2xs ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                   title="Vue Fiches Détaillées"
                 >
-                  <LayoutGrid className="w-3.5 h-3.5 text-violet-600" />
+                  <LayoutGrid className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                   <span>Fiches Détaillées</span>
                 </button>
               </div>
@@ -470,9 +470,9 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
 
           {/* Empty State */}
           {filteredAlertsWithSafety.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center text-slate-500 space-y-2">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-8 text-center text-slate-500 dark:text-slate-400 space-y-2">
               <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-              <div className="font-bold text-slate-900">Aucune alerte tarifaire sur ce filtre</div>
+              <div className="font-bold text-slate-900 dark:text-slate-100">Aucune alerte tarifaire sur ce filtre</div>
               <p className="text-xs">
                 {safetyFilterOnly
                   ? 'Toutes les recommandations actuelles sont parfaitement conformes aux bornes de sécurité.'
@@ -481,7 +481,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
               {safetyFilterOnly && (
                 <button
                   onClick={() => setSafetyFilterOnly(false)}
-                  className="mt-2 text-xs font-bold text-violet-600 hover:text-violet-800 cursor-pointer"
+                  className="mt-2 text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 cursor-pointer"
                 >
                   Réinitialiser le filtre sécurité →
                 </button>
@@ -489,11 +489,11 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
             </div>
           ) : viewMode === 'table' ? (
             /* VUE TABLE DE RECOMMANDATION TARIFAIRE RM AVEC ALERTES VISUELLES & SURLIGNAGE */
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-100/80 border-b border-slate-200 text-[10px] font-black uppercase text-slate-600 tracking-wider">
+                    <tr className="bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-600 dark:text-slate-400 tracking-wider">
                       <th className="py-3 px-3">Date & Échéance</th>
                       <th className="py-3 px-3">Événement & Tension</th>
                       <th className="py-3 px-2 text-center whitespace-nowrap">Demande Marché (%)</th>
@@ -506,7 +506,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                       <th className="py-3 px-3 text-right">Validation Humaine</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                     {filteredAlertsWithSafety.map(({ alert, safety, demandInfo }) => {
                       const isExpanded = !!expandedRowIds[alert.id];
                       const isCritique = alert.urgency === 'critique';
@@ -518,14 +518,14 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                               safety.rowHighlightClass
                                 ? safety.rowHighlightClass
                                 : alert.status !== 'active'
-                                ? 'bg-slate-50/60 opacity-75'
-                                : 'hover:bg-slate-50/80'
+                                ? 'bg-slate-50/60 dark:bg-slate-800/50 opacity-75'
+                                : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/60'
                             }`}
                           >
                             {/* Date & Échéance */}
                             <td className="py-3 px-3 whitespace-nowrap align-middle">
                               <div className="space-y-0.5">
-                                <div className="font-black text-slate-900 text-xs flex items-center gap-1.5">
+                                <div className="font-black text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
                                   <span>
                                     {new Date(alert.dateStr).toLocaleDateString('fr-FR', {
                                       weekday: 'short',
@@ -539,16 +539,16 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                                   <span
                                     className={`px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider ${
                                       isCritique
-                                        ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                        ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70'
                                         : alert.urgency === 'haute'
-                                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                        ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'
                                     }`}
                                   >
                                     {alert.urgency}
                                   </span>
                                   {alert.status !== 'active' && (
-                                    <span className="text-[9px] font-bold text-slate-500 capitalize">
+                                    <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 capitalize">
                                       ({alert.status})
                                     </span>
                                   )}
@@ -558,13 +558,13 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
 
                             {/* Événement & Tension */}
                             <td className="py-3 px-3 align-middle max-w-[220px]">
-                              <div className="font-bold text-slate-900 truncate" title={alert.eventTitle}>
+                              <div className="font-bold text-slate-900 dark:text-slate-100 truncate" title={alert.eventTitle}>
                                 {alert.eventTitle}
                               </div>
-                              <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5 truncate">
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5 truncate">
                                 <span>{alert.venueName}</span>
                                 {alert.soldOutCompetitorsCount > 0 && (
-                                  <span className="font-bold text-rose-600 bg-rose-50 px-1 rounded">
+                                  <span className="font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-1 rounded">
                                     {alert.soldOutCompetitorsCount} complets
                                   </span>
                                 )}
@@ -583,7 +583,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
 
                             {/* Tarif Actuel */}
                             <td className="py-3 px-3 text-right whitespace-nowrap align-middle">
-                              <span className="font-bold text-slate-800 text-sm tabular-nums">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 text-sm tabular-nums">
                                 {alert.currentRate} €
                               </span>
                               <div className="text-[9px] text-slate-400">CRS D-EDGE</div>
@@ -596,38 +596,38 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm tabular-nums ${safety.cellHighlightClass}`}
                                 >
                                   {safety.type === 'ceiling_breach' && (
-                                    <AlertOctagon className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+                                    <AlertOctagon className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 animate-pulse" />
                                   )}
                                   {safety.type === 'floor_breach' && (
-                                    <Lock className="w-3.5 h-3.5 text-amber-600" />
+                                    <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                                   )}
                                   {safety.type === 'large_step' && (
-                                    <Zap className="w-3.5 h-3.5 text-orange-600" />
+                                    <Zap className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
                                   )}
                                   {safety.type === 'safe' && (
-                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                   )}
                                   <span>{alert.recommendedRate} €</span>
                                 </span>
 
                                 {/* Label contextuel sous le prix */}
                                 {safety.type === 'ceiling_breach' && (
-                                  <span className="text-[9px] font-bold text-rose-600 mt-0.5">
+                                  <span className="text-[9px] font-bold text-rose-600 dark:text-rose-400 mt-0.5">
                                     🚨 Plafond Max ({RM_HOTEL_SAFETY_LIMITS.RATE_CEILING_EUR}€)
                                   </span>
                                 )}
                                 {safety.type === 'floor_breach' && (
-                                  <span className="text-[9px] font-bold text-amber-700 mt-0.5">
+                                  <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 mt-0.5">
                                     ⚠️ Plancher Min ({RM_HOTEL_SAFETY_LIMITS.RATE_FLOOR_EUR}€)
                                   </span>
                                 )}
                                 {safety.type === 'large_step' && (
-                                  <span className="text-[9px] font-bold text-orange-700 mt-0.5">
+                                  <span className="text-[9px] font-bold text-orange-700 dark:text-orange-300 mt-0.5">
                                     ⚡ Saut unitaire &gt; 100€
                                   </span>
                                 )}
                                 {safety.type === 'safe' && (
-                                  <span className="text-[9px] font-semibold text-emerald-600 mt-0.5">
+                                  <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
                                     🛡️ Conforme
                                   </span>
                                 )}
@@ -639,10 +639,10 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                               <span
                                 className={`inline-block px-2 py-0.5 rounded-lg text-xs font-black tabular-nums ${
                                   alert.gapEur > 0
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70'
                                     : alert.gapEur < 0
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    : 'bg-slate-50 text-slate-700 border border-slate-200'
+                                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70'
+                                    : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
                                 }`}
                               >
                                 {alert.gapEur > 0 ? `+${alert.gapEur}€` : `${alert.gapEur}€`}
@@ -654,7 +654,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
 
                             {/* Moyenne Compset */}
                             <td className="py-3 px-3 text-right whitespace-nowrap align-middle">
-                              <span className="font-bold text-slate-800 text-xs tabular-nums">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 text-xs tabular-nums">
                                 {alert.compsetAverageRate} €
                               </span>
                               <div className="text-[9px] text-slate-400">5 concurrents</div>
@@ -667,24 +667,24 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${safety.badgeClass}`}
                                 >
                                   {safety.type === 'ceiling_breach' && (
-                                    <AlertOctagon className="w-3.5 h-3.5 text-rose-600 shrink-0 animate-pulse" />
+                                    <AlertOctagon className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0 animate-pulse" />
                                   )}
                                   {safety.type === 'floor_breach' && (
-                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                                   )}
                                   {safety.type === 'large_step' && (
-                                    <ShieldAlert className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                                    <ShieldAlert className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 shrink-0" />
                                   )}
                                   {safety.type === 'compset_disconnect' && (
-                                    <AlertTriangle className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                    <AlertTriangle className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                                   )}
                                   {safety.type === 'safe' && (
-                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                   )}
                                   <span>{safety.badgeLabel}</span>
                                 </span>
                                 {safety.hasViolation && (
-                                  <p className="text-[10px] text-slate-600 line-clamp-1 max-w-[220px]" title={safety.explanation}>
+                                  <p className="text-[10px] text-slate-600 dark:text-slate-400 line-clamp-1 max-w-[220px]" title={safety.explanation}>
                                     {safety.explanation}
                                   </p>
                                 )}
@@ -693,8 +693,8 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
 
                             {/* Confiance IA */}
                             <td className="py-3 px-2 text-center whitespace-nowrap align-middle">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black">
-                                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70 text-[10px] font-black">
+                                <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                 <span>{alert.confidenceScore}%</span>
                               </span>
                             </td>
@@ -715,39 +715,39 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
 
                                     <button
                                       onClick={() => handleOpenModifyModal(alert)}
-                                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-violet-50 hover:bg-violet-100 text-violet-800 border border-violet-200 transition-all flex items-center gap-1 cursor-pointer"
+                                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 transition-all flex items-center gap-1 cursor-pointer"
                                       title="Ajuster manuellement le tarif"
                                     >
-                                      <Edit3 className="w-3 h-3 text-violet-600" />
+                                      <Edit3 className="w-3 h-3 text-violet-600 dark:text-violet-400" />
                                       <span>Ajuster</span>
                                     </button>
 
                                     <button
                                       onClick={() => handleReject(alert)}
-                                      className="p-1.5 rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all cursor-pointer"
+                                      className="p-1.5 rounded-lg text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/70 transition-all cursor-pointer"
                                       title="Rejeter et conserver le tarif actuel"
                                     >
-                                      <X className="w-3.5 h-3.5 text-rose-600" />
+                                      <X className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                                     </button>
 
                                     <button
                                       onClick={() => handlePostpone(alert)}
-                                      className="p-1.5 rounded-lg text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer"
+                                      className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
                                       title="Reporter la décision de 48h"
                                     >
                                       <Clock className="w-3.5 h-3.5" />
                                     </button>
                                   </>
                                 ) : (
-                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 flex items-center gap-1">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                     <span>Traité ({alert.status})</span>
                                   </span>
                                 )}
 
                                 <button
                                   onClick={() => toggleRowExpanded(alert.id)}
-                                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all cursor-pointer ml-1"
+                                  className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer ml-1"
                                   title={isExpanded ? 'Masquer les détails' : 'Afficher les détails complets'}
                                 >
                                   {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -758,18 +758,18 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
 
                           {/* Accordéon Détails de l'alerte et des bornes de sécurité */}
                           {isExpanded && (
-                            <tr className="bg-slate-50/90 border-b border-slate-200 animate-fadeIn">
+                            <tr className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 animate-fadeIn">
                               <td colSpan={10} className="p-4">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                                   {/* Colonne 1: Motif et compression */}
-                                  <div className="space-y-2 bg-white p-3.5 rounded-xl border border-slate-200">
-                                    <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                                      <Info className="w-4 h-4 text-violet-600" />
+                                  <div className="space-y-2 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                                    <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                      <Info className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                                       <span>Analyse & Justification Algorithmique</span>
                                     </div>
-                                    <p className="text-slate-600 leading-relaxed">{alert.reason}</p>
-                                    <div className="pt-1 text-[11px] text-slate-500 border-t border-slate-100">
-                                      <strong className="text-slate-700">Facteur de compression :</strong>{' '}
+                                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{alert.reason}</p>
+                                    <div className="pt-1 text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/80">
+                                      <strong className="text-slate-700 dark:text-slate-300">Facteur de compression :</strong>{' '}
                                       {alert.compressionFactor}
                                     </div>
                                   </div>
@@ -778,20 +778,20 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                                   <div
                                     className={`space-y-2 p-3.5 rounded-xl border ${
                                       safety.hasViolation
-                                        ? 'bg-amber-50/60 border-amber-300'
-                                        : 'bg-emerald-50/50 border-emerald-200'
+                                        ? 'bg-amber-50/60 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/70'
+                                        : 'bg-emerald-50/50 dark:bg-emerald-950/35 border-emerald-200 dark:border-emerald-800/70'
                                     }`}
                                   >
-                                    <div className="font-bold flex items-center gap-1.5 text-slate-900">
+                                    <div className="font-bold flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
                                       {safety.hasViolation ? (
-                                        <ShieldAlert className="w-4 h-4 text-amber-600" />
+                                        <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                                       ) : (
-                                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                       )}
                                       <span>Diagnostic des Bornes de Sécurité</span>
                                     </div>
-                                    <p className="text-slate-700 leading-relaxed">{safety.explanation}</p>
-                                    <div className="text-[11px] text-slate-500 pt-1 space-y-0.5 border-t border-slate-200/50">
+                                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{safety.explanation}</p>
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 pt-1 space-y-0.5 border-t border-slate-200/50 dark:border-slate-800/70">
                                       <div>
                                         • Plancher strict : <strong>{RM_HOTEL_SAFETY_LIMITS.RATE_FLOOR_EUR}€</strong>
                                       </div>
@@ -805,22 +805,22 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                                   </div>
 
                                   {/* Colonne 3: Sources vérifiées & actions */}
-                                  <div className="space-y-2 bg-white p-3.5 rounded-xl border border-slate-200">
-                                    <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                                      <Calendar className="w-4 h-4 text-indigo-600" />
+                                  <div className="space-y-2 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                                    <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                      <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                                       <span>Sources Données Vérifiées</span>
                                     </div>
                                     <div className="flex flex-wrap gap-1.5">
                                       {alert.sources.map((src, sIdx) => (
                                         <span
                                           key={sIdx}
-                                          className="bg-slate-100 text-slate-700 text-[10px] px-2 py-0.5 rounded-md border border-slate-200"
+                                          className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800"
                                         >
                                           {src}
                                         </span>
                                       ))}
                                     </div>
-                                    <div className="pt-2 text-[11px] text-slate-500">
+                                    <div className="pt-2 text-[11px] text-slate-500 dark:text-slate-400">
                                       Min stay conseillé : <strong>{alert.minStayRecommended} nuit(s)</strong> ·
                                       CTA conseillé : <strong>{alert.ctaRecommended ? 'Oui (Fermer)' : 'Non (Ouvert)'}</strong>
                                     </div>
@@ -845,14 +845,14 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                 return (
                   <div
                     key={alert.id}
-                    className={`bg-white rounded-3xl border p-5 sm:p-6 shadow-2xs space-y-4 transition-all ${
+                    className={`bg-white dark:bg-slate-900 rounded-3xl border p-5 sm:p-6 shadow-2xs space-y-4 transition-all ${
                       safety.rowHighlightClass
                         ? safety.rowHighlightClass
                         : alert.status !== 'active'
-                        ? 'border-slate-200 opacity-70 bg-slate-50/50'
+                        ? 'border-slate-200 dark:border-slate-800 opacity-70 bg-slate-50/50 dark:bg-slate-800/40'
                         : isCritique
-                        ? 'border-rose-200/90 ring-1 ring-rose-200/50'
-                        : 'border-slate-200/90 hover:border-violet-300'
+                        ? 'border-rose-200/90 dark:border-rose-800/60 ring-1 ring-rose-200/50 dark:ring-rose-500/20'
+                        : 'border-slate-200/90 dark:border-slate-800 hover:border-violet-300 dark:hover:border-violet-600/70'
                     }`}
                   >
                     {/* Header: Date, Urgence, Demande %, Bornes de Sécurité, Confiance */}
@@ -862,16 +862,16 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                           <span
                             className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                               alert.urgency === 'critique'
-                                ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70'
                                 : alert.urgency === 'haute'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
                             }`}
                           >
                             Urgence {alert.urgency}
                           </span>
 
-                          <span className="text-xs font-bold text-slate-800">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                             {new Date(alert.dateStr).toLocaleDateString('fr-FR', {
                               weekday: 'long',
                               day: 'numeric',
@@ -892,46 +892,46 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${safety.badgeClass}`}
                           >
                             {safety.type === 'ceiling_breach' && (
-                              <AlertOctagon className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+                              <AlertOctagon className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 animate-pulse" />
                             )}
                             {safety.type === 'floor_breach' && (
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                             )}
                             {safety.type === 'large_step' && (
-                              <Zap className="w-3.5 h-3.5 text-orange-600" />
+                              <Zap className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
                             )}
                             {safety.type === 'safe' && (
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             )}
                             <span>{safety.badgeLabel}</span>
                           </span>
 
                           {alert.status !== 'active' && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 capitalize">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 capitalize">
                               Statut : {alert.status}
                             </span>
                           )}
                         </div>
 
-                        <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                           {alert.eventTitle}
                         </h3>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           Lieu : {alert.venueName} · Tension compset : {alert.soldOutCompetitorsCount} concurrents complets
                         </p>
                       </div>
 
                       {/* Confidence Score Pill */}
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shrink-0">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70 text-xs font-bold shrink-0">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Confiance {alert.confidenceScore}%</span>
                       </div>
                     </div>
 
                     {/* Surlignage Avertissement Sécurité si incohérence */}
                     {safety.hasViolation && (
-                      <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-300 text-xs text-amber-900 flex items-start gap-2.5">
-                        <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                      <div className="p-3 rounded-2xl bg-amber-50/80 dark:bg-amber-950/45 border border-amber-300 dark:border-amber-700/70 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                        <ShieldAlert className="w-4 h-4 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5" />
                         <div>
                           <strong>Avertissement Borne de Sécurité :</strong> {safety.explanation}
                         </div>
@@ -939,59 +939,59 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                     )}
 
                     {/* Rate Comparison Strip avec surlignage des tarifs */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50/70 p-3.5 rounded-2xl border border-slate-200/80 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50/70 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 text-xs">
                       <div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase block">Tarif Actuel</span>
-                        <span className="text-lg font-bold text-slate-800 mt-0.5 block">{alert.currentRate}€</span>
-                        <span className="text-[10px] text-slate-500">Grille enregistrée</span>
+                        <span className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{alert.currentRate}€</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Grille enregistrée</span>
                       </div>
 
                       <div>
-                        <span className="text-[10px] font-bold text-violet-600 uppercase block">Tarif Conseillé</span>
+                        <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase block">Tarif Conseillé</span>
                         <span
                           className={`text-lg mt-0.5 inline-block ${
-                            safety.cellHighlightClass || 'font-black text-violet-700'
+                            safety.cellHighlightClass || 'font-black text-violet-700 dark:text-violet-300'
                           }`}
                         >
                           {alert.recommendedRate}€
                         </span>
-                        <span className="text-[10px] text-violet-600 font-semibold block">
+                        <span className="text-[10px] text-violet-600 dark:text-violet-400 font-semibold block">
                           Yield optimisé {safety.type === 'ceiling_breach' ? '(Plafond 550€)' : safety.type === 'floor_breach' ? '(Plancher 180€)' : ''}
                         </span>
                       </div>
 
                       <div>
-                        <span className="text-[10px] font-bold text-emerald-600 uppercase block">Écart (€ / %)</span>
-                        <span className="text-lg font-black text-emerald-600 mt-0.5 block">
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Écart (€ / %)</span>
+                        <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
                           {alert.gapEur > 0 ? `+${alert.gapEur}€` : `${alert.gapEur}€`} ({alert.gapPercent > 0 ? `+${alert.gapPercent}%` : `${alert.gapPercent}%`})
                         </span>
-                        <span className="text-[10px] text-emerald-600 font-semibold">
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
                           {alert.gapEur >= 0 ? 'Sous-tarification' : 'Sur-tarification'}
                         </span>
                       </div>
 
                       <div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase block">Moyenne Compset</span>
-                        <span className="text-lg font-bold text-slate-800 mt-0.5 block">{alert.compsetAverageRate}€</span>
-                        <span className="text-[10px] text-slate-500">5 hôtels à proximité</span>
+                        <span className="text-lg font-bold text-slate-800 dark:text-slate-200 mt-0.5 block">{alert.compsetAverageRate}€</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">5 hôtels à proximité</span>
                       </div>
                     </div>
 
                     {/* Reason and Compression explanation */}
-                    <div className="space-y-1.5 text-xs text-slate-700 leading-relaxed bg-amber-50/50 p-3.5 rounded-2xl border border-amber-200/60">
+                    <div className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300 leading-relaxed bg-amber-50/50 dark:bg-amber-950/35 p-3.5 rounded-2xl border border-amber-200/60">
                       <div>
-                        <strong className="text-amber-900">Motif de l&apos;alerte :</strong> {alert.reason}
+                        <strong className="text-amber-900 dark:text-amber-200">Motif de l&apos;alerte :</strong> {alert.reason}
                       </div>
-                      <div className="text-slate-600">
+                      <div className="text-slate-600 dark:text-slate-400">
                         <strong>Facteur de compression :</strong> {alert.compressionFactor}
                       </div>
                     </div>
 
                     {/* Sources consultation */}
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 pt-1">
-                      <span className="font-bold text-slate-700">Sources vérifiées :</span>
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Sources vérifiées :</span>
                       {alert.sources.map((src, sIdx) => (
-                        <span key={sIdx} className="bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                        <span key={sIdx} className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-800">
                           {src}
                         </span>
                       ))}
@@ -999,8 +999,8 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
 
                     {/* THE 4 REQUIRED ACTIONS */}
                     {alert.status === 'active' ? (
-                      <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-[11px] text-slate-500">
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           Prenez une décision pour verrouiller ou ajuster la grille tarifaire :
                         </div>
 
@@ -1017,25 +1017,25 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                           {/* Action 2: Modifier */}
                           <button
                             onClick={() => handleOpenModifyModal(alert)}
-                            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-violet-50 hover:bg-violet-100 text-violet-800 border border-violet-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 transition-all flex items-center gap-1.5 cursor-pointer"
                           >
-                            <Edit3 className="w-3.5 h-3.5 text-violet-600" />
+                            <Edit3 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                             <span>Modifier le tarif</span>
                           </button>
 
                           {/* Action 3: Rejeter */}
                           <button
                             onClick={() => handleReject(alert)}
-                            className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                            className="px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70 transition-all flex items-center gap-1.5 cursor-pointer"
                           >
-                            <X className="w-3.5 h-3.5 text-rose-600" />
+                            <X className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                             <span>Rejeter</span>
                           </button>
 
                           {/* Action 4: Reporter */}
                           <button
                             onClick={() => handlePostpone(alert)}
-                            className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
+                            className="px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5"
                           >
                             <Clock className="w-3.5 h-3.5" />
                             <span>Reporter (48h)</span>
@@ -1043,9 +1043,9 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                        <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-semibold">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                           <span>Décision enregistrée dans l&apos;historique RM</span>
                         </span>
                         <button
@@ -1053,7 +1053,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                             setAlerts((prev) => prev.map((a) => (a.id === alert.id ? { ...a, status: 'active' } : a)));
                             onShowToast('Alerte réouverte');
                           }}
-                          className="text-xs text-violet-600 hover:text-violet-800 font-bold cursor-pointer"
+                          className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 font-bold cursor-pointer"
                         >
                           Réévaluer l&apos;alerte
                         </button>
@@ -1076,29 +1076,29 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
 
       {/* Main Tab 2: Decision Audit Trail / Historique */}
       {activeTab === 'history' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-2xs space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-slate-900 text-base">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">
                 Journal d&apos;Audit des Décisions Revenue Management
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Traçabilité complète des ajustements tarifaires et des choix stratégiques
               </p>
             </div>
-            <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-xl border border-slate-200">
+            <span className="text-xs font-bold px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-800">
               {decisions.length} décision{decisions.length > 1 ? 's' : ''}
             </span>
           </div>
 
           {decisions.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
+            <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800">
               Aucune décision enregistrée pour le moment. Traitez une alerte ci-dessus pour alimenter l&apos;audit trail.
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border border-slate-200 rounded-xl overflow-hidden">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase text-slate-500 font-bold">
+              <table className="w-full text-left text-xs border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase text-slate-500 dark:text-slate-400 font-bold">
                   <tr>
                     <th className="py-2.5 px-3">Date d&apos;impact</th>
                     <th className="py-2.5 px-3">Événement</th>
@@ -1110,37 +1110,37 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                     <th className="py-2.5 px-3">Horodatage</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                   {decisions.map((dec) => {
                     const delta = dec.appliedRate - dec.originalCurrentRate;
 
                     return (
-                      <tr key={dec.id} className="hover:bg-slate-50/70">
-                        <td className="py-2.5 px-3 font-semibold text-slate-800">{dec.dateStr}</td>
-                        <td className="py-2.5 px-3 font-bold text-slate-900 max-w-[200px] truncate">{dec.eventTitle}</td>
+                      <tr key={dec.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
+                        <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">{dec.dateStr}</td>
+                        <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100 max-w-[200px] truncate">{dec.eventTitle}</td>
                         <td className="py-2.5 px-3">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                               dec.action === 'accepted'
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
                                 : dec.action === 'modified'
-                                ? 'bg-violet-100 text-violet-800'
+                                ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300'
                                 : dec.action === 'rejected'
-                                ? 'bg-rose-100 text-rose-800'
-                                : 'bg-slate-100 text-slate-700'
+                                ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                             }`}
                           >
                             {dec.action}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-600">{dec.originalCurrentRate}€</td>
-                        <td className="py-2.5 px-3 font-bold text-slate-900">{dec.appliedRate}€</td>
+                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{dec.originalCurrentRate}€</td>
+                        <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100">{dec.appliedRate}€</td>
                         <td className="py-2.5 px-3">
-                          <span className={`font-bold ${delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                          <span className={`font-bold ${delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : delta < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
                             {delta > 0 ? `+${delta}€` : `${delta}€`}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-600">{dec.decidedBy}</td>
+                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{dec.decidedBy}</td>
                         <td className="py-2.5 px-3 text-slate-400 text-[11px]">
                           {new Date(dec.decidedAt).toLocaleString('fr-FR', {
                             day: 'numeric',
@@ -1163,21 +1163,21 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
       {modifyingAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={() => setModifyingAlert(null)} />
-          <div className="relative bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 z-10 space-y-4">
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 z-10 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 text-base">Ajuster le tarif personnalisé</h3>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">Ajuster le tarif personnalisé</h3>
               <button onClick={() => setModifyingAlert(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Définissez votre propre tarif pour <strong>{modifyingAlert.eventTitle}</strong> ({modifyingAlert.dateStr}) :
             </p>
 
-            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
               <div>
-                <label className="text-[11px] font-bold uppercase text-slate-500 block mb-1">
+                <label className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400 block mb-1">
                   Nouveau tarif par nuit (€)
                 </label>
                 <div className="flex items-center gap-2">
@@ -1188,14 +1188,14 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                     min={100}
                     max={1500}
                     step={5}
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-base font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
-                  <span className="font-bold text-slate-600 text-sm">€ / nuit</span>
+                  <span className="font-bold text-slate-600 dark:text-slate-400 text-sm">€ / nuit</span>
                 </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-bold uppercase text-slate-500 block mb-1">
+                <label className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400 block mb-1">
                   Justification RM (optionnel)
                 </label>
                 <input
@@ -1203,29 +1203,29 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                   value={customCommentInput}
                   onChange={(e) => setCustomCommentInput(e.target.value)}
                   placeholder="Ex : Négociation contingent groupe en cours, ajustement test"
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
             </div>
 
             {/* Live Safety Guardrail Indicator in Modal */}
             {customRateInput >= RM_HOTEL_SAFETY_LIMITS.RATE_CEILING_EUR ? (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-center gap-2">
-                <AlertOctagon className="w-4 h-4 text-rose-600 shrink-0" />
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-700/70 text-rose-900 dark:text-rose-200 text-xs flex items-center gap-2">
+                <AlertOctagon className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                 <span>
                   <strong>Avertissement Plafond :</strong> ce tarif atteint ou dépasse le tarif plafond ({RM_HOTEL_SAFETY_LIMITS.RATE_CEILING_EUR}€).
                 </span>
               </div>
             ) : customRateInput <= RM_HOTEL_SAFETY_LIMITS.RATE_FLOOR_EUR ? (
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center gap-2">
-                <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/70 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2">
+                <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <span>
                   <strong>Avertissement Plancher :</strong> ce tarif est égal ou inférieur au plancher garanti ({RM_HOTEL_SAFETY_LIMITS.RATE_FLOOR_EUR}€).
                 </span>
               </div>
             ) : (
-              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>Tarif conforme aux bornes de l'hôtel [{RM_HOTEL_SAFETY_LIMITS.RATE_FLOOR_EUR}€ - {RM_HOTEL_SAFETY_LIMITS.RATE_CEILING_EUR}€].</span>
               </div>
             )}
@@ -1233,7 +1233,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setModifyingAlert(null)}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                className="px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
               >
                 Annuler
               </button>

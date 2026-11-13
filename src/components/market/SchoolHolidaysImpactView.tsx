@@ -41,6 +41,7 @@ import {
   Line,
 } from 'recharts';
 import { Hotel } from '../../types';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   CLIENT_SEGMENTS,
   ClientSegmentKey,
@@ -60,6 +61,7 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
   onShowToast,
   onGoToSchoolHolidaysCalendar,
 }) => {
+  const { chartTokens } = useTheme();
   // Load data for the hotel
   const seasonsData = useMemo(() => {
     return getHotelHistoricalHolidayData(hotel.id);
@@ -130,42 +132,42 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
   const getSegmentIcon = (key: ClientSegmentKey) => {
     switch (key) {
       case 'leisure_family':
-        return <Users className="w-4 h-4 text-violet-600" />;
+        return <Users className="w-4 h-4 text-violet-600 dark:text-violet-400" />;
       case 'leisure_couples':
         return <Heart className="w-4 h-4 text-pink-600" />;
       case 'business_corporate':
-        return <Briefcase className="w-4 h-4 text-blue-600" />;
+        return <Briefcase className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
       case 'groups_tour':
-        return <Building className="w-4 h-4 text-amber-600" />;
+        return <Building className="w-4 h-4 text-amber-600 dark:text-amber-400" />;
       case 'direct_web':
-        return <Sparkles className="w-4 h-4 text-emerald-600" />;
+        return <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />;
       case 'ota_indirect':
-        return <Globe className="w-4 h-4 text-slate-600" />;
+        return <Globe className="w-4 h-4 text-slate-600 dark:text-slate-400" />;
       default:
-        return <Users className="w-4 h-4 text-slate-600" />;
+        return <Users className="w-4 h-4 text-slate-600 dark:text-slate-400" />;
     }
   };
 
   return (
     <div className="space-y-6">
       {/* 1. Header Banner & Context */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="w-9 h-9 rounded-xl bg-violet-600/10 text-violet-700 flex items-center justify-center">
+              <span className="w-9 h-9 rounded-xl bg-violet-600/10 text-violet-700 dark:text-violet-300 flex items-center justify-center">
                 <Users className="w-5 h-5" />
               </span>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                   Impact Historique des Vacances Scolaires & Segmentation Clientèle
                 </h2>
-                <span className="text-[10px] font-bold uppercase bg-violet-100 text-violet-800 px-2 py-0.5 rounded-full border border-violet-200">
+                <span className="text-[10px] font-bold uppercase bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-800/70">
                   RM Analytics & Mix
                 </span>
               </div>
             </div>
-            <p className="text-xs text-slate-500 max-w-4xl leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-4xl leading-relaxed">
               Analysez et comparez l&apos;impact concret des calendriers scolaires européens sur les performances historiques (<strong>ADR</strong>, <strong>Taux d&apos;Occupation</strong>, <strong>RevPAR</strong>) des années <strong>2026</strong>, <strong>2025</strong> et <strong>2024</strong> pour chacun de vos segments de clientèle.
             </p>
           </div>
@@ -174,9 +176,9 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
             {onGoToSchoolHolidaysCalendar && (
               <button
                 onClick={onGoToSchoolHolidaysCalendar}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               >
-                <Calendar className="w-3.5 h-3.5 text-slate-600" />
+                <Calendar className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                 <span>Calendrier Multi-Pays</span>
               </button>
             )}
@@ -192,18 +194,18 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
         </div>
 
         {/* Hotel Capacité & Profile Info Bar */}
-        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 font-bold text-slate-800">
-              <Building className="w-3.5 h-3.5 text-violet-600" />
+            <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+              <Building className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
               {hotel.name} ({hotel.city})
             </span>
             <span className="text-slate-300">|</span>
-            <span className="text-slate-600">
+            <span className="text-slate-600 dark:text-slate-400">
               Capacité : <strong>{hotel.roomCount || 45} chambres</strong>
             </span>
             <span className="text-slate-300">|</span>
-            <span className="text-violet-700 font-semibold bg-violet-50 px-2 py-0.5 rounded-md border border-violet-100">
+            <span className="text-violet-700 dark:text-violet-300 font-semibold bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md border border-violet-100 dark:border-violet-900/60">
               Potentiel Familial : 16 ch. (35.6% du parc : triples, quadruples, communicantes)
             </span>
           </div>
@@ -214,7 +216,7 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
       </div>
 
       {/* 2. Holiday Season Selector Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-bold text-slate-600">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-bold text-slate-600 dark:text-slate-400">
         {seasonsData.map((season) => {
           const isActive = selectedPeriodId === season.periodId;
           return (
@@ -224,14 +226,14 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
               className={`px-4 py-2.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 border ${
                 isActive
                   ? 'bg-violet-600 text-white border-violet-600 shadow-2xs ring-1 ring-violet-500'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
               <span>{season.name}</span>
               <span
                 className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                  isActive ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                 }`}
               >
                 {season.totalDays}j
@@ -244,72 +246,72 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
       {/* 3. Global Period Performance KPI Cards (N vs N-1 vs N-2) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Taux d'Occupation */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
             <span>Taux d&apos;Occupation Global</span>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200/60">
               +{activeSeason.deltaOccVsN1Pts} pts vs N-1
             </span>
           </div>
-          <div className="text-2xl font-bold text-slate-900 tabular-nums flex items-baseline gap-2">
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums flex items-baseline gap-2">
             <span>{activeSeason.globalOccN}%</span>
             <span className="text-xs font-normal text-slate-400">
               (N-1: {activeSeason.globalOccN1}% • N-2: {activeSeason.globalOccN2}%)
             </span>
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
             {activeSeason.activeZones}
           </p>
         </div>
 
         {/* KPI 2: ADR Moyen */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
             <span>Prix Moyen Journalier (ADR)</span>
-            <span className="text-[10px] font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200/60">
+            <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 px-1.5 py-0.5 rounded border border-violet-200/60">
               +{activeSeason.deltaAdrVsN1Pct}% vs N-1
             </span>
           </div>
-          <div className="text-2xl font-bold text-violet-700 tabular-nums flex items-baseline gap-2">
+          <div className="text-2xl font-bold text-violet-700 dark:text-violet-300 tabular-nums flex items-baseline gap-2">
             <span>{activeSeason.globalAdrN} €</span>
             <span className="text-xs font-normal text-slate-400">
               (N-1: {activeSeason.globalAdrN1}€ • N-2: {activeSeason.globalAdrN2}€)
             </span>
           </div>
-          <div className="flex items-center gap-1 text-[11px] text-violet-700 font-semibold">
+          <div className="flex items-center gap-1 text-[11px] text-violet-700 dark:text-violet-300 font-semibold">
             <ArrowUpRight className="w-3.5 h-3.5" />
             <span>+{activeSeason.globalAdrN - activeSeason.globalAdrN1} € d&apos;augmentation tarifaire nette</span>
           </div>
         </div>
 
         {/* KPI 3: RevPAR Global */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
             <span>RevPAR de la Période</span>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200/60">
               +{activeSeason.deltaRevParVsN1Pct}%
             </span>
           </div>
-          <div className="text-2xl font-bold text-slate-900 tabular-nums flex items-baseline gap-2">
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums flex items-baseline gap-2">
             <span>{activeSeason.globalRevParN} €</span>
             <span className="text-xs font-normal text-slate-400">
               (N-1: {activeSeason.globalRevParN1}€ • N-2: {activeSeason.globalRevParN2}€)
             </span>
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
             Revenu par chambre disponible
           </p>
         </div>
 
         {/* KPI 4: Chiffre d'Affaires Hébergement */}
-        <div className="bg-gradient-to-br from-violet-50 to-indigo-50/50 rounded-2xl border border-violet-200/90 p-4 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-violet-800 text-xs font-semibold">
+        <div className="bg-gradient-to-br from-violet-50 dark:from-violet-950/50 to-indigo-50/50 dark:to-indigo-950/40 rounded-2xl border border-violet-200/90 dark:border-violet-800/70 p-4 shadow-2xs space-y-1">
+          <div className="flex items-center justify-between text-violet-800 dark:text-violet-300 text-xs font-semibold">
             <span>CA Hébergement Total</span>
-            <span className="text-[10px] font-bold text-violet-700 bg-violet-100 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 px-1.5 py-0.5 rounded">
               {activeSeason.totalDays} jours
             </span>
           </div>
-          <div className="text-2xl font-bold text-violet-900 tabular-nums">
+          <div className="text-2xl font-bold text-violet-900 dark:text-violet-200 tabular-nums">
             {activeSeason.totalRevenueN.toLocaleString('fr-FR')} €
           </div>
           <p className="text-[11px] text-violet-700/80">
@@ -319,7 +321,7 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
       </div>
 
       {/* 4. Strategic Verdict Banner */}
-      <div className="bg-slate-900 text-slate-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-slate-900 dark:bg-slate-800 text-slate-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1 max-w-4xl">
           <div className="flex items-center gap-2 text-violet-400 font-bold text-xs uppercase tracking-wider">
             <ShieldCheck className="w-4 h-4" />
@@ -337,7 +339,7 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
             {activeSeason.keyFeederCountries.map((c) => (
               <span
                 key={c.code}
-                className="inline-flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-slate-700 text-white font-medium text-xs"
+                className="inline-flex items-center gap-1 bg-slate-900 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-700 text-white font-medium text-xs"
                 title={`${c.name} : ${c.sharePct}% du mix`}
               >
                 <span>{c.flag}</span>
@@ -349,24 +351,24 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
       </div>
 
       {/* 5. Comparative Recharts Visualizer */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-violet-600" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-violet-600 dark:text-violet-400" />
               <span>Comparatif Multi-Années par Segment de Clientèle ({activeSeason.name})</span>
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Visualisez l&apos;évolution de chaque segment entre l&apos;Année N (2026), N-1 (2025) et N-2 (2024).
             </p>
           </div>
 
           {/* Metric Selector Buttons */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
             <button
               onClick={() => setChartMetric('adr')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                chartMetric === 'adr' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                chartMetric === 'adr' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               ADR (€)
@@ -374,7 +376,7 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
             <button
               onClick={() => setChartMetric('occupancy')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                chartMetric === 'occupancy' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                chartMetric === 'occupancy' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               Occupation (%)
@@ -382,7 +384,7 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
             <button
               onClick={() => setChartMetric('revpar')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                chartMetric === 'revpar' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                chartMetric === 'revpar' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               RevPAR (€)
@@ -390,7 +392,7 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
             <button
               onClick={() => setChartMetric('revenue')}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                chartMetric === 'revenue' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                chartMetric === 'revenue' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               CA Total (€)
@@ -402,23 +404,23 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
         <div className="h-80 w-full pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartTokens.gridStroke} />
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
-                axisLine={{ stroke: '#cbd5e1' }}
+                tick={{ fontSize: 11, fill: chartTokens.axisTickColor, fontWeight: 600 }}
+                axisLine={{ stroke: chartTokens.axisLineColor }}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: '#64748b' }}
+                tick={{ fontSize: 11, fill: chartTokens.axisTickColor }}
                 unit={chartMetric === 'occupancy' ? '%' : '€'}
-                axisLine={{ stroke: '#cbd5e1' }}
+                axisLine={{ stroke: chartTokens.axisLineColor }}
               />
               <Tooltip
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload;
                     return (
-                      <div className="bg-slate-900 text-white p-3.5 rounded-xl shadow-xl text-xs space-y-2 border border-slate-800">
+                      <div className="bg-slate-900 dark:bg-slate-800 text-white p-3.5 rounded-xl shadow-xl text-xs space-y-2 border border-slate-800">
                         <div className="font-bold text-violet-300 border-b border-slate-800 pb-1 flex items-center justify-between gap-4">
                           <span>{data.fullName}</span>
                           <span className="text-[10px] text-slate-400">{activeSeason.name}</span>
@@ -542,25 +544,25 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
       </div>
 
       {/* 6. Detailed Analytical Breakdown Table by Segment */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden space-y-3">
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden space-y-3">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-violet-600" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-violet-600 dark:text-violet-400" />
               <span>Tableau Comparatif Détaillé par Segment de Clientèle ({activeSeason.name})</span>
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Mesure de l&apos;élasticité prix, de l&apos;impact sur l&apos;occupation et des recommandations Yield par typologie de client.
             </p>
           </div>
 
           {/* Segment Filter selector */}
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs">
-            <span className="text-slate-500 font-medium">Filtrer par segment :</span>
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Filtrer par segment :</span>
             <select
               value={selectedSegmentFilter}
               onChange={(e) => setSelectedSegmentFilter(e.target.value)}
-              className="bg-transparent font-bold text-slate-800 focus:outline-hidden cursor-pointer"
+              className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
             >
               <option value="all">Tous les segments ({activeSeason.segments.length})</option>
               {CLIENT_SEGMENTS.map((seg) => (
@@ -573,8 +575,8 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500 tracking-wider">
+          <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
               <tr>
                 <th className="py-3 px-4">Segment de Clientèle</th>
                 <th className="py-3 px-3">Taux d&apos;Occupation (N vs N-1 vs N-2)</th>
@@ -586,7 +588,7 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
                 <th className="py-3 px-4">Stratégie & Recommandation RM</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
               {displayedSegments.map((seg) => {
                 const meta = CLIENT_SEGMENTS.find((m) => m.key === seg.segmentKey);
                 const deltaOcc = seg.occupancyN - seg.occupancyN1;
@@ -594,15 +596,15 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
                 const deltaAdrPct = Math.round(((seg.adrN - seg.adrN1) / seg.adrN1) * 100);
 
                 return (
-                  <tr key={seg.segmentKey} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={seg.segmentKey} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/70 transition-colors">
                     {/* Segment Name & Icon */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
-                        <span className="p-1.5 rounded-lg bg-slate-100">
+                        <span className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800">
                           {getSegmentIcon(seg.segmentKey)}
                         </span>
                         <div>
-                          <div className="font-bold text-slate-900 text-xs">
+                          <div className="font-bold text-slate-900 dark:text-slate-100 text-xs">
                             {meta?.label || seg.segmentKey}
                           </div>
                           <div className="text-[10px] text-slate-400">
@@ -615,14 +617,14 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
                     {/* Occupancy Multi-Year */}
                     <td className="py-3.5 px-3">
                       <div className="flex items-baseline gap-1.5">
-                        <span className="font-black text-slate-900 text-sm tabular-nums">
+                        <span className="font-black text-slate-900 dark:text-slate-100 text-sm tabular-nums">
                           {seg.occupancyN}%
                         </span>
                         <span
                           className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
                             deltaOcc >= 0
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200/60'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60'
+                              : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200/60'
                           }`}
                         >
                           {deltaOcc >= 0 ? `+${deltaOcc.toFixed(1)} pts` : `${deltaOcc.toFixed(1)} pts`}
@@ -636,10 +638,10 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
                     {/* ADR Multi-Year */}
                     <td className="py-3.5 px-3">
                       <div className="flex items-baseline gap-1.5">
-                        <span className="font-black text-violet-700 text-sm tabular-nums">
+                        <span className="font-black text-violet-700 dark:text-violet-300 text-sm tabular-nums">
                           {seg.adrN} €
                         </span>
-                        <span className="text-[10px] font-bold bg-violet-50 text-violet-800 px-1.5 py-0.2 rounded border border-violet-200/60">
+                        <span className="text-[10px] font-bold bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 px-1.5 py-0.2 rounded border border-violet-200/60">
                           +{deltaAdr}€ (+{deltaAdrPct}%)
                         </span>
                       </div>
@@ -650,14 +652,14 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
 
                     {/* RevPAR */}
                     <td className="py-3.5 px-3 text-center">
-                      <span className="font-bold text-slate-900 text-xs tabular-nums">
+                      <span className="font-bold text-slate-900 dark:text-slate-100 text-xs tabular-nums">
                         {seg.revParN} €
                       </span>
                     </td>
 
                     {/* Revenue Share */}
                     <td className="py-3.5 px-3 text-center">
-                      <div className="font-bold text-slate-900 text-xs tabular-nums">
+                      <div className="font-bold text-slate-900 dark:text-slate-100 text-xs tabular-nums">
                         {seg.shareOfRevenueN}%
                       </div>
                       <div className="text-[10px] text-slate-400">
@@ -667,27 +669,27 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
 
                     {/* ALOS */}
                     <td className="py-3.5 px-3 text-center">
-                      <span className="inline-block font-bold text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md tabular-nums">
+                      <span className="inline-block font-bold text-xs bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded-md tabular-nums">
                         {seg.alosN} nuits
                       </span>
                     </td>
 
                     {/* Regular Baseline Comparison */}
                     <td className="py-3.5 px-3">
-                      <div className="text-[11px] text-slate-700 font-medium">
+                      <div className="text-[11px] text-slate-700 dark:text-slate-300 font-medium">
                         TO: <strong>{seg.baselineRegularOcc}%</strong>
                       </div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
                         ADR: <strong>{seg.baselineRegularADR} €</strong>
                       </div>
                     </td>
 
                     {/* Yield Strategy & Recommendation */}
                     <td className="py-3.5 px-4 max-w-sm">
-                      <div className="text-[11px] text-slate-800 font-medium leading-relaxed">
+                      <div className="text-[11px] text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
                         {seg.recommendedAction}
                       </div>
-                      <div className="text-[10px] text-violet-600 italic mt-0.5">
+                      <div className="text-[10px] text-violet-600 dark:text-violet-400 italic mt-0.5">
                         Observation : {seg.yieldObservation}
                       </div>
                     </td>
@@ -702,43 +704,43 @@ export const SchoolHolidaysImpactView: React.FC<SchoolHolidaysImpactViewProps> =
       {/* 7. Action Plan & RM Operational Guidelines for School Holidays */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Card 1: Typologies Familiales */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
-          <div className="flex items-center gap-2 text-violet-700 font-bold text-xs uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-3">
+          <div className="flex items-center gap-2 text-violet-700 dark:text-violet-300 font-bold text-xs uppercase tracking-wider">
             <Users className="w-4 h-4" />
             <span>Gestion des Typologies Familiales</span>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             Les chambres familiales (triples, quadruples, communicantes) représentent <strong>35.6%</strong> de votre parc et génèrent <strong>43.5%</strong> de votre chiffre d&apos;affaires pendant les vacances scolaires avec un ADR premium moyen de <strong>335€</strong>.
           </p>
-          <div className="text-xs font-semibold text-slate-800 bg-violet-50 p-3 rounded-xl border border-violet-100">
+          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 bg-violet-50 dark:bg-violet-950/40 p-3 rounded-xl border border-violet-100 dark:border-violet-900/60">
             👉 Recommandation : Bloquer les promotions non remboursables sur ces typologies et imposer un Min Stay 3 nuits sur les dates clés.
           </div>
         </div>
 
         {/* Card 2: Arbitrage Corporate vs Loisirs */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
-          <div className="flex items-center gap-2 text-blue-700 font-bold text-xs uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-3">
+          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-bold text-xs uppercase tracking-wider">
             <Briefcase className="w-4 h-4" />
             <span>Arbitrage Corporate vs Loisirs</span>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             Le volume d&apos;affaires individuel subit une contraction naturelle de <strong>-20 à -45 pts de TO</strong> selon la saison (été et Noël en particulier).
           </p>
-          <div className="text-xs font-semibold text-slate-800 bg-blue-50 p-3 rounded-xl border border-blue-100">
+          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 bg-blue-50 dark:bg-blue-950/40 p-3 rounded-xl border border-blue-100 dark:border-blue-900/60">
             👉 Recommandation : Réallouer les chambres réservées aux tarifs corporate négociés vers le BAR loisir à plein tarif sans hésitation.
           </div>
         </div>
 
         {/* Card 3: Distribution Directe vs OTA */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
-          <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-3">
+          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-bold text-xs uppercase tracking-wider">
             <Sparkles className="w-4 h-4" />
             <span>Optimisation Canal Direct</span>
           </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             Le canal direct atteint <strong>18.5% à 19.6%</strong> du mix pendant les vacances, avec une durée moyenne de séjour supérieure de <strong>+0.9 nuit</strong> par rapport aux réservations OTA.
           </p>
-          <div className="text-xs font-semibold text-slate-800 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+          <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-100 dark:border-emerald-900/60">
             👉 Recommandation : Réserver l&apos;accès exclusif aux chambres communicantes sur le site Web officiel avec petit-déjeuner enfant offert.
           </div>
         </div>

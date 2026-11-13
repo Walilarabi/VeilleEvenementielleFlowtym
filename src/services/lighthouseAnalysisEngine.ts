@@ -16,6 +16,8 @@
  */
 
 import * as XLSX from 'xlsx';
+import { Hotel } from '../types';
+import { CompetitorProfileConfig, buildDefaultCompSetForHotel, getHotelRMSConfig } from './rmsSettingsService';
 
 export type MarketDemandLevelCategory = 'faible' | 'moderee' | 'forte' | 'tres_forte';
 
@@ -145,13 +147,13 @@ export interface LighthouseExtractionDataset {
   records: LighthouseDailyItem[];
 }
 
-export const FOLKESTONE_PRIMARY_COMPSET_NAMES = [
-  'Hôtel Saint-Pétersbourg Opéra & Spa',
-  'Hôtel Charing Cross',
-  'Hôtel Astra Opéra (Astotel)',
-  'Hôtel Indigo Paris - Opéra (IHG)',
-  'Hôtel Pulitzer Paris',
-];
+export const FOLKESTONE_PRIMARY_COMPSET_NAMES = buildDefaultCompSetForHotel({
+  id: 'hotel-opera',
+  city: 'Paris',
+  baseADR: 260,
+})
+  .slice(0, 10)
+  .map((c) => c.name);
 
 /**
  * Calcul qualitatif du niveau de demande selon les seuils configurables Flowtym
@@ -178,30 +180,30 @@ export function getDemandColor(level: MarketDemandLevelCategory): {
   switch (level) {
     case 'faible':
       return {
-        bg: 'bg-emerald-50',
-        text: 'text-emerald-700',
-        border: 'border-emerald-200',
+        bg: 'bg-emerald-50 dark:bg-emerald-950/50',
+        text: 'text-emerald-700 dark:text-emerald-300',
+        border: 'border-emerald-200 dark:border-emerald-800/70',
         dot: 'bg-emerald-500',
       };
     case 'moderee':
       return {
-        bg: 'bg-amber-50',
-        text: 'text-amber-700',
-        border: 'border-amber-200',
+        bg: 'bg-amber-50 dark:bg-amber-950/50',
+        text: 'text-amber-700 dark:text-amber-300',
+        border: 'border-amber-200 dark:border-amber-800/70',
         dot: 'bg-amber-500',
       };
     case 'forte':
       return {
-        bg: 'bg-orange-50',
-        text: 'text-orange-700',
-        border: 'border-orange-200',
+        bg: 'bg-orange-50 dark:bg-orange-950/50',
+        text: 'text-orange-700 dark:text-orange-300',
+        border: 'border-orange-200 dark:border-orange-800/70',
         dot: 'bg-orange-500',
       };
     case 'tres_forte':
       return {
-        bg: 'bg-rose-50',
-        text: 'text-rose-700',
-        border: 'border-rose-200',
+        bg: 'bg-rose-50 dark:bg-rose-950/50',
+        text: 'text-rose-700 dark:text-rose-300',
+        border: 'border-rose-200 dark:border-rose-800/70',
         dot: 'bg-rose-500',
       };
   }
@@ -340,14 +342,26 @@ export function generateLighthouseAIAlerts(
 }
 
 /**
- * Création du jeu de données déterministe et réaliste pour Grand Hôtel Folkestone Opéra
- * Couvre 60 dates consécutives (du 10 novembre 2026 au 8 janvier 2027)
+ * Création du jeu de données déterministe et réaliste pour l'établissement actif
+ * Couvre 60 dates consécutives (du 10 novembre 2026 au 8 janvier 2027) avec panel jusqu'à 10 concurrents
  */
-export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
+export function createDefaultLighthouseDataset(
+  hotel?: Hotel,
+  compSetOverride?: CompetitorProfileConfig[]
+): LighthouseExtractionDataset {
   const records: LighthouseDailyItem[] = [];
   const baseDate = new Date('2026-11-10T12:00:00Z');
   const totalDays = 60;
   const frenchDays = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
+  const hotelName = hotel?.name || 'Grand Hôtel Folkestone Opéra';
+  const hotelBaseAdr = hotel?.baseADR || 260;
+  const activeSpecs =
+    compSetOverride && compSetOverride.length > 0
+      ? compSetOverride.filter((c) => c.isActive).slice(0, 10)
+      : hotel
+      ? getHotelRMSConfig(hotel).compSet.filter((c) => c.isActive).slice(0, 10)
+      : buildDefaultCompSetForHotel({ id: 'hotel-opera', city: 'Paris', baseADR: 260 }).slice(0, 10);
 
   for (let i = 0; i < totalDays; i++) {
     const curDate = new Date(baseDate);
@@ -356,20 +370,16 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
     const dayOfWeek = frenchDays[curDate.getUTCDay()];
     const isWeekend = curDate.getUTCDay() === 5 || curDate.getUTCDay() === 6;
 
-    // Simulation déterministe basée sur les événements parisiens réels
+    // Simulation déterministe basée sur les événements saisonniers et locaux
     let demandIndex = 58;
     if (dateStr >= '2026-11-12' && dateStr <= '2026-11-15') {
-      // Paris Photo 2026
       demandIndex = 88;
     } else if (dateStr >= '2026-11-23' && dateStr <= '2026-11-26') {
-      // Salon des Maires
       demandIndex = 95;
     } else if (dateStr >= '2026-12-05' && dateStr <= '2026-12-13') {
-      // Salon Nautique
       demandIndex = 79;
-    } else if (dateStr >= '2026-12-30' && dateStr <= '2027-01-02') {
-      // Nouvel An
-      demandIndex = 98;
+    } else if (dateStr >= '2026-12-26' && dateStr <= '2027-01-01') {
+      demandIndex = dateStr === '2026-12-31' ? 99 : 91;
     } else if (isWeekend) {
       demandIndex = 74;
     } else {
@@ -378,44 +388,37 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
 
     const demandLevel = getDemandLevelFromIndex(demandIndex);
 
-    // Évolutions de la demande
     const demandEvolution1d = demandIndex >= 85 ? +4 : demandIndex <= 45 ? -3 : ((i % 5) - 2);
     const demandEvolution3d = Math.round(demandEvolution1d * 2.2);
     const demandEvolution7d = Math.round(demandEvolution1d * 3.5);
 
-    // Tarifs de base des concurrents
-    const compSpecs = [
-      { name: 'Hôtel Saint-Pétersbourg Opéra & Spa', stars: 4, base: 295 },
-      { name: 'Hôtel Charing Cross', stars: 4, base: 280 },
-      { name: 'Hôtel Astra Opéra (Astotel)', stars: 4, base: 290 },
-      { name: 'Hôtel Indigo Paris - Opéra (IHG)', stars: 4, base: 340 },
-      { name: 'Hôtel Pulitzer Paris', stars: 4, base: 275 },
-    ];
+    const demandMultiplier = demandIndex >= 90 ? 1.42 : demandIndex >= 80 ? 1.25 : demandIndex >= 70 ? 1.13 : 1.0;
+    const weekendAdd = isWeekend ? Math.round(hotelBaseAdr * 0.09) : 0;
 
-    const demandMultiplier = demandIndex >= 90 ? 1.45 : demandIndex >= 80 ? 1.28 : demandIndex >= 70 ? 1.15 : 1.0;
-    const weekendAdd = isWeekend ? 25 : 0;
-
-    // Décision sold-out des concurrents
     const isMajorPeak = demandIndex >= 88;
-    const soldOutIndices = isMajorPeak
-      ? (dateStr === '2026-11-25' || dateStr === '2026-12-31' ? [0, 2, 3] : [0, 3])
-      : demandIndex >= 78 ? [(i % 5)] : [];
 
-    // Tarif Folkestone Opéra (Hôtel de référence)
-    let folkestoneRateVal = Math.round((240 * demandMultiplier + weekendAdd) / 5) * 5;
-    let folkestoneStatus: HotelAvailabilityStatus = 'disponible';
-    let folkestoneStatusLabel = `${folkestoneRateVal} €`;
+    // Tarif de l'hôtel de référence
+    const folkestoneRateVal = Math.round((hotelBaseAdr * 0.92 * demandMultiplier + weekendAdd) / 5) * 5;
+    const folkestoneStatus: HotelAvailabilityStatus = 'disponible';
+    const folkestoneStatusLabel = `${folkestoneRateVal} €`;
 
-    // Évolution tarifaire Folkestone
-    const folkEvolution1d = isMajorPeak ? +15 : ((i % 4) === 0 ? -10 : 0);
+    const folkEvolution1d = isMajorPeak ? +15 : i % 4 === 0 ? -10 : 0;
     const folkEvolution3d = isMajorPeak ? +25 : folkEvolution1d * 2;
     const folkEvolution7d = isMajorPeak ? +50 : folkEvolution1d * 3;
 
-    // Concurrents
-    const competitors: CompetitorRateRecord[] = compSpecs.map((cs, idx) => {
-      const isSoldOut = soldOutIndices.includes(idx);
-      const isLOS2 = !isSoldOut && isWeekend && idx === 1; // Charing Cross impose parfois LOS2
-      const is1Pax = !isSoldOut && idx === 4 && (i % 9 === 0);
+    // Concurrents (jusqu'à 10) avec null strict sur épuisé / non disponible
+    const competitors: CompetitorRateRecord[] = activeSpecs.map((cs, idx) => {
+      const hash = (i * 7 + idx * 11) % 23;
+      const isSoldOut =
+        isMajorPeak
+          ? dateStr === '2026-12-31' || dateStr === '2026-11-25'
+            ? idx % 3 === 0
+            : idx === 0 || idx === 3 || (idx === 7 && hash % 2 === 0)
+          : demandIndex >= 78 && idx === i % Math.max(1, activeSpecs.length);
+
+      const isUnavailable = !isSoldOut && hash === 21 && idx >= 6;
+      const isLOS2 = !isSoldOut && !isUnavailable && isWeekend && idx % 5 === 1;
+      const is1Pax = !isSoldOut && !isUnavailable && !isLOS2 && idx % 6 === 4 && i % 9 === 0;
 
       let status: HotelAvailabilityStatus = 'disponible';
       let statusLabel = '';
@@ -424,29 +427,40 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
       if (isSoldOut) {
         status = 'epuise';
         statusLabel = 'Épuisé';
+      } else if (isUnavailable) {
+        status = 'non_disponible';
+        statusLabel = 'Indisponible';
       } else if (isLOS2) {
         status = 'los2';
         statusLabel = 'LOS2';
-        rate = Math.round((cs.base * demandMultiplier + weekendAdd) / 5) * 5;
+        rate = Math.round((cs.baseRateEur * demandMultiplier + weekendAdd) / 5) * 5;
       } else if (is1Pax) {
         status = '1pax';
         statusLabel = '1 pax';
-        rate = Math.round((cs.base * demandMultiplier - 15) / 5) * 5;
+        rate = Math.round((cs.baseRateEur * demandMultiplier - 15) / 5) * 5;
       } else {
         status = 'disponible';
-        rate = Math.round((cs.base * demandMultiplier + weekendAdd + (idx * 5)) / 5) * 5;
+        rate = Math.round((cs.baseRateEur * demandMultiplier + weekendAdd + ((idx % 4) - 1) * 5) / 5) * 5;
         statusLabel = `${rate} €`;
       }
 
-      // Évolutions vs hier / 3j / 7j
-      const evo1d = isSoldOut ? null : isMajorPeak ? +20 : ((idx + i) % 5 === 0 ? -15 : (idx % 2 === 0 ? +10 : 0));
+      const evo1d =
+        rate === null
+          ? null
+          : isMajorPeak
+          ? +20
+          : (idx + i) % 5 === 0
+          ? -15
+          : idx % 2 === 0
+          ? +10
+          : 0;
       const evo3d = evo1d !== null ? Math.round(evo1d * 1.8) : null;
       const evo7d = evo1d !== null ? Math.round(evo1d * 3.2) : null;
 
-      const gapVsFolkestoneEur = rate !== null && folkestoneRateVal !== null ? rate - folkestoneRateVal : null;
+      const gapVsFolkestoneEur = rate !== null ? rate - folkestoneRateVal : null;
 
       return {
-        id: `comp-${idx}`,
+        id: cs.id || `comp-${idx}`,
         name: cs.name,
         stars: cs.stars,
         rate,
@@ -459,7 +473,6 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
       };
     });
 
-    // Calcul des statistiques
     const availableCompRates = competitors
       .filter((c) => c.status === 'disponible' && c.rate !== null && c.rate > 0)
       .map((c) => c.rate as number);
@@ -467,7 +480,7 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
     const compsetAverage =
       availableCompRates.length > 0
         ? Math.round(availableCompRates.reduce((a, b) => a + b, 0) / availableCompRates.length)
-        : Math.round(folkestoneRateVal * 1.1);
+        : 0;
 
     const minCompRate = availableCompRates.length > 0 ? Math.min(...availableCompRates) : null;
     const minCompHotel = competitors.find((c) => c.rate === minCompRate);
@@ -551,7 +564,7 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
       }
     });
 
-    const soldOutCount = competitors.filter((c) => c.status === 'epuise').length;
+    const soldOutCount = competitors.filter((c) => c.status === 'epuise' || c.status === 'non_disponible').length;
 
     // Recommandations IA (CAS 1 à 5)
     const aiAlerts = generateLighthouseAIAlerts(
@@ -582,7 +595,10 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
       flowtymMedianEur,
       medianGapEur,
       medianGapPct,
-      folkestone,
+      folkestone: {
+        ...folkestone,
+        name: hotelName,
+      },
       competitors,
       compsetAverage,
       minCompRate,
@@ -602,17 +618,18 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
     });
   }
 
+  const slug = hotelName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return {
     metadata: {
-      id: 'ext-default-lh',
-      fileName: 'folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx',
-      extractedAt: '06/11/2026 à 08:30 (Heure de Paris)',
+      id: `ext-default-lh-${hotel?.id || 'opera'}`,
+      fileName: `${slug}_bookingdotcom_lowest_los1_2guests.xlsx`,
+      extractedAt: '12/11/2026 à 08:30 (Heure de Paris)',
       sourceChannel: 'Booking.com',
       currency: 'EUR',
       los: '1 nuit',
       occupancy: '2 personnes',
-      compsetName: 'Primary Compset',
-      referenceHotel: 'Folkestone Opéra',
+      compsetName: `Primary Compset (${activeSpecs.length} concurrents)`,
+      referenceHotel: hotelName,
       dateRange: '10/11/2026 — 08/01/2027',
       totalDatesCount: records.length,
       isCustomUpload: false,

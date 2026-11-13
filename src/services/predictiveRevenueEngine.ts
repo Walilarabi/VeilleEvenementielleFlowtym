@@ -117,28 +117,28 @@ export function computeUnifiedDemandScore(
 
   let category: DemandScoreResult['category'] = 'moderee';
   let categoryLabel = 'Demande modérée';
-  let colorClass = 'bg-amber-100 text-amber-900 border-amber-300';
+  let colorClass = 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800/70';
 
   if (finalScore >= 81) {
     category = 'exceptionnelle';
     categoryLabel = 'Demande exceptionnelle';
-    colorClass = 'bg-rose-100 text-rose-900 border-rose-300';
+    colorClass = 'bg-rose-100 dark:bg-rose-950/60 text-rose-900 dark:text-rose-300 border-rose-300 dark:border-rose-800/70';
   } else if (finalScore >= 61) {
     category = 'elevee';
     categoryLabel = 'Demande élevée';
-    colorClass = 'bg-violet-100 text-violet-900 border-violet-300';
+    colorClass = 'bg-violet-100 dark:bg-violet-950/60 text-violet-900 dark:text-violet-300 border-violet-300 dark:border-violet-800/70';
   } else if (finalScore >= 41) {
     category = 'moderee';
     categoryLabel = 'Demande modérée';
-    colorClass = 'bg-sky-100 text-sky-900 border-sky-300';
+    colorClass = 'bg-sky-100 dark:bg-sky-950/60 text-sky-900 dark:text-sky-300 border-sky-300 dark:border-sky-800/70';
   } else if (finalScore >= 21) {
     category = 'faible';
     categoryLabel = 'Demande faible';
-    colorClass = 'bg-emerald-100 text-emerald-900 border-emerald-300';
+    colorClass = 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800/70';
   } else {
     category = 'tres_faible';
     categoryLabel = 'Demande très faible';
-    colorClass = 'bg-slate-100 text-slate-800 border-slate-300';
+    colorClass = 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700';
   }
 
   const explanation = `Score de demande ${finalScore}/100 (${categoryLabel}) calculé par croisement : Historique (${historicalDemandScore}/100), Remplissage OTB (${currentOtbPaceScore}/100), Événements (${eventsTensionScore}/100), Pression compset (${compsetPositionScore}/100).`;

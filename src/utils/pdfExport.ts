@@ -8,11 +8,11 @@ import autoTable from 'jspdf-autotable';
 import { EventItem, FilterState, Hotel } from '../types';
 import { getCategoryLabel } from './helpers';
 import {
-  SYSTEM_REFERENCE_DATE,
+  CURRENT_REFERENCE_DATE,
   sortEventsChronologically,
   getEventStatusBadgeConfig,
   getMonthTemporalRelation,
-} from '../services/eventChronologyService';
+} from './eventFilterUtils';
 
 export interface PDFExportOptions {
   events: EventItem[];
@@ -23,14 +23,13 @@ export interface PDFExportOptions {
   referenceDate?: string;
 }
 
-export function exportEventsToPDF({
+export function buildEventsPDFDocument({
   events,
   hotel,
   viewMode = 'table',
   filterState,
-  filename,
-  referenceDate = SYSTEM_REFERENCE_DATE,
-}: PDFExportOptions): void {
+  referenceDate = CURRENT_REFERENCE_DATE,
+}: PDFExportOptions): { doc: jsPDF; sortedEvents: EventItem[]; tableData: string[][] } {
   // Landscape orientation for comprehensive data table visibility
   const doc = new jsPDF({
     orientation: 'landscape',
@@ -365,7 +364,12 @@ export function exportEventsToPDF({
     doc.text(`Page ${i} / ${pageCount}`, pageWidth - 14, pageHeight - 7, { align: 'right' });
   }
 
-  // Generate clean downloadable file
-  const defaultFilename = `flowtym-rapport-evenements-${now.toISOString().slice(0, 10)}.pdf`;
-  doc.save(filename || defaultFilename);
+  return { doc, sortedEvents, tableData };
+}
+
+export function exportEventsToPDF(options: PDFExportOptions): void {
+  const { doc } = buildEventsPDFDocument(options);
+  const ref = options.referenceDate || CURRENT_REFERENCE_DATE;
+  const defaultFilename = `flowtym-rapport-evenements-${ref}.pdf`;
+  doc.save(options.filename || defaultFilename);
 }

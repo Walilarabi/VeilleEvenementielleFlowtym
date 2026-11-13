@@ -265,7 +265,7 @@ export function getEventStatusBadgeConfig(
     return {
       status: 'ongoing',
       label: 'En cours',
-      badgeClass: 'bg-emerald-50 text-emerald-800 border border-emerald-300 font-extrabold shadow-2xs',
+      badgeClass: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/70 font-extrabold shadow-2xs',
       dotClass: 'bg-emerald-500 animate-pulse',
       subLabel: `Jusqu'au ${getEffectiveEndDate(ev).split('-').reverse().join('/')}`,
     };
@@ -275,7 +275,7 @@ export function getEventStatusBadgeConfig(
     return {
       status: 'upcoming',
       label: 'À venir',
-      badgeClass: 'bg-violet-50 text-violet-800 border border-violet-200/90 font-bold',
+      badgeClass: 'bg-violet-50 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-200/90 dark:border-violet-800/70 font-bold',
       dotClass: 'bg-violet-500',
       subLabel: `Début le ${ev.startDate.split('-').reverse().join('/')}`,
     };
@@ -284,7 +284,7 @@ export function getEventStatusBadgeConfig(
   return {
     status: 'past',
     label: 'Terminé',
-    badgeClass: 'bg-slate-100 text-slate-500 border border-slate-200 font-medium',
+    badgeClass: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-medium',
     dotClass: 'bg-slate-400',
     subLabel: `Clôturé le ${getEffectiveEndDate(ev).split('-').reverse().join('/')}`,
   };

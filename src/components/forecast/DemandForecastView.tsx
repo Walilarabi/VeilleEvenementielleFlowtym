@@ -41,6 +41,7 @@ import {
   Tooltip as RechartsTooltip,
   ReferenceLine,
 } from 'recharts';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface DemandForecastViewProps {
   hotel?: Hotel;
@@ -112,6 +113,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
   onSelectEvent,
   onGoToMarket,
 }) => {
+  const { chartTokens } = useTheme();
   const hotelId = hotel?.id || 'hotel-folkestone-opera';
   const hotelName = hotel?.name || 'Folkestone Opéra (Paris)';
 
@@ -151,33 +153,37 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       const isToday = dateStr === todayStr;
       const isForecast = dateStr >= todayStr;
 
+      const hotelBaseAdr = hotel?.baseADR || 240;
+      const adrFactor = hotelBaseAdr / 240;
       let baseOcc = 76.0;
-      let baseAdr = 135;
+      let baseAdr = Math.round(185 * adrFactor);
 
-      if (dayIdx === 1) { baseOcc = 92.5; baseAdr = 144; } // Lundi
-      else if (dayIdx === 2) { baseOcc = 94.0; baseAdr = 142; } // Mardi
-      else if (dayIdx === 3) { baseOcc = 92.7; baseAdr = 138; } // Mercredi
-      else if (dayIdx === 4) { baseOcc = 87.0; baseAdr = 143; } // Jeudi
-      else if (dayIdx === 5) { baseOcc = 81.5; baseAdr = 150; } // Vendredi
-      else if (dayIdx === 6) { baseOcc = 79.5; baseAdr = 152; } // Samedi
-      else if (dayIdx === 0) { baseOcc = 74.0; baseAdr = 135; } // Dimanche
+      if (dayIdx === 1) { baseOcc = 90.5; baseAdr = Math.round(215 * adrFactor); } // Lundi
+      else if (dayIdx === 2) { baseOcc = 93.0; baseAdr = Math.round(225 * adrFactor); } // Mardi
+      else if (dayIdx === 3) { baseOcc = 91.5; baseAdr = Math.round(220 * adrFactor); } // Mercredi
+      else if (dayIdx === 4) { baseOcc = 87.0; baseAdr = Math.round(230 * adrFactor); } // Jeudi
+      else if (dayIdx === 5) { baseOcc = 82.5; baseAdr = Math.round(245 * adrFactor); } // Vendredi
+      else if (dayIdx === 6) { baseOcc = 84.0; baseAdr = Math.round(255 * adrFactor); } // Samedi
+      else if (dayIdx === 0) { baseOcc = 74.0; baseAdr = Math.round(195 * adrFactor); } // Dimanche
 
       let eventTitle: string | undefined = undefined;
       let eventBoostOcc = 0;
       let eventBoostAdr = 0;
 
-      if (dateStr >= '2026-11-23' && dateStr <= '2026-11-26') {
-        eventTitle = 'All4Pack Emballage Paris (65 000 participants)';
-        eventBoostOcc = 3.2;
-        eventBoostAdr = 18;
-      } else if (dateStr >= '2026-12-02' && dateStr <= '2026-12-04') {
-        eventTitle = 'Congrès National de Cardiologie Interventionnelle';
-        eventBoostOcc = 2.8;
-        eventBoostAdr = 15;
-      } else if (dateStr === '2026-12-31') {
-        eventTitle = 'Réveillon Saint-Sylvestre & Nouvel An';
-        eventBoostOcc = 16.0;
-        eventBoostAdr = 65;
+      // Matching real geographically-filtered events from active hotel
+      const matchingDayEvents = events.filter(
+        (ev) => ev.category !== 'vacances_scolaires' && dateStr >= ev.startDate && dateStr <= (ev.endDate || ev.startDate)
+      );
+      if (matchingDayEvents.length > 0) {
+        const topEv = [...matchingDayEvents].sort((a, b) => b.scoreBreakdown.finalRMScore - a.scoreBreakdown.finalRMScore)[0];
+        eventTitle = topEv.title;
+        const score = topEv.scoreBreakdown.finalRMScore;
+        eventBoostOcc = score >= 90 ? 14.5 : score >= 80 ? 8.5 : score >= 70 ? 4.5 : 2.0;
+        eventBoostAdr = Math.round((score >= 90 ? 85 : score >= 80 ? 48 : score >= 70 ? 25 : 10) * adrFactor);
+      } else if (dateStr >= '2026-12-26' && dateStr <= '2027-01-01') {
+        eventTitle = `Fêtes de Fin d’Année & Réveillon (${hotel?.city || 'Paris'})`;
+        eventBoostOcc = dateStr === '2026-12-31' ? 18.0 : 12.5;
+        eventBoostAdr = Math.round((dateStr === '2026-12-31' ? 115 : 68) * adrFactor);
       } else if (dateStr === '2026-11-11') {
         eventTitle = 'Armistice 1918 (Jour Férié)';
         eventBoostOcc = 2.5;
@@ -186,7 +192,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       const calculatedOcc = Math.min(99.0, Math.max(50.0, Math.round((baseOcc + eventBoostOcc) * 10) / 10));
       const calculatedAdr = Math.round(baseAdr + eventBoostAdr);
       const calculatedRevpar = Math.round((calculatedAdr * (calculatedOcc / 100)) * 10) / 10;
-      const caProj = Math.round(calculatedRevpar * (hotel?.roomCount || 44));
+      const caProj = Math.round(calculatedRevpar * (hotel?.roomCount || 45));
 
       let score = 58;
       let scoreLabel = 'MODÉRÉE';
@@ -239,7 +245,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-11',
       demandScore: 62.72,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 95.2,
       adrPrevu: 138,
       revparPrevu: 130.9,
@@ -297,7 +303,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-12',
       demandScore: 62.4,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 89.1,
       adrPrevu: 143,
       revparPrevu: 127.6,
@@ -352,7 +358,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-13',
       demandScore: 61.58,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 82.4,
       adrPrevu: 150,
       revparPrevu: 123.5,
@@ -400,7 +406,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-14',
       demandScore: 63.13,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 81.3,
       adrPrevu: 152,
       revparPrevu: 123.1,
@@ -447,7 +453,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-15',
       demandScore: 75.67,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 92.9,
       adrPrevu: 140,
       revparPrevu: 129.9,
@@ -494,7 +500,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-16',
       demandScore: 62.4,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 94.8,
       adrPrevu: 144,
       revparPrevu: 136.2,
@@ -541,7 +547,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-17',
       demandScore: 67.17,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 96.2,
       adrPrevu: 142,
       revparPrevu: 136.9,
@@ -588,7 +594,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-26',
       demandScore: 65.72,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 90.2,
       adrPrevu: 143,
       revparPrevu: 129.2,
@@ -635,7 +641,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-27',
       demandScore: 61.9,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 83.4,
       adrPrevu: 150,
       revparPrevu: 124.9,
@@ -682,7 +688,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       dateStr: '2026-11-28',
       demandScore: 66.76,
       demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
       occPrevue: 82.4,
       adrPrevu: 152,
       revparPrevu: 124.9,
@@ -833,37 +839,37 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
   return (
     <div className="space-y-6 w-full max-w-none pb-16">
       {/* 1. Warning Banner */}
-      <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-4 text-xs text-amber-900 flex items-center justify-between gap-3 shadow-2xs">
+      <div className="bg-amber-50/90 dark:bg-slate-900 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-4 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-center gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
           <div className="leading-relaxed">
             Les valeurs <strong>réalisées</strong> proviennent de l&apos;inventaire et des réservations PMS en base. Les valeurs <strong>prévisionnelles</strong> sont issues du moteur prédictif explicable FLOWTYM et ne constituent pas un engagement contractuel.
           </div>
         </div>
         <button
           onClick={handleExportForecastCsv}
-          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700/70 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-200 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
         >
-          <Download className="w-3.5 h-3.5 text-amber-700" />
+          <Download className="w-3.5 h-3.5 text-amber-700 dark:text-amber-300" />
           <span>Exporter prévisions (CSV)</span>
         </button>
       </div>
 
       {/* 2. Demand Forecast Header Box */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-2xs space-y-6">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-2xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black uppercase tracking-wider text-violet-700">
+              <span className="text-[11px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-300">
                 DEMAND FORECAST & PREDICTIVE AUDIT
               </span>
               <span className="text-slate-300">•</span>
-              <span className="text-xs font-bold text-slate-600">{hotelName}</span>
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{hotelName}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
               Prévision d&apos;occupation, d&apos;ADR et de RevPAR
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 w-full leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 w-full leading-relaxed">
               Moteur multi-facteurs explicable à 6 piliers : pondération N-1 (50%), N-2 (30%), N-3 (20%) en iso-weekday, booking pace accéléré, compset Lighthouse et calendrier des événements parisiens.
             </p>
           </div>
@@ -871,12 +877,12 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleExportForecastCsv}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Export Complet (CSV)</span>
             </button>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold rounded-full">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70 text-xs font-bold rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
               <span>PRÉVISION ACTIVE</span>
             </span>
@@ -886,91 +892,91 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
         {/* 3. Four Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
           {/* Card 1 */}
-          <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between space-y-3">
+          <div className="bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 flex flex-col justify-between space-y-3">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 OCCUPATION PRÉVUE (60 J)
               </div>
-              <div className="text-3xl font-black text-slate-900 tracking-tight mt-1">
+              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1">
                 90,1 %
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Sur 61 date(s) prévisibles (min 77% / max 96%).
               </div>
             </div>
-            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60">
-              <span className="text-slate-500">Capacité hôtel :</span>
-              <span className="font-bold text-slate-800">{hotel?.roomCount || 44} chambres</span>
+            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60 dark:border-slate-800/70">
+              <span className="text-slate-500 dark:text-slate-400">Capacité hôtel :</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">{hotel?.roomCount || 44} chambres</span>
             </div>
           </div>
 
           {/* Card 2 */}
-          <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between space-y-3">
+          <div className="bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 flex flex-col justify-between space-y-3">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 ADR PRÉVU
               </div>
-              <div className="text-3xl font-black text-slate-900 tracking-tight mt-1">
+              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1">
                 144 €
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Moyenne pondérée des ADR prévisionnels.
               </div>
             </div>
-            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60">
-              <span className="text-slate-500">CompSet médian :</span>
-              <span className="font-bold text-violet-700">179 € - 314 €</span>
+            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60 dark:border-slate-800/70">
+              <span className="text-slate-500 dark:text-slate-400">CompSet médian :</span>
+              <span className="font-bold text-violet-700 dark:text-violet-300">179 € - 314 €</span>
             </div>
           </div>
 
           {/* Card 3 */}
-          <div className="bg-emerald-50/40 border border-emerald-200/70 rounded-2xl p-5 flex flex-col justify-between space-y-3">
+          <div className="bg-emerald-50/40 dark:bg-emerald-950/30 border border-emerald-200/70 rounded-2xl p-5 flex flex-col justify-between space-y-3">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                 REVPAR PRÉVU
               </div>
-              <div className="text-3xl font-black text-slate-900 tracking-tight mt-1">
+              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1">
                 129,8 €
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 CA hébergement projeté : 348 399 €.
               </div>
             </div>
             <div className="flex items-center justify-between text-[11px] pt-1 border-t border-emerald-200/60">
-              <span className="text-emerald-700 font-semibold">Formule vérifiée :</span>
-              <span className="font-mono text-emerald-800 font-bold">ADR × Occ</span>
+              <span className="text-emerald-700 dark:text-emerald-300 font-semibold">Formule vérifiée :</span>
+              <span className="font-mono text-emerald-800 dark:text-emerald-300 font-bold">ADR × Occ</span>
             </div>
           </div>
 
           {/* Card 4 */}
-          <div className="bg-violet-50/40 border border-violet-200/70 rounded-2xl p-5 flex flex-col justify-between space-y-3">
+          <div className="bg-violet-50/40 dark:bg-violet-950/30 border border-violet-200/70 rounded-2xl p-5 flex flex-col justify-between space-y-3">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-violet-800">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-violet-800 dark:text-violet-300">
                 CONFIANCE MOYENNE
               </div>
-              <div className="text-3xl font-black text-slate-900 tracking-tight mt-1">
+              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1">
                 81,4 %
               </div>
-              <div className="text-xs text-slate-500 mt-0.5">
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Adossé à 3 années de PMS et flux Lighthouse en temps réel.
               </div>
             </div>
             <div className="flex items-center justify-between text-[11px] pt-1 border-t border-violet-200/60">
-              <span className="text-violet-700 font-semibold">Validation :</span>
-              <span className="font-bold text-violet-900">Backtesting J-7 à J-90</span>
+              <span className="text-violet-700 dark:text-violet-300 font-semibold">Validation :</span>
+              <span className="font-bold text-violet-900 dark:text-violet-200">Backtesting J-7 à J-90</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* 4. Chart Section: "Réalisé et prévisionnel" */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-2xs space-y-6">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-2xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
               Réalisé et prévisionnel
             </h2>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Trait plein : réalisé (données d&apos;inventaire et de réservations PMS). Trait discontinu : prévision mathématique du moteur FLOWTYM.
             </p>
           </div>
@@ -979,19 +985,19 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
           <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-violet-600" />
-              <span className="text-slate-700">Occupation réalisée (%)</span>
+              <span className="text-slate-700 dark:text-slate-300">Occupation réalisée (%)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full border-2 border-violet-500 bg-white" />
-              <span className="text-slate-700">Occupation prévue (%) <span className="font-normal text-slate-400">(prévision)</span></span>
+              <span className="w-2.5 h-2.5 rounded-full border-2 border-violet-500 bg-white dark:bg-slate-900" />
+              <span className="text-slate-700 dark:text-slate-300">Occupation prévue (%) <span className="font-normal text-slate-400">(prévision)</span></span>
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
-              <span className="text-slate-700">ADR réalisé (€)</span>
+              <span className="text-slate-700 dark:text-slate-300">ADR réalisé (€)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full border-2 border-teal-500 bg-white" />
-              <span className="text-slate-700">ADR prévu (€) <span className="font-normal text-slate-400">(prévision)</span></span>
+              <span className="w-2.5 h-2.5 rounded-full border-2 border-teal-500 bg-white dark:bg-slate-900" />
+              <span className="text-slate-700 dark:text-slate-300">ADR prévu (€) <span className="font-normal text-slate-400">(prévision)</span></span>
             </div>
           </div>
         </div>
@@ -1010,14 +1016,14 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                   }
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridStroke} vertical={false} />
 
                 {/* X Axis: Date Labels */}
                 <XAxis
                   dataKey="label"
                   tickLine={false}
-                  axisLine={{ stroke: '#cbd5e1' }}
-                  tick={{ fontSize: 10, fill: '#64748b' }}
+                  axisLine={{ stroke: chartTokens.axisLineColor }}
+                  tick={{ fontSize: 10, fill: chartTokens.axisTickColor }}
                   interval={5}
                 />
 
@@ -1028,7 +1034,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                   domain={[60, 220]}
                   ticks={[66, 90, 113, 137, 161, 185, 210]}
                   tickLine={false}
-                  axisLine={{ stroke: '#cbd5e1' }}
+                  axisLine={{ stroke: chartTokens.axisLineColor }}
                   tick={{ fontSize: 10, fill: '#0d9488' }}
                   tickFormatter={(val) => `${val} €`}
                   label={{
@@ -1049,7 +1055,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                   domain={[0, 100]}
                   ticks={[0, 25, 50, 75, 90, 100]}
                   tickLine={false}
-                  axisLine={{ stroke: '#cbd5e1' }}
+                  axisLine={{ stroke: chartTokens.axisLineColor }}
                   tick={{ fontSize: 10, fill: '#7c3aed' }}
                   tickFormatter={(val) => `${val} %`}
                   label={{
@@ -1097,8 +1103,8 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                           <span
                             className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
                               isFutur
-                                ? 'bg-amber-400 text-slate-950 font-black'
-                                : 'bg-emerald-400 text-slate-950 font-black'
+                                ? 'bg-amber-400 text-slate-950 dark:text-slate-50 font-black'
+                                : 'bg-emerald-400 text-slate-950 dark:text-slate-50 font-black'
                             }`}
                           >
                             {isFutur ? 'Prévision' : 'Réalisé'}
@@ -1186,8 +1192,8 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                   stroke="#0d9488"
                   strokeWidth={2}
                   strokeDasharray="4 4"
-                  dot={{ r: 2.5, fill: '#ffffff', stroke: '#0d9488', strokeWidth: 1.5 }}
-                  activeDot={{ r: 6, fill: '#ffffff', stroke: '#0d9488', strokeWidth: 2.5, cursor: 'pointer' }}
+                  dot={{ r: 2.5, fill: chartTokens.surfaceCardBg, stroke: '#0d9488', strokeWidth: 1.5 }}
+                  activeDot={{ r: 6, fill: chartTokens.surfaceCardBg, stroke: '#0d9488', strokeWidth: 2.5, cursor: 'pointer' }}
                   connectNulls={false}
                 />
 
@@ -1200,7 +1206,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                   stroke="#7c3aed"
                   strokeWidth={2.5}
                   dot={{ r: 3, fill: '#7c3aed' }}
-                  activeDot={{ r: 6, fill: '#7c3aed', stroke: '#ffffff', strokeWidth: 2, cursor: 'pointer' }}
+                  activeDot={{ r: 6, fill: '#7c3aed', stroke: chartTokens.surfaceCardBg, strokeWidth: 2, cursor: 'pointer' }}
                   connectNulls={false}
                 />
 
@@ -1213,8 +1219,8 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                   stroke="#7c3aed"
                   strokeWidth={2}
                   strokeDasharray="4 4"
-                  dot={{ r: 2.5, fill: '#ffffff', stroke: '#7c3aed', strokeWidth: 1.5 }}
-                  activeDot={{ r: 6, fill: '#ffffff', stroke: '#7c3aed', strokeWidth: 2.5, cursor: 'pointer' }}
+                  dot={{ r: 2.5, fill: chartTokens.surfaceCardBg, stroke: '#7c3aed', strokeWidth: 1.5 }}
+                  activeDot={{ r: 6, fill: chartTokens.surfaceCardBg, stroke: '#7c3aed', strokeWidth: 2.5, cursor: 'pointer' }}
                   connectNulls={false}
                 />
               </ComposedChart>
@@ -1222,10 +1228,10 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
           </div>
 
           {/* Quick Date Inspection Pills */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/80 text-xs">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-bold text-slate-500 mr-1 flex items-center gap-1">
-                <Info className="w-3.5 h-3.5 text-violet-600" />
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+                <Info className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                 <span>Points repères à inspecter :</span>
               </span>
               {[
@@ -1242,10 +1248,10 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                     const match = timelinePoints.find((p) => p.dateStr === bench.date);
                     if (match) setSelectedTimelinePoint(match);
                   }}
-                  className="px-2.5 py-1 bg-slate-50 hover:bg-violet-50 hover:text-violet-900 border border-slate-200 hover:border-violet-300 rounded-lg text-slate-700 font-semibold transition-all cursor-pointer flex items-center gap-1.5 text-[11px]"
+                  className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800/60 hover:bg-violet-50 dark:hover:bg-violet-950/50 hover:text-violet-900 dark:hover:text-violet-100 border border-slate-200 dark:border-slate-800 hover:border-violet-300 dark:hover:border-violet-600/70 rounded-lg text-slate-700 dark:text-slate-300 font-semibold transition-all cursor-pointer flex items-center gap-1.5 text-[11px]"
                 >
                   <span>{bench.label}</span>
-                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800">
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
                     {bench.tag}
                   </span>
                 </button>
@@ -1260,18 +1266,18 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       </div>
 
       {/* 5. Table Section: "Prévisions par date de séjour" */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden w-full">
-        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden w-full">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                 Prévisions par date de séjour
               </h2>
-              <span className="text-xs font-semibold text-violet-700 bg-violet-50 px-2.5 py-0.5 rounded-full border border-violet-200">
+              <span className="text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 px-2.5 py-0.5 rounded-full border border-violet-200 dark:border-violet-800/70">
                 Fiches d&apos;audit disponibles
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Cliquez sur une ligne pour ouvrir sa <strong>Fiche de Justification & Audit Algorithmique (10 points)</strong>.
             </p>
           </div>
@@ -1284,10 +1290,10 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filtrer une date ou événement..."
-                className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
+                className="pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
               />
             </div>
-            <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl whitespace-nowrap">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl whitespace-nowrap">
               {filteredRows.length} date(s)
             </span>
           </div>
@@ -1295,7 +1301,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
 
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50/80 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+            <thead className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
               <tr>
                 <th className="py-3 px-4 min-w-[130px]">DATE</th>
                 <th className="py-3 px-3 min-w-[130px]">DEMAND SCORE</th>
@@ -1309,7 +1315,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                 <th className="py-3 px-3 text-right">AUDIT</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
               {filteredRows.map((row) => (
                 <tr
                   key={row.dateStr}
@@ -1317,75 +1323,75 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                   className="hover:bg-violet-50/40 transition-colors cursor-pointer group"
                 >
                   {/* DATE */}
-                  <td className="py-3.5 px-4 font-semibold text-slate-900 whitespace-nowrap">
+                  <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     <div className="group-hover:text-violet-700 transition-colors">{row.dayName}</div>
                     <div className="text-[10px] text-slate-400 font-normal">{row.dateStr}</div>
                   </td>
 
                   {/* DEMAND SCORE */}
                   <td className="py-3.5 px-3 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/70">
                       <span>{row.demandScore}</span>
-                      <span className="text-[9px] uppercase font-bold text-amber-700">{row.demandScoreLabel}</span>
+                      <span className="text-[9px] uppercase font-bold text-amber-700 dark:text-amber-300">{row.demandScoreLabel}</span>
                     </span>
                   </td>
 
                   {/* OCC. PRÉVUE */}
-                  <td className="py-3.5 px-3 font-bold text-slate-900 whitespace-nowrap">
+                  <td className="py-3.5 px-3 font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                     {row.occPrevue} %
                   </td>
 
                   {/* ADR PRÉVU */}
-                  <td className="py-3.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                  <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                     {row.adrPrevu} €
                   </td>
 
                   {/* REVPAR PRÉVU */}
-                  <td className="py-3.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                  <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                     {row.revparPrevu} €
                   </td>
 
                   {/* CA PROJETÉ */}
-                  <td className="py-3.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                  <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                     {row.caProjete.toLocaleString('fr-FR')} €
                   </td>
 
                   {/* NIVEAUX A/B/C & RISQUES */}
-                  <td className="py-3.5 px-4 text-[11px] text-slate-600 space-y-0.5">
+                  <td className="py-3.5 px-4 text-[11px] text-slate-600 dark:text-slate-400 space-y-0.5">
                     <div>A hist. : {row.levelsAbc.aHist}</div>
                     <div>B actuel : {row.levelsAbc.bActuel}</div>
                     <div>C estimé : {row.levelsAbc.cEstime}</div>
-                    <div className="text-slate-500">Risques : {row.levelsAbc.risques}</div>
+                    <div className="text-slate-500 dark:text-slate-400">Risques : {row.levelsAbc.risques}</div>
                   </td>
 
                   {/* CONFIANCE */}
                   <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-violet-100/80 text-violet-900">
+                    <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-violet-100/80 dark:bg-violet-900/40 text-violet-900 dark:text-violet-200">
                       {row.confiance} %
                     </span>
                   </td>
 
                   {/* FACTEURS EXPLICATIFS */}
-                  <td className="py-3.5 px-5 text-[11px] text-slate-600 leading-relaxed space-y-1">
+                  <td className="py-3.5 px-5 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed space-y-1">
                     <div>
-                      <strong className="text-slate-800">Saisonnalité hebdomadaire</strong> — {row.facteursExplicatifs.saisonnalite}
+                      <strong className="text-slate-800 dark:text-slate-200">Saisonnalité hebdomadaire</strong> — {row.facteursExplicatifs.saisonnalite}
                     </div>
                     <div>
-                      <strong className="text-slate-800">Booking pace</strong> — {row.facteursExplicatifs.bookingPace}
+                      <strong className="text-slate-800 dark:text-slate-200">Booking pace</strong> — {row.facteursExplicatifs.bookingPace}
                     </div>
                     {row.facteursExplicatifs.evenement && (
                       <div>
-                        <strong className="text-violet-800">Événement</strong> — {row.facteursExplicatifs.evenement}
+                        <strong className="text-violet-800 dark:text-violet-300">Événement</strong> — {row.facteursExplicatifs.evenement}
                       </div>
                     )}
                     <div>
-                      <strong className="text-slate-800">Positionnement marché</strong> — {row.facteursExplicatifs.positionnementMarche}
+                      <strong className="text-slate-800 dark:text-slate-200">Positionnement marché</strong> — {row.facteursExplicatifs.positionnementMarche}
                     </div>
                   </td>
 
                   {/* AUDIT BUTTON */}
                   <td className="py-3.5 px-3 text-right whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white group-hover:bg-violet-600 group-hover:text-white border border-slate-200 group-hover:border-violet-600 text-slate-700 transition-all shadow-2xs">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white dark:bg-slate-900 group-hover:bg-violet-600 group-hover:text-white border border-slate-200 dark:border-slate-800 group-hover:border-violet-600 text-slate-700 dark:text-slate-300 transition-all shadow-2xs">
                       <span>Justification</span>
                       <ArrowRight className="w-3 h-3" />
                     </span>
@@ -1397,13 +1403,13 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
         </div>
 
         {/* Footnote */}
-        <div className="p-4 bg-slate-50/70 border-t border-slate-100 text-[11px] text-slate-500 leading-relaxed flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="p-4 bg-slate-50/70 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             Méthode : Croisement des 6 piliers sans double comptage (Historique 25%, OTB Pace 25%, Événements 20%, CompSet 15%, Calendrier 15%). Formules mathématiques auditables et niveau de confiance associé.
           </div>
           <button
             onClick={handleExportForecastCsv}
-            className="text-xs text-violet-700 font-bold hover:underline shrink-0"
+            className="text-xs text-violet-700 dark:text-violet-300 font-bold hover:underline shrink-0"
           >
             Télécharger le tableau complet en CSV →
           </button>
@@ -1411,21 +1417,21 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       </div>
 
       {/* 6. Backtesting Section (Validation Historique) */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-2xs space-y-6">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-2xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-violet-700">
+              <span className="text-[10px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-300">
                 BACKTESTING & ÉVALUATION D&apos;ERREUR
               </span>
-              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/70">
                 Précision globale : {backtestReport.overallAccuracyPercent}%
               </span>
             </div>
-            <h2 className="text-xl font-bold text-slate-900">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
               Précision réelle du moteur (validation historique sans fuite)
             </h2>
-            <p className="text-xs text-slate-500 w-full leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-400 w-full leading-relaxed">
               Le moteur prédictif est rejoué rétrospectivement sur {backtestReport.totalDaysEvaluated} jours d&apos;historique ({backtestReport.evaluatedPeriod}), à chaque horizon d&apos;anticipation (J-90, J-60, J-30, J-14, J-7), en masquant strictement le futur. Aucune fuite de données détectée.
             </p>
           </div>
@@ -1434,7 +1440,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
             <button
               type="button"
               onClick={handleExportBacktestCsv}
-              className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Exporter Rapport (CSV)</span>
@@ -1461,9 +1467,9 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
         </div>
 
         {/* Backtesting Metrics Table */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800/80">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
               <tr>
                 <th className="py-3 px-4">HORIZON</th>
                 <th className="py-3 px-3">ÉCHANTILLONS</th>
@@ -1477,24 +1483,24 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                 <th className="py-3 px-3 text-center">PRÉCISION</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
               {(['J-90', 'J-60', 'J-30', 'J-14', 'J-7'] as BacktestHorizon[]).map((horizonKey) => {
                 const m = backtestReport.metricsByHorizon[horizonKey];
                 return (
-                  <tr key={horizonKey} className="hover:bg-slate-50/50">
-                    <td className="py-3 px-4 font-bold text-slate-900">{horizonKey}</td>
-                    <td className="py-3 px-3 text-slate-600">{m.sampleSize} dates</td>
-                    <td className="py-3 px-3 font-semibold text-slate-800">{m.maeOcc} pts</td>
-                    <td className="py-3 px-3 text-slate-600">{m.rmseOcc}</td>
-                    <td className="py-3 px-3 text-slate-600">{m.wapeOcc}%</td>
-                    <td className="py-3 px-3 font-mono text-slate-700">
+                  <tr key={horizonKey} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
+                    <td className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">{horizonKey}</td>
+                    <td className="py-3 px-3 text-slate-600 dark:text-slate-400">{m.sampleSize} dates</td>
+                    <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200">{m.maeOcc} pts</td>
+                    <td className="py-3 px-3 text-slate-600 dark:text-slate-400">{m.rmseOcc}</td>
+                    <td className="py-3 px-3 text-slate-600 dark:text-slate-400">{m.wapeOcc}%</td>
+                    <td className="py-3 px-3 font-mono text-slate-700 dark:text-slate-300">
                       {m.biasRevPar > 0 ? `+${m.biasRevPar}` : m.biasRevPar} €
                     </td>
-                    <td className="py-3 px-3 font-semibold text-slate-800">{m.maeAdr} €</td>
-                    <td className="py-3 px-3 text-slate-600">{m.wapeAdr}%</td>
-                    <td className="py-3 px-3 font-semibold text-slate-800">{m.maeRevPar} €</td>
+                    <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200">{m.maeAdr} €</td>
+                    <td className="py-3 px-3 text-slate-600 dark:text-slate-400">{m.wapeAdr}%</td>
+                    <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200">{m.maeRevPar} €</td>
                     <td className="py-3 px-3 text-center">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">
                         {m.accuracyScorePercent}%
                       </span>
                     </td>
@@ -1507,24 +1513,24 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
 
         {/* Strengths & Adjustments from Backtesting */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
-          <div className="p-4 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl space-y-2">
-            <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/70 rounded-2xl space-y-2">
+            <div className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Points forts validés par le backtesting</span>
             </div>
-            <ul className="space-y-1 text-slate-700 list-disc list-inside">
+            <ul className="space-y-1 text-slate-700 dark:text-slate-300 list-disc list-inside">
               {backtestReport.strengths.map((s, idx) => (
                 <li key={idx} className="leading-relaxed">{s}</li>
               ))}
             </ul>
           </div>
 
-          <div className="p-4 bg-sky-50/60 border border-sky-200/80 rounded-2xl space-y-2">
-            <div className="font-bold text-sky-900 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-sky-600" />
+          <div className="p-4 bg-sky-50/60 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/70 rounded-2xl space-y-2">
+            <div className="font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
               <span>Recommandations d&apos;ajustement algorithmique</span>
             </div>
-            <ul className="space-y-1 text-slate-700 list-disc list-inside">
+            <ul className="space-y-1 text-slate-700 dark:text-slate-300 list-disc list-inside">
               {backtestReport.recommendedModelAdjustments.map((a, idx) => (
                 <li key={idx} className="leading-relaxed">{a}</li>
               ))}
@@ -1533,7 +1539,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
         </div>
 
         {/* Backtesting Note */}
-        <p className="text-[11px] text-slate-500 leading-relaxed">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
           Biais positif = sur-prévision systématique ; Biais négatif = sous-évaluation. Ces métriques sont calculées strictement sur des dates passées avec un réalisé connu ; aucune prévision n&apos;est déclarée « optimale » sans cette validation.
         </p>
       </div>
@@ -1541,73 +1547,73 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       {/* 7. MODAL: FICHE DE JUSTIFICATION & AUDIT ALGORITHMIQUE (10 POINTS DE CONTRÔLE) */}
       {selectedForecast && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-2xs animate-in fade-in">
-          <div className="w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+          <div className="w-full max-w-4xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/60">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-xs">
                   <Database className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-violet-700 bg-violet-100 px-2 py-0.5 rounded">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 rounded">
                       FICHE D&apos;AUDIT & JUSTIFICATION ALGORITHMIQUE (10 POINTS)
                     </span>
-                    <span className="text-xs font-semibold text-slate-500">{hotelName}</span>
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{hotelName}</span>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                     Prévision pour le {selectedForecast.dayName} ({selectedForecast.dateStr})
                   </h3>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedForecast(null)}
-                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-all cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 rounded-xl transition-all cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Modal Scrollable Body */}
-            <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-700 leading-relaxed">
+            <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
               {/* Top Quick Summary */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="text-[10px] text-slate-500 uppercase font-bold">Demand Score</div>
-                  <div className="text-xl font-black text-amber-700 mt-0.5">{selectedForecast.demandScore} / 100</div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">Demand Score</div>
+                  <div className="text-xl font-black text-amber-700 dark:text-amber-300 mt-0.5">{selectedForecast.demandScore} / 100</div>
                   <div className="text-[10px] text-slate-400 font-semibold">{selectedForecast.demandScoreLabel}</div>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="text-[10px] text-slate-500 uppercase font-bold">Occ. Prévue</div>
-                  <div className="text-xl font-black text-slate-900 mt-0.5">{selectedForecast.occPrevue} %</div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">Occ. Prévue</div>
+                  <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-0.5">{selectedForecast.occPrevue} %</div>
                   <div className="text-[10px] text-slate-400 font-semibold">OTB : {selectedForecast.levelsAbc.bActuel}</div>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="text-[10px] text-slate-500 uppercase font-bold">ADR Prévu</div>
-                  <div className="text-xl font-black text-slate-900 mt-0.5">{selectedForecast.adrPrevu} €</div>
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">ADR Prévu</div>
+                  <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-0.5">{selectedForecast.adrPrevu} €</div>
                   <div className="text-[10px] text-slate-400 font-semibold">RevPAR : {selectedForecast.revparPrevu} €</div>
                 </div>
-                <div className="p-3 bg-violet-50 rounded-xl border border-violet-200">
-                  <div className="text-[10px] text-violet-700 uppercase font-bold">Confiance Statistique</div>
-                  <div className="text-xl font-black text-violet-900 mt-0.5">{selectedForecast.auditDetails.confidenceLevel} %</div>
-                  <div className="text-[10px] text-violet-600 font-semibold">Qualité signaux : Optimale</div>
+                <div className="p-3 bg-violet-50 dark:bg-violet-950/40 rounded-xl border border-violet-200 dark:border-violet-800/70">
+                  <div className="text-[10px] text-violet-700 dark:text-violet-300 uppercase font-bold">Confiance Statistique</div>
+                  <div className="text-xl font-black text-violet-900 dark:text-violet-200 mt-0.5">{selectedForecast.auditDetails.confidenceLevel} %</div>
+                  <div className="text-[10px] text-violet-600 dark:text-violet-400 font-semibold">Qualité signaux : Optimale</div>
                 </div>
               </div>
 
               {/* Point 1 & 2: Données sources et Horodatage */}
               <div className="space-y-2">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">1</span>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center text-[10px]">1</span>
                   <span>Données d&apos;entrée utilisées & Date de dernière mise à jour</span>
                 </h4>
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                    <span className="text-slate-500">Horodatage de synchronisation :</span>
-                    <span className="font-bold text-slate-800">{selectedForecast.auditDetails.lastUpdate}</span>
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Horodatage de synchronisation :</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{selectedForecast.auditDetails.lastUpdate}</span>
                   </div>
                   <div className="space-y-1">
-                    <span className="font-semibold text-slate-800">Flux de données réels connectés :</span>
-                    <ul className="list-disc list-inside space-y-0.5 text-slate-600">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">Flux de données réels connectés :</span>
+                    <ul className="list-disc list-inside space-y-0.5 text-slate-600 dark:text-slate-400">
                       {selectedForecast.auditDetails.sources.map((src, i) => (
                         <li key={i}>{src}</li>
                       ))}
@@ -1618,16 +1624,16 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
 
               {/* Point 3 & 4: Période de référence et Variables */}
               <div className="space-y-2">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">2</span>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center text-[10px]">2</span>
                   <span>Période historique de référence & Variables considérées</span>
                 </h4>
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
                   <div>
-                    <span className="text-slate-500">Pondération multi-années : </span>
-                    <strong className="text-slate-800">{selectedForecast.auditDetails.referencePeriod}</strong>
+                    <span className="text-slate-500 dark:text-slate-400">Pondération multi-années : </span>
+                    <strong className="text-slate-800 dark:text-slate-200">{selectedForecast.auditDetails.referencePeriod}</strong>
                   </div>
-                  <p className="text-slate-600">
+                  <p className="text-slate-600 dark:text-slate-400">
                     Alignement strict au même jour de la semaine (iso-weekday) afin de préserver les comportements de réservation corporate versus loisir.
                   </p>
                 </div>
@@ -1635,13 +1641,13 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
 
               {/* Point 5: Poids accordés aux 5 Piliers (Demand Score) */}
               <div className="space-y-2">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">3</span>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center text-[10px]">3</span>
                   <span>Pondération des 5 Piliers du Demand Score (0 à 100)</span>
                 </h4>
-                <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500">
+                    <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">
                       <tr>
                         <th className="py-2.5 px-3">PILIER D&apos;INFLUENCE</th>
                         <th className="py-2.5 px-3">POIDS</th>
@@ -1649,22 +1655,22 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                         <th className="py-2.5 px-3 text-right">CONTRIBUTION</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                       {selectedForecast.auditDetails.weights.map((w, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50">
-                          <td className="py-2 px-3 font-medium text-slate-800">{w.factor}</td>
-                          <td className="py-2 px-3 text-slate-600">{w.weight} %</td>
-                          <td className="py-2 px-3 text-slate-700">{w.score} / 100</td>
-                          <td className="py-2 px-3 text-right font-bold text-violet-700">+{w.contribution} pts</td>
+                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/60">
+                          <td className="py-2 px-3 font-medium text-slate-800 dark:text-slate-200">{w.factor}</td>
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-400">{w.weight} %</td>
+                          <td className="py-2 px-3 text-slate-700 dark:text-slate-300">{w.score} / 100</td>
+                          <td className="py-2 px-3 text-right font-bold text-violet-700 dark:text-violet-300">+{w.contribution} pts</td>
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
+                    <tfoot className="bg-slate-50 dark:bg-slate-800/60 font-bold border-t border-slate-200 dark:border-slate-800">
                       <tr>
-                        <td className="py-2.5 px-3 text-slate-800">Demand Score Global Pondéré</td>
-                        <td className="py-2.5 px-3 text-slate-800">100 %</td>
-                        <td className="py-2.5 px-3 text-slate-800">—</td>
-                        <td className="py-2.5 px-3 text-right font-black text-amber-700">
+                        <td className="py-2.5 px-3 text-slate-800 dark:text-slate-200">Demand Score Global Pondéré</td>
+                        <td className="py-2.5 px-3 text-slate-800 dark:text-slate-200">100 %</td>
+                        <td className="py-2.5 px-3 text-slate-800 dark:text-slate-200">—</td>
+                        <td className="py-2.5 px-3 text-right font-black text-amber-700 dark:text-amber-300">
                           {selectedForecast.demandScore} / 100
                         </td>
                       </tr>
@@ -1675,11 +1681,11 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
 
               {/* Point 6 & 7: Formules Mathématiques et Résultats Intermédiaires */}
               <div className="space-y-2">
-                <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">4</span>
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center text-[10px]">4</span>
                   <span>Formules Mathématiques Appliquées & Résultats d&apos;Étape</span>
                 </h4>
-                <div className="p-4 bg-slate-900 text-slate-100 rounded-2xl font-mono text-[11px] space-y-3 shadow-inner">
+                <div className="p-4 bg-slate-900 dark:bg-slate-800 text-slate-100 rounded-2xl font-mono text-[11px] space-y-3 shadow-inner">
                   {selectedForecast.auditDetails.intermediateFormulas.map((f, idx) => (
                     <div key={idx} className="space-y-0.5 border-b border-slate-800 pb-2 last:border-b-0 last:pb-0">
                       <div className="text-violet-400 font-bold uppercase tracking-wider text-[10px]">
@@ -1694,24 +1700,24 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
 
               {/* Point 8, 9, 10: Confiance, Limites et Facteurs Déterminants */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
-                  <h5 className="font-bold text-amber-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800/70 space-y-2">
+                  <h5 className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     <span>Limites & Incertitudes Identifiées</span>
                   </h5>
-                  <ul className="list-disc list-inside space-y-1 text-slate-700">
+                  <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300">
                     {selectedForecast.auditDetails.uncertainties.map((u, i) => (
                       <li key={i}>{u}</li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2">
-                  <h5 className="font-bold text-emerald-900 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800/70 space-y-2">
+                  <h5 className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Facteurs Déterminants de Recommandation</span>
                   </h5>
-                  <ul className="list-disc list-inside space-y-1 text-slate-700">
+                  <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300">
                     {selectedForecast.auditDetails.topDrivers.map((d, i) => (
                       <li key={i}>{d}</li>
                     ))}
@@ -1721,13 +1727,13 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-              <span className="text-[11px] text-slate-500">
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
                 Audit certifié conforme aux spécifications Revenue Management FLOWTYM.
               </span>
               <button
                 onClick={() => setSelectedForecast(null)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="px-4 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 Fermer la fiche d&apos;audit
               </button>
@@ -1739,127 +1745,127 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       {/* 8. MODAL: MODE DE CALCUL & JUSTIFICATIF PRÉDICTIF (CLIC SUR LA COURBE) */}
       {selectedTimelinePoint && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-2xs animate-in fade-in">
-          <div className="w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+          <div className="w-full max-w-3xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/60">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-xs">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-teal-800 bg-teal-100 px-2 py-0.5 rounded">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-teal-800 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/40 px-2 py-0.5 rounded">
                       {selectedTimelinePoint.isForecast ? 'PRÉVISION DE DEMANDE & PRIX' : 'DONNÉE RÉALISÉE EN BASE PMS'}
                     </span>
-                    <span className="text-xs font-semibold text-slate-500">{hotelName}</span>
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{hotelName}</span>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                     {selectedTimelinePoint.dayName} ({selectedTimelinePoint.dateStr})
                   </h3>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedTimelinePoint(null)}
-                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-all cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 rounded-xl transition-all cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 leading-relaxed">
+            <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
               {/* 4 KPI summary cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-violet-50/70 rounded-2xl border border-violet-200">
-                  <div className="text-[10px] font-bold text-violet-700 uppercase">
+                <div className="p-3 bg-violet-50/70 dark:bg-violet-950/40 rounded-2xl border border-violet-200 dark:border-violet-800/70">
+                  <div className="text-[10px] font-bold text-violet-700 dark:text-violet-300 uppercase">
                     {selectedTimelinePoint.isForecast ? 'OCCUPATION PRÉVUE' : 'OCCUPATION RÉALISÉE'}
                   </div>
-                  <div className="text-2xl font-black text-violet-950 mt-1">
+                  <div className="text-2xl font-black text-violet-950 dark:text-violet-100 mt-1">
                     {selectedTimelinePoint.isForecast ? selectedTimelinePoint.occForecast : selectedTimelinePoint.occActual} %
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                     {Math.round(((selectedTimelinePoint.isForecast ? selectedTimelinePoint.occForecast! : selectedTimelinePoint.occActual!) / 100) * (hotel?.roomCount || 44))} / {hotel?.roomCount || 44} ch.
                   </div>
                 </div>
 
-                <div className="p-3 bg-teal-50/70 rounded-2xl border border-teal-200">
-                  <div className="text-[10px] font-bold text-teal-700 uppercase">
+                <div className="p-3 bg-teal-50/70 dark:bg-teal-950/40 rounded-2xl border border-teal-200 dark:border-teal-800/70">
+                  <div className="text-[10px] font-bold text-teal-700 dark:text-teal-300 uppercase">
                     {selectedTimelinePoint.isForecast ? 'ADR PRÉVU' : 'ADR RÉALISÉ'}
                   </div>
-                  <div className="text-2xl font-black text-teal-950 mt-1">
+                  <div className="text-2xl font-black text-teal-950 dark:text-teal-100 mt-1">
                     {selectedTimelinePoint.isForecast ? selectedTimelinePoint.adrForecast : selectedTimelinePoint.adrActual} €
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">Prix moyen net chambre</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Prix moyen net chambre</div>
                 </div>
 
-                <div className="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200">
-                  <div className="text-[10px] font-bold text-emerald-700 uppercase">REVPAR PROJETÉ</div>
-                  <div className="text-2xl font-black text-emerald-950 mt-1">
+                <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-800/70">
+                  <div className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">REVPAR PROJETÉ</div>
+                  <div className="text-2xl font-black text-emerald-950 dark:text-emerald-100 mt-1">
                     {selectedTimelinePoint.isForecast ? selectedTimelinePoint.revparForecast : selectedTimelinePoint.revparActual} €
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">CA net / 44 ch. dispos</div>
+                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">CA net / 44 ch. dispos</div>
                 </div>
 
-                <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200">
-                  <div className="text-[10px] font-bold text-amber-700 uppercase">DEMAND SCORE</div>
-                  <div className="text-2xl font-black text-amber-950 mt-1">
+                <div className="p-3 bg-amber-50/70 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800/70">
+                  <div className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase">DEMAND SCORE</div>
+                  <div className="text-2xl font-black text-amber-950 dark:text-amber-100 mt-1">
                     {selectedTimelinePoint.demandScore} / 100
                   </div>
-                  <div className="text-[10px] text-amber-800 font-bold mt-0.5">
+                  <div className="text-[10px] text-amber-800 dark:text-amber-300 font-bold mt-0.5">
                     {selectedTimelinePoint.demandScoreLabel}
                   </div>
                 </div>
               </div>
 
               {/* Mode de Calcul et Techniques de Forecast reconnues */}
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/90 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-                  <ShieldCheck className="w-4 h-4 text-violet-600" />
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100 text-sm">
+                  <ShieldCheck className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   <span>Mode de Calcul & Techniques de Forecast (Standards Internationaux RM)</span>
                 </div>
-                <p className="text-slate-600 leading-relaxed">
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                   {selectedTimelinePoint.calculationMode}
                 </p>
-                <div className="pt-2 border-t border-slate-200/70 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                  <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-0.5">
-                    <span className="font-bold text-slate-800">1. Décomposition Iso-Weekday :</span>
-                    <p className="text-slate-500">Alignement strict sur le même jour de semaine historique (N-1 à 50%, N-2 à 30%, N-3 à 20%).</p>
+                <div className="pt-2 border-t border-slate-200/70 dark:border-slate-800/70 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-0.5">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">1. Décomposition Iso-Weekday :</span>
+                    <p className="text-slate-500 dark:text-slate-400">Alignement strict sur le même jour de semaine historique (N-1 à 50%, N-2 à 30%, N-3 à 20%).</p>
                   </div>
-                  <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-0.5">
-                    <span className="font-bold text-slate-800">2. Booking Pace Extrapolé :</span>
-                    <p className="text-slate-500">Vitesse d&apos;absorption du stock résiduel comparée à la courbe de montée en charge N-1.</p>
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-0.5">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">2. Booking Pace Extrapolé :</span>
+                    <p className="text-slate-500 dark:text-slate-400">Vitesse d&apos;absorption du stock résiduel comparée à la courbe de montée en charge N-1.</p>
                   </div>
-                  <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-0.5">
-                    <span className="font-bold text-slate-800">3. Loi d&apos;Atténuation Spatiale :</span>
-                    <p className="text-slate-500">Pression événementielle modulée par la distance à l&apos;hôtel (loi en 1/√d).</p>
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-0.5">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">3. Loi d&apos;Atténuation Spatiale :</span>
+                    <p className="text-slate-500 dark:text-slate-400">Pression événementielle modulée par la distance à l&apos;hôtel (loi en 1/√d).</p>
                   </div>
-                  <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-0.5">
-                    <span className="font-bold text-slate-800">4. Corridor CompSet Lighthouse :</span>
-                    <p className="text-slate-500">Positionnement par rapport à la médiane et aux disponibilités des 5 concurrents directs.</p>
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-0.5">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">4. Corridor CompSet Lighthouse :</span>
+                    <p className="text-slate-500 dark:text-slate-400">Positionnement par rapport à la médiane et aux disponibilités des 5 concurrents directs.</p>
                   </div>
                 </div>
               </div>
 
               {/* Justificatif Métier Revenue Management */}
-              <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-200 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-emerald-950 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/35 rounded-2xl border border-emerald-200 dark:border-emerald-800/70 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-emerald-950 dark:text-emerald-100 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Justificatif Métier Revenue Management</span>
                 </div>
-                <p className="text-slate-700 leading-relaxed">
+                <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
                   {selectedTimelinePoint.justificationText}
                 </p>
                 {selectedTimelinePoint.eventTitle && (
-                  <div className="p-2 bg-white/80 rounded-xl border border-emerald-200/70 text-[11px] flex items-center gap-2">
+                  <div className="p-2 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-emerald-200/70 text-[11px] flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-violet-600" />
-                    <span className="font-bold text-violet-900">Événement influent :</span>
-                    <span className="text-slate-800">{selectedTimelinePoint.eventTitle}</span>
+                    <span className="font-bold text-violet-900 dark:text-violet-200">Événement influent :</span>
+                    <span className="text-slate-800 dark:text-slate-200">{selectedTimelinePoint.eventTitle}</span>
                   </div>
                 )}
               </div>
 
               {/* Formules mathématiques vérifiées */}
-              <div className="p-4 bg-slate-900 text-slate-100 rounded-2xl font-mono text-[11px] space-y-2">
+              <div className="p-4 bg-slate-900 dark:bg-slate-800 text-slate-100 rounded-2xl font-mono text-[11px] space-y-2">
                 <div className="text-violet-400 font-bold uppercase tracking-wider text-[10px]">
                   FORMULES STATISTIQUES VÉRIFIÉES
                 </div>
@@ -1870,9 +1876,9 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-              <span className="text-[11px] text-slate-500 font-medium">
-                Indice de confiance statistique : <strong className="text-slate-800">{selectedTimelinePoint.confidence} %</strong>
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Indice de confiance statistique : <strong className="text-slate-800 dark:text-slate-200">{selectedTimelinePoint.confidence} %</strong>
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -1884,14 +1890,14 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                       setSelectedTimelinePoint(null);
                     }
                   }}
-                  className="px-3.5 py-2 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="px-3.5 py-2 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 rounded-xl text-xs font-bold transition-all cursor-pointer"
                 >
                   Fiche complète 10 points →
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedTimelinePoint(null)}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
                 >
                   Fermer
                 </button>
@@ -1902,9 +1908,9 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       )}
 
       {/* Global Bottom Status Footnote */}
-      <div className="pt-4 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] text-slate-500">
+      <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] text-slate-500 dark:text-slate-400">
         <div className="flex items-center gap-3">
-          <span className="font-bold text-slate-700">FLOWTYM REVENUE</span>
+          <span className="font-bold text-slate-700 dark:text-slate-300">FLOWTYM REVENUE</span>
           <span>Accès ouvert — Wali Larabi · Head of Revenue Management</span>
           <span className="text-slate-400">Groupe Folkestone</span>
         </div>

@@ -131,25 +131,25 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-violet-600 flex items-center justify-center text-white shadow-xs">
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                 Sources d&apos;Information & Couverture Événementielle
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Audit de l&apos;ingestion des données, gestionnaires de sites officiels et protocoles de vérification
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/70">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Couverture certifiée 99.4%</span>
             </span>
           </div>
@@ -157,49 +157,49 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
 
         {/* 4 Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/70">
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/70 dark:border-slate-800/70">
             <div className="text-[11px] font-bold text-slate-400 uppercase">Sources Actives</div>
-            <div className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
               {healthyCount} / {sources.length}
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold mt-1">
+            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
               0 source en anomalie
             </div>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/70">
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/70 dark:border-slate-800/70">
             <div className="text-[11px] font-bold text-slate-400 uppercase">Sources Officielles</div>
-            <div className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
               {officialCount}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               Organisateurs & Gestionnaires
             </div>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/70">
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/70 dark:border-slate-800/70">
             <div className="text-[11px] font-bold text-slate-400 uppercase">Infrastructures Référencées</div>
-            <div className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
               {venues.length}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               Parcs, Arenas & Stades
             </div>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/70">
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/70 dark:border-slate-800/70">
             <div className="text-[11px] font-bold text-slate-400 uppercase">Événements Paris 2027</div>
-            <div className="text-2xl font-black text-violet-700 mt-1 tabular-nums">
+            <div className="text-2xl font-black text-violet-700 dark:text-violet-300 mt-1 tabular-nums">
               {paris2027Events.length}
             </div>
-            <div className="text-[11px] text-emerald-600 font-semibold mt-1">
+            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
               100% avec URLs officielles
             </div>
           </div>
         </div>
 
         {/* Sub-navigation Tabs */}
-        <div className="flex items-center gap-2 border-t border-slate-100 pt-4 overflow-x-auto">
+        <div className="flex items-center gap-2 border-t border-slate-100 dark:border-slate-800/80 pt-4 overflow-x-auto">
           {[
             {
               id: 'excel_uploads',
@@ -233,7 +233,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   isActive
                     ? 'bg-violet-600 text-white shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -241,7 +241,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
                 {tab.badge && (
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
                     }`}
                   >
                     {tab.badge}
@@ -269,7 +269,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
 
       {/* CRAWLER & SCRAPER AUTOMATISÉ 2027 BANNER */}
       {activeSubTab === 'crawler' && (
-        <div className="bg-white rounded-2xl border border-violet-200/80 p-6 shadow-xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-violet-200/80 dark:border-violet-800/70 p-6 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center text-white shadow-xs">
@@ -277,14 +277,14 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                     Scraper & Robot de Vérification Automatisé — Paris 2027
                   </h3>
-                <span className="text-[10px] font-bold uppercase bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full border border-violet-200">
+                <span className="text-[10px] font-bold uppercase bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-800/70">
                   Web Crawler Live
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Vérifie l&apos;accessibilité HTTP 200, les certificats TLS, le balisage Schema.org Event et la concordance des dates sur les sites officiels.
               </p>
             </div>
@@ -307,19 +307,19 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
         {/* Progress Bar when scraping */}
         {isBatchScraping && batchProgress && (
           <div className="space-y-1.5 pt-2">
-            <div className="flex justify-between text-xs text-slate-600 font-medium">
+            <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
               <span>Progression du crawl</span>
-              <span className="font-bold text-violet-700 tabular-nums">
+              <span className="font-bold text-violet-700 dark:text-violet-300 tabular-nums">
                 {Math.round((batchProgress.current / batchProgress.total) * 100)}% ({batchProgress.current} / {batchProgress.total})
               </span>
             </div>
-            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
               <div
                 className="bg-violet-600 h-2 rounded-full transition-all duration-150"
                 style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
               />
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
               {batchProgress.log}
             </div>
           </div>
@@ -327,9 +327,9 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
 
         {/* Live Terminal Log */}
         <div className="space-y-2 pt-2">
-          <div className="flex items-center justify-between text-xs text-slate-600">
+          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
             <span className="font-bold flex items-center gap-1.5">
-              <Terminal className="w-3.5 h-3.5 text-violet-600" />
+              <Terminal className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
               Console d&apos;Exécution du Crawler Web
             </span>
             <span className="text-[11px] text-slate-400">
@@ -364,7 +364,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
       {/* Workers & Ingestion Architecture Banner + Sources Table */}
       {activeSubTab === 'sources_list' && (
         <div className="space-y-6">
-          <div className="bg-slate-900 text-slate-200 rounded-2xl p-6 shadow-sm space-y-3">
+          <div className="bg-slate-900 dark:bg-slate-800 text-slate-200 rounded-2xl p-6 shadow-sm space-y-3">
             <div className="flex items-center gap-2 text-violet-400 font-bold text-xs uppercase tracking-wider">
               <Server className="w-4 h-4" />
               <span>Architecture de Collecte Découplée (Background Workers)</span>
@@ -388,14 +388,14 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
               Sources Primaires & Gestionnaires de Billetterie
             </h3>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
+              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
                   <tr>
                     <th className="py-3 px-4">Source</th>
                     <th className="py-3 px-4">Catégorie</th>
@@ -406,16 +406,16 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
                     <th className="py-3 px-4 text-center">Statut</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                   {allSources.map((src) => {
                     const isAI = (src as any).isDiscoveredByAI;
                     return (
-                      <tr key={src.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={src.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/70 transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-900">{src.name}</span>
+                            <span className="font-semibold text-slate-900 dark:text-slate-100">{src.name}</span>
                             {isAI && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">
                                 Découverte IA
                               </span>
                             )}
@@ -424,26 +424,26 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
                             href={src.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-[11px] text-violet-600 hover:underline flex items-center gap-1 mt-0.5"
+                            className="text-[11px] text-violet-600 dark:text-violet-400 hover:underline flex items-center gap-1 mt-0.5"
                           >
                             <span className="truncate max-w-xs">{src.url}</span>
                             <ExternalLink className="w-2.5 h-2.5 shrink-0" />
                           </a>
                         </td>
-                        <td className="py-3 px-4 text-slate-700 font-medium">{src.category}</td>
-                        <td className="py-3 px-4 text-slate-700">{src.city}</td>
+                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-medium">{src.category}</td>
+                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{src.city}</td>
                         <td className="py-3 px-4 text-center">
-                          <span className="inline-flex items-center justify-center font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md tabular-nums border border-emerald-200/70">
+                          <span className="inline-flex items-center justify-center font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md tabular-nums border border-emerald-200/70">
                             {src.reliabilityScore}%
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-slate-500">{src.lastCrawledAt}</td>
-                        <td className="py-3 px-4 text-right font-bold text-slate-900 tabular-nums">
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400">{src.lastCrawledAt}</td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-900 dark:text-slate-100 tabular-nums">
                           {src.detectedEventsCount}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             Actif
                           </span>
                         </td>
@@ -459,24 +459,24 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
 
       {/* Venues Directory */}
       {activeSubTab === 'venues' && (
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-          <h3 className="text-sm font-bold text-slate-900">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
             Infrastructures Clés Référencées
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {venues.map((venue) => (
               <div
                 key={venue.id}
-                className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/60 space-y-2 text-xs"
+                className="p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-800/50 space-y-2 text-xs"
               >
                 <div className="flex items-start justify-between">
-                  <span className="font-bold text-slate-900">{venue.name}</span>
-                  <span className="text-[10px] uppercase font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded">
+                  <span className="font-bold text-slate-900 dark:text-slate-100">{venue.name}</span>
+                  <span className="text-[10px] uppercase font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded">
                     {venue.city}
                   </span>
                 </div>
-                <div className="text-slate-500 text-[11px]">{venue.address}</div>
-                <div className="flex items-center justify-between text-slate-700 font-medium pt-2 border-t border-slate-200/60">
+                <div className="text-slate-500 dark:text-slate-400 text-[11px]">{venue.address}</div>
+                <div className="flex items-center justify-between text-slate-700 dark:text-slate-300 font-medium pt-2 border-t border-slate-200/60 dark:border-slate-800/70">
                   <span>Capacité maximale :</span>
                   <span className="font-bold tabular-nums">
                     {venue.capacity.toLocaleString('fr-FR')} places

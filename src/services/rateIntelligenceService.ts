@@ -16,14 +16,22 @@
  * 10. Exigence de précision et gestion explicite des limites de données.
  */
 
-export const TODAY_DATE_STR = '2026-11-04';
-export const HOTEL_TOTAL_ROOMS = 45; // Grand Hôtel Folkestone Opéra (4★)
-export const RATE_FLOOR_EUR = 180; // Tarif plancher de rentabilité minimale
-export const RATE_CEILING_EUR = 550; // Tarif plafond de marché
-export const MAX_SINGLE_ADJUSTMENT_EUR = 120; // Variation maximale recommandée par saut
+import { Hotel } from '../types';
+import {
+  CompetitorProfileConfig,
+  buildDefaultCompSetForHotel,
+  getHotelRMSConfig,
+  HotelRMSConfig,
+} from './rmsSettingsService';
+
+export const TODAY_DATE_STR = '2026-11-12';
+export const HOTEL_TOTAL_ROOMS = 45; // Valeur par défaut si aucun hôtel n'est fourni
+export const RATE_FLOOR_EUR = 180; // Plancher par défaut
+export const RATE_CEILING_EUR = 550; // Plafond par défaut
+export const MAX_SINGLE_ADJUSTMENT_EUR = 120; // Variation maximale par saut par défaut
 export const MAX_SINGLE_ADJUSTMENT_PCT = 38; // Variation max en %
 
-// Typologie des chambres du Grand Hôtel Folkestone Opéra
+// Typologie des chambres
 export type RoomCategory = 'all' | 'classique' | 'superieure' | 'deluxe_famille';
 
 export interface RoomCategoryDetail {
@@ -36,17 +44,24 @@ export interface RoomCategoryDetail {
   adrNetEur: number;
 }
 
-// Structures des concurrents Lighthouse
+export type CompetitorAvailabilityStatus = 'disponible' | 'epuise' | 'restriction' | 'non_disponible';
+
+// Structures des concurrents Lighthouse (jusqu'à 10 concurrents actifs)
 export interface CompetitorRateInfo {
   hotelName: string;
-  rateEur: number;
+  rateEur: number | null; // Strictement null si épuisé / non disponible / restriction sans tarif (JAMAIS 0 €)
   isSoldOut: boolean;
+  availabilityStatus: CompetitorAvailabilityStatus;
+  restrictionLabel?: string;
   stars: number;
   roomType: string;
   cancellationPolicy?: string;
   breakfastIncluded?: boolean;
   isFullyComparable?: boolean;
   nonComparableReason?: string;
+  evolution1dEur?: number | null;
+  evolution3dEur?: number | null;
+  evolution7dEur?: number | null;
 }
 
 export interface CompetitorMeta {
@@ -56,32 +71,57 @@ export interface CompetitorMeta {
   defaultRoomType: string;
 }
 
-export const COMPSET_METAS: CompetitorMeta[] = [
-  { name: 'Hôtel Saint-Pétersbourg Opéra', stars: 4, color: '#3b82f6', defaultRoomType: 'Classique' },
-  { name: 'Hôtel Charing Cross', stars: 4, color: '#10b981', defaultRoomType: 'Supérieure' },
-  { name: 'Hôtel Astra Opéra', stars: 4, color: '#f59e0b', defaultRoomType: 'Standard' },
-  { name: 'Hotel Indigo Paris-Opéra', stars: 4, color: '#ec4899', defaultRoomType: 'Deluxe' },
-  { name: 'Hôtel Saint-Augustin Elysées', stars: 3, color: '#06b6d4', defaultRoomType: 'Standard' },
-];
+export const COMPSET_METAS: CompetitorMeta[] = buildDefaultCompSetForHotel({
+  id: 'hotel-opera',
+  city: 'Paris',
+  baseADR: 260,
+})
+  .slice(0, 10)
+  .map((c) => ({
+    name: c.name,
+    stars: c.stars,
+    color: c.color,
+    defaultRoomType: c.defaultRoomType,
+  }));
+
+export function getActiveCompSetMetasForHotel(hotel?: Hotel): CompetitorMeta[] {
+  if (!hotel) return COMPSET_METAS;
+  const cfg = getHotelRMSConfig(hotel);
+  return cfg.compSet
+    .filter((c) => c.isActive)
+    .slice(0, 10)
+    .map((c) => ({
+      name: c.name,
+      stars: c.stars,
+      color: c.color,
+      defaultRoomType: c.defaultRoomType,
+    }));
+}
 
 export interface CompsetRankedItem {
   hotelName: string;
-  rateEur: number;
+  rateEur: number | null;
   isCurrentHotel: boolean;
   isSoldOut: boolean;
+  availabilityStatus: CompetitorAvailabilityStatus;
+  restrictionLabel?: string;
   stars: number;
   roomType: string;
-  rank: number | null; // null if sold-out
-  gapVsHotelEur: number;
+  rank: number | null; // null if sold-out or unavailable
+  gapVsHotelEur: number | null;
+  evolution1dEur?: number | null;
+  evolution3dEur?: number | null;
+  evolution7dEur?: number | null;
 }
 
 export type CompsetStatusType = 'significantly_cheaper' | 'aligned' | 'more_expensive';
 
 export interface CompsetRankingResult {
   rank: number; // 1-based rank (1 = least expensive available)
-  totalAvailable: number; // available hotels including current hotel (e.g. 6)
-  totalCompset: number; // total size (user hotel + 5 competitors = 6)
-  rankingFraction: string; // e.g. "1/6", "2/6", "1/5"
+  totalAvailable: number; // available hotels including current hotel (1 + exploitable)
+  totalCompset: number; // total size (user hotel + active competitors)
+  exploitableCount: number; // valid exploitable competitors only
+  rankingFraction: string; // e.g. "2/9"
   soldOutCount: number;
   cheaperCount: number;
   moreExpensiveCount: number;
@@ -102,6 +142,10 @@ export interface LighthouseMarketIndicators {
   compsetMaxEur: number;
   compsetAvgEur: number;
   compsetMedianEur: number;
+  hasExploitableCompset: boolean;
+  exploitableCount: number;
+  totalCompsetSize: number;
+  exploitableSummary: string; // e.g. "8/10 exploitables"
   hotelMinEur: number;
   compsetRank: number;
   compsetTotalAvailable: number;
@@ -378,13 +422,21 @@ export interface RMLearnedCalibrationRule {
   description: string;
 }
 
-// -------------------------------------------------------------
-// FONCTIONS DE CALCUL DES INDICATEURS LIGHTHOUSE (Section 2)
-// -------------------------------------------------------------
+/**
+ * Vérifie strictement qu'un relevé concurrent est exploitable (disponible et tarif numérique > 0).
+ * Exclut systématiquement les états "epuise", "non_disponible", "restriction" sans tarif ou null.
+ */
+export function isCompetitorRateExploitable(c: CompetitorRateInfo): boolean {
+  if (c.isSoldOut) return false;
+  if (c.availabilityStatus === 'epuise' || c.availabilityStatus === 'non_disponible') return false;
+  if (typeof c.rateEur !== 'number' || !Number.isFinite(c.rateEur) || c.rateEur <= 0) return false;
+  return true;
+}
 
 /**
- * Calcule avec rigueur les indicateurs du Compset Lighthouse pour une date de séjour.
- * Exclut strictement les valeurs non numériques telles que "Épuisé", "Indisponible", "Restriction".
+ * Calcule avec rigueur les indicateurs du Compset Lighthouse pour une date de séjour (jusqu'à 10 concurrents).
+ * Exclut strictement les valeurs non numériques / nulles telles que "Épuisé", "Indisponible", "Restriction".
+ * Ne force JAMAIS un tarif manquant à 0 €.
  */
 export function computeLighthouseIndicators(
   currentBarEur: number,
@@ -392,57 +444,66 @@ export function computeLighthouseIndicators(
   isWeekend: boolean,
   demandLevel: string
 ): LighthouseMarketIndicators {
-  // Filtrage strict : seuls les tarifs numériques comparables et disponibles
-  const availableCompRates = competitors
-    .filter((c) => !c.isSoldOut && typeof c.rateEur === 'number' && c.rateEur > 0)
-    .map((c) => c.rateEur);
+  const exploitableRates = competitors
+    .filter(isCompetitorRateExploitable)
+    .map((c) => c.rateEur as number);
 
-  const soldOutCount = competitors.filter((c) => c.isSoldOut || c.rateEur <= 0).length;
+  const totalCompsetSize = competitors.length;
+  const exploitableCount = exploitableRates.length;
+  const soldOutCount = competitors.filter(
+    (c) => c.isSoldOut || c.availabilityStatus === 'epuise' || c.availabilityStatus === 'non_disponible' || c.rateEur === null
+  ).length;
+  const hasExploitableCompset = exploitableCount > 0;
+  const exploitableSummary = `${exploitableCount}/${totalCompsetSize} exploitables`;
 
-  let compsetMinEur = 260;
-  let compsetMaxEur = 380;
-  let compsetAvgEur = 300;
-  let compsetMedianEur = 300;
+  let compsetMinEur = 0;
+  let compsetMaxEur = 0;
+  let compsetAvgEur = 0;
+  let compsetMedianEur = 0;
 
-  if (availableCompRates.length > 0) {
-    compsetMinEur = Math.min(...availableCompRates);
-    compsetMaxEur = Math.max(...availableCompRates);
-    
-    // Moyenne arithmétique
-    const sum = availableCompRates.reduce((acc, r) => acc + r, 0);
-    compsetAvgEur = Math.round(sum / availableCompRates.length);
+  if (exploitableRates.length > 0) {
+    compsetMinEur = Math.min(...exploitableRates);
+    compsetMaxEur = Math.max(...exploitableRates);
 
-    // Valeur médiane
-    const sorted = [...availableCompRates].sort((a, b) => a - b);
+    const sum = exploitableRates.reduce((acc, r) => acc + r, 0);
+    compsetAvgEur = Math.round(sum / exploitableRates.length);
+
+    const sorted = [...exploitableRates].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     compsetMedianEur = sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
   }
 
-  // Positionnement de l'hôtel (1-based rank parmi les disponibles)
-  const allAvailableRates = [currentBarEur, ...availableCompRates].sort((a, b) => a - b);
+  // Positionnement de l'hôtel (1-based rank parmi l'hôtel + concurrents exploitables uniquement)
+  const allAvailableRates = [currentBarEur, ...exploitableRates].sort((a, b) => a - b);
   const myRank = allAvailableRates.indexOf(currentBarEur) + 1;
   const totalAvailable = allAvailableRates.length;
   const compsetRankFraction = `${myRank}/${totalAvailable}`;
 
-  const gapVsMedianEur = currentBarEur - compsetMedianEur;
-  const gapVsMedianPercent = compsetMedianEur > 0 ? Math.round((gapVsMedianEur / compsetMedianEur) * 1000) / 10 : 0;
+  const gapVsMedianEur = hasExploitableCompset ? currentBarEur - compsetMedianEur : 0;
+  const gapVsMedianPercent =
+    hasExploitableCompset && compsetMedianEur > 0
+      ? Math.round((gapVsMedianEur / compsetMedianEur) * 1000) / 10
+      : 0;
 
-  // Calcul des évolutions de tarifs du compset sur J-1, 3 jours et 7 jours
-  const trendMultiplier = demandLevel === 'exceptionnel' ? 1.08 : demandLevel === 'tres_fort' ? 1.05 : demandLevel === 'eleve' ? 1.02 : 1.0;
-  const trend1dEur = demandLevel === 'exceptionnel' ? 15 : demandLevel === 'tres_fort' ? 10 : isWeekend ? 5 : 0;
-  const trend1dPercent = compsetMedianEur > 0 ? Math.round((trend1dEur / compsetMedianEur) * 1000) / 10 : 0;
+  // Évolutions moyennes J-1 / J-3 / J-7 basées sur les concurrents ayant des historiques numériques
+  const evos1d = competitors.filter((c) => isCompetitorRateExploitable(c) && typeof c.evolution1dEur === 'number').map((c) => c.evolution1dEur as number);
+  const evos3d = competitors.filter((c) => isCompetitorRateExploitable(c) && typeof c.evolution3dEur === 'number').map((c) => c.evolution3dEur as number);
+  const evos7d = competitors.filter((c) => isCompetitorRateExploitable(c) && typeof c.evolution7dEur === 'number').map((c) => c.evolution7dEur as number);
 
-  const trend3dEur = Math.round(trend1dEur * 2.2);
-  const trend3dPercent = compsetMedianEur > 0 ? Math.round((trend3dEur / compsetMedianEur) * 1000) / 10 : 0;
+  const fallback1d = demandLevel === 'exceptionnel' ? 15 : demandLevel === 'tres_fort' ? 10 : isWeekend ? 5 : 0;
+  const trend1dEur = evos1d.length > 0 ? Math.round(evos1d.reduce((a, b) => a + b, 0) / evos1d.length) : fallback1d;
+  const trend1dPercent = hasExploitableCompset && compsetMedianEur > 0 ? Math.round((trend1dEur / compsetMedianEur) * 1000) / 10 : 0;
 
-  const trend7dEur = Math.round(trend1dEur * 3.8);
-  const trend7dPercent = compsetMedianEur > 0 ? Math.round((trend7dEur / compsetMedianEur) * 1000) / 10 : 0;
+  const trend3dEur = evos3d.length > 0 ? Math.round(evos3d.reduce((a, b) => a + b, 0) / evos3d.length) : Math.round(trend1dEur * 2.1);
+  const trend3dPercent = hasExploitableCompset && compsetMedianEur > 0 ? Math.round((trend3dEur / compsetMedianEur) * 1000) / 10 : 0;
 
-  // Comparabilité tarifaire
+  const trend7dEur = evos7d.length > 0 ? Math.round(evos7d.reduce((a, b) => a + b, 0) / evos7d.length) : Math.round(trend1dEur * 3.6);
+  const trend7dPercent = hasExploitableCompset && compsetMedianEur > 0 ? Math.round((trend7dEur / compsetMedianEur) * 1000) / 10 : 0;
+
   let comparabilityWarning: string | null = null;
-  const nonComparableComps = competitors.filter((c) => !c.isFullyComparable);
+  const nonComparableComps = competitors.filter((c) => isCompetitorRateExploitable(c) && c.isFullyComparable === false);
   if (nonComparableComps.length > 0) {
-    comparabilityWarning = `${nonComparableComps.length} concurrent(s) présentent des conditions non strictement comparables (ex: type de chambre différent ou conditions non-annulables).`;
+    comparabilityWarning = `${nonComparableComps.length} concurrent(s) présentent des conditions non strictement comparables (typologie, petit-déjeuner inclus ou condition restrictive).`;
   }
 
   return {
@@ -450,6 +511,10 @@ export function computeLighthouseIndicators(
     compsetMaxEur,
     compsetAvgEur,
     compsetMedianEur,
+    hasExploitableCompset,
+    exploitableCount,
+    totalCompsetSize,
+    exploitableSummary,
     hotelMinEur: currentBarEur,
     compsetRank: myRank,
     compsetTotalAvailable: totalAvailable,
@@ -474,43 +539,55 @@ export function computeLighthouseIndicators(
 
 export function calculateCompsetRanking(
   record: DailyRateIntelligence,
-  currentHotelName: string = 'Grand Hôtel Folkestone Opéra'
+  currentHotelName: string = 'Mon Établissement'
 ): CompsetRankingResult {
-  const availableComps = record.competitors.filter((c) => !c.isSoldOut && c.rateEur > 0);
-  const soldOutComps = record.competitors.filter((c) => c.isSoldOut || c.rateEur <= 0);
+  const availableComps = record.competitors.filter(isCompetitorRateExploitable);
+  const unavailableComps = record.competitors.filter((c) => !isCompetitorRateExploitable(c));
 
   const availableItems: {
     hotelName: string;
     rateEur: number;
     isCurrentHotel: boolean;
-    isSoldOut: boolean;
+    availabilityStatus: CompetitorAvailabilityStatus;
+    restrictionLabel?: string;
     stars: number;
     roomType: string;
+    evolution1dEur?: number | null;
+    evolution3dEur?: number | null;
+    evolution7dEur?: number | null;
   }[] = [
     {
       hotelName: currentHotelName,
       rateEur: record.currentBarEur,
       isCurrentHotel: true,
-      isSoldOut: false,
+      availabilityStatus: 'disponible',
       stars: 4,
-      roomType: 'Chambre Classique BAR',
+      roomType: 'Chambre Standard BAR',
+      evolution1dEur: null,
+      evolution3dEur: null,
+      evolution7dEur: null,
     },
     ...availableComps.map((c) => ({
       hotelName: c.hotelName,
-      rateEur: c.rateEur,
+      rateEur: c.rateEur as number,
       isCurrentHotel: false,
-      isSoldOut: false,
+      availabilityStatus: c.availabilityStatus || 'disponible',
+      restrictionLabel: c.restrictionLabel,
       stars: c.stars,
       roomType: c.roomType,
+      evolution1dEur: c.evolution1dEur ?? null,
+      evolution3dEur: c.evolution3dEur ?? null,
+      evolution7dEur: c.evolution7dEur ?? null,
     })),
   ];
 
-  // Tri croissant
+  // Tri croissant strict sur les tarifs numériques disponibles
   availableItems.sort((a, b) => a.rateEur - b.rateEur);
 
   const totalAvailable = availableItems.length;
-  const totalCompset = 1 + record.competitors.length; // 6 au total
-  const soldOutCount = soldOutComps.length;
+  const totalCompset = 1 + record.competitors.length;
+  const exploitableCount = availableComps.length;
+  const soldOutCount = unavailableComps.length;
 
   let currentRank = 1;
   const rankedItems: CompsetRankedItem[] = availableItems.map((item, idx) => {
@@ -522,24 +599,34 @@ export function calculateCompsetRanking(
       rateEur: item.rateEur,
       isCurrentHotel: item.isCurrentHotel,
       isSoldOut: false,
+      availabilityStatus: item.availabilityStatus,
+      restrictionLabel: item.restrictionLabel,
       stars: item.stars,
       roomType: item.roomType,
       rank: currentRank,
       gapVsHotelEur: item.rateEur - record.currentBarEur,
+      evolution1dEur: item.evolution1dEur,
+      evolution3dEur: item.evolution3dEur,
+      evolution7dEur: item.evolution7dEur,
     };
   });
 
   const fullRankingTable: CompsetRankedItem[] = [
     ...rankedItems,
-    ...soldOutComps.map((c) => ({
+    ...unavailableComps.map((c) => ({
       hotelName: c.hotelName,
-      rateEur: c.rateEur,
+      rateEur: null,
       isCurrentHotel: false,
-      isSoldOut: true,
+      isSoldOut: c.isSoldOut || c.availabilityStatus === 'epuise',
+      availabilityStatus: c.availabilityStatus || (c.isSoldOut ? 'epuise' : 'non_disponible'),
+      restrictionLabel: c.restrictionLabel,
       stars: c.stars,
       roomType: c.roomType,
       rank: null,
-      gapVsHotelEur: c.rateEur > 0 ? c.rateEur - record.currentBarEur : 0,
+      gapVsHotelEur: null,
+      evolution1dEur: null,
+      evolution3dEur: null,
+      evolution7dEur: null,
     })),
   ];
 
@@ -550,14 +637,16 @@ export function calculateCompsetRanking(
   const moreExpensiveCount = availableItems.filter((i) => i.rateEur > record.currentBarEur).length;
   const isTied = availableItems.filter((i) => i.rateEur === record.currentBarEur).length > 1;
 
-  const isCheapest = cheaperCount === 0;
-  const isMostExpensive = moreExpensiveCount === 0;
+  const isCheapest = exploitableCount > 0 && cheaperCount === 0;
+  const isMostExpensive = exploitableCount > 0 && moreExpensiveCount === 0;
   const isMedian = myRank > 1 && myRank < totalAvailable;
 
   const rankingFraction = `${myRank}/${totalAvailable}`;
 
   let positionLabel = `${myRank}e sur ${totalAvailable}`;
-  if (isCheapest) {
+  if (exploitableCount === 0) {
+    positionLabel = 'Aucun concurrent disponible';
+  } else if (isCheapest) {
     positionLabel = `1er moins cher sur ${totalAvailable}`;
   } else if (isMostExpensive) {
     positionLabel = `Le plus cher (${myRank}/${totalAvailable})`;
@@ -565,36 +654,42 @@ export function calculateCompsetRanking(
     positionLabel = `Position médiane (${myRank}/${totalAvailable})`;
   }
 
-  if (isTied) {
+  if (isTied && exploitableCount > 0) {
     positionLabel += ' (ex æquo)';
   }
 
-  // Classification d'alignement marché
   let statusClassification: CompsetStatusType = 'aligned';
   let statusBadgeText = 'Aligné sur le marché';
   let statusDescription = 'Tarif aligné sur la médiane compset (±8%)';
 
-  const gapVsMedian = record.currentBarEur - record.compsetMedianEur;
-  const gapPct = record.compsetMedianEur > 0 ? (gapVsMedian / record.compsetMedianEur) * 100 : 0;
-
-  if (gapPct <= -8 || isCheapest) {
-    statusClassification = 'significantly_cheaper';
-    statusBadgeText = 'Significativement moins cher';
-    statusDescription = isCheapest
-      ? '1er tarif le plus bas du Compset — Opportunité immédiate de rehausse tarifaire'
-      : `Tarif nettement sous la médiane (${gapPct.toFixed(1)}%)`;
-  } else if (gapPct >= 8 || isMostExpensive) {
+  if (exploitableCount === 0) {
     statusClassification = 'more_expensive';
-    statusBadgeText = 'Plus cher que le compset';
-    statusDescription = isMostExpensive
-      ? 'Tarif le plus élevé du Compset — Risque de perte de volume si demande non confirmée'
-      : `Tarif supérieur à la médiane (+${gapPct.toFixed(1)}%)`;
+    statusBadgeText = 'Compset saturé (0 dispo)';
+    statusDescription = 'Tous les concurrents suivis sont complets ou restreints';
+  } else {
+    const gapVsMedian = record.currentBarEur - record.compsetMedianEur;
+    const gapPct = record.compsetMedianEur > 0 ? (gapVsMedian / record.compsetMedianEur) * 100 : 0;
+
+    if (gapPct <= -8 || isCheapest) {
+      statusClassification = 'significantly_cheaper';
+      statusBadgeText = 'Significativement moins cher';
+      statusDescription = isCheapest
+        ? '1er tarif le plus bas du Compset — Opportunité immédiate de rehausse tarifaire'
+        : `Tarif nettement sous la médiane (${gapPct.toFixed(1)}%)`;
+    } else if (gapPct >= 8 || isMostExpensive) {
+      statusClassification = 'more_expensive';
+      statusBadgeText = 'Plus cher que le compset';
+      statusDescription = isMostExpensive
+        ? 'Tarif le plus élevé du Compset — Vérifier la pression de demande'
+        : `Tarif supérieur à la médiane (+${gapPct.toFixed(1)}%)`;
+    }
   }
 
   return {
     rank: myRank,
     totalAvailable,
     totalCompset,
+    exploitableCount,
     rankingFraction,
     soldOutCount,
     cheaperCount,
@@ -786,13 +881,22 @@ export function computeRMEngineRecommendation(
   demandLevel: string,
   isWeekend: boolean,
   rmScore: number = 60,
-  soldOutCount: number = 0
+  soldOutCount: number = 0,
+  rulesOverride?: Partial<HotelRMSConfig['rmRules']>,
+  exploitableCompsetCount: number = 10
 ): RMEngineRecommendation {
+  const floorEur = rulesOverride?.barFloorEur ?? RATE_FLOOR_EUR;
+  const ceilingEur = rulesOverride?.barCeilingEur ?? RATE_CEILING_EUR;
+  const maxStepEur = rulesOverride?.maxSingleAdjustmentEur ?? MAX_SINGLE_ADJUSTMENT_EUR;
+  const strategyMode = rulesOverride?.pricingStrategy ?? 'equilibre';
+  const strategyOffsetEur =
+    strategyMode === 'marge' ? 15 : strategyMode === 'agressif' ? 20 : strategyMode === 'volume' ? -12 : 0;
+
   let suggestedBar = currentBarEur;
   let strategy: RMStrategyType = 'maintien_competitif';
   let strategyLabel = 'Maintien compétitif';
-  let strategyBadgeColor = 'bg-slate-100 text-slate-800 border-slate-300';
-  let suggestedMinStay = 1;
+  let strategyBadgeColor = 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700';
+  let suggestedMinStay = isWeekend ? (rulesOverride?.weekendMinStay ?? 2) : (rulesOverride?.defaultMinStay ?? 1);
   let suggestedStopSellPromos = false;
   const guardrailsTriggered: string[] = [];
   const faitsObserves: string[] = [];
@@ -803,113 +907,121 @@ export function computeRMEngineRecommendation(
   const facteursDeterminants: string[] = [];
   const risquesIdentifies: string[] = [];
 
-  // Logique RM avancée (14 techniques intégrées)
+  const hasValidMedian = exploitableCompsetCount > 0 && compsetMedianEur > 0;
+  if (!hasValidMedian) {
+    donneesManquantes.push('Aucun concurrent disponible sur cette date (compset complet ou indisponible) : calcul basé sur OTB & pickup interne.');
+  }
+
+  // Logique RM avancée pilotée par la stratégie configurée et l'état du compset
   if (demandLevel === 'exceptionnel' || (occupancyPercent >= 75 && pickup1d >= 4)) {
     strategy = 'protection_stock';
     strategyLabel = 'Protection de stock & Hausse de capture';
-    strategyBadgeColor = 'bg-rose-100 text-rose-800 border-rose-300';
-    suggestedBar = Math.max(currentBarEur + 75, compsetMedianEur + 15);
-    suggestedMinStay = isWeekend ? 3 : 2;
+    strategyBadgeColor = 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800/70';
+    const compsetAnchor = hasValidMedian ? compsetMedianEur + 15 : currentBarEur + 80;
+    suggestedBar = Math.max(currentBarEur + 65, compsetAnchor) + strategyOffsetEur;
+    suggestedMinStay = Math.max(suggestedMinStay, isWeekend ? 3 : 2);
     suggestedStopSellPromos = true;
 
-    faitsObserves.push(`Occupation déjà élevée à ${occupancyPercent}% OTB avec seulement ${remainingRooms} chambres restantes.`);
-    faitsObserves.push(`Pickup accéléré de +${pickup1d} chambres/jour et ${soldOutCount} concurrents complets.`);
+    faitsObserves.push(`Occupation élevée à ${occupancyPercent}% OTB avec seulement ${remainingRooms} chambres restantes.`);
+    faitsObserves.push(`Pickup de +${pickup1d} chambres/24h et ${soldOutCount} concurrent(s) complet(s) ou restreint(s).`);
     analyseMarche.push('Pression de saturation critique : risque majeur d’épuisement anticipé du stock à tarif sous-coté.');
-    previsionDemande.push('La demande résiduelle est fortement inélastique et prête à payer un tarif premium.');
-    facteursDeterminants.push('Stock résiduel critique (< 12 chambres)');
-    facteursDeterminants.push('Concurrents sold-out dans le quartier');
-    risquesIdentifies.push('Risque de sous-tarification si le prix n’est pas réhaussé sans délai');
-  } else if (demandLevel === 'tres_fort' || compsetMedianEur > currentBarEur + 35) {
+    previsionDemande.push('Demande résiduelle faiblement élastique au prix sur cette date.');
+    facteursDeterminants.push('Stock résiduel tendu & accélération du booking pace');
+    if (soldOutCount > 0) facteursDeterminants.push(`${soldOutCount} concurrents complets sur le périmètre`);
+    risquesIdentifies.push('Risque de sous-tarification si le BAR n’est pas ajusté rapidement');
+  } else if (demandLevel === 'tres_fort' || (hasValidMedian && compsetMedianEur > currentBarEur + 35)) {
     strategy = 'capture_hausse';
     strategyLabel = 'Hausse de capture de demande';
-    strategyBadgeColor = 'bg-violet-100 text-violet-800 border-violet-300';
-    suggestedBar = Math.max(currentBarEur + 45, compsetMedianEur);
-    suggestedMinStay = 2;
-    suggestedStopSellPromos = true;
+    strategyBadgeColor = 'bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border-violet-300 dark:border-violet-800/70';
+    suggestedBar = (hasValidMedian ? Math.max(currentBarEur + 35, compsetMedianEur) : currentBarEur + 45) + strategyOffsetEur;
+    suggestedMinStay = Math.max(suggestedMinStay, 2);
+    suggestedStopSellPromos = rmScore >= (rulesOverride?.autoStopSellPromosAtScore ?? 85);
 
-    faitsObserves.push(`Médiane du Compset à ${compsetMedianEur}€ vs votre tarif à ${currentBarEur}€ (écart de -${compsetMedianEur - currentBarEur}€).`);
-    analyseMarche.push('Positionnement sous le marché avec demande soutenue.');
-    facteursDeterminants.push('Écart significatif par rapport à la médiane Lighthouse');
-    risquesIdentifies.push('Vente trop rapide limitant le RevPAR final');
-  } else if (compsetMedianEur > currentBarEur + 15) {
+    if (hasValidMedian) {
+      faitsObserves.push(`Médiane Compset exploitable à ${compsetMedianEur}€ (${exploitableCompsetCount} actifs) vs BAR à ${currentBarEur}€.`);
+    }
+    analyseMarche.push('Positionnement sous la médiane avec forte traction événementielle ou saisonnière.');
+    facteursDeterminants.push('Écart favorable par rapport à la médiane Lighthouse');
+    risquesIdentifies.push('Capture prématurée de l’inventaire limitant le RevPAR final');
+  } else if (hasValidMedian && compsetMedianEur > currentBarEur + 15) {
     strategy = 'alignement_marche';
     strategyLabel = 'Réalignement sur la médiane compset';
-    strategyBadgeColor = 'bg-emerald-100 text-emerald-800 border-emerald-300';
-    suggestedBar = compsetMedianEur - 5;
-    suggestedMinStay = isWeekend ? 2 : 1;
+    strategyBadgeColor = 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800/70';
+    suggestedBar = compsetMedianEur - 5 + Math.round(strategyOffsetEur * 0.5);
 
-    faitsObserves.push(`Compset médian à ${compsetMedianEur}€. L’hôtel est actuellement au rang inférieur.`);
-    analyseMarche.push('Opportunité d’ajustement tarifaire sans dégrader le volume.');
+    faitsObserves.push(`Médiane Compset à ${compsetMedianEur}€ (${exploitableCompsetCount} exploitables).`);
+    analyseMarche.push('Opportunité d’ajustement tarifaire vers la médiane sans dégrader la conversion.');
     facteursDeterminants.push('Médiane du marché Lighthouse');
-  } else if (occupancyPercent < 45 && demandLevel === 'faible' && remainingRooms > 25) {
+  } else if (occupancyPercent < 48 && demandLevel === 'faible') {
     strategy = 'stimulation_volume';
     strategyLabel = 'Stimulation du volume';
-    strategyBadgeColor = 'bg-amber-100 text-amber-800 border-amber-300';
-    suggestedBar = Math.max(RATE_FLOOR_EUR, currentBarEur - 15);
+    strategyBadgeColor = 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800/70';
+    suggestedBar = Math.max(floorEur, currentBarEur - 15 + (strategyMode === 'volume' ? -10 : 0));
     suggestedMinStay = 1;
 
-    faitsObserves.push(`Occupation faible à ${occupancyPercent}% OTB avec ${remainingRooms} chambres encore disponibles.`);
-    analyseMarche.push('Rythme d’absorption insuffisant pour atteindre le seuil de remplissage.');
-    facteursDeterminants.push('Retard de pickup sur l’historique');
-    risquesIdentifies.push('Risque de chambres invendues si le prix reste figé');
+    faitsObserves.push(`Occupation OTB faible (${occupancyPercent}%) avec ${remainingRooms} chambres à commercialiser.`);
+    analyseMarche.push('Rythme d’absorption insuffisant pour sécuriser la base d’occupation.');
+    facteursDeterminants.push('Retard de pickup sur la fenêtre de réservation');
+    risquesIdentifies.push('Risque de chambres invendues si le tarif reste figé');
   } else {
     strategy = 'maintien_competitif';
     strategyLabel = 'Maintien compétitif';
-    strategyBadgeColor = 'bg-blue-100 text-blue-800 border-blue-300';
-    suggestedBar = currentBarEur;
-    suggestedMinStay = 1;
+    strategyBadgeColor = 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800/70';
+    suggestedBar = currentBarEur + Math.round(strategyOffsetEur * 0.3);
 
-    faitsObserves.push(`Équilibre sain entre l’OTB (${occupancyPercent}%) et le compset (${compsetMedianEur}€).`);
-    analyseMarche.push('Tarif optimal pour la phase actuelle de réservation.');
+    faitsObserves.push(`Équilibre sain entre l’OTB (${occupancyPercent}%)${hasValidMedian ? ` et la médiane compset (${compsetMedianEur}€)` : ''}.`);
+    analyseMarche.push('Tarif cohérent avec la dynamique actuelle de réservation.');
   }
 
-  // Application des Garde-fous tarifaires (Section 7)
+  // Garde-fous tarifaires configurés pour l'hôtel
   let isFloorProtected = false;
   let isCeilingProtected = false;
 
-  if (suggestedBar < RATE_FLOOR_EUR) {
-    suggestedBar = RATE_FLOOR_EUR;
+  if (suggestedBar < floorEur) {
+    suggestedBar = floorEur;
     isFloorProtected = true;
-    guardrailsTriggered.push(`Protection Plancher : Tarif bloqué à ${RATE_FLOOR_EUR}€ pour garantir la rentabilité minimale.`);
+    guardrailsTriggered.push(`Protection Plancher : Tarif bloqué à ${floorEur}€ pour garantir la rentabilité minimale.`);
   }
 
-  if (suggestedBar > RATE_CEILING_EUR) {
-    suggestedBar = RATE_CEILING_EUR;
+  if (suggestedBar > ceilingEur) {
+    suggestedBar = ceilingEur;
     isCeilingProtected = true;
-    guardrailsTriggered.push(`Protection Plafond : Tarif borné à ${RATE_CEILING_EUR}€ pour éviter tout décrochage commercial.`);
+    guardrailsTriggered.push(`Protection Plafond : Tarif borné à ${ceilingEur}€ pour éviter tout décrochage commercial.`);
   }
 
-  // Limitation de la variation maximale par saut (anti-aberration)
   const rawDelta = suggestedBar - currentBarEur;
-  if (Math.abs(rawDelta) > MAX_SINGLE_ADJUSTMENT_EUR) {
-    const cappedDelta = rawDelta > 0 ? MAX_SINGLE_ADJUSTMENT_EUR : -MAX_SINGLE_ADJUSTMENT_EUR;
+  if (Math.abs(rawDelta) > maxStepEur) {
+    const cappedDelta = rawDelta > 0 ? maxStepEur : -maxStepEur;
     suggestedBar = currentBarEur + cappedDelta;
-    guardrailsTriggered.push(`Plafonnement de variation : Hausse limitée à +${MAX_SINGLE_ADJUSTMENT_EUR}€ pour préserver la progressivité.`);
+    guardrailsTriggered.push(`Plafonnement de variation : Saut limité à ${cappedDelta > 0 ? '+' : ''}${cappedDelta}€ (seuil ${maxStepEur}€).`);
   }
 
-  // Arrondi aux tranches de 5€
   suggestedBar = Math.round(suggestedBar / 5) * 5;
+  if (suggestedBar < floorEur) suggestedBar = floorEur;
+  if (suggestedBar > ceilingEur) suggestedBar = ceilingEur;
 
   const deltaVsCurrentEur = suggestedBar - currentBarEur;
   const deltaVsCurrentPercent = currentBarEur > 0 ? Math.round((deltaVsCurrentEur / currentBarEur) * 100) : 0;
   const revenueGainPotentialEur = deltaVsCurrentEur > 0 ? Math.round(deltaVsCurrentEur * remainingRooms * 0.82) : 0;
 
-  // Calcul du score de confiance et niveau
-  const confidenceScore = Math.min(99, Math.max(68, Math.round(75 + (rmScore * 0.18) + (occupancyPercent * 0.08))));
-  let confidenceLevel: RMEngineRecommendation['confidenceLevel'] = 'fiable';
-  let confidenceLabel = 'Recommandation fiable : données D-EDGE & Lighthouse consolidées';
+  const confidenceScore = Math.min(99, Math.max(66, Math.round(72 + rmScore * 0.16 + occupancyPercent * 0.08 + Math.min(8, exploitableCompsetCount) * 0.6)));
+  let confidenceLevel: RMEngineRecommendation['confidenceLevel'] = hasValidMedian ? 'fiable' : 'donnees_partielles';
+  let confidenceLabel = hasValidMedian
+    ? `Recommandation fiable : D-EDGE & Lighthouse (${exploitableCompsetCount} concurrents exploitables)`
+    : 'Données compset partielles : recommandation pilotée par D-EDGE OTB & pickup';
 
   if (dateStr > '2027-01-31') {
     confidenceLevel = 'indicative';
     confidenceLabel = 'Recommandation indicative : horizon lointain (>90 jours)';
-    hypothesesEtLimites.push('Horizon de réservation supérieur à 90 jours : le comportement du compset peut évoluer.');
+    hypothesesEtLimites.push('Horizon de réservation supérieur à 90 jours : le positionnement du compset peut évoluer.');
   }
 
-  const recommandationAction = deltaVsCurrentEur > 0
-    ? `Rehausser le tarif BAR à ${suggestedBar}€ (+${deltaVsCurrentEur}€), ${suggestedMinStay > 1 ? `imposer un Min Stay de ${suggestedMinStay} nuits` : 'maintenir Min Stay 1 nuit'}${suggestedStopSellPromos ? ' et fermer les canaux promotionnels' : ''}.`
-    : deltaVsCurrentEur < 0
-    ? `Ajuster le tarif BAR à ${suggestedBar}€ (${deltaVsCurrentEur}€) pour stimuler le pickup de début de semaine.`
-    : `Maintenir le tarif BAR actuel à ${suggestedBar}€ en surveillant le rythme de pickup.`;
+  const recommandationAction =
+    deltaVsCurrentEur > 0
+      ? `Rehausser le tarif BAR à ${suggestedBar}€ (+${deltaVsCurrentEur}€), ${suggestedMinStay > 1 ? `imposer un Min Stay de ${suggestedMinStay} nuits` : 'maintenir Min Stay 1 nuit'}${suggestedStopSellPromos ? ' et fermer les canaux promotionnels' : ''}.`
+      : deltaVsCurrentEur < 0
+      ? `Ajuster le tarif BAR à ${suggestedBar}€ (${deltaVsCurrentEur}€) pour stimuler le pickup.`
+      : `Maintenir le tarif BAR actuel à ${suggestedBar}€ en surveillant le rythme de pickup.`;
 
   return {
     suggestedBarEur: suggestedBar,
@@ -941,14 +1053,167 @@ export function computeRMEngineRecommendation(
 }
 
 // -------------------------------------------------------------
-// GÉNÉRATEUR DE DONNÉES CONTINUES GRAND HÔTEL FOLKESTONE OPÉRA
+// GÉNÉRATEUR DYNAMIQUE MULTI-HÔTELS (10 CONCURRENTS + PÉRIODES SAISONNIÈRES)
 // -------------------------------------------------------------
 
-export function generateContinuous90DaysData(): DailyRateIntelligence[] {
+function resolveDestinationEventContext(
+  dateStr: string,
+  city: string,
+  isWeekend: boolean
+): {
+  eventTitle?: string;
+  eventCategory?: string;
+  expectedAttendance?: number;
+  rmScore: number;
+  demandLevel: DailyRateIntelligence['demandLevel'];
+} {
+  const cLower = city.toLowerCase();
+
+  // Période critique commune : Fêtes de Fin d'Année & Réveillon (26 déc → 1er janv)
+  if (dateStr >= '2026-12-26' && dateStr <= '2027-01-01') {
+    const isPeakNYE = dateStr === '2026-12-30' || dateStr === '2026-12-31' || dateStr === '2027-01-01';
+    return {
+      eventTitle: `Fêtes de Fin d’Année & Réveillon (${city})`,
+      eventCategory: 'periodes_saisonnieres_fetes',
+      expectedAttendance: cLower.includes('paris') ? 320000 : 110000,
+      rmScore: dateStr === '2026-12-31' ? 99 : isPeakNYE ? 94 : 86,
+      demandLevel: isPeakNYE ? 'exceptionnel' : 'tres_fort',
+    };
+  }
+
+  // Période des Fêtes de Noël & Illuminations (19 déc → 25 déc)
+  if (dateStr >= '2026-12-19' && dateStr <= '2026-12-25') {
+    return {
+      eventTitle: `Fêtes de Noël & Marchés de Noël (${city})`,
+      eventCategory: 'periodes_saisonnieres_fetes',
+      expectedAttendance: cLower.includes('paris') ? 160000 : 65000,
+      rmScore: dateStr >= '2026-12-23' ? 85 : 79,
+      demandLevel: dateStr >= '2026-12-23' ? 'tres_fort' : 'eleve',
+    };
+  }
+
+  if (cLower.includes('lyon')) {
+    if (dateStr >= '2026-12-05' && dateStr <= '2026-12-08') {
+      return {
+        eventTitle: 'Fête des Lumières de Lyon 2026',
+        eventCategory: 'periodes_saisonnieres_fetes',
+        expectedAttendance: 2000000,
+        rmScore: 98,
+        demandLevel: 'exceptionnel',
+      };
+    }
+    if (dateStr >= '2027-01-21' && dateStr <= '2027-01-25') {
+      return {
+        eventTitle: 'SIRHA Lyon 2027 — Eurexpo',
+        eventCategory: 'salons_foires',
+        expectedAttendance: 210000,
+        rmScore: 95,
+        demandLevel: 'exceptionnel',
+      };
+    }
+  } else if (cLower.includes('marseille')) {
+    if (dateStr >= '2026-11-14' && dateStr <= '2026-11-15') {
+      return {
+        eventTitle: 'HeroFestival Marseille — Parc Chanot',
+        eventCategory: 'salons_foires',
+        expectedAttendance: 42000,
+        rmScore: 76,
+        demandLevel: 'eleve',
+      };
+    }
+    if (dateStr === '2026-11-29') {
+      return {
+        eventTitle: 'OM vs PSG — Orange Vélodrome',
+        eventCategory: 'sport',
+        expectedAttendance: 66000,
+        rmScore: 88,
+        demandLevel: 'tres_fort',
+      };
+    }
+  } else if (cLower.includes('lille')) {
+    if (dateStr >= '2026-11-18' && dateStr <= '2026-11-20') {
+      return {
+        eventTitle: 'Assises Européennes de la Cybersécurité — Lille Grand Palais',
+        eventCategory: 'corporate_sommet',
+        expectedAttendance: 16500,
+        rmScore: 86,
+        demandLevel: 'tres_fort',
+      };
+    }
+    if (dateStr === '2026-12-06') {
+      return {
+        eventTitle: 'LOSC vs RC Lens — Stade Pierre-Mauroy',
+        eventCategory: 'sport',
+        expectedAttendance: 50100,
+        rmScore: 80,
+        demandLevel: 'eleve',
+      };
+    }
+  } else if (cLower.includes('nice')) {
+    if (dateStr >= '2026-11-21' && dateStr <= '2026-11-22') {
+      return {
+        eventTitle: 'Marathon des Alpes-Maritimes Nice–Cannes',
+        eventCategory: 'sport',
+        expectedAttendance: 18000,
+        rmScore: 82,
+        demandLevel: 'eleve',
+      };
+    }
+  } else {
+    // Paris par défaut
+    if (dateStr >= '2026-11-12' && dateStr <= '2026-11-15') {
+      return { eventTitle: 'Paris Photo 2026 — Grand Palais', eventCategory: 'salons_foires', expectedAttendance: 68000, rmScore: 88, demandLevel: 'tres_fort' };
+    }
+    if (dateStr >= '2026-11-18' && dateStr <= '2026-11-20') {
+      return { eventTitle: 'Congrès National de Cardiologie & Recherche Médicale', eventCategory: 'congres_medical', expectedAttendance: 24000, rmScore: 85, demandLevel: 'eleve' };
+    }
+    if (dateStr >= '2026-11-23' && dateStr <= '2026-11-26') {
+      return { eventTitle: 'Salon des Maires et des Collectivités Locales 2026 (SMCL)', eventCategory: 'salons_foires', expectedAttendance: 60000, rmScore: 96, demandLevel: 'exceptionnel' };
+    }
+    if (dateStr >= '2026-11-27' && dateStr <= '2026-11-29') {
+      return { eventTitle: 'Illuminations & Shopping Grands Magasins', eventCategory: 'periodes_saisonnieres_fetes', expectedAttendance: 35000, rmScore: 76, demandLevel: 'eleve' };
+    }
+    if (dateStr >= '2026-12-05' && dateStr <= '2026-12-13') {
+      return { eventTitle: 'Salon Nautique International de Paris 2026', eventCategory: 'salons_foires', expectedAttendance: 140000, rmScore: 84, demandLevel: 'eleve' };
+    }
+    if (dateStr >= '2027-01-18' && dateStr <= '2027-01-24') {
+      return { eventTitle: 'Paris Fashion Week Homme AH27', eventCategory: 'mode_luxe', expectedAttendance: 32000, rmScore: 94, demandLevel: 'exceptionnel' };
+    }
+  }
+
+  return isWeekend
+    ? { rmScore: 72, demandLevel: 'eleve' }
+    : { rmScore: 58, demandLevel: 'modere' };
+}
+
+export function generateContinuous90DaysData(hotel?: Hotel): DailyRateIntelligence[] {
   const days: DailyRateIntelligence[] = [];
   const frenchDays = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
-  // Start 15 days before today (Oct 20, 2026) and go through Feb 8, 2027 (112 days continuous)
+  const hotelId = hotel?.id || 'hotel-opera';
+  const hotelCity = hotel?.city || 'Paris';
+  const hotelBaseAdr = hotel?.baseADR || 260;
+  const totalRooms = hotel?.roomCount || HOTEL_TOTAL_ROOMS;
+  const rmsConfig = hotel
+    ? getHotelRMSConfig(hotel)
+    : getHotelRMSConfig({
+        id: 'hotel-opera',
+        name: 'Grand Hôtel Folkestone Opéra (4★)',
+        group: 'Flowtym Hospitality Group',
+        city: 'Paris',
+        country: 'France',
+        address: '14 Rue de Castellane, 75008 Paris',
+        lat: 48.8722,
+        lng: 2.3245,
+        stars: 4,
+        roomCount: 45,
+        segment: 'Boutique',
+        baseADR: 260,
+      });
+
+  const activeCompsetProfiles: CompetitorProfileConfig[] = rmsConfig.compSet.filter((c) => c.isActive).slice(0, 10);
+
+  // Start 15 days before Oct 20 → 112 days continuous through Feb 8, 2027 (couvre Nov 2026, Déc 2026–1er Janv 2027, Janv 2027)
   const baseDate = new Date('2026-10-20T12:00:00Z');
   const totalDays = 112;
 
@@ -959,122 +1224,135 @@ export function generateContinuous90DaysData(): DailyRateIntelligence[] {
     const dayOfWeek = frenchDays[curDate.getUTCDay()];
     const isWeekend = curDate.getUTCDay() === 5 || curDate.getUTCDay() === 6;
 
-    let eventTitle: string | undefined;
-    let eventCategory: string | undefined;
-    let expectedAttendance: number | undefined;
-    let rmScore = 60;
-    let demandLevel: DailyRateIntelligence['demandLevel'] = 'modere';
-    let soldOutIndices: number[] = [];
+    const ctx = resolveDestinationEventContext(dateStr, hotelCity, isWeekend);
+    const { eventTitle, eventCategory, expectedAttendance, rmScore, demandLevel } = ctx;
 
-    // Calendrier Événements réels Paris 8e / Opéra
-    if (dateStr >= '2026-11-12' && dateStr <= '2026-11-15') {
-      eventTitle = 'Paris Photo 2026 — Grand Palais';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 68000;
-      rmScore = 88;
-      demandLevel = 'tres_fort';
-      soldOutIndices = [3]; // Indigo sold out
-    } else if (dateStr >= '2026-11-18' && dateStr <= '2026-11-20') {
-      eventTitle = 'Congrès National de Cardiologie & Recherche Médicale';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 24000;
-      rmScore = 85;
-      demandLevel = 'eleve';
-      soldOutIndices = [0]; // Saint-Pétersbourg sold out
-    } else if (dateStr >= '2026-11-23' && dateStr <= '2026-11-26') {
-      eventTitle = 'Salon des Maires et des Collectivités Locales 2026 (SMCL)';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 60000;
-      rmScore = 96;
-      demandLevel = 'exceptionnel';
-      soldOutIndices = dateStr === '2026-11-25' ? [0, 2, 3] : [0, 3];
-    } else if (dateStr >= '2026-11-27' && dateStr <= '2026-11-29') {
-      eventTitle = 'Illuminations de Noël & Shopping Grands Magasins';
-      eventCategory = 'culture_loisirs';
-      expectedAttendance = 35000;
-      rmScore = 76;
-      demandLevel = 'eleve';
-    } else if (dateStr >= '2026-12-05' && dateStr <= '2026-12-13') {
-      eventTitle = 'Salon Nautique International de Paris 2026';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 140000;
-      rmScore = 84;
-      demandLevel = 'eleve';
-      soldOutIndices = [3];
-    } else if (dateStr >= '2026-12-24' && dateStr <= '2026-12-28') {
-      eventTitle = 'Fêtes de Noël à Paris';
-      eventCategory = 'culture_loisirs';
-      expectedAttendance = 45000;
-      rmScore = 82;
-      demandLevel = 'eleve';
-    } else if (dateStr >= '2026-12-30' && dateStr <= '2027-01-02') {
-      eventTitle = 'Réveillon de la Saint-Sylvestre Paris 2026/2027';
-      eventCategory = 'culture_loisirs';
-      expectedAttendance = 120000;
-      rmScore = 99;
-      demandLevel = 'exceptionnel';
-      soldOutIndices = [0, 1, 2, 3];
-    } else if (dateStr >= '2027-01-18' && dateStr <= '2027-01-24') {
-      eventTitle = 'Paris Fashion Week Homme Automne/Hiver 2027';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 32000;
-      rmScore = 94;
-      demandLevel = 'exceptionnel';
-      soldOutIndices = [0, 3];
-    } else if (isWeekend) {
-      demandLevel = 'eleve';
-      rmScore = 72;
-    } else {
-      demandLevel = 'modere';
-      rmScore = 60;
-    }
+    // Tarif commercialisé actuel de l'hôtel ajusté selon son baseADR configuré
+    const demandBarRatio =
+      demandLevel === 'exceptionnel'
+        ? dateStr === '2026-12-31'
+          ? 1.24
+          : 1.08
+        : demandLevel === 'tres_fort'
+        ? 1.02
+        : demandLevel === 'eleve'
+        ? 0.96
+        : isWeekend
+        ? 0.98
+        : 0.89;
 
-    // Prix commercialisé actuel de l'hôtel (BAR)
-    let currentBar = 240;
-    if (demandLevel === 'exceptionnel') currentBar = dateStr.includes('12-31') ? 310 : 265;
-    else if (demandLevel === 'tres_fort') currentBar = 255;
-    else if (demandLevel === 'eleve') currentBar = 245;
-    else if (isWeekend) currentBar = 250;
-    else currentBar = 230;
+    let currentBar = Math.round((hotelBaseAdr * demandBarRatio) / 5) * 5;
+    currentBar = Math.max(rmsConfig.rmRules.barFloorEur, Math.min(rmsConfig.rmRules.barCeilingEur, currentBar));
 
-    // Tarifs concurrents simulés Lighthouse
-    const compBase = [
-      { name: 'Hôtel Saint-Pétersbourg Opéra', base: 310, stars: 4, roomType: 'Classique', comparable: true },
-      { name: 'Hôtel Charing Cross', base: 285, stars: 4, roomType: 'Supérieure', comparable: true },
-      { name: 'Hôtel Astra Opéra', base: 295, stars: 4, roomType: 'Standard', comparable: true },
-      { name: 'Hotel Indigo Paris-Opéra', base: 345, stars: 4, roomType: 'Deluxe', comparable: false, reason: 'Chambre Deluxe avec petit-déjeuner inclus (non-annulable)' },
-      { name: 'Hôtel Saint-Augustin Elysées', base: 260, stars: 3, roomType: 'Standard', comparable: true },
-    ];
+    const eventMultiplier =
+      demandLevel === 'exceptionnel' ? 1.36 : demandLevel === 'tres_fort' ? 1.24 : demandLevel === 'eleve' ? 1.13 : 1.0;
+    const weekendAdd = isWeekend ? Math.round(hotelBaseAdr * 0.08) : 0;
 
-    const eventMultiplier = demandLevel === 'exceptionnel' ? 1.38 : demandLevel === 'tres_fort' ? 1.25 : demandLevel === 'eleve' ? 1.15 : 1.0;
-    const weekendAdd = isWeekend ? 20 : 0;
+    // Simulation réaliste des concurrents (jusqu'à 10) avec états Épuisé / Restriction / Non disponible (rateEur = null)
+    const competitors: CompetitorRateInfo[] = activeCompsetProfiles.map((cb, idx) => {
+      const hash = (i * 7 + idx * 13) % 29;
+      const isSoldOut =
+        demandLevel === 'exceptionnel'
+          ? (dateStr === '2026-12-31' || dateStr === '2026-11-25' ? idx % 3 === 0 : idx === 0 || idx === 3 || (idx === 7 && hash % 2 === 0))
+          : demandLevel === 'tres_fort'
+          ? idx === 0 || (idx === 5 && hash < 10)
+          : demandLevel === 'eleve' && hash < 3;
 
-    const competitors: CompetitorRateInfo[] = compBase.map((cb, idx) => {
-      const isSoldOut = soldOutIndices.includes(idx);
-      const rate = Math.round((cb.base * eventMultiplier + weekendAdd + (idx % 3) * 5) / 5) * 5;
+      const isUnavailable = !isSoldOut && hash === 27 && idx >= 6;
+      const isRestrictedUnpriced = !isSoldOut && !isUnavailable && hash === 25 && idx % 4 === 1;
+      const hasLOS2Price = !isSoldOut && !isUnavailable && !isRestrictedUnpriced && isWeekend && idx % 5 === 2;
+
+      if (isSoldOut) {
+        return {
+          hotelName: cb.name,
+          rateEur: null,
+          isSoldOut: true,
+          availabilityStatus: 'epuise',
+          stars: cb.stars,
+          roomType: cb.defaultRoomType,
+          cancellationPolicy: cb.cancellationPolicy,
+          breakfastIncluded: cb.breakfastIncluded,
+          isFullyComparable: cb.isFullyComparable,
+          nonComparableReason: cb.nonComparableReason,
+          evolution1dEur: null,
+          evolution3dEur: null,
+          evolution7dEur: null,
+        };
+      }
+
+      if (isUnavailable) {
+        return {
+          hotelName: cb.name,
+          rateEur: null,
+          isSoldOut: false,
+          availabilityStatus: 'non_disponible',
+          stars: cb.stars,
+          roomType: cb.defaultRoomType,
+          cancellationPolicy: cb.cancellationPolicy,
+          breakfastIncluded: cb.breakfastIncluded,
+          isFullyComparable: cb.isFullyComparable,
+          nonComparableReason: cb.nonComparableReason,
+          evolution1dEur: null,
+          evolution3dEur: null,
+          evolution7dEur: null,
+        };
+      }
+
+      if (isRestrictedUnpriced) {
+        return {
+          hotelName: cb.name,
+          rateEur: null,
+          isSoldOut: false,
+          availabilityStatus: 'restriction',
+          restrictionLabel: 'Min Stay 3n (Fermé 1n)',
+          stars: cb.stars,
+          roomType: cb.defaultRoomType,
+          cancellationPolicy: cb.cancellationPolicy,
+          breakfastIncluded: cb.breakfastIncluded,
+          isFullyComparable: false,
+          nonComparableReason: 'Restriction LOS 3 nuits minimum — non comparable à 1 nuit',
+          evolution1dEur: null,
+          evolution3dEur: null,
+          evolution7dEur: null,
+        };
+      }
+
+      const rawRate = Math.round((cb.baseRateEur * eventMultiplier + weekendAdd + ((idx % 4) - 1) * 5) / 5) * 5;
+      const evo1d = demandLevel === 'exceptionnel' ? 20 : demandLevel === 'tres_fort' ? 10 : ((i + idx) % 6 === 0 ? -10 : (idx % 2 === 0 ? 5 : 0));
+      const evo3d = Math.round(evo1d * 1.8);
+      const evo7d = Math.round(evo1d * 3.1);
+
       return {
         hotelName: cb.name,
-        rateEur: isSoldOut ? rate + 40 : rate,
-        isSoldOut,
+        rateEur: rawRate,
+        isSoldOut: false,
+        availabilityStatus: hasLOS2Price ? 'restriction' : 'disponible',
+        restrictionLabel: hasLOS2Price ? 'LOS 2n appliqué' : undefined,
         stars: cb.stars,
-        roomType: cb.roomType,
-        isFullyComparable: cb.comparable,
-        nonComparableReason: cb.reason,
+        roomType: cb.defaultRoomType,
+        cancellationPolicy: cb.cancellationPolicy,
+        breakfastIncluded: cb.breakfastIncluded,
+        isFullyComparable: hasLOS2Price ? false : cb.isFullyComparable,
+        nonComparableReason: hasLOS2Price ? 'Tarif soumis à séjour minimum 2 nuits' : cb.nonComparableReason,
+        evolution1dEur: evo1d,
+        evolution3dEur: evo3d,
+        evolution7dEur: evo7d,
       };
     });
 
-    // 1. Indicateurs Lighthouse
+    // 1. Indicateurs Lighthouse (calculés sur les concurrents exploitables uniquement)
     const lighthouse = computeLighthouseIndicators(currentBar, competitors, isWeekend, demandLevel);
 
-    // 2. Disponibilités & Pickup D-EDGE
-    const roomsSold = Math.min(HOTEL_TOTAL_ROOMS, Math.round(28 + (rmScore / 100) * 15));
-    const remainingRooms = HOTEL_TOTAL_ROOMS - roomsSold;
-    const dedgePickup = computeDEdgePickup(remainingRooms, HOTEL_TOTAL_ROOMS, demandLevel, isWeekend);
+    // 2. Disponibilités & Pickup D-EDGE adaptés à la capacité réelle de l'hôtel
+    const occTargetRatio = Math.min(0.96, Math.max(0.45, 0.56 + (rmScore / 100) * 0.36));
+    const roomsSold = Math.min(totalRooms, Math.round(totalRooms * occTargetRatio));
+    const remainingRooms = Math.max(0, totalRooms - roomsSold);
+    const dedgePickup = computeDEdgePickup(remainingRooms, totalRooms, demandLevel, isWeekend);
 
     // 3. Réservations, CA, ADR & RevPAR D-EDGE
-    const dedgeReservations = computeDEdgeReservations(dateStr, currentBar, roomsSold, HOTEL_TOTAL_ROOMS, demandLevel, isWeekend);
+    const dedgeReservations = computeDEdgeReservations(dateStr, currentBar, roomsSold, totalRooms, demandLevel, isWeekend);
 
-    // 4. Moteur de Recommandation RM
+    // 4. Moteur de Recommandation RM piloté par la config de l'hôtel
     const rmRecommendation = computeRMEngineRecommendation(
       dateStr,
       currentBar,
@@ -1087,73 +1365,58 @@ export function generateContinuous90DaysData(): DailyRateIntelligence[] {
       demandLevel,
       isWeekend,
       rmScore,
-      lighthouse.soldOutCount
+      lighthouse.soldOutCount,
+      rmsConfig.rmRules,
+      lighthouse.exploitableCount
     );
 
-    // Détail des typologies de chambres de l'hôtel
-    const roomCategories: RoomCategoryDetail[] = [
-      {
-        category: 'classique',
-        name: 'Chambre Classique Double',
-        totalRooms: 23,
-        availableRooms: Math.round(remainingRooms * 0.52),
-        currentBarEur: currentBar,
-        suggestedBarEur: rmRecommendation.suggestedBarEur,
-        adrNetEur: dedgeReservations.adrNetEur,
-      },
-      {
-        category: 'superieure',
-        name: 'Chambre Supérieure',
-        totalRooms: 8,
-        availableRooms: Math.round(remainingRooms * 0.18),
-        currentBarEur: currentBar + 35,
-        suggestedBarEur: rmRecommendation.suggestedBarEur + 35,
-        adrNetEur: dedgeReservations.adrNetEur + 35,
-      },
-      {
-        category: 'deluxe_famille',
-        name: 'Chambre Deluxe / Familiale',
-        totalRooms: 14,
-        availableRooms: Math.round(remainingRooms * 0.30),
-        currentBarEur: currentBar + 75,
-        suggestedBarEur: rmRecommendation.suggestedBarEur + 75,
-        adrNetEur: dedgeReservations.adrNetEur + 75,
-      },
-    ];
+    // Typologies dynamiques de chambres depuis rmsSettingsService
+    const roomCategories: RoomCategoryDetail[] = rmsConfig.roomTypologies.slice(0, 3).map((typ) => ({
+      category: (typ.code === 'suite' ? 'deluxe_famille' : typ.code) as RoomCategory,
+      name: typ.name,
+      totalRooms: typ.totalRooms,
+      availableRooms: Math.round(remainingRooms * (typ.weightPercent / 100)),
+      currentBarEur: currentBar + typ.baseOffsetEur,
+      suggestedBarEur: rmRecommendation.suggestedBarEur + typ.baseOffsetEur,
+      adrNetEur: dedgeReservations.adrNetEur + typ.baseOffsetEur,
+    }));
 
     days.push({
-      id: `rate-${dateStr}`,
-      hotelId: 'hotel-opera',
+      id: `rate-${hotelId}-${dateStr}`,
+      hotelId,
       dateStr,
       dayOfWeek,
       isWeekend,
-      eventId: eventTitle ? `evt-${dateStr}` : undefined,
+      eventId: eventTitle ? `evt-${hotelId}-${dateStr}` : undefined,
       eventTitle,
       eventCategory,
       expectedAttendance,
       rmScore,
       demandLevel,
       currentBarEur: currentBar,
-      currentMinStay: isWeekend ? 2 : 1,
+      currentMinStay: isWeekend ? rmsConfig.rmRules.weekendMinStay : rmsConfig.rmRules.defaultMinStay,
       currentStopSell: false,
       lighthouse,
       compsetMinEur: lighthouse.compsetMinEur,
       compsetMedianEur: lighthouse.compsetMedianEur,
       compsetMaxEur: lighthouse.compsetMaxEur,
       compsetSoldOutCount: lighthouse.soldOutCount,
-      compsetTotalCount: 5,
+      compsetTotalCount: competitors.length,
       competitors,
-      rateIndexVsCompset: Math.round((currentBar / (lighthouse.compsetMedianEur || 1)) * 1000) / 10,
-      gapVsMedianEur: currentBar - lighthouse.compsetMedianEur,
-      sourceLighthouse: `Lighthouse Rate Insight API (Snapshot ${TODAY_DATE_STR})`,
+      rateIndexVsCompset:
+        lighthouse.hasExploitableCompset && lighthouse.compsetMedianEur > 0
+          ? Math.round((currentBar / lighthouse.compsetMedianEur) * 1000) / 10
+          : 100,
+      gapVsMedianEur: lighthouse.hasExploitableCompset ? currentBar - lighthouse.compsetMedianEur : 0,
+      sourceLighthouse: `Lighthouse Rate Insight API (${lighthouse.exploitableSummary})`,
       dedgePickup,
-      totalRooms: HOTEL_TOTAL_ROOMS,
+      totalRooms,
       remainingRooms,
       occupancyPercent: dedgePickup.occupancyPercent,
       roomsSoldOtb: roomsSold,
       pickup24h: dedgePickup.pickup1d,
       pickup7d: dedgePickup.pickup7d,
-      sourcePmsDedge: 'D-EDGE CRS + Opera Cloud PMS',
+      sourcePmsDedge: 'D-EDGE CRS + PMS Connecté',
       dedgeReservations,
       rmRecommendation,
       suggestedBarEur: rmRecommendation.suggestedBarEur,
@@ -1165,7 +1428,7 @@ export function generateContinuous90DaysData(): DailyRateIntelligence[] {
       confidenceScore: rmRecommendation.confidenceScore,
       justification: rmRecommendation.epistemologicalExplanation.recommandationAction,
       compressionAlert: lighthouse.soldOutCount >= 2 || demandLevel === 'exceptionnel',
-      underpricedAlert: currentBar < lighthouse.compsetMedianEur - 25,
+      underpricedAlert: lighthouse.hasExploitableCompset && currentBar < lighthouse.compsetMedianEur - 25,
       status: 'pending',
       roomCategories,
     });
@@ -1178,11 +1441,14 @@ export function generateContinuous90DaysData(): DailyRateIntelligence[] {
 // STOCKAGE LOCAL, VALIDATION HUMAINE & AUDIT TRAIL (Section 9)
 // -------------------------------------------------------------
 
-const STORAGE_PREFIX = 'flowtym_pricing_intelligence_v2_';
+const STORAGE_PREFIX = 'flowtym_pricing_intelligence_v3_';
 const AUDIT_STORAGE_KEY = 'flowtym_rm_decision_audit_log_v2';
 const RULES_STORAGE_KEY = 'flowtym_rm_learned_calibration_rules_v2';
 
-export function getRateIntelligenceRecords(hotelId: string = 'hotel-opera'): DailyRateIntelligence[] {
+export function getRateIntelligenceRecords(hotelOrId: string | Hotel = 'hotel-opera'): DailyRateIntelligence[] {
+  const hotelId = typeof hotelOrId === 'string' ? hotelOrId : hotelOrId.id;
+  const hotelObj = typeof hotelOrId === 'string' ? undefined : hotelOrId;
+
   try {
     const raw = localStorage.getItem(`${STORAGE_PREFIX}${hotelId}`);
     if (raw) {
@@ -1195,12 +1461,45 @@ export function getRateIntelligenceRecords(hotelId: string = 'hotel-opera'): Dai
     console.error('Failed to load rate intelligence records', e);
   }
 
-  const generated = generateContinuous90DaysData().map((item) => ({
+  const generated = generateContinuous90DaysData(hotelObj).map((item) => ({
     ...item,
     hotelId,
   }));
   saveRateIntelligenceRecords(hotelId, generated);
   return generated;
+}
+
+/**
+ * Recalcule la grille tarifaire d'un hôtel après modification des paramètres (CompSet, Plancher/Plafond, Chambres, Stratégie)
+ * tout en préservant les décisions déjà validées/modifiées/refusées par le Revenue Manager.
+ */
+export function recalculateHotelRateIntelligence(hotel: Hotel): DailyRateIntelligence[] {
+  const existing = getRateIntelligenceRecords(hotel);
+  const decisionsByDate = new Map(
+    existing
+      .filter((r) => r.status !== 'pending')
+      .map((r) => [r.dateStr, r])
+  );
+
+  const fresh = generateContinuous90DaysData(hotel).map((rec) => {
+    const prev = decisionsByDate.get(rec.dateStr);
+    if (!prev) return rec;
+    return {
+      ...rec,
+      status: prev.status,
+      appliedRateEur: prev.appliedRateEur,
+      appliedMinStay: prev.appliedMinStay,
+      currentBarEur: prev.currentBarEur,
+      currentMinStay: prev.currentMinStay,
+      decisionNote: prev.decisionNote,
+      decisionReasonCode: prev.decisionReasonCode,
+      lastDecisionAt: prev.lastDecisionAt,
+      decidedBy: prev.decidedBy,
+    };
+  });
+
+  saveRateIntelligenceRecords(hotel.id, fresh);
+  return fresh;
 }
 
 export function saveRateIntelligenceRecords(hotelId: string, records: DailyRateIntelligence[]): void {

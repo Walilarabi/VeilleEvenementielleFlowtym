@@ -110,19 +110,19 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-2xs animate-in fade-in">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+      <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 flex items-center justify-center">
               <Upload className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Importer un fichier Excel / CSV</h3>
-              <p className="text-[11px] text-slate-500">Ajoutez en bloc votre calendrier d&apos;événements d&apos;entreprise</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Importer un fichier Excel / CSV</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Ajoutez en bloc votre calendrier d&apos;événements d&apos;entreprise</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -143,18 +143,18 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
               if (file) handleSimulateFile(file.name);
             }}
             className={`border-2 border-dashed rounded-2xl p-6 text-center space-y-2 cursor-pointer transition-colors ${
-              dragActive ? 'border-violet-500 bg-violet-50/50' : 'border-slate-200 hover:border-violet-300 bg-slate-50/50'
+              dragActive ? 'border-violet-500 bg-violet-50/50 dark:bg-violet-950/35' : 'border-slate-200 dark:border-slate-800 hover:border-violet-300 dark:hover:border-violet-600/70 bg-slate-50/50 dark:bg-slate-800/40'
             }`}
             onClick={() => handleSimulateFile('flowtym_events_import_2026.xlsx')}
           >
-            <div className="w-12 h-12 rounded-2xl bg-white shadow-xs border border-slate-100 flex items-center justify-center text-violet-600 mx-auto">
+            <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-900 shadow-xs border border-slate-100 dark:border-slate-800/80 flex items-center justify-center text-violet-600 dark:text-violet-400 mx-auto">
               <FileSpreadsheet className="w-6 h-6" />
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-800">
+              <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 {selectedFileName || 'Glissez-déposez votre fichier .xlsx ou .csv ici'}
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                 Ou cliquez pour sélectionner un fichier test compatible Flowtym
               </p>
             </div>
@@ -162,26 +162,26 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
 
           {/* Parsed Preview info */}
           {selectedFileName && (
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-800 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-violet-600" />
-                <span className="font-semibold text-slate-800">{selectedFileName}</span>
+                <FileSpreadsheet className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedFileName}</span>
               </div>
-              <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/70">
                 {parsedPreviewCount} événements valides
               </span>
             </div>
           )}
 
           {isSuccess && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-800 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 rounded-xl text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Événements importés avec succès !</span>
             </div>
           )}
 
           {/* Footer actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
             <button
               type="button"
               onClick={() => {
@@ -194,14 +194,14 @@ export const ImportExcelModal: React.FC<ImportExcelModalProps> = ({
                   downloadGenericCsv('modele_import_evenements_flowtym.csv', headers, rows);
                 });
               }}
-              className="text-xs font-bold text-violet-700 hover:text-violet-800 hover:underline flex items-center gap-1 cursor-pointer"
+              className="text-xs font-bold text-violet-700 dark:text-violet-300 hover:text-violet-800 dark:hover:text-violet-200 hover:underline flex items-center gap-1 cursor-pointer"
             >
               <span>Télécharger le modèle (.CSV)</span>
             </button>
             <div className="flex justify-end gap-2">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
               >
                 Annuler
               </button>

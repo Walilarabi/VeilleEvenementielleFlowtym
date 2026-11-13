@@ -57,30 +57,30 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-violet-600 flex items-center justify-center text-white shadow-xs">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                 Event Intelligence & Analyses Prédictives
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Détection de récurrences, saturation de destination et simulateur RevPAR Recharts
               </p>
             </div>
           </div>
 
           {/* Sub-tabs */}
-          <div className="flex flex-wrap items-center bg-slate-100 p-1 rounded-xl border border-slate-200/70 gap-1">
+          <div className="flex flex-wrap items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800/70 gap-1">
             <button
               onClick={() => setActiveAnalysisTab('compression')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeAnalysisTab === 'compression'
                   ? 'bg-violet-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               Compression & Marché
@@ -90,7 +90,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeAnalysisTab === 'revpar_simulator'
                   ? 'bg-violet-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
@@ -101,7 +101,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeAnalysisTab === 'recurrences'
                   ? 'bg-violet-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               Matrice de Récurrence
@@ -111,7 +111,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeAnalysisTab === 'pricing_rules'
                   ? 'bg-violet-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
               }`}
             >
               Règles Tarifaires RM
@@ -150,7 +150,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
             </div>
             <button
               onClick={() => setActiveAnalysisTab('revpar_simulator')}
-              className="px-4 py-2 bg-white text-violet-950 hover:bg-violet-50 text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-2 bg-white dark:bg-slate-900 text-violet-950 dark:text-violet-100 hover:bg-violet-50 dark:hover:bg-violet-950/50 text-xs font-bold rounded-xl transition-all shadow-xs shrink-0 cursor-pointer flex items-center gap-1.5"
             >
               <span>Lancer la projection RevPAR</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -158,24 +158,24 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
           </div>
 
           {/* Market Collision Warning */}
-          <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-5 flex items-start gap-3.5">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="bg-amber-50/80 dark:bg-amber-950/45 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-5 flex items-start gap-3.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <h4 className="text-sm font-bold text-amber-900">
+              <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
                 Pic Critique de Demande : Semaine 42 (12 au 21 Octobre 2026)
               </h4>
-              <p className="text-xs text-amber-800 leading-relaxed">
+              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
                 Superposition du <strong>Mondial de l&apos;Automobile</strong> (Porte de Versailles) et du <strong>SIAL Paris</strong> (Villepinte), combinée aux concerts consécutifs de Céline Dion. Taux d&apos;occupation prévisionnel ville &gt; 94%.
               </p>
             </div>
           </div>
 
           {/* Visual Compression Timeline by day */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
               Indice de Saturation de la Destination (Octobre 2026)
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Pression sur les capacités hôtelières de Paris et première couronne
             </p>
 
@@ -193,48 +193,48 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
                 { date: '30-31 Oct', label: 'Games Week', value: 78, color: 'bg-amber-500', alert: 'Fort' },
                 { date: '31 Oct+', label: 'Rolex Masters', value: 88, color: 'bg-purple-600', alert: 'Critique' },
               ].map((item, idx) => (
-                <div key={idx} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 text-center flex flex-col justify-between h-32">
+                <div key={idx} className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-800/70 text-center flex flex-col justify-between h-32">
                   <div className="text-[10px] font-bold text-slate-400">{item.date}</div>
                   <div className="my-auto">
-                    <div className="text-sm font-black text-slate-900 tabular-nums">{item.value}%</div>
-                    <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1 overflow-hidden">
+                    <div className="text-sm font-black text-slate-900 dark:text-slate-100 tabular-nums">{item.value}%</div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
                       <div className={`${item.color} h-1.5 rounded-full`} style={{ width: `${item.value}%` }} />
                     </div>
                   </div>
-                  <div className="text-[10px] font-semibold text-slate-600 truncate">{item.alert}</div>
+                  <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-400 truncate">{item.alert}</div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Major High Pressure Events List */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
               Événements à Saturation Maximale
             </h3>
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
               {highPressureEvents.map((ev) => (
                 <div
                   key={ev.id}
                   onClick={() => onSelectEvent(ev)}
-                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/80 px-2 rounded-xl transition-colors cursor-pointer"
+                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/80 dark:hover:bg-slate-800/70 px-2 rounded-xl transition-colors cursor-pointer"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">{ev.title}</span>
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{ev.title}</span>
                       <span className="text-[10px] font-semibold text-slate-400">· {ev.city}</span>
                     </div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
                       {formatEventDateRange(ev.startDate, ev.endDate)} · {ev.venueName} ({ev.expectedAttendance.toLocaleString('fr-FR')} pax)
                     </div>
                   </div>
 
                   <div className="flex items-center gap-4 shrink-0">
                     <div className="text-right">
-                      <div className="text-sm font-black text-slate-900 tabular-nums">
+                      <div className="text-sm font-black text-slate-900 dark:text-slate-100 tabular-nums">
                         Score {ev.scoreBreakdown.finalRMScore}/100
                       </div>
-                      <div className="text-[10px] text-emerald-600 font-semibold">
+                      <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
                         ADR +{ev.hotelImpacts[currentHotel.id]?.estimatedADRBoostPercent || 35}% estimé
                       </div>
                     </div>
@@ -252,13 +252,13 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
       {/* Tab 2: Recurrences Matrix */}
       {activeAnalysisTab === 'recurrences' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                   Événements Récurrents & Détection des Décalages de Dates
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Surveillance des salons annuels et biennaux pour ajuster les budgets N-1 vs N
                 </p>
               </div>
@@ -266,12 +266,12 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
                 {pendingProposalsCount > 0 && onOpenProposals && (
                   <button
                     onClick={onOpenProposals}
-                    className="text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-3 py-1 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    className="text-xs font-bold text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700/70 px-3 py-1 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
                   >
                     <span>Valider les propositions ({pendingProposalsCount})</span>
                   </button>
                 )}
-                <span className="text-xs font-bold text-violet-700 bg-violet-50 px-3 py-1 rounded-xl border border-violet-200">
+                <span className="text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 px-3 py-1 rounded-xl border border-violet-200 dark:border-violet-800/70">
                   {recurrentEvents.length} événements récurrents trackés
                 </span>
               </div>
@@ -279,7 +279,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
                   <tr>
                     <th className="py-3 px-4">Événement</th>
                     <th className="py-3 px-4">Fréquence</th>
@@ -289,14 +289,14 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
                     <th className="py-3 px-4 text-center">Score RM</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-slate-700 dark:text-slate-300">
                   {recurrentEvents.map((ev) => (
                     <tr
                       key={ev.id}
                       onClick={() => onSelectEvent(ev)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors cursor-pointer"
                     >
-                      <td className="py-3 px-4 font-semibold text-slate-900">{ev.title}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">{ev.title}</td>
                       <td className="py-3 px-4 capitalize">
                         {ev.recurrenceFrequency === 'biennial' ? 'Biennal (1 an sur 2)' : 'Annuel'}
                       </td>
@@ -305,21 +305,21 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
                       </td>
                       <td className="py-3 px-4">
                         {ev.status === 'confirmed' ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-medium">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             Dates officielles confirmées
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-amber-700 font-medium">
-                            <Repeat className="w-3.5 h-3.5 text-amber-600" />
+                          <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 font-medium">
+                            <Repeat className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                             Date estimée par IA
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-slate-500">
+                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
                         {ev.historicalGrowth || '+5% affluence moyenne'}
                       </td>
-                      <td className="py-3 px-4 text-center font-bold text-slate-900 tabular-nums">
+                      <td className="py-3 px-4 text-center font-bold text-slate-900 dark:text-slate-100 tabular-nums">
                         {ev.scoreBreakdown.finalRMScore}
                       </td>
                     </tr>
@@ -334,37 +334,37 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
       {/* Tab 3: Pricing Rules & Yield Suggestions */}
       {activeAnalysisTab === 'pricing_rules' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold text-slate-900">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
               Recommandations Tarifaires & Contrôles de Séjour
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Actions suggérées pour optimiser le RevPAR sans brader les nuits de haute compression
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/50 space-y-2">
-                <div className="flex items-center gap-2 text-rose-800 font-bold text-xs uppercase tracking-wider">
-                  <Zap className="w-4 h-4 text-rose-600" />
+              <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-800/70 bg-rose-50/50 dark:bg-rose-950/35 space-y-2">
+                <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300 font-bold text-xs uppercase tracking-wider">
+                  <Zap className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                   <span>Règle 1 : Stop-Sell OTA & Distribution Tiers</span>
                 </div>
-                <p className="text-xs text-rose-900 leading-relaxed font-medium">
+                <p className="text-xs text-rose-900 dark:text-rose-200 leading-relaxed font-medium">
                   Pour tout événement avec Score RM &gt; 85 (Mondial Auto, SIAL Paris), fermer les promotions Booking/Expedia 90 jours à l&apos;avance et n&apos;ouvrir que le tarif direct flex ou non-remboursable.
                 </p>
-                <div className="text-[11px] text-rose-700 font-semibold pt-1">
+                <div className="text-[11px] text-rose-700 dark:text-rose-300 font-semibold pt-1">
                   Établissements concernés : {currentHotel.name} (Paris)
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl border border-violet-200 bg-violet-50/50 space-y-2">
-                <div className="flex items-center gap-2 text-violet-800 font-bold text-xs uppercase tracking-wider">
-                  <TrendingUp className="w-4 h-4 text-violet-600" />
+              <div className="p-4 rounded-xl border border-violet-200 dark:border-violet-800/70 bg-violet-50/50 dark:bg-violet-950/35 space-y-2">
+                <div className="flex items-center gap-2 text-violet-800 dark:text-violet-300 font-bold text-xs uppercase tracking-wider">
+                  <TrendingUp className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   <span>Règle 2 : Minimum Length of Stay (MLOS 2-3 nuits)</span>
                 </div>
-                <p className="text-xs text-violet-900 leading-relaxed font-medium">
+                <p className="text-xs text-violet-900 dark:text-violet-200 leading-relaxed font-medium">
                   Interdire les réservations d&apos;une seule nuit isolée le mardi/mercredi lors des salons professionnels majeurs pour éviter de créer des nuits orphelines.
                 </p>
-                <div className="text-[11px] text-violet-700 font-semibold pt-1">
+                <div className="text-[11px] text-violet-700 dark:text-violet-300 font-semibold pt-1">
                   Gain de taux d&apos;occupation moyen estimé : +12.4%
                 </div>
               </div>

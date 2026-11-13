@@ -12,7 +12,7 @@
  * 5. vs. 7 jours
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   TrendingUp,
   Download,
@@ -72,9 +72,11 @@ import {
   LighthouseAIRecoveryAlert,
 } from '../../services/lighthouseAnalysisEngine';
 import { Hotel } from '../../types';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface LighthouseCompetitiveIntelligenceViewProps {
   hotel?: Hotel;
+  configVersion?: number;
   onShowToast: (msg: string) => void;
   onApplyRecommendationToRMS?: (dateStr: string, rate: number, reason: string) => void;
 }
@@ -91,13 +93,25 @@ export type LighthouseSortOption =
 
 export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetitiveIntelligenceViewProps> = ({
   hotel,
+  configVersion = 0,
   onShowToast,
   onApplyRecommendationToRMS,
 }) => {
-  // Extraction Dataset State (initialized with authentic 60-day dataset matching Folkestone Opéra)
-  const [dataset, setDataset] = useState<LighthouseExtractionDataset>(() => createDefaultLighthouseDataset());
-  const [extractionsHistory, setExtractionsHistory] = useState<LighthouseExtractionDataset[]>([dataset]);
+  const { chartTokens, isDark } = useTheme();
+  // Extraction Dataset State (synchronized dynamically with selected hotel & up to 10 competitors)
+  const [dataset, setDataset] = useState<LighthouseExtractionDataset>(() => createDefaultLighthouseDataset(hotel));
+  const [extractionsHistory, setExtractionsHistory] = useState<LighthouseExtractionDataset[]>(() => [dataset]);
   const [selectedExtractionId, setSelectedExtractionId] = useState<string>(dataset.metadata.id);
+
+  useEffect(() => {
+    setDataset((prev) => {
+      if (prev.metadata.isCustomUpload) return prev;
+      const refreshed = createDefaultLighthouseDataset(hotel);
+      setExtractionsHistory((hist) => [refreshed, ...hist.filter((x) => x.metadata.isCustomUpload)]);
+      setSelectedExtractionId(refreshed.metadata.id);
+      return refreshed;
+    });
+  }, [hotel, configVersion]);
 
   // Flowtym Configurable Demand Thresholds
   const [thresholds, setThresholds] = useState<MarketDemandThresholds>(DEFAULT_DEMAND_THRESHOLDS);
@@ -268,6 +282,28 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
     const totalDrops1d = dataset.records.reduce((acc, r) => acc + r.decreasedCount1d, 0);
     const totalStables1d = dataset.records.reduce((acc, r) => acc + r.stableCount1d, 0);
 
+    const validMins = dataset.records.map((r) => r.minCompRate).filter((v): v is number => v !== null);
+    const validMaxs = dataset.records.map((r) => r.maxCompRate).filter((v): v is number => v !== null);
+    const avgMinRate = validMins.length > 0 ? Math.round(validMins.reduce((a, b) => a + b, 0) / validMins.length) : null;
+    const avgMaxRate = validMaxs.length > 0 ? Math.round(validMaxs.reduce((a, b) => a + b, 0) / validMaxs.length) : null;
+
+    const rankedRows = dataset.records.filter((r) => r.folkestone.rank !== null);
+    const avgRank =
+      rankedRows.length > 0
+        ? (rankedRows.reduce((acc, r) => acc + (r.folkestone.rank as number), 0) / rankedRows.length).toFixed(1)
+        : '—';
+    const avgTotalAvail =
+      rankedRows.length > 0
+        ? Math.round(rankedRows.reduce((acc, r) => acc + r.totalAvailableHotels, 0) / rankedRows.length)
+        : 0;
+
+    let topIncrease7d = null as { hotelName: string; amount: number } | null;
+    for (const r of dataset.records) {
+      if (r.maxIncrease7d && (!topIncrease7d || r.maxIncrease7d.amount > topIncrease7d.amount)) {
+        topIncrease7d = r.maxIncrease7d;
+      }
+    }
+
     return {
       avgDemand,
       avgFolkestone,
@@ -280,6 +316,11 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
       totalHikes1d,
       totalDrops1d,
       totalStables1d,
+      avgMinRate,
+      avgMaxRate,
+      avgRank,
+      avgTotalAvail,
+      topIncrease7d,
     };
   }, [dataset.records]);
 
@@ -311,8 +352,8 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner: Parameters, File Metadata & Actions */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <span className="w-9 h-9 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-2xs">
@@ -320,14 +361,14 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               </span>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-black tracking-tight text-slate-900">
+                  <h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-slate-100">
                     Lighthouse Rate Insight — Veille Concurrentielle & Demande Marché
                   </h2>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-100 text-violet-800 border border-violet-200">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70">
                     5 Onglets Intégrés
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Exploitation analytique de l’export <strong>folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx</strong> · Tarifs BAR, évolutions J-1/J-3/J-7 & médianes compset
                 </p>
               </div>
@@ -341,7 +382,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               <select
                 value={selectedExtractionId}
                 onChange={(e) => handleSelectExtraction(e.target.value)}
-                className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 pr-7 focus:outline-hidden cursor-pointer"
+                className="bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 pr-7 focus:outline-hidden cursor-pointer"
                 title="Basculer entre les extractions Lighthouse importées"
               >
                 {extractionsHistory.map((ext) => (
@@ -356,10 +397,10 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             <button
               type="button"
               onClick={() => setIsThresholdModalOpen(true)}
-              className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Configurer les seuils d'analyse de la demande Flowtym (Faible, Modérée, Forte, Très forte)"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-violet-600" />
+              <SlidersHorizontal className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
               <span>Seuils Flowtym</span>
             </button>
 
@@ -367,10 +408,10 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             <button
               type="button"
               onClick={handleDownloadXLSX}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+              className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
               title="Télécharger l'export Excel original complet à 5 onglets"
             >
-              <Download className="w-3.5 h-3.5 text-slate-600" />
+              <Download className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
               <span>Télécharger .XLSX</span>
             </button>
 
@@ -392,43 +433,45 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
         {/* Search Parameters Strip matching Lighthouse export */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Hôtel Référence</span>
-            <strong className="text-violet-700 font-bold truncate block">{dataset.metadata.referenceHotel}</strong>
+            <strong className="text-violet-700 dark:text-violet-300 font-bold truncate block">{dataset.metadata.referenceHotel}</strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Source de Veille</span>
-            <strong className="text-slate-800 font-bold block">{dataset.metadata.sourceChannel}</strong>
+            <strong className="text-slate-800 dark:text-slate-200 font-bold block">{dataset.metadata.sourceChannel}</strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Devise / Séjour</span>
-            <strong className="text-slate-800 font-bold block">{dataset.metadata.currency} · {dataset.metadata.los}</strong>
+            <strong className="text-slate-800 dark:text-slate-200 font-bold block">{dataset.metadata.currency} · {dataset.metadata.los}</strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Occupation</span>
-            <strong className="text-slate-800 font-bold block">{dataset.metadata.occupancy}</strong>
+            <strong className="text-slate-800 dark:text-slate-200 font-bold block">{dataset.metadata.occupancy}</strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Compset de Référence</span>
-            <strong className="text-slate-800 font-bold block">{dataset.metadata.compsetName} (5 hôtels)</strong>
+            <strong className="text-slate-800 dark:text-slate-200 font-bold block tabular-nums">
+              {dataset.metadata.compsetName} ({dataset.records[0]?.competitors.length ?? 0} hôtels)
+            </strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Horizon Analysé</span>
-            <strong className="text-slate-800 font-bold block">{dataset.metadata.totalDatesCount} dates</strong>
+            <strong className="text-slate-800 dark:text-slate-200 font-bold block tabular-nums">{dataset.metadata.totalDatesCount} dates</strong>
           </div>
         </div>
       </div>
 
       {/* Sub-Tabs: Navigation between Views */}
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
         <div className="flex items-center gap-1.5 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveSubTab('table_compset')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 ${
               activeSubTab === 'table_compset'
                 ? 'bg-violet-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -438,14 +481,14 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
           <button
             type="button"
             onClick={() => setActiveSubTab('positioning')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 ${
               activeSubTab === 'positioning'
                 ? 'bg-violet-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80'
             }`}
           >
             <Building2 className="w-3.5 h-3.5" />
-            <span>2. Positionnement Folkestone vs. Médianes</span>
+            <span>2. Positionnement {dataset.metadata.referenceHotel} vs. Médianes</span>
           </button>
 
           <button
@@ -454,7 +497,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
               activeSubTab === 'dashboard'
                 ? 'bg-violet-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80'
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -467,7 +510,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 relative ${
               activeSubTab === 'ai_recommendations'
                 ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70 hover:bg-amber-100 dark:hover:bg-amber-900/50'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -487,7 +530,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
       {activeSubTab === 'table_compset' && (
         <div className="space-y-4">
           {/* Controls & Filter Bar */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-[280px]">
               <div className="relative flex-1 max-w-md">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -496,7 +539,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   placeholder="Filtrer par date (ex: 2026-11-25) ou concurrent..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-violet-400"
+                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-hidden focus:border-violet-400"
                 />
               </div>
 
@@ -504,7 +547,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               <select
                 value={demandFilter}
                 onChange={(e) => setDemandFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 cursor-pointer"
+                className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer"
               >
                 <option value="all">Toutes demandes</option>
                 <option value="faible">Faible (Vert)</option>
@@ -516,11 +559,11 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
             {/* Sorting */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Trier par :</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Trier par :</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as LighthouseSortOption)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 cursor-pointer"
+                className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
               >
                 <option value="date_asc">Date chronologique</option>
                 <option value="price_asc">Du moins cher au plus cher</option>
@@ -534,22 +577,22 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
           </div>
 
           {/* Quick Legend for Color Coding */}
-          <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 bg-slate-50/80 px-4 py-2 rounded-xl border border-slate-200/60">
+          <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50/80 dark:bg-slate-800/60 px-4 py-2 rounded-xl border border-slate-200/60 dark:border-slate-800/70">
             <div className="flex items-center gap-4">
-              <span className="font-bold text-slate-700">Code Couleur Évolutions :</span>
-              <span className="flex items-center gap-1 text-emerald-700 font-semibold">
+              <span className="font-bold text-slate-700 dark:text-slate-300">Code Couleur Évolutions :</span>
+              <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 Hausse des prix (+X€)
               </span>
-              <span className="flex items-center gap-1 text-rose-700 font-semibold">
+              <span className="flex items-center gap-1 text-rose-700 dark:text-rose-300 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-rose-500" />
                 Baisse des prix (-X€)
               </span>
-              <span className="flex items-center gap-1 text-slate-500 font-semibold">
+              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-slate-400" />
                 Stabilité (0€)
               </span>
-              <span className="flex items-center gap-1 text-amber-700 font-semibold">
+              <span className="flex items-center gap-1 text-amber-700 dark:text-amber-300 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
                 Statut spécifique (Épuisé / LOS2 / 1 pax)
               </span>
@@ -561,32 +604,32 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
           </div>
 
           {/* Table Container */}
-          <div className="overflow-x-auto bg-white rounded-3xl border border-slate-200/90 shadow-2xs">
+          <div className="overflow-x-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
-                  <th className="py-3 px-3.5 sticky left-0 bg-slate-50 z-10 w-32">Date & Jour</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-3.5 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10 w-32">Date & Jour</th>
                   <th className="py-3 px-3 text-center w-28">Demande Marché</th>
-                  <th className="py-3 px-3.5 bg-violet-50/90 text-violet-900 border-x border-violet-200 text-center w-48">
-                    Folkestone Opéra ★ (Réf)
+                  <th className="py-3 px-3.5 bg-violet-50/90 dark:bg-violet-950/45 text-violet-900 dark:text-violet-200 border-x border-violet-200 dark:border-violet-800/70 text-center w-48">
+                    {dataset.metadata.referenceHotel} (Réf)
                   </th>
                   {dataset.records[0]?.competitors.map((comp) => (
-                    <th key={comp.id} className="py-3 px-3 text-center min-w-[170px]">
+                    <th key={comp.id} className="py-3 px-3 text-center min-w-[165px]">
                       {comp.name}
                     </th>
                   ))}
                   <th className="py-3 px-3 text-center w-24">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {filteredRecords.map((record) => {
                   const demColor = getDemandColor(record.demandLevel);
                   return (
-                    <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={record.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/70 transition-colors">
                       {/* Date & Jour */}
-                      <td className="py-3 px-3.5 font-medium text-slate-800 sticky left-0 bg-white hover:bg-slate-50 z-10 whitespace-nowrap border-r border-slate-100">
-                        <div className="font-bold text-slate-900">{record.dateStr}</div>
-                        <div className="text-[10px] text-slate-500">{record.dayOfWeek}</div>
+                      <td className="py-3 px-3.5 font-medium text-slate-800 dark:text-slate-200 sticky left-0 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 z-10 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/80">
+                        <div className="font-bold text-slate-900 dark:text-slate-100">{record.dateStr}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400">{record.dayOfWeek}</div>
                       </td>
 
                       {/* Demande du Marché (Indice + Qualitatif + Évolutions) */}
@@ -601,16 +644,16 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                           </span>
                         </div>
                         {record.demandEvolution1d !== null && record.demandEvolution1d !== 0 && (
-                          <div className={`text-[10px] font-bold mt-0.5 ${record.demandEvolution1d > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          <div className={`text-[10px] font-bold mt-0.5 ${record.demandEvolution1d > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                             {record.demandEvolution1d > 0 ? `+${record.demandEvolution1d}` : record.demandEvolution1d} vs J-1
                           </div>
                         )}
                       </td>
 
                       {/* Folkestone Opéra (Hôtel de référence avec surbrillance) */}
-                      <td className="py-3 px-3.5 bg-violet-50/40 border-x border-violet-200 text-center whitespace-nowrap">
+                      <td className="py-3 px-3.5 bg-violet-50/40 dark:bg-violet-950/30 border-x border-violet-200 dark:border-violet-800/70 text-center whitespace-nowrap">
                         <div className="space-y-1">
-                          <div className="font-black text-sm text-violet-950">
+                          <div className="font-black text-sm text-violet-950 dark:text-violet-100">
                             {record.folkestone.rate !== null ? `${record.folkestone.rate} €` : record.folkestone.statusLabel}
                           </div>
                           {/* Évolutions 1d / 3d / 7d */}
@@ -630,12 +673,12 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                         <td key={comp.id} className="py-3 px-3 text-center whitespace-nowrap">
                           <div className="space-y-1">
                             {comp.status === 'disponible' && comp.rate !== null ? (
-                              <div className="font-bold text-xs text-slate-900">
+                              <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
                                 {comp.rate} €
                                 {comp.gapVsFolkestoneEur !== null && comp.gapVsFolkestoneEur !== 0 && (
                                   <span
                                     className={`ml-1 text-[10px] font-medium ${
-                                      comp.gapVsFolkestoneEur > 0 ? 'text-emerald-600' : 'text-rose-600'
+                                      comp.gapVsFolkestoneEur > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                                     }`}
                                   >
                                     ({comp.gapVsFolkestoneEur > 0 ? `+${comp.gapVsFolkestoneEur}` : comp.gapVsFolkestoneEur}€)
@@ -646,8 +689,8 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                                   comp.status === 'epuise'
-                                    ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70'
+                                    : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70'
                                 }`}
                               >
                                 {comp.statusLabel}
@@ -669,7 +712,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                         <button
                           type="button"
                           onClick={() => setInspectedRecord(record)}
-                          className="px-2.5 py-1 text-slate-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                          className="px-2.5 py-1 text-slate-600 dark:text-slate-400 hover:text-violet-700 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/50 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                         >
                           Détails →
                         </button>
@@ -686,45 +729,45 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
       {/* VIEW 2: POSITIONNEMENT FOLKESTONE OPÉRA VS. MÉDIANES (SECTION 5) */}
       {activeSubTab === 'positioning' && (
         <div className="space-y-4">
-          <div className="bg-amber-50/60 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 text-xs text-amber-900">
-            <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="bg-amber-50/60 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 p-4 rounded-2xl flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
+            <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <strong>Distinction Essentielle entre les Deux Médianes :</strong>
-              <p className="text-[11px] leading-relaxed text-amber-800">
+              <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
                 1. <strong>Médiane Lighthouse (Officielle)</strong> : Valeur fournie directement dans l’onglet Aperçu de Lighthouse.<br />
-                2. <strong>Médiane recalculée par Flowtym</strong> : Calculée avec rigueur en excluant Folkestone Opéra, les hôtels indisponibles ou épuisés, et les valeurs non numériques.
+                2. <strong>Médiane recalculée par Flowtym</strong> : Calculée avec rigueur en excluant {dataset.metadata.referenceHotel}, les hôtels indisponibles ou épuisés, et les valeurs non numériques.
               </p>
             </div>
           </div>
 
           {/* Table Container */}
-          <div className="overflow-x-auto bg-white rounded-3xl border border-slate-200/90 shadow-2xs">
+          <div className="overflow-x-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
-                  <th className="py-3 px-3.5 sticky left-0 bg-slate-50 z-10">Date & Jour</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-3.5 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">Date & Jour</th>
                   <th className="py-3 px-3 text-center">Demande</th>
-                  <th className="py-3 px-3 text-center bg-violet-50 text-violet-900">Folkestone Opéra</th>
+                  <th className="py-3 px-3 text-center bg-violet-50 dark:bg-violet-950/40 text-violet-900 dark:text-violet-200">{dataset.metadata.referenceHotel}</th>
                   <th className="py-3 px-3 text-center">Médiane Lighthouse (Off.)</th>
-                  <th className="py-3 px-3 text-center font-black text-indigo-900 bg-indigo-50/60">
+                  <th className="py-3 px-3 text-center font-black text-indigo-900 dark:text-indigo-200 bg-indigo-50/60 dark:bg-indigo-950/40">
                     Médiane Flowtym (Recalc.)
                   </th>
                   <th className="py-3 px-3 text-center">Écart Médianes</th>
-                  <th className="py-3 px-3 text-center">Écart Folkestone vs. Médiane</th>
+                  <th className="py-3 px-3 text-center">Écart vs. Médiane</th>
                   <th className="py-3 px-3 text-center">Fourchette Compset (Min — Max)</th>
                   <th className="py-3 px-3 text-center">Disponibilité</th>
                   <th className="py-3 px-3 text-center">Rang</th>
                   <th className="py-3 px-3 text-center">Positionnement</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {filteredRecords.map((record) => {
                   const demColor = getDemandColor(record.demandLevel);
                   return (
-                    <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3.5 font-bold text-slate-900 sticky left-0 bg-white hover:bg-slate-50 z-10 whitespace-nowrap border-r border-slate-100">
+                    <tr key={record.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/70 transition-colors">
+                      <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-slate-100 sticky left-0 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 z-10 whitespace-nowrap border-r border-slate-100 dark:border-slate-800/80">
                         <div>{record.dateStr}</div>
-                        <span className="text-[10px] font-normal text-slate-500">{record.dayOfWeek}</span>
+                        <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">{record.dayOfWeek}</span>
                       </td>
 
                       {/* Demande */}
@@ -735,17 +778,17 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                       </td>
 
                       {/* Folkestone */}
-                      <td className="py-3 px-3 text-center bg-violet-50/50 font-black text-violet-950 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center bg-violet-50/50 dark:bg-violet-950/35 font-black text-violet-950 dark:text-violet-100 whitespace-nowrap">
                         {record.folkestone.rate !== null ? `${record.folkestone.rate} €` : record.folkestone.statusLabel}
                       </td>
 
                       {/* Médiane Lighthouse */}
-                      <td className="py-3 px-3 text-center font-bold text-slate-700 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {record.lighthouseMedianEur} €
                       </td>
 
                       {/* Médiane Recalculée Flowtym */}
-                      <td className="py-3 px-3 text-center font-black text-indigo-900 bg-indigo-50/40 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center font-black text-indigo-900 dark:text-indigo-200 bg-indigo-50/40 dark:bg-indigo-950/30 whitespace-nowrap">
                         {record.flowtymMedianEur} €
                       </td>
 
@@ -756,8 +799,8 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                             record.medianGapEur === 0
                               ? 'text-slate-400'
                               : record.medianGapEur > 0
-                              ? 'text-indigo-600'
-                              : 'text-amber-600'
+                              ? 'text-indigo-600 dark:text-indigo-400'
+                              : 'text-amber-600 dark:text-amber-400'
                           }`}
                         >
                           {record.medianGapEur > 0 ? `+${record.medianGapEur}` : record.medianGapEur} € ({record.medianGapPct}%)
@@ -770,10 +813,10 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                           <span
                             className={`font-bold ${
                               record.folkestone.gapVsFlowtymMedianEur > 0
-                                ? 'text-amber-700'
+                                ? 'text-amber-700 dark:text-amber-300'
                                 : record.folkestone.gapVsFlowtymMedianEur < 0
-                                ? 'text-emerald-700'
-                                : 'text-slate-600'
+                                ? 'text-emerald-700 dark:text-emerald-300'
+                                : 'text-slate-600 dark:text-slate-400'
                             }`}
                           >
                             {record.folkestone.gapVsFlowtymMedianEur > 0
@@ -787,7 +830,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                       </td>
 
                       {/* Fourchette Min — Max */}
-                      <td className="py-3 px-3 text-center text-slate-600 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center text-slate-600 dark:text-slate-400 whitespace-nowrap">
                         <span className="font-semibold">{record.minCompRate ?? 'N/D'} €</span>
                         <span className="text-slate-300 mx-1">—</span>
                         <span className="font-semibold">{record.maxCompRate ?? 'N/D'} €</span>
@@ -795,16 +838,16 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
                       {/* Disponibilités */}
                       <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <span className="text-slate-700 font-semibold">{record.totalAvailableHotels} dispo</span>
+                        <span className="text-slate-700 dark:text-slate-300 font-semibold">{record.totalAvailableHotels} dispo</span>
                         {record.totalSoldOutHotels > 0 && (
-                          <span className="ml-1 text-[10px] font-bold text-rose-600">
+                          <span className="ml-1 text-[10px] font-bold text-rose-600 dark:text-rose-400">
                             ({record.totalSoldOutHotels} épuisé)
                           </span>
                         )}
                       </td>
 
                       {/* Rang */}
-                      <td className="py-3 px-3 text-center font-bold text-slate-900 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {record.folkestone.rank !== null ? `${record.folkestone.rank}/${record.totalAvailableHotels}` : '—'}
                       </td>
 
@@ -813,10 +856,10 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                             record.folkestone.positioning === 'en_dessous'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70'
                               : record.folkestone.positioning === 'au_dessus'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                              ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70'
+                              : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/70'
                           }`}
                         >
                           {record.folkestone.positioningLabel}
@@ -837,23 +880,23 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
           {/* 4 KPI Blocks (A. Demande, B. Marché, C. Mon Hôtel, D. Dynamique) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* A. DEMANDE DU MARCHÉ */}
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">A. Demande du Marché</span>
                 <Flame className="w-4 h-4 text-orange-500" />
               </div>
               <div>
-                <div className="text-2xl font-black text-slate-900">{marketSummary.avgDemand} / 100</div>
-                <div className="text-xs text-orange-700 font-bold mt-0.5">Niveau Moyen : Forte Pression</div>
+                <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{marketSummary.avgDemand} / 100</div>
+                <div className="text-xs text-orange-700 dark:text-orange-300 font-bold mt-0.5">Niveau Moyen : Forte Pression</div>
               </div>
-              <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <div className="flex justify-between">
                   <span>Évolution J-1 :</span>
-                  <strong className="text-emerald-600 font-bold">+2.4 pts</strong>
+                  <strong className="text-emerald-600 dark:text-emerald-400 font-bold">+2.4 pts</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Évolution J-7 :</span>
-                  <strong className="text-emerald-600 font-bold">+6.8 pts</strong>
+                  <strong className="text-emerald-600 dark:text-emerald-400 font-bold">+6.8 pts</strong>
                 </div>
                 <p className="text-[9px] text-slate-400 pt-1 leading-tight">
                   Indice de tension Lighthouse (non assimilable à un taux d&apos;occupation).
@@ -862,128 +905,142 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             </div>
 
             {/* B. MARCHÉ & COMPSET */}
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">B. Marché Compset</span>
                 <DollarSign className="w-4 h-4 text-indigo-500" />
               </div>
               <div>
-                <div className="text-2xl font-black text-indigo-950">{marketSummary.avgFtMedian} €</div>
-                <div className="text-xs text-indigo-700 font-bold mt-0.5">Médiane Recalculée Flowtym</div>
+                <div className="text-2xl font-black text-indigo-950 dark:text-indigo-100">{marketSummary.avgFtMedian} €</div>
+                <div className="text-xs text-indigo-700 dark:text-indigo-300 font-bold mt-0.5">Médiane Recalculée Flowtym</div>
               </div>
-              <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <div className="flex justify-between">
                   <span>Médiane Lighthouse (Off.) :</span>
-                  <strong className="text-slate-800">{marketSummary.avgLhMedian} €</strong>
+                  <strong className="text-slate-800 dark:text-slate-200">{marketSummary.avgLhMedian} €</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Écart entre médianes :</span>
-                  <strong className="text-indigo-600">
+                  <strong className="text-indigo-600 dark:text-indigo-400">
                     {marketSummary.gapBetweenMedians >= 0 ? `+${marketSummary.gapBetweenMedians}` : marketSummary.gapBetweenMedians} €
                   </strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Fourchette compset moyenne :</span>
-                  <span className="font-semibold text-slate-700">260€ — 360€</span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
+                    {marketSummary.avgMinRate !== null && marketSummary.avgMaxRate !== null
+                      ? `${marketSummary.avgMinRate}€ — ${marketSummary.avgMaxRate}€`
+                      : 'N/D'}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* C. MON HÔTEL : FOLKESTONE OPÉRA */}
-            <div className="bg-white p-5 rounded-3xl border border-violet-200 shadow-2xs space-y-3 bg-gradient-to-b from-violet-50/30 to-white">
+            {/* C. MON HÔTEL DE RÉFÉRENCE */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-violet-200 dark:border-violet-800/70 shadow-2xs space-y-3 bg-gradient-to-b from-violet-50/30 dark:from-violet-950/50 to-white dark:to-slate-900">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider text-violet-700">C. Folkestone Opéra</span>
-                <Building2 className="w-4 h-4 text-violet-600" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-300 truncate">
+                  C. {dataset.metadata.referenceHotel}
+                </span>
+                <Building2 className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
               </div>
               <div>
-                <div className="text-2xl font-black text-violet-950">{marketSummary.avgFolkestone} €</div>
-                <div className="text-xs text-emerald-700 font-bold mt-0.5">Positionnement : Compétitif / Attractif</div>
+                <div className="text-2xl font-black text-violet-950 dark:text-violet-100 tabular-nums">{marketSummary.avgFolkestone} €</div>
+                <div className="text-xs text-emerald-700 dark:text-emerald-300 font-bold mt-0.5">
+                  Positionnement : {marketSummary.gapFolkestoneVsMedian < -10 ? 'Compétitif / Attractif' : marketSummary.gapFolkestoneVsMedian > 15 ? 'Premium / Supérieur' : 'Aligné sur le marché'}
+                </div>
               </div>
-              <div className="pt-2 border-t border-violet-100 text-[11px] text-slate-600 space-y-1">
+              <div className="pt-2 border-t border-violet-100 dark:border-violet-900/60 text-[11px] text-slate-600 dark:text-slate-400 space-y-1 tabular-nums">
                 <div className="flex justify-between">
                   <span>Écart vs. Médiane Compset :</span>
-                  <strong className="text-emerald-700 font-bold">
-                    {marketSummary.gapFolkestoneVsMedian} € (
-                    {Math.round((marketSummary.gapFolkestoneVsMedian / marketSummary.avgFtMedian) * 100)}%)
+                  <strong className="text-emerald-700 dark:text-emerald-300 font-bold">
+                    {marketSummary.gapFolkestoneVsMedian > 0 ? `+${marketSummary.gapFolkestoneVsMedian}` : marketSummary.gapFolkestoneVsMedian} € (
+                    {marketSummary.avgFtMedian > 0 ? Math.round((marketSummary.gapFolkestoneVsMedian / marketSummary.avgFtMedian) * 100) : 0}%)
                   </strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Rang moyen de prix :</span>
-                  <strong className="text-slate-800">2.1 sur 6</strong>
+                  <strong className="text-slate-800 dark:text-slate-200">{marketSummary.avgRank} sur {marketSummary.avgTotalAvail}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Opportunité de rehausse :</span>
-                  <span className="text-violet-700 font-bold">+15€ à +35€</span>
+                  <span className="text-violet-700 dark:text-violet-300 font-bold">
+                    {marketSummary.gapFolkestoneVsMedian < 0 ? `+10€ à +${Math.max(15, Math.abs(marketSummary.gapFolkestoneVsMedian))}€` : 'Surveillance compression'}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* D. DYNAMIQUE CONCURRENTIELLE */}
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">D. Dynamique Concurrentielle</span>
                 <Activity className="w-4 h-4 text-rose-500" />
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-1.5 bg-emerald-50 rounded-xl">
-                  <span className="text-[10px] text-emerald-700 font-bold block">En Hausse</span>
-                  <strong className="text-base font-black text-emerald-800">{marketSummary.totalHikes1d}</strong>
+              <div className="grid grid-cols-3 gap-2 text-center tabular-nums">
+                <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl">
+                  <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold block">En Hausse</span>
+                  <strong className="text-base font-black text-emerald-800 dark:text-emerald-300">{marketSummary.totalHikes1d}</strong>
                 </div>
-                <div className="p-1.5 bg-rose-50 rounded-xl">
-                  <span className="text-[10px] text-rose-700 font-bold block">En Baisse</span>
-                  <strong className="text-base font-black text-rose-800">{marketSummary.totalDrops1d}</strong>
+                <div className="p-1.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl">
+                  <span className="text-[10px] text-rose-700 dark:text-rose-300 font-bold block">En Baisse</span>
+                  <strong className="text-base font-black text-rose-800 dark:text-rose-300">{marketSummary.totalDrops1d}</strong>
                 </div>
-                <div className="p-1.5 bg-slate-100 rounded-xl">
-                  <span className="text-[10px] text-slate-600 font-bold block">Stables</span>
-                  <strong className="text-base font-black text-slate-800">{marketSummary.totalStables1d}</strong>
+                <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                  <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block">Stables</span>
+                  <strong className="text-base font-black text-slate-800 dark:text-slate-200">{marketSummary.totalStables1d}</strong>
                 </div>
               </div>
-              <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-600 space-y-1">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-600 dark:text-slate-400 space-y-1 tabular-nums">
                 <div className="flex justify-between">
                   <span>Occurrences Sold-out :</span>
-                  <strong className="text-rose-600 font-bold">{marketSummary.totalSoldOutEvents} dates complètes</strong>
+                  <strong className="text-rose-600 dark:text-rose-400 font-bold">{marketSummary.totalSoldOutEvents} dates complètes</strong>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between gap-2">
                   <span>Plus forte hausse 7j :</span>
-                  <strong className="text-emerald-700">+60 € (St-Pétersbourg)</strong>
+                  <strong className="text-emerald-700 dark:text-emerald-300 truncate">
+                    {marketSummary.topIncrease7d
+                      ? `+${marketSummary.topIncrease7d.amount} € (${marketSummary.topIncrease7d.hotelName})`
+                      : 'Stable'}
+                  </strong>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Graphiques Interactifs */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <LineChartIcon className="w-4 h-4 text-violet-600" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <LineChartIcon className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   <span>Visualisation Graphique du Marché & Positionnement Tarifaire</span>
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Évolution temporelle sur les 30 prochaines dates de séjour
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Évolution temporelle sur les 30 prochaines dates de séjour ({dataset.records[0]?.competitors.length ?? 0} concurrents suivis)
                 </p>
               </div>
 
               {/* Chart Mode Switcher */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
                 <button
                   type="button"
                   onClick={() => setActiveChartType('medians_compare')}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     activeChartType === 'medians_compare'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                 >
-                  Folkestone vs Médianes
+                  {dataset.metadata.referenceHotel} vs Médianes
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveChartType('demand')}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     activeChartType === 'demand'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                 >
                   Courbe de la Demande
@@ -993,8 +1050,8 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   onClick={() => setActiveChartType('all_competitors')}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     activeChartType === 'all_competitors'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                 >
                   Tous les Concurrents
@@ -1004,8 +1061,8 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   onClick={() => setActiveChartType('evolutions')}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     activeChartType === 'evolutions'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                   }`}
                 >
                   Évolutions J-1 / J-7
@@ -1018,15 +1075,15 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               <ResponsiveContainer width="100%" height="100%">
                 {activeChartType === 'medians_compare' ? (
                   <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} />
-                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} unit="€" />
-                    <RechartsTooltip />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridStroke} />
+                    <XAxis dataKey="dateStr" tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} axisLine={{ stroke: chartTokens.axisLineColor }} />
+                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} axisLine={{ stroke: chartTokens.axisLineColor }} unit="€" />
+                    <RechartsTooltip contentStyle={{ backgroundColor: chartTokens.tooltipBg, borderColor: chartTokens.tooltipBorder, color: chartTokens.tooltipText, borderRadius: '0.75rem', fontSize: '11px' }} />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px', color: chartTokens.axisTickColor }} />
                     <Line
                       type="monotone"
                       dataKey="folkestoneRate"
-                      name="Folkestone Opéra (Réf)"
+                      name={`${dataset.metadata.referenceHotel} (Réf)`}
                       stroke="#7c3aed"
                       strokeWidth={3}
                       dot={{ r: 4, fill: '#7c3aed' }}
@@ -1035,7 +1092,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                       type="monotone"
                       dataKey="flowtymMedian"
                       name="Médiane Recalculée Flowtym"
-                      stroke="#4f46e5"
+                      stroke="#6366f1"
                       strokeWidth={2}
                       strokeDasharray="4 4"
                     />
@@ -1050,18 +1107,18 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                       type="monotone"
                       dataKey="maxCompRate"
                       name="Plafond Compset"
-                      fill="#e2e8f0"
+                      fill={isDark ? '#334155' : '#e2e8f0'}
                       stroke="transparent"
-                      fillOpacity={0.2}
+                      fillOpacity={0.25}
                     />
                   </ComposedChart>
                 ) : activeChartType === 'demand' ? (
                   <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                    <RechartsTooltip />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridStroke} />
+                    <XAxis dataKey="dateStr" tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} axisLine={{ stroke: chartTokens.axisLineColor }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} axisLine={{ stroke: chartTokens.axisLineColor }} />
+                    <RechartsTooltip contentStyle={{ backgroundColor: chartTokens.tooltipBg, borderColor: chartTokens.tooltipBorder, color: chartTokens.tooltipText, borderRadius: '0.75rem', fontSize: '11px' }} />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px', color: chartTokens.axisTickColor }} />
                     <Area
                       type="monotone"
                       dataKey="demandIndex"
@@ -1074,51 +1131,44 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   </ComposedChart>
                 ) : activeChartType === 'all_competitors' ? (
                   <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} />
-                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} unit="€" />
-                    <RechartsTooltip />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridStroke} />
+                    <XAxis dataKey="dateStr" tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} axisLine={{ stroke: chartTokens.axisLineColor }} />
+                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} axisLine={{ stroke: chartTokens.axisLineColor }} unit="€" />
+                    <RechartsTooltip contentStyle={{ backgroundColor: chartTokens.tooltipBg, borderColor: chartTokens.tooltipBorder, color: chartTokens.tooltipText, borderRadius: '0.75rem', fontSize: '11px' }} />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px', color: chartTokens.axisTickColor }} />
                     <Line
                       type="monotone"
                       dataKey="folkestoneRate"
-                      name="Folkestone Opéra"
+                      name={dataset.metadata.referenceHotel}
                       stroke="#7c3aed"
                       strokeWidth={3}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey="Hôtel Saint-Pétersbourg Opéra & Spa"
-                      stroke="#3b82f6"
-                      strokeWidth={1.5}
-                    />
-                    <Line type="monotone" dataKey="Hôtel Charing Cross" stroke="#10b981" strokeWidth={1.5} />
-                    <Line
-                      type="monotone"
-                      dataKey="Hôtel Astra Opéra (Astotel)"
-                      stroke="#f59e0b"
-                      strokeWidth={1.5}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="Hôtel Indigo Paris - Opéra (IHG)"
-                      stroke="#ec4899"
-                      strokeWidth={1.5}
-                    />
-                    <Line type="monotone" dataKey="Hôtel Pulitzer Paris" stroke="#06b6d4" strokeWidth={1.5} />
+                    {(dataset.records[0]?.competitors || []).map((comp, idx) => {
+                      const lineColors = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#6366f1'];
+                      return (
+                        <Line
+                          key={comp.id}
+                          type="monotone"
+                          dataKey={comp.name}
+                          stroke={lineColors[idx % lineColors.length]}
+                          strokeWidth={1.5}
+                          connectNulls={false}
+                        />
+                      );
+                    })}
                   </ComposedChart>
                 ) : (
                   <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="dateStr" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} unit="€" />
-                    <RechartsTooltip />
-                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                    <Bar dataKey="evo1d" name="Évolution Folkestone vs. Hier (€)" fill="#8b5cf6" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridStroke} />
+                    <XAxis dataKey="dateStr" tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} axisLine={{ stroke: chartTokens.axisLineColor }} />
+                    <YAxis tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} axisLine={{ stroke: chartTokens.axisLineColor }} unit="€" />
+                    <RechartsTooltip contentStyle={{ backgroundColor: chartTokens.tooltipBg, borderColor: chartTokens.tooltipBorder, color: chartTokens.tooltipText, borderRadius: '0.75rem', fontSize: '11px' }} />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px', color: chartTokens.axisTickColor }} />
+                    <Bar dataKey="evo1d" name={`Évolution ${dataset.metadata.referenceHotel} vs. Hier (€)`} fill="#8b5cf6" />
                     <Line
                       type="monotone"
                       dataKey="evo7d"
-                      name="Évolution Folkestone sur 7 jours (€)"
+                      name={`Évolution ${dataset.metadata.referenceHotel} sur 7 jours (€)`}
                       stroke="#f43f5e"
                       strokeWidth={2}
                     />
@@ -1133,14 +1183,14 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
       {/* VIEW 4: RECOMMANDATIONS IA (SECTION 7 - CAS 1 À 5) */}
       {activeSubTab === 'ai_recommendations' && (
         <div className="space-y-4">
-          <div className="bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-transparent border border-amber-200/80 p-5 rounded-3xl space-y-2">
+          <div className="bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-transparent dark:bg-none dark:bg-slate-900 border border-amber-200/80 dark:border-amber-800/60 p-5 rounded-3xl space-y-2">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-amber-600" />
-              <h3 className="font-bold text-slate-900 text-sm">
+              <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                 Moteur de Recommandations Tarifaires IA (Règles de Revenue Management Déterministes)
               </h3>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed max-w-4xl">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-4xl">
               Analyse automatique continue des tensions de marché et détection des 5 situations critiques (CAS 1 à 5). Conformément aux principes de Flowtym RMS, aucune modification n&apos;est appliquée automatiquement dans D-EDGE CRS : chaque recommandation reste soumise à la validation expresse du Revenue Manager.
             </p>
           </div>
@@ -1150,47 +1200,47 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             {marketSummary?.allAiAlerts.map((alert) => (
               <div
                 key={alert.id}
-                className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-3 hover:border-violet-300 transition-all"
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-3 hover:border-violet-300 dark:hover:border-violet-600/70 transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-0.5">
                     <span
                       className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full inline-block ${
                         alert.priority === 'critique'
-                          ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                          ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70'
                           : alert.priority === 'haute'
-                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                          : 'bg-blue-100 text-blue-800 border border-blue-200'
+                          ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70'
+                          : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/70'
                       }`}
                     >
                       {alert.caseType.replace('_', ' ')} · Priorité {alert.priority}
                     </span>
-                    <h4 className="font-bold text-slate-900 text-sm">{alert.title}</h4>
-                    <span className="text-[11px] text-violet-700 font-semibold block">
+                    <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{alert.title}</h4>
+                    <span className="text-[11px] text-violet-700 dark:text-violet-300 font-semibold block">
                       Date ciblée : {alert.dateStr}
                     </span>
                   </div>
 
                   {alert.suggestedActionRate && (
-                    <div className="text-right shrink-0 bg-violet-50 border border-violet-200/80 px-2.5 py-1.5 rounded-xl">
-                      <span className="text-[9px] uppercase font-bold text-violet-600 block">Tarif Conseillé</span>
-                      <strong className="text-sm font-black text-violet-950">{alert.suggestedActionRate} €</strong>
+                    <div className="text-right shrink-0 bg-violet-50 dark:bg-violet-950/40 border border-violet-200/80 dark:border-violet-800/70 px-2.5 py-1.5 rounded-xl">
+                      <span className="text-[9px] uppercase font-bold text-violet-600 dark:text-violet-400 block">Tarif Conseillé</span>
+                      <strong className="text-sm font-black text-violet-950 dark:text-violet-100">{alert.suggestedActionRate} €</strong>
                     </div>
                   )}
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl text-xs space-y-1.5">
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs space-y-1.5">
                   <div>
                     <span className="text-slate-400 font-bold text-[10px] uppercase block">Données Déclencheuses :</span>
-                    <span className="text-slate-700 font-medium">{alert.triggerData}</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">{alert.triggerData}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 font-bold text-[10px] uppercase block">Constat :</span>
-                    <p className="text-slate-600 leading-snug">{alert.constat}</p>
+                    <p className="text-slate-600 dark:text-slate-400 leading-snug">{alert.constat}</p>
                   </div>
                   <div>
-                    <span className="text-violet-700 font-bold text-[10px] uppercase block">Recommandation RM :</span>
-                    <p className="text-violet-900 font-semibold leading-snug">{alert.recommandation}</p>
+                    <span className="text-violet-700 dark:text-violet-300 font-bold text-[10px] uppercase block">Recommandation RM :</span>
+                    <p className="text-violet-900 dark:text-violet-200 font-semibold leading-snug">{alert.recommandation}</p>
                   </div>
                 </div>
 
@@ -1224,12 +1274,14 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden flex flex-col animate-in zoom-in-95"
+            className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full overflow-hidden flex flex-col animate-in zoom-in-95"
           >
             <div className="px-6 py-4 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base">Fiche de Veille Détaillée — {inspectedRecord.dateStr}</h3>
-                <p className="text-xs text-violet-200">{inspectedRecord.dayOfWeek} · Compset Primary (5 hôtels)</p>
+                <p className="text-xs text-violet-200">
+                  {inspectedRecord.dayOfWeek} · {dataset.metadata.compsetName} ({inspectedRecord.competitors.length} concurrents)
+                </p>
               </div>
               <button
                 type="button"
@@ -1243,42 +1295,46 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto text-xs">
               {/* Demande & Médianes */}
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Demande Marché</span>
-                  <strong className="text-lg font-black text-slate-900">{inspectedRecord.demandIndex}/100</strong>
-                  <span className="text-[10px] text-orange-600 font-bold block uppercase">
+                  <strong className="text-lg font-black text-slate-900 dark:text-slate-100 tabular-nums">{inspectedRecord.demandIndex}/100</strong>
+                  <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold block uppercase">
                     {inspectedRecord.demandLevel.replace('_', ' ')}
                   </span>
                 </div>
-                <div className="p-3 bg-violet-50 rounded-2xl border border-violet-200">
-                  <span className="text-[10px] text-violet-600 font-bold block uppercase">Folkestone Opéra</span>
-                  <strong className="text-lg font-black text-violet-950">
+                <div className="p-3 bg-violet-50 dark:bg-violet-950/40 rounded-2xl border border-violet-200 dark:border-violet-800/70">
+                  <span className="text-[10px] text-violet-600 dark:text-violet-400 font-bold block uppercase truncate">
+                    {dataset.metadata.referenceHotel}
+                  </span>
+                  <strong className="text-lg font-black text-violet-950 dark:text-violet-100 tabular-nums">
                     {inspectedRecord.folkestone.rate !== null ? `${inspectedRecord.folkestone.rate} €` : inspectedRecord.folkestone.statusLabel}
                   </strong>
-                  <span className="text-[10px] text-violet-700 font-bold block">
+                  <span className="text-[10px] text-violet-700 dark:text-violet-300 font-bold block tabular-nums">
                     Rang {inspectedRecord.folkestone.rank ?? '—'}/{inspectedRecord.totalAvailableHotels}
                   </span>
                 </div>
-                <div className="p-3 bg-indigo-50 rounded-2xl border border-indigo-200">
-                  <span className="text-[10px] text-indigo-600 font-bold block uppercase">Médiane Flowtym</span>
-                  <strong className="text-lg font-black text-indigo-950">{inspectedRecord.flowtymMedianEur} €</strong>
-                  <span className="text-[10px] text-slate-500 block">Off. LH: {inspectedRecord.lighthouseMedianEur} €</span>
+                <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800/70">
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold block uppercase">Médiane Flowtym</span>
+                  <strong className="text-lg font-black text-indigo-950 dark:text-indigo-100 tabular-nums">{inspectedRecord.flowtymMedianEur} €</strong>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block tabular-nums">Off. LH: {inspectedRecord.lighthouseMedianEur} €</span>
                 </div>
               </div>
 
-              {/* Évolutions temporelles Folkestone */}
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
-                <h4 className="font-bold text-slate-800 text-xs">Évolutions Tarifaires Folkestone Opéra</h4>
+              {/* Évolutions temporelles Hôtel de référence */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+                <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs">
+                  Évolutions Tarifaires — {dataset.metadata.referenceHotel}
+                </h4>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="p-2 bg-white rounded-xl border border-slate-200">
+                  <div className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                     <span className="text-[10px] text-slate-400 block">vs. Hier</span>
                     <strong className="font-bold">{inspectedRecord.folkestone.evolution1d !== null ? `${inspectedRecord.folkestone.evolution1d > 0 ? `+${inspectedRecord.folkestone.evolution1d}` : inspectedRecord.folkestone.evolution1d} €` : 'N/D'}</strong>
                   </div>
-                  <div className="p-2 bg-white rounded-xl border border-slate-200">
+                  <div className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                     <span className="text-[10px] text-slate-400 block">vs. 3 jours</span>
                     <strong className="font-bold">{inspectedRecord.folkestone.evolution3d !== null ? `${inspectedRecord.folkestone.evolution3d > 0 ? `+${inspectedRecord.folkestone.evolution3d}` : inspectedRecord.folkestone.evolution3d} €` : 'N/D'}</strong>
                   </div>
-                  <div className="p-2 bg-white rounded-xl border border-slate-200">
+                  <div className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                     <span className="text-[10px] text-slate-400 block">vs. 7 jours</span>
                     <strong className="font-bold">{inspectedRecord.folkestone.evolution7d !== null ? `${inspectedRecord.folkestone.evolution7d > 0 ? `+${inspectedRecord.folkestone.evolution7d}` : inspectedRecord.folkestone.evolution7d} €` : 'N/D'}</strong>
                   </div>
@@ -1287,26 +1343,26 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
               {/* Tarifs Compset */}
               <div className="space-y-2">
-                <h4 className="font-bold text-slate-800 text-xs">Tarifs de chaque hôtel concurrent ({inspectedRecord.competitors.length})</h4>
-                <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs">Tarifs de chaque hôtel concurrent ({inspectedRecord.competitors.length})</h4>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800/80 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
                   {inspectedRecord.competitors.map((c) => (
-                    <div key={c.id} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50">
+                    <div key={c.id} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-slate-800/80">
                       <div>
-                        <div className="font-semibold text-slate-900">{c.name}</div>
+                        <div className="font-semibold text-slate-900 dark:text-slate-100">{c.name}</div>
                         <div className="text-[10px] text-slate-400">
                           {c.evolution1d !== null ? `vs J-1: ${c.evolution1d > 0 ? `+${c.evolution1d}` : c.evolution1d}€` : 'Évolution inconnue'}
                         </div>
                       </div>
                       <div className="text-right">
                         {c.status === 'disponible' ? (
-                          <div className="font-bold text-slate-900">{c.rate} €</div>
+                          <div className="font-bold text-slate-900 dark:text-slate-100">{c.rate} €</div>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300">
                             {c.statusLabel}
                           </span>
                         )}
                         {c.gapVsFolkestoneEur !== null && (
-                          <div className="text-[10px] text-slate-500">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">
                             Écart : {c.gapVsFolkestoneEur > 0 ? `+${c.gapVsFolkestoneEur}` : c.gapVsFolkestoneEur} €
                           </div>
                         )}
@@ -1317,11 +1373,11 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               </div>
             </div>
 
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+            <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex justify-end">
               <button
                 type="button"
                 onClick={() => setInspectedRecord(null)}
-                className="px-4 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer"
+                className="px-4 py-1.5 bg-slate-900 dark:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer"
               >
                 Fermer
               </button>
@@ -1338,9 +1394,9 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95"
+            className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95"
           >
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base">Configuration des Seuils Flowtym</h3>
                 <p className="text-xs text-slate-300">Analyse qualitative de la demande marché</p>
@@ -1355,31 +1411,31 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             </div>
 
             <div className="p-6 space-y-4 text-xs">
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-900 text-[11px] leading-relaxed">
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 p-3 rounded-xl text-amber-900 dark:text-amber-200 text-[11px] leading-relaxed">
                 <strong>Précision méthodologique :</strong> Ces seuils sont des règles d&apos;analyse propres à Flowtym RMS et non des seuils officiels Lighthouse. L&apos;indice Lighthouse mesure la tension de la demande (0 à 100) et ne doit jamais être présenté comme un taux d&apos;occupation.
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-2.5 bg-emerald-50 rounded-xl border border-emerald-200">
-                  <div className="font-bold text-emerald-800">1. Demande Faible (Vert)</div>
-                  <span className="font-mono font-bold text-emerald-900">&lt; {thresholds.faibleMax + 1}</span>
+                <div className="flex items-center justify-between p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/70">
+                  <div className="font-bold text-emerald-800 dark:text-emerald-300">1. Demande Faible (Vert)</div>
+                  <span className="font-mono font-bold text-emerald-900 dark:text-emerald-200">&lt; {thresholds.faibleMax + 1}</span>
                 </div>
-                <div className="flex items-center justify-between p-2.5 bg-amber-50 rounded-xl border border-amber-200">
-                  <div className="font-bold text-amber-800">2. Demande Modérée (Jaune)</div>
-                  <span className="font-mono font-bold text-amber-900">{thresholds.faibleMax + 1} — {thresholds.modereeMax}</span>
+                <div className="flex items-center justify-between p-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800/70">
+                  <div className="font-bold text-amber-800 dark:text-amber-300">2. Demande Modérée (Jaune)</div>
+                  <span className="font-mono font-bold text-amber-900 dark:text-amber-200">{thresholds.faibleMax + 1} — {thresholds.modereeMax}</span>
                 </div>
-                <div className="flex items-center justify-between p-2.5 bg-orange-50 rounded-xl border border-orange-200">
-                  <div className="font-bold text-orange-800">3. Demande Forte (Orange)</div>
-                  <span className="font-mono font-bold text-orange-900">{thresholds.modereeMax + 1} — {thresholds.forteMax}</span>
+                <div className="flex items-center justify-between p-2.5 bg-orange-50 dark:bg-orange-950/40 rounded-xl border border-orange-200 dark:border-orange-800/70">
+                  <div className="font-bold text-orange-800 dark:text-orange-300">3. Demande Forte (Orange)</div>
+                  <span className="font-mono font-bold text-orange-900 dark:text-orange-200">{thresholds.modereeMax + 1} — {thresholds.forteMax}</span>
                 </div>
-                <div className="flex items-center justify-between p-2.5 bg-rose-50 rounded-xl border border-rose-200">
-                  <div className="font-bold text-rose-800">4. Demande Très Forte (Rouge)</div>
-                  <span className="font-mono font-bold text-rose-900">&ge; {thresholds.tresForteMin}</span>
+                <div className="flex items-center justify-between p-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-800/70">
+                  <div className="font-bold text-rose-800 dark:text-rose-300">4. Demande Très Forte (Rouge)</div>
+                  <span className="font-mono font-bold text-rose-900 dark:text-rose-200">&ge; {thresholds.tresForteMin}</span>
                 </div>
               </div>
             </div>
 
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+            <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex justify-end">
               <button
                 type="button"
                 onClick={() => {
@@ -1404,7 +1460,7 @@ function EvolutionBadge({ val, label }: { val: number | null; label: string }) {
   }
   if (val === 0) {
     return (
-      <span className="text-slate-400 font-mono px-1 py-0.2 rounded bg-slate-100" title={`Stable vs ${label}`}>
+      <span className="text-slate-400 font-mono px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800" title={`Stable vs ${label}`}>
         0€
       </span>
     );
@@ -1412,7 +1468,7 @@ function EvolutionBadge({ val, label }: { val: number | null; label: string }) {
   if (val > 0) {
     return (
       <span
-        className="text-emerald-700 font-mono font-bold px-1 py-0.2 rounded bg-emerald-50 border border-emerald-200"
+        className="text-emerald-700 dark:text-emerald-300 font-mono font-bold px-1 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70"
         title={`Hausse de +${val}€ vs ${label}`}
       >
         +{val}€
@@ -1421,7 +1477,7 @@ function EvolutionBadge({ val, label }: { val: number | null; label: string }) {
   }
   return (
     <span
-      className="text-rose-700 font-mono font-bold px-1 py-0.2 rounded bg-rose-50 border border-rose-200"
+      className="text-rose-700 dark:text-rose-300 font-mono font-bold px-1 py-0.2 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70"
       title={`Baisse de ${val}€ vs ${label}`}
     >
       {val}€

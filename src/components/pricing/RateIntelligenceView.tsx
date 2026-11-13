@@ -79,13 +79,14 @@ import {
   Area,
 } from 'recharts';
 import { Hotel, EventItem } from '../../types';
+import { useTheme } from '../../contexts/ThemeContext';
 import {
   DailyRateIntelligence,
   TODAY_DATE_STR,
   HOTEL_TOTAL_ROOMS,
   RATE_FLOOR_EUR,
   RATE_CEILING_EUR,
-  COMPSET_METAS,
+  getActiveCompSetMetasForHotel,
   RoomCategory,
   RMModificationReasonCode,
   RM_MODIFICATION_REASONS,
@@ -93,7 +94,6 @@ import {
   RMLearnedCalibrationRule,
   calculateCompsetRanking,
   getRateIntelligenceRecords,
-  saveRateIntelligenceRecords,
   acceptRateSuggestion,
   modifyRateSuggestion,
   rejectRateSuggestion,
@@ -103,6 +103,7 @@ import {
   toggleLearnedCalibrationRule,
   exportRateGridToCSV,
 } from '../../services/rateIntelligenceService';
+import { getHotelRMSConfig } from '../../services/rmsSettingsService';
 import { exportCompleteHistoricalExcel } from '../../services/excelHistoricalExportService';
 import { LighthouseCompetitiveIntelligenceView } from './LighthouseCompetitiveIntelligenceView';
 import { HistoricalDataImportView } from './HistoricalDataImportView';
@@ -149,26 +150,26 @@ export const RM_COLUMN_DEFINITIONS: ColumnDefinition[] = [
   // Contexte
   { id: 'date_day', colNumber: '1-2', name: 'Date & Jour', group: 'contexte', groupLabel: 'Contexte Calendrier', description: 'Date de séjour, jour de la semaine et horodatage', defaultVisible: true, required: true },
   { id: 'event', colNumber: '3', name: 'Événement', group: 'contexte', groupLabel: 'Contexte Calendrier', description: 'Événement détecté, catégorie et score d\'impact RM', defaultVisible: true },
-  { id: 'demand', colNumber: '4', name: 'Demande Marché', group: 'contexte', groupLabel: 'Contexte Calendrier', description: 'Niveau global de tension de marché sur Paris Opéra', defaultVisible: true },
+  { id: 'demand', colNumber: '4', name: 'Demande Marché', group: 'contexte', groupLabel: 'Contexte Calendrier', description: 'Niveau global de tension de marché sur la zone géographique de l\'hôtel', defaultVisible: true },
 
   // Pricing & Concurrence Lighthouse
   { id: 'current_bar', colNumber: '5', name: 'Mon Tarif Actuel', group: 'pricing', groupLabel: 'Pricing & Concurrence Lighthouse', description: 'BAR actuel commercialisé dans le CRS D-EDGE et Min Stay', defaultVisible: true },
-  { id: 'compset_rank', colNumber: '—', name: 'Pos. Compset (1/6)', group: 'pricing', groupLabel: 'Pricing & Concurrence Lighthouse', description: 'Classement de mon hôtel face aux 5 concurrents directs', defaultVisible: true },
-  { id: 'lh_median', colNumber: '6', name: 'Médian Lighthouse', group: 'pricing', groupLabel: 'Pricing & Concurrence Lighthouse', description: 'Tarif médian du set concurrentiel direct (chambres comparables)', defaultVisible: true },
-  { id: 'lh_avg', colNumber: '7', name: 'Moyen Lighthouse', group: 'pricing', groupLabel: 'Pricing & Concurrence Lighthouse', description: 'Tarif moyen arithmétique du compset', defaultVisible: true },
-  { id: 'lh_range', colNumber: '8-9', name: 'Min / Max Compset', group: 'pricing', groupLabel: 'Pricing & Concurrence Lighthouse', description: 'Corridor tarifaire observé chez les concurrents', defaultVisible: true },
+  { id: 'compset_rank', colNumber: '—', name: 'Pos. Compset', group: 'pricing', groupLabel: 'Pricing & Concurrence Lighthouse', description: 'Classement de mon hôtel face au panel concurrentiel actif (jusqu\'à 10 hôtels)', defaultVisible: true },
+  { id: 'lh_median', colNumber: '6', name: 'Médian Lighthouse', group: 'pricing', groupLabel: 'Pricing & Concurrence Lighthouse', description: 'Tarif médian du set concurrentiel direct (hors épuisés / non disponibles)', defaultVisible: true },
+  { id: 'lh_avg', colNumber: '7', name: 'Moyen Lighthouse', group: 'pricing', groupLabel: 'Pricing & Concurrence Lighthouse', description: 'Tarif moyen arithmétique du compset exploitable', defaultVisible: true },
+  { id: 'lh_range', colNumber: '8-9', name: 'Min / Max Compset', group: 'pricing', groupLabel: 'Pricing & Concurrence Lighthouse', description: 'Corridor tarifaire observé chez les concurrents disponibles', defaultVisible: true },
 
   // D-EDGE Planning & Réservations
   { id: 'pickup', colNumber: '10', name: 'Pickup 24h (J-1)', group: 'dedge', groupLabel: 'D-EDGE Planning & Réservations', description: 'Accélération des réservations sur les dernières 24h', defaultVisible: true },
-  { id: 'dispo', colNumber: '11', name: 'Disponibilité (Stock)', group: 'dedge', groupLabel: 'D-EDGE Planning & Réservations', description: 'Chambres restantes à vendre sur la capacité totale de 45 ch.', defaultVisible: true },
+  { id: 'dispo', colNumber: '11', name: 'Disponibilité (Stock)', group: 'dedge', groupLabel: 'D-EDGE Planning & Réservations', description: 'Chambres restantes à vendre sur la capacité totale de l\'hôtel', defaultVisible: true },
   { id: 'occ', colNumber: '12', name: 'Occupation OTB (%)', group: 'dedge', groupLabel: 'D-EDGE Planning & Réservations', description: 'Taux de remplissage actuel de l\'hôtel', defaultVisible: true },
   { id: 'adr', colNumber: '13', name: 'ADR Net Réalisé', group: 'dedge', groupLabel: 'D-EDGE Planning & Réservations', description: 'Prix moyen net hébergement des nuitées acquises', defaultVisible: true },
-  { id: 'revpar', colNumber: '14', name: 'RevPAR (45 ch.)', group: 'dedge', groupLabel: 'D-EDGE Planning & Réservations', description: 'Revenu par chambre disponible rapporté strictement à 45 chambres', defaultVisible: true },
+  { id: 'revpar', colNumber: '14', name: 'RevPAR', group: 'dedge', groupLabel: 'D-EDGE Planning & Réservations', description: 'Revenu par chambre disponible rapporté à la capacité totale de l\'hôtel', defaultVisible: true },
   { id: 'lead_time', colNumber: '15', name: 'Lead Time', group: 'dedge', groupLabel: 'D-EDGE Planning & Réservations', description: 'Fenêtre d\'anticipation d\'achat dominante', defaultVisible: true },
 
   // Décision Revenue Management
   { id: 'suggested', colNumber: '16', name: 'Tarif Suggéré RM', group: 'decision', groupLabel: 'Décision Revenue Management', description: 'Recommandation algorithmique calculée par le moteur', defaultVisible: true, required: true },
-  { id: 'safety_alert', colNumber: '🚨', name: 'Alertes Bornes Sécurité', group: 'decision', groupLabel: 'Décision Revenue Management', description: 'Garde-fous planchers (180€), plafonds (550€) et sauts > 100€', defaultVisible: true },
+  { id: 'safety_alert', colNumber: '🚨', name: 'Alertes Bornes Sécurité', group: 'decision', groupLabel: 'Décision Revenue Management', description: 'Garde-fous planchers, plafonds et seuils de variation configurés par hôtel', defaultVisible: true },
   { id: 'delta', colNumber: '17', name: 'Écart (€ / %)', group: 'decision', groupLabel: 'Décision Revenue Management', description: 'Variation entre le tarif suggéré et le tarif actuel commercialisé', defaultVisible: true },
   { id: 'strategy', colNumber: '18', name: 'Stratégie Yield', group: 'decision', groupLabel: 'Décision Revenue Management', description: 'Levier de yield activé (Hausse dynamique, Préservation, etc.)', defaultVisible: true },
   { id: 'justification', colNumber: '19', name: 'Explication RM', group: 'decision', groupLabel: 'Décision Revenue Management', description: 'Synthèse factuelle et analytique justifiant la recommandation', defaultVisible: true },
@@ -219,59 +220,64 @@ export interface SafetyAlertResult {
   badgeStyle: string;
 }
 
-export function detectSafetyAlert(r: DailyRateIntelligence): SafetyAlertResult {
-  // 1. Borne Plafond (550 €)
-  if (r.suggestedBarEur >= RATE_CEILING_EUR) {
+export function detectSafetyAlert(
+  r: DailyRateIntelligence,
+  floorEur: number = RATE_FLOOR_EUR,
+  ceilingEur: number = RATE_CEILING_EUR,
+  maxJumpEur: number = 100
+): SafetyAlertResult {
+  // 1. Borne Plafond configurée
+  if (r.suggestedBarEur >= ceilingEur) {
     return {
       hasAlert: true,
       type: 'ceiling',
       severity: 'critical',
-      badgeLabel: `🚨 Plafond Sécurité (${RATE_CEILING_EUR}€)`,
-      shortBadge: `Plafond ${RATE_CEILING_EUR}€`,
-      description: `Tarif suggéré bridé à la borne maximale de sécurité (${RATE_CEILING_EUR}€) pour l'hôtel afin de prévenir tout risque de rupture de parité ou de rejet de clientèle.`,
-      badgeStyle: 'bg-rose-100 text-rose-800 border-rose-300 ring-1 ring-rose-400/30',
+      badgeLabel: `Plafond Sécurité (${ceilingEur}€)`,
+      shortBadge: `Plafond ${ceilingEur}€`,
+      description: `Tarif suggéré bridé à la borne maximale de sécurité (${ceilingEur}€) pour l'hôtel afin de prévenir tout risque de rupture de parité ou de rejet de clientèle.`,
+      badgeStyle: 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700/70 ring-1 ring-rose-400/30',
     };
   }
 
-  // 2. Borne Plancher (180 €)
-  if (r.suggestedBarEur <= RATE_FLOOR_EUR) {
+  // 2. Borne Plancher configurée
+  if (r.suggestedBarEur <= floorEur) {
     return {
       hasAlert: true,
       type: 'floor',
       severity: 'critical',
-      badgeLabel: `🛡️ Plancher Sécurité (${RATE_FLOOR_EUR}€)`,
-      shortBadge: `Plancher ${RATE_FLOOR_EUR}€`,
-      description: `Tarif suggéré aligné sur le plancher absolu (${RATE_FLOOR_EUR}€) configuré pour l'hôtel. Interdiction de descendre sous ce seuil de rentabilité unitaire.`,
-      badgeStyle: 'bg-amber-100 text-amber-900 border-amber-300 ring-1 ring-amber-400/30',
+      badgeLabel: `Plancher Sécurité (${floorEur}€)`,
+      shortBadge: `Plancher ${floorEur}€`,
+      description: `Tarif suggéré aligné sur le plancher absolu (${floorEur}€) configuré pour l'hôtel. Interdiction de descendre sous ce seuil de rentabilité unitaire.`,
+      badgeStyle: 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700/70 ring-1 ring-amber-400/30',
     };
   }
 
-  // 3. Saut tarifaire abrupt (différence >= 100 € par rapport au tarif actuel)
+  // 3. Saut tarifaire abrupt
   const deltaAbs = Math.abs(r.suggestedBarEur - r.currentBarEur);
-  if (deltaAbs >= 100) {
+  if (deltaAbs >= maxJumpEur) {
     const isUp = r.suggestedBarEur > r.currentBarEur;
     return {
       hasAlert: true,
       type: 'large_step',
       severity: 'warning',
-      badgeLabel: `⚠️ Saut Abrupt (${isUp ? '+' : ''}${r.suggestedBarEur - r.currentBarEur}€)`,
+      badgeLabel: `Saut Abrupt (${isUp ? '+' : ''}${r.suggestedBarEur - r.currentBarEur}€)`,
       shortBadge: `Saut ${isUp ? '+' : ''}${r.suggestedBarEur - r.currentBarEur}€`,
-      description: `Variation d'un pas supérieur à 100€ d'un coup par rapport au tarif actuellement commercialisé (${r.currentBarEur}€ → ${r.suggestedBarEur}€). Double validation requise.`,
-      badgeStyle: 'bg-orange-100 text-orange-900 border-orange-300',
+      description: `Variation d'un pas supérieur à ${maxJumpEur}€ d'un coup par rapport au tarif actuellement commercialisé (${r.currentBarEur}€ → ${r.suggestedBarEur}€). Validation RM requise.`,
+      badgeStyle: 'bg-orange-100 dark:bg-orange-900/40 text-orange-900 dark:text-orange-200 border-orange-300 dark:border-orange-700/70',
     };
   }
 
   // 4. Décrochage par rapport au minimum du compset direct (> 20 € sous le minimum)
-  if (r.suggestedBarEur < r.lighthouse.compsetMinEur - 20) {
+  if (r.lighthouse.hasExploitableCompset && r.suggestedBarEur < r.lighthouse.compsetMinEur - 20) {
     const diff = r.lighthouse.compsetMinEur - r.suggestedBarEur;
     return {
       hasAlert: true,
       type: 'compset_drop',
       severity: 'warning',
-      badgeLabel: `📉 Sous Compset Min (-${diff}€)`,
+      badgeLabel: `Sous Compset Min (-${diff}€)`,
       shortBadge: `Sous Min (-${diff}€)`,
       description: `Tarif suggéré inférieur de ${diff}€ au concurrent direct le moins cher (${r.lighthouse.compsetMinEur}€). Risque de sous-évaluation injustifiée.`,
-      badgeStyle: 'bg-yellow-100 text-yellow-900 border-yellow-300',
+      badgeStyle: 'bg-yellow-100 dark:bg-amber-950/60 text-yellow-900 dark:text-amber-200 border-yellow-300 dark:border-amber-800/60',
     };
   }
 
@@ -281,8 +287,8 @@ export function detectSafetyAlert(r: DailyRateIntelligence): SafetyAlertResult {
     severity: 'info',
     badgeLabel: 'Bornes respectées',
     shortBadge: 'Conforme',
-    description: 'Tarif suggéré conforme aux bornes planchers (180€) et plafonds (550€).',
-    badgeStyle: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    description: `Tarif suggéré conforme aux bornes plancher (${floorEur}€) et plafond (${ceilingEur}€).`,
+    badgeStyle: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70',
   };
 }
 
@@ -391,6 +397,7 @@ interface RateIntelligenceViewProps {
   onGoToExcelUpload?: () => void;
   onShowToast: (msg: string) => void;
   initialTab?: 'grid' | 'lighthouse' | 'historical' | 'backtest' | 'learning';
+  configVersion?: number;
 }
 
 export type PeriodDuration = '7d' | '14d' | '30d' | '60d' | '90d' | 'all';
@@ -402,22 +409,32 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   onGoToExcelUpload,
   onShowToast,
   initialTab = 'grid',
+  configVersion = 0,
 }) => {
+  const { chartTokens } = useTheme();
   // Navigation principale interne
   const [activeSubTab, setActiveSubTab] = useState<'grid' | 'lighthouse' | 'historical' | 'backtest' | 'learning'>(initialTab);
+
+  // Configuration RM & Compset dynamique de l'hôtel (jusqu'à 10 concurrents)
+  const rmsConfig = useMemo(() => getHotelRMSConfig(hotel), [hotel, configVersion]);
+  const activeCompsetMetas = useMemo(() => getActiveCompSetMetasForHotel(hotel), [hotel, configVersion]);
+  const hotelTotalRooms = hotel.roomCount || HOTEL_TOTAL_ROOMS;
+  const barFloor = rmsConfig.rmRules.barFloorEur || RATE_FLOOR_EUR;
+  const barCeiling = rmsConfig.rmRules.barCeilingEur || RATE_CEILING_EUR;
+  const maxJumpEur = rmsConfig.rmRules.maxSingleAdjustmentEur || 100;
 
   // Fiche détaillée d'une date (Section 12)
   const [selectedPredictiveRec, setSelectedPredictiveRec] = useState<FullPredictivePricingRecommendation | null>(null);
 
-  // Base des enregistrements chargés pour cet établissement (Grand Hôtel Folkestone Opéra par défaut)
+  // Base des enregistrements chargés pour cet établissement
   const [records, setRecords] = useState<DailyRateIntelligence[]>(() =>
-    getRateIntelligenceRecords(hotel.id)
+    getRateIntelligenceRecords(hotel)
   );
 
-  // Synchronisation lors du changement d'hôtel
+  // Synchronisation lors du changement d'hôtel ou de configuration dans Paramètres
   useEffect(() => {
-    setRecords(getRateIntelligenceRecords(hotel.id));
-  }, [hotel.id]);
+    setRecords(getRateIntelligenceRecords(hotel));
+  }, [hotel, configVersion]);
 
   // Mode d'affichage de la grille : 'both' (Graph + Grille), 'table', 'chart'
   const [viewMode, setViewMode] = useState<'both' | 'table' | 'chart'>('both');
@@ -434,14 +451,17 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const [dayOffset, setDayOffset] = useState<number>(0);
   const [showPastDates, setShowPastDates] = useState<boolean>(false);
 
-  // Visibilité des courbes concurrentes dans le graphique Recharts
-  const [visibleCompetitors, setVisibleCompetitors] = useState<Record<string, boolean>>({
-    'Hôtel Saint-Pétersbourg Opéra': false,
-    'Hôtel Charing Cross': false,
-    'Hôtel Astra Opéra': false,
-    'Hotel Indigo Paris-Opéra': false,
-    'Hôtel Saint-Augustin Elysées': false,
-  });
+  // Visibilité des courbes concurrentes dans le graphique Recharts (synchronisée jusqu'à 10 concurrents)
+  const [visibleCompetitors, setVisibleCompetitors] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    setVisibleCompetitors((prev) => {
+      const next: Record<string, boolean> = {};
+      activeCompsetMetas.forEach((c) => {
+        next[c.name] = prev[c.name] ?? false;
+      });
+      return next;
+    });
+  }, [activeCompsetMetas]);
 
   // Configuration des colonnes affichées (Roue de Configuration RM)
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnId, boolean>>(() =>
@@ -570,10 +590,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         if (riskFilter === 'compression' && !r.compressionAlert) return false;
         if (riskFilter === 'stock' && !r.dedgePickup.stockAlert) return false;
         if (riskFilter === 'partial_data' && r.rmRecommendation.confidenceLevel === 'fiable') return false;
-        if (riskFilter === 'safety_guardrail' && !detectSafetyAlert(r).hasAlert) return false;
-        if (riskFilter === 'floor_alert' && detectSafetyAlert(r).type !== 'floor') return false;
-        if (riskFilter === 'ceiling_alert' && detectSafetyAlert(r).type !== 'ceiling') return false;
-        if (riskFilter === 'large_step' && detectSafetyAlert(r).type !== 'large_step') return false;
+        if (riskFilter === 'safety_guardrail' && !detectSafetyAlert(r, barFloor, barCeiling, maxJumpEur).hasAlert) return false;
+        if (riskFilter === 'floor_alert' && detectSafetyAlert(r, barFloor, barCeiling, maxJumpEur).type !== 'floor') return false;
+        if (riskFilter === 'ceiling_alert' && detectSafetyAlert(r, barFloor, barCeiling, maxJumpEur).type !== 'ceiling') return false;
+        if (riskFilter === 'large_step' && detectSafetyAlert(r, barFloor, barCeiling, maxJumpEur).type !== 'large_step') return false;
 
         // Filtre statut de décision humaine
         if (statusFilter !== 'all' && r.status !== statusFilter) {
@@ -593,7 +613,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         return true;
       })
       .sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-  }, [records, showPastDates, periodDuration, activeDateRange, demandFilter, riskFilter, statusFilter, searchQuery]);
+  }, [records, showPastDates, periodDuration, activeDateRange, demandFilter, riskFilter, statusFilter, searchQuery, barFloor, barCeiling, maxJumpEur]);
 
   // 3. Préparation des données pour le graphique Recharts
   const chartData = useMemo(() => {
@@ -604,7 +624,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
       const compValues: Record<string, number | null> = {};
       r.competitors.forEach((c) => {
-        compValues[c.hotelName] = c.isSoldOut ? null : c.rateEur;
+        compValues[c.hotelName] = c.isSoldOut || c.rateEur === null ? null : c.rateEur;
       });
 
       return {
@@ -613,11 +633,12 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         fullDate: r.dateStr,
         event: r.eventTitle || 'Sans événement',
         currentBar: r.currentBarEur,
-        compsetMedian: r.lighthouse.compsetMedianEur,
-        compsetAvg: r.lighthouse.compsetAvgEur,
+        compsetMedian: r.lighthouse.hasExploitableCompset ? r.lighthouse.compsetMedianEur : null,
+        compsetAvg: r.lighthouse.hasExploitableCompset ? r.lighthouse.compsetAvgEur : null,
         suggestedBar: r.suggestedBarEur,
         occupancy: r.occupancyPercent,
         soldOutCount: r.compsetSoldOutCount,
+        exploitableSummary: r.lighthouse.exploitableSummary,
         rankingLabel: ranking.positionLabel,
         rankingFraction: ranking.rankingFraction,
         statusClassification: ranking.statusClassification,
@@ -700,7 +721,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         totalGain += r.revenueGainPotentialEur;
       }
 
-      const alert = detectSafetyAlert(r);
+      const alert = detectSafetyAlert(r, barFloor, barCeiling, maxJumpEur);
       if (alert.hasAlert) {
         safetyAlertCount++;
         if (alert.type === 'floor') floorAlertCount++;
@@ -733,7 +754,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       ceilingAlertsCount: ceilingAlertCount,
       largeStepAlertsCount: largeStepAlertCount,
     };
-  }, [synchronizedRecords, hotel.name]);
+  }, [synchronizedRecords, hotel.name, barFloor, barCeiling, maxJumpEur]);
 
   // Statistiques d'apprentissage contrôlé
   const learningStats = useMemo(() => {
@@ -842,47 +863,47 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   return (
     <div className="space-y-6 w-full px-2 sm:px-4 lg:px-6 pb-16">
       {/* 1. Header Exécutif Revenue Management */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-violet-100 text-violet-700">
+              <span className="p-2 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
                 <TrendingUp className="w-5 h-5" />
               </span>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                 Pricing Intelligence & Décision Revenue Management
               </h1>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Moteur d’optimisation tarifaire hôtelière multi-facteurs • Croisement D-EDGE CRS, Planning, Réservations & Lighthouse.
             </p>
           </div>
 
           {/* Sub-Navigation & Actions */}
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
               <button
                 onClick={() => setActiveSubTab('grid')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'grid'
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 text-violet-600" />
+                <Layers className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                 <span>Grille 21 Colonnes RM ({synchronizedRecords.length})</span>
               </button>
               <button
                 onClick={() => setActiveSubTab('lighthouse')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'lighthouse'
-                    ? 'bg-white text-slate-900 shadow-2xs font-black'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-black'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
-                <TrendingUp className="w-3.5 h-3.5 text-violet-600" />
+                <TrendingUp className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                 <span>Veille Lighthouse (5 onglets)</span>
-                <span className="px-1.5 py-0.2 rounded text-[9px] bg-violet-100 text-violet-800 font-extrabold uppercase">
+                <span className="px-1.5 py-0.2 rounded text-[9px] bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 font-extrabold uppercase">
                   Nouveau
                 </span>
               </button>
@@ -890,33 +911,33 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 onClick={() => setActiveSubTab('historical')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'historical'
-                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
-                <Database className="w-3.5 h-3.5 text-emerald-600" />
+                <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Données Historiques & Import Excel</span>
               </button>
               <button
                 onClick={() => setActiveSubTab('backtest')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'backtest'
-                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                 <span>Backtesting & Précision</span>
               </button>
               <button
                 onClick={() => setActiveSubTab('learning')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'learning'
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                 }`}
               >
-                <Award className="w-3.5 h-3.5 text-amber-600" />
+                <Award className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span>Apprentissage & Traçabilité ({learningStats.totalDecisions})</span>
               </button>
             </div>
@@ -924,16 +945,16 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             {/* Roue de configuration dans le header */}
             <button
               onClick={() => setShowColumnConfigModal(true)}
-              className="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-800 border border-violet-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              className="px-3 py-1.5 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
               title="Configurer les colonnes et indicateurs affichés (Roue de Configuration)"
             >
-              <Settings className="w-3.5 h-3.5 text-violet-600 animate-[spin_8s_linear_infinite]" />
+              <Settings className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 animate-[spin_8s_linear_infinite]" />
               <span>Colonnes ({activeColumnsCount}/21)</span>
             </button>
 
             <button
               onClick={handleExportCSV}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
               title="Exporter les 21 colonnes au format CSV conforme RM"
             >
               <Download className="w-3.5 h-3.5" />
@@ -945,17 +966,17 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 const res = exportCompleteHistoricalExcel({ hotelName: hotel.name });
                 onShowToast?.(`✓ Historique complet des prix et de l'occupation exporté au format Excel (${res.totalRows} dates)`);
               }}
-              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/70 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
               title="Télécharger l'historique complet des prix et taux d'occupation au format Excel pour travail hors ligne"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Historique Complet (Excel)</span>
             </button>
 
             {onGoToExcelUpload && (
               <button
                 onClick={onGoToExcelUpload}
-                className="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Importer Fichiers Excel</span>
@@ -964,25 +985,27 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           </div>
         </div>
 
-        {/* Hôtel Pilote & Bannière Connecteurs */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 font-bold text-slate-900">
-              <Building className="w-3.5 h-3.5 text-violet-600" />
+        {/* Hôtel Pilote & Métadonnées Source */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-slate-100">
+              <Building className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
               <span>{hotel.name}</span>
-              <span className="text-slate-400 font-normal">({hotel.roomCount || HOTEL_TOTAL_ROOMS} ch. • {hotel.city})</span>
+              <span className="text-slate-400 font-normal tabular-nums">({hotelTotalRooms} ch. • {hotel.city})</span>
             </span>
             <span className="text-slate-300">|</span>
-            <span className="flex items-center gap-1.5 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>D-EDGE CRS & Lighthouse Connectés (5 concurrents directs suivis)</span>
+            <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-semibold bg-slate-50 dark:bg-slate-800/60 px-2.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 tabular-nums">
+              <span>Panel Compset actif : {activeCompsetMetas.length} concurrents directs (max 10)</span>
+            </span>
+            <span className="text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 tabular-nums">
+              Bornes : {barFloor}€ – {barCeiling}€
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-[11px] text-slate-500">
-            <span>Date d’observation : <strong>04 novembre 2026</strong></span>
+          <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+            <span>Date d’observation : <strong>{TODAY_DATE_STR.split('-').reverse().join('/')}</strong></span>
             <span>•</span>
-            <span className="text-violet-700 font-bold">Capacité Totale : {HOTEL_TOTAL_ROOMS} chambres</span>
+            <span className="text-violet-700 dark:text-violet-300 font-bold">Capacité Totale : {hotelTotalRooms} chambres</span>
           </div>
         </div>
       </div>
@@ -992,7 +1015,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           hotel={hotel}
           onShowToast={onShowToast}
           onDataImported={() => {
-            setRecords(getRateIntelligenceRecords(hotel.id));
+            setRecords(getRateIntelligenceRecords(hotel));
           }}
         />
       ) : activeSubTab === 'backtest' ? (
@@ -1003,6 +1026,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       ) : activeSubTab === 'lighthouse' ? (
         <LighthouseCompetitiveIntelligenceView
           hotel={hotel}
+          configVersion={configVersion}
           onShowToast={onShowToast}
           onApplyRecommendationToRMS={(dateStr, rate, reason) => {
             const matched = records.find((r) => r.dateStr === dateStr);
@@ -1016,7 +1040,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
               `Recommandation Veille Concurrentielle Lighthouse : ${reason}`,
               'Wali Larabi'
             );
-            setRecords(getRateIntelligenceRecords(hotel.id));
+            setRecords(getRateIntelligenceRecords(hotel));
             onShowToast(`✓ Tarif conseillé de ${rate}€ validé et enregistré pour le ${dateStr}`);
           }}
         />
@@ -1025,112 +1049,112 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           {/* 2. Cartes Synthétiques de Performance RM & Positionnement */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* KPI 1 : Position Compset & Rang */}
-            <div className="bg-gradient-to-br from-violet-50 to-indigo-50/60 rounded-2xl border border-violet-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-violet-800 text-xs font-semibold">
+            <div className="bg-gradient-to-br from-violet-50 dark:from-violet-950/50 to-indigo-50/60 dark:to-indigo-950/40 rounded-2xl border border-violet-200/90 dark:border-violet-800/70 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-violet-800 dark:text-violet-300 text-xs font-semibold">
                 <span className="flex items-center gap-1.5">
-                  <Trophy className="w-3.5 h-3.5 text-violet-600" />
+                  <Trophy className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                   <span>Position Compset</span>
                 </span>
-                <span className="text-[10px] font-bold text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 rounded-full">
                   Rang {summaryKpis.avgRank} / {summaryKpis.avgTotalAvailable}
                 </span>
               </div>
-              <div className="text-xl font-black text-violet-950 tracking-tight">
+              <div className="text-xl font-black text-violet-950 dark:text-violet-100 tracking-tight">
                 {Number(summaryKpis.avgRank) <= 1.8
                   ? '1er moins cher du quartier'
                   : Number(summaryKpis.avgRank) <= 2.8
                   ? '2e moins cher'
                   : 'Position Médiane'}
               </div>
-              <p className="text-[11px] text-violet-700 leading-tight">
+              <p className="text-[11px] text-violet-700 dark:text-violet-300 leading-tight">
                 BAR Moyen : <strong>{summaryKpis.avgCurrentBar} €</strong> vs Méd. <strong>{summaryKpis.avgCompsetMedian} €</strong>
               </p>
             </div>
 
             {/* KPI 2 : ADR Net & RevPAR Réel */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
                 <span>ADR Net & RevPAR</span>
-                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                   D-EDGE Résas
                 </span>
               </div>
-              <div className="text-2xl font-bold text-slate-900 tabular-nums flex items-baseline gap-2">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums flex items-baseline gap-2">
                 <span>{summaryKpis.avgAdrNet} €</span>
-                <span className="text-xs font-semibold text-emerald-600">
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                   (RevPAR {summaryKpis.avgRevpar} €)
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Occ. Moyenne OTB : <strong>{summaryKpis.avgOccupancy}%</strong>
               </p>
             </div>
 
             {/* KPI 3 : Chiffre d'Affaires Net Hébergement */}
-            <div className="bg-emerald-50/60 rounded-2xl border border-emerald-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-emerald-800 text-xs font-semibold">
+            <div className="bg-emerald-50/60 dark:bg-slate-900 rounded-2xl border border-emerald-200/90 dark:border-emerald-800/60 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
                 <span>CA Hébergement Net</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-transparent dark:border-emerald-800/50">
                   Par Nuitée
                 </span>
               </div>
-              <div className="text-2xl font-bold text-emerald-700 tabular-nums">
+              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
                 {summaryKpis.totalNetRevenue.toLocaleString('fr-FR')} €
               </div>
-              <p className="text-[11px] text-emerald-700/80">
+              <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
                 Hors petit-déj & net des annulations
               </p>
             </div>
 
             {/* KPI 4 : Répartition des Statuts de Marché */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
                 <span>Statuts de Positionnement</span>
-                <span className="text-[10px] font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200/60">
+                <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 px-1.5 py-0.5 rounded border border-violet-200/60 dark:border-violet-800/60">
                   Lighthouse
                 </span>
               </div>
               <div className="flex items-center gap-1.5 pt-0.5">
                 <span
-                  className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200"
+                  className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/70"
                   title="Significativement moins cher (Significantly cheaper)"
                 >
-                  <ArrowDownRight className="w-3 h-3 text-emerald-600" />
+                  <ArrowDownRight className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                   {summaryKpis.significantlyCheaperDays}j
                 </span>
                 <span
-                  className="inline-flex items-center gap-1 text-xs font-black text-sky-800 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200"
+                  className="inline-flex items-center gap-1 text-xs font-black text-sky-800 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 rounded-md border border-sky-200 dark:border-sky-800/70"
                   title="Aligné sur le marché (Aligned)"
                 >
-                  <CheckCircle2 className="w-3 h-3 text-sky-600" />
+                  <CheckCircle2 className="w-3 h-3 text-sky-600 dark:text-sky-400" />
                   {summaryKpis.alignedDays}j
                 </span>
                 <span
-                  className="inline-flex items-center gap-1 text-xs font-black text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200"
+                  className="inline-flex items-center gap-1 text-xs font-black text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/70"
                   title="Plus cher que le compset (More expensive)"
                 >
-                  <ArrowUpRight className="w-3 h-3 text-amber-600" />
+                  <ArrowUpRight className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                   {summaryKpis.moreExpensiveDays}j
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 🟢 Moins cher • 🔵 Aligné • 🟠 Plus cher
               </p>
             </div>
 
             {/* KPI 5 : Décisions RM en Attente & Gain Détecté */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
                 <span>Décisions en Attente</span>
-                <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200/60">
+                <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-200/60 dark:border-rose-800/60">
                   Validation Humaine
                 </span>
               </div>
-              <div className="text-2xl font-bold text-rose-600 tabular-nums flex items-baseline gap-2">
+              <div className="text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums flex items-baseline gap-2">
                 <span>{summaryKpis.pendingDecisionsCount}</span>
-                <span className="text-xs font-normal text-slate-500">à valider</span>
+                <span className="text-xs font-normal text-slate-500 dark:text-slate-400">à valider</span>
               </div>
-              <p className="text-[11px] text-emerald-700 font-semibold">
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">
                 Gain potentiel : +{summaryKpis.totalGainPotential.toLocaleString('fr-FR')} €
               </p>
             </div>
@@ -1138,22 +1162,22 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
           {/* Bannière Interactive d'Alertes Bornes de Sécurité (Planchers / Plafonds) */}
           {summaryKpis.safetyAlertsCount > 0 && (
-            <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3.5 px-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+            <div className="bg-amber-50/90 dark:bg-slate-900 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-3.5 px-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-center gap-3">
-                <span className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
-                  <ShieldAlert className="w-4 h-4 animate-bounce" />
+                <span className="p-2 rounded-xl bg-amber-100 dark:bg-amber-950/60 border border-transparent dark:border-amber-800/50 text-amber-800 dark:text-amber-300 shrink-0">
+                  <ShieldAlert className="w-4 h-4" />
                 </span>
                 <div>
-                  <div className="text-xs font-bold text-amber-950 flex items-center gap-2">
+                  <div className="text-xs font-bold text-amber-950 dark:text-amber-100 flex items-center gap-2 flex-wrap">
                     <span>Garde-fous & Bornes de Sécurité Tarifaire : {summaryKpis.safetyAlertsCount} dates sous surveillance</span>
-                    <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-amber-200 text-amber-900">
-                      Plancher 180€ · Plafond 550€ · Saut max 100€
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-950/60 border border-transparent dark:border-amber-800/60 text-amber-900 dark:text-amber-200 tabular-nums">
+                      Plancher {barFloor}€ · Plafond {barCeiling}€ · Saut max {maxJumpEur}€
                     </span>
                   </div>
-                  <p className="text-[11px] text-amber-800 mt-0.5">
-                    {summaryKpis.floorAlertsCount > 0 && <span className="mr-2">🛡️ <strong>{summaryKpis.floorAlertsCount}</strong> au plancher (180€)</span>}
-                    {summaryKpis.ceilingAlertsCount > 0 && <span className="mr-2">🚨 <strong>{summaryKpis.ceilingAlertsCount}</strong> au plafond (550€)</span>}
-                    {summaryKpis.largeStepAlertsCount > 0 && <span>⚠️ <strong>{summaryKpis.largeStepAlertsCount}</strong> sauts &gt; 100€</span>}
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300/90 mt-0.5 tabular-nums">
+                    {summaryKpis.floorAlertsCount > 0 && <span className="mr-2"><strong>{summaryKpis.floorAlertsCount}</strong> au plancher ({barFloor}€)</span>}
+                    {summaryKpis.ceilingAlertsCount > 0 && <span className="mr-2"><strong>{summaryKpis.ceilingAlertsCount}</strong> au plafond ({barCeiling}€)</span>}
+                    {summaryKpis.largeStepAlertsCount > 0 && <span><strong>{summaryKpis.largeStepAlertsCount}</strong> sauts &gt; {maxJumpEur}€</span>}
                   </p>
                 </div>
               </div>
@@ -1163,7 +1187,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 ${
                     riskFilter === 'safety_guardrail'
                       ? 'bg-amber-700 text-white'
-                      : 'bg-white text-amber-900 border border-amber-300 hover:bg-amber-100'
+                      : 'bg-white dark:bg-slate-800/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/70 hover:bg-amber-100 dark:hover:bg-amber-950/60'
                   }`}
                 >
                   <Filter className="w-3.5 h-3.5" />
@@ -1174,16 +1198,16 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           )}
 
           {/* 3. Barre d'Outils Complète & Sélecteur d'Horizon Temporel */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-3">
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
               {/* Sélecteur de Durée (7j, 14j, 30j défaut, 60j, 90j, Tout) + Steppers */}
               <div className="flex flex-wrap items-center gap-2.5">
-                <div className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-violet-600" />
+                <div className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   <span>Horizon :</span>
                 </div>
 
-                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold shadow-2xs">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold shadow-2xs">
                   {(
                     [
                       { id: '7d', label: '7 jours' },
@@ -1203,7 +1227,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer font-bold ${
                         periodDuration === btn.id
                           ? 'bg-violet-600 text-white shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
                       }`}
                     >
                       {btn.label}
@@ -1212,24 +1236,24 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 </div>
 
                 {periodDuration !== 'all' && (
-                  <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-1.5 py-1 text-xs">
+                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-1.5 py-1 text-xs">
                     <button
                       onClick={() => handleStepPeriod('prev')}
-                      className="p-1 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors cursor-pointer"
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-400 transition-colors cursor-pointer"
                       title="Reculer dans la période"
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={handleResetToToday}
-                      className="px-2 py-0.5 text-[11px] font-bold text-slate-700 hover:text-violet-700 transition-colors cursor-pointer"
+                      className="px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:text-violet-700 dark:hover:text-violet-300 transition-colors cursor-pointer"
                       title="Revenir à partir d'aujourd'hui"
                     >
                       Aujourd&apos;hui
                     </button>
                     <button
                       onClick={() => handleStepPeriod('next')}
-                      className="p-1 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors cursor-pointer"
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-400 transition-colors cursor-pointer"
                       title="Avancer dans la période"
                     >
                       <ChevronRightIcon className="w-3.5 h-3.5" />
@@ -1238,15 +1262,15 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 )}
 
                 {/* Badge d'indication de dates synchronisées */}
-                <div className="hidden xl:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl">
+                <div className="hidden xl:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 px-2.5 py-1 rounded-xl">
                   <span>📅 {new Date(activeDateRange.startStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                   <span>→</span>
                   <span>{new Date(activeDateRange.endStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                  <span className="text-violet-700 font-bold ml-1">({activeDateRange.numDays}j synchronisés)</span>
+                  <span className="text-violet-700 dark:text-violet-300 font-bold ml-1">({activeDateRange.numDays}j synchronisés)</span>
                 </div>
 
                 {/* Case à cocher dates passées */}
-                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer ml-1 select-none bg-slate-50 border border-slate-200/70 px-2 py-1 rounded-xl hover:bg-slate-100 transition-colors">
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 cursor-pointer ml-1 select-none bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 px-2 py-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                   <input
                     type="checkbox"
                     checked={showPastDates}
@@ -1269,11 +1293,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   </button>
                 )}
 
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl text-xs font-semibold">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl text-xs font-semibold">
                   <button
                     onClick={() => setViewMode('both')}
                     className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                      viewMode === 'both' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600'
+                      viewMode === 'both' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
                     Mixte
@@ -1281,7 +1305,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   <button
                     onClick={() => setViewMode('table')}
                     className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                      viewMode === 'table' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600'
+                      viewMode === 'table' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
                     Grille
@@ -1289,7 +1313,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   <button
                     onClick={() => setViewMode('chart')}
                     className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                      viewMode === 'chart' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600'
+                      viewMode === 'chart' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold' : 'text-slate-600 dark:text-slate-400'
                     }`}
                   >
                     Graphique
@@ -1299,77 +1323,79 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 {/* Roue de Configuration des Colonnes RM */}
                 <button
                   onClick={() => setShowColumnConfigModal(true)}
-                  className="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-800 border border-violet-200 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
                   title="Sélectionner les indicateurs à afficher dans le tableau (Roue de Configuration)"
                 >
-                  <Settings className="w-3.5 h-3.5 text-violet-600 animate-[spin_8s_linear_infinite]" />
+                  <Settings className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 animate-[spin_8s_linear_infinite]" />
                   <span>Colonnes ({activeColumnsCount}/21)</span>
                 </button>
               </div>
             </div>
 
             {/* Ligne 2 de Filtres : Demande, Risques, Statut, Catégorie Chambre & Recherche */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
               <div className="flex flex-wrap items-center gap-2">
                 {/* Catégorie de Chambre */}
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
                   <BedDouble className="w-3.5 h-3.5 text-slate-400" />
                   <select
                     value={selectedRoomCategory}
                     onChange={(e) => setSelectedRoomCategory(e.target.value as RoomCategory)}
-                    className="bg-transparent text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                    className="bg-transparent text-slate-700 dark:text-slate-300 font-semibold focus:outline-hidden cursor-pointer"
                   >
-                    <option value="all">Toutes chambres (45 ch.)</option>
-                    <option value="classique">Classique Double (23 ch.)</option>
-                    <option value="superieure">Supérieure (8 ch.)</option>
-                    <option value="deluxe_famille">Deluxe / Famille (14 ch.)</option>
+                    <option value="all">Toutes chambres ({hotelTotalRooms} ch.)</option>
+                    {rmsConfig.roomTypologies.map((typ) => (
+                      <option key={typ.id} value={typ.code === 'suite' ? 'deluxe_famille' : typ.code}>
+                        {typ.name} ({typ.totalRooms} ch.)
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 {/* Niveau de Demande */}
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
                   <Activity className="w-3.5 h-3.5 text-slate-400" />
                   <select
                     value={demandFilter}
                     onChange={(e) => setDemandFilter(e.target.value)}
-                    className="bg-transparent text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                    className="bg-transparent text-slate-700 dark:text-slate-300 font-semibold focus:outline-hidden cursor-pointer"
                   >
                     <option value="all">Toutes demandes</option>
-                    <option value="exceptionnel">🔥 Exceptionnel (96%)</option>
-                    <option value="tres_fort">⚡ Très fort (86%)</option>
-                    <option value="eleve">📈 Élevé (74%)</option>
-                    <option value="modere">⚖️ Modéré (58%)</option>
-                    <option value="faible">💤 Faible (38%)</option>
+                    <option value="exceptionnel">Exceptionnel (96%)</option>
+                    <option value="tres_fort">Très fort (86%)</option>
+                    <option value="eleve">Élevé (74%)</option>
+                    <option value="modere">Modéré (58%)</option>
+                    <option value="faible">Faible (38%)</option>
                   </select>
                 </div>
 
                 {/* Niveau de Risque & Bornes de Sécurité */}
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
                   <ShieldAlert className="w-3.5 h-3.5 text-slate-400" />
                   <select
                     value={riskFilter}
                     onChange={(e) => setRiskFilter(e.target.value)}
-                    className="bg-transparent text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                    className="bg-transparent text-slate-700 dark:text-slate-300 font-semibold focus:outline-hidden cursor-pointer"
                   >
                     <option value="all">Tous niveaux de risque</option>
-                    <option value="safety_guardrail">🚨 Bornes Sécurité (Planchers / Plafonds / Sauts)</option>
-                    <option value="floor_alert">🛡️ Alertes Plancher Sécurité (180€)</option>
-                    <option value="ceiling_alert">🚨 Alertes Plafond Sécurité (550€)</option>
-                    <option value="large_step">⚠️ Sauts Tarifaires Abrupts (&gt;100€)</option>
-                    <option value="underpriced">🔴 Sous-tarification critique</option>
-                    <option value="compression">⚠️ Compression de marché</option>
-                    <option value="stock">📦 Stock résiduel critique (&lt;8 ch.)</option>
-                    <option value="partial_data">⚠️ Données partielles / horizon lointain</option>
+                    <option value="safety_guardrail">Bornes Sécurité (Planchers / Plafonds / Sauts)</option>
+                    <option value="floor_alert">Alertes Plancher Sécurité ({barFloor}€)</option>
+                    <option value="ceiling_alert">Alertes Plafond Sécurité ({barCeiling}€)</option>
+                    <option value="large_step">Sauts Tarifaires Abrupts (&gt;{maxJumpEur}€)</option>
+                    <option value="underpriced">Sous-tarification critique</option>
+                    <option value="compression">Compression de marché</option>
+                    <option value="stock">Stock résiduel critique (&lt;8 ch.)</option>
+                    <option value="partial_data">Données partielles / horizon lointain</option>
                   </select>
                 </div>
 
                 {/* Statut Décisionnel */}
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
                   <Filter className="w-3.5 h-3.5 text-slate-400" />
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="bg-transparent text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                    className="bg-transparent text-slate-700 dark:text-slate-300 font-semibold focus:outline-hidden cursor-pointer"
                   >
                     <option value="all">Tous statuts décisionnels</option>
                     <option value="pending">⏳ À valider par RM</option>
@@ -1388,7 +1414,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   placeholder="Rechercher événement ou date..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs w-56 focus:w-64 transition-all focus:outline-hidden focus:border-violet-500"
+                  className="pl-8 pr-3 py-1.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 text-xs w-56 focus:w-64 transition-all focus:outline-hidden focus:border-violet-500"
                 />
               </div>
             </div>
@@ -1396,22 +1422,24 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
           {/* 4. Graphique d'Évolution Tarifaire & Concurrentielle */}
           {(viewMode === 'chart' || viewMode === 'both') && (
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-violet-600" />
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                     <span>Courbes Tarifaires Synchronisées & Taux d’Occupation OTB</span>
                   </h2>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     BAR Mon Hôtel vs Médiane Lighthouse & Tarif Suggéré RM. Activez les concurrents pour analyser les courbes individuelles.
                   </p>
                 </div>
 
-                {/* Toggles des Concurrents Individuels */}
+                {/* Toggles des Concurrents Individuels (jusqu'à 10 concurrents actifs) */}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-slate-400 mr-1">Compset :</span>
-                  {COMPSET_METAS.map((c) => {
+                  <span className="text-[11px] font-semibold text-slate-400 mr-1">
+                    Compset ({activeCompsetMetas.length}) :
+                  </span>
+                  {activeCompsetMetas.map((c) => {
                     const isVisible = visibleCompetitors[c.name];
                     return (
                       <button
@@ -1422,14 +1450,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             [c.name]: !prev[c.name],
                           }))
                         }
-                        className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                        className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0 ${
                           isVisible
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                            ? 'bg-slate-900 dark:bg-slate-800 text-white border-slate-900 shadow-2xs'
+                            : 'bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                       >
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
-                        <span>{c.name.replace('Hôtel ', '')}</span>
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                        <span>{c.name.replace(/^Hôtel\s+/i, '')}</span>
                       </button>
                     );
                   })}
@@ -1440,16 +1468,16 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="displayDate" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#cbd5e1' }} />
-                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#64748b' }} domain={['dataMin - 30', 'dataMax + 40']} unit="€" axisLine={{ stroke: '#cbd5e1' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartTokens.gridStroke} vertical={false} />
+                    <XAxis dataKey="displayDate" tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} axisLine={{ stroke: chartTokens.axisLineColor }} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 11, fill: chartTokens.axisTickColor }} domain={['dataMin - 30', 'dataMax + 40']} unit="€" axisLine={{ stroke: chartTokens.axisLineColor }} />
                     <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#10b981' }} domain={[0, 100]} unit="%" axisLine={{ stroke: '#10b981' }} />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
                           return (
-                            <div className="bg-slate-900 text-white p-3.5 rounded-xl shadow-xl text-xs space-y-2 border border-slate-800 max-w-xs">
+                            <div className="bg-slate-900 dark:bg-slate-800 text-white p-3.5 rounded-xl shadow-xl text-xs space-y-2 border border-slate-800 max-w-xs">
                               <div className="font-bold text-slate-100 flex items-center justify-between border-b border-slate-800 pb-1.5">
                                 <span>{data.fullDate}</span>
                                 <span className="text-violet-400 font-semibold truncate max-w-[140px]">
@@ -1457,29 +1485,29 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                 </span>
                               </div>
 
-                              <div className="space-y-1 font-mono text-[11px]">
+                              <div className="space-y-1 font-mono text-[11px] tabular-nums">
                                 <div className="flex justify-between text-white font-bold bg-slate-800/80 px-1.5 py-0.5 rounded">
                                   <span>Mon BAR Actuel :</span>
                                   <span>{data.currentBar} €</span>
                                 </div>
                                 <div className="flex justify-between text-amber-300">
                                   <span>Médiane Compset :</span>
-                                  <span>{data.compsetMedian} €</span>
+                                  <span>{data.compsetMedian !== null ? `${data.compsetMedian} €` : 'N/D'}</span>
                                 </div>
                                 <div className="flex justify-between text-violet-300 font-bold">
                                   <span>Tarif Suggéré RM :</span>
                                   <span>{data.suggestedBar} €</span>
                                 </div>
                                 <div className="flex justify-between text-slate-300 pt-1 border-t border-slate-800">
-                                  <span>Position Compset :</span>
-                                  <span className="font-bold text-white bg-violet-600/70 px-1.5 py-0.2 rounded text-[10px]">
+                                  <span>Position Compset ({data.exploitableSummary}) :</span>
+                                  <span className="font-bold text-white bg-violet-600/70 px-1.5 py-0.5 rounded text-[10px]">
                                     {data.rankingFraction}
                                   </span>
                                 </div>
                                 <div className="flex justify-between items-center text-[10px] pt-0.5">
                                   <span className="text-slate-400">Statut :</span>
                                   <span
-                                    className={`font-bold px-1.5 py-0.2 rounded text-[10px] ${
+                                    className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${
                                       data.statusClassification === 'significantly_cheaper'
                                         ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
                                         : data.statusClassification === 'more_expensive'
@@ -1495,16 +1523,16 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   <span>{data.occupancy}%</span>
                                 </div>
 
-                                {COMPSET_METAS.filter((c) => visibleCompetitors[c.name]).map((c) => (
+                                {activeCompsetMetas.filter((c) => visibleCompetitors[c.name]).map((c) => (
                                   <div key={c.name} className="flex justify-between text-[10px] text-slate-300 pt-0.5">
-                                    <span className="truncate max-w-[120px]">{c.name} :</span>
-                                    <span>{data[c.name] ? `${data[c.name]} €` : 'Complet'}</span>
+                                    <span className="truncate max-w-[140px]">{c.name} :</span>
+                                    <span>{data[c.name] != null ? `${data[c.name]} €` : 'Indisp. / Complet'}</span>
                                   </div>
                                 ))}
 
                                 {data.soldOutCount > 0 && (
                                   <div className="text-rose-400 font-bold pt-1 text-[10px]">
-                                    🔴 {data.soldOutCount} concurrents complets (sold-out)
+                                    {data.soldOutCount} concurrent(s) épuisé(s) ou restreint(s)
                                   </div>
                                 )}
                               </div>
@@ -1520,7 +1548,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                     <Line yAxisId="left" type="monotone" dataKey="suggestedBar" stroke="#7c3aed" strokeWidth={2.5} dot={{ r: chartData.length > 30 ? 2 : 4, fill: '#7c3aed' }} name="Tarif Suggéré RM" />
                     <Area yAxisId="right" type="monotone" dataKey="occupancy" fill="#10b981" stroke="#10b981" fillOpacity={0.08} strokeWidth={1.5} name="Occ. % OTB" />
 
-                    {COMPSET_METAS.map((c) => {
+                    {activeCompsetMetas.map((c) => {
                       if (!visibleCompetitors[c.name]) return null;
                       return (
                         <Line
@@ -1545,40 +1573,40 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
           {/* 5. Grille de Recommandation Tarifaire Professionnelle (Les 21 Colonnes Obligatoires - Section 5) */}
           {(viewMode === 'table' || viewMode === 'both') && (
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-violet-600" />
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                     <span>Tableau de Recommandation Tarifaire Professionnel ({synchronizedRecords.length} dates)</span>
                   </h2>
-                  <p className="text-xs text-slate-500">
-                    Structure complète à 21 colonnes RM • Cliquez sur une ligne pour ouvrir l’analyse épistémologique et le comparatif compset détaillé.
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Structure complète à 21 colonnes RM • Cliquez sur une ligne pour ouvrir l’analyse épistémologique et le comparatif compset ({activeCompsetMetas.length} concurrents).
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setShowColumnConfigModal(true)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs"
+                    className="flex items-center gap-1.5 text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800/70 px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs"
                     title="Personnaliser les colonnes affichées dans la grille (Roue de Configuration)"
                   >
-                    <Settings className="w-3.5 h-3.5 text-violet-600 animate-[spin_8s_linear_infinite]" />
-                    <span>Roue de Configuration ({activeColumnsCount}/21)</span>
+                    <Settings className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                    <span>Colonnes ({activeColumnsCount}/21)</span>
                   </button>
 
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-                    <span>Grand Hôtel Folkestone Opéra</span>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 tabular-nums">
+                    <span>{hotel.name}</span>
                     <span className="text-slate-300">•</span>
-                    <span>45 Chambres</span>
+                    <span>{hotelTotalRooms} Chambres</span>
                   </div>
                 </div>
               </div>
 
               {/* Table avec défilement horizontal fluide et colonnes dynamiques */}
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600 border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400 border-collapse">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
                     <tr>
                       {visibleColumns.date_day && <th className="py-3 px-3">1. Date & Jour</th>}
                       {visibleColumns.event && <th className="py-3 px-3">3. Événement</th>}
@@ -1594,8 +1622,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       {visibleColumns.adr && <th className="py-3 px-2 text-right">13. ADR Net</th>}
                       {visibleColumns.revpar && <th className="py-3 px-2 text-right">14. RevPAR</th>}
                       {visibleColumns.lead_time && <th className="py-3 px-2 text-center">15. Lead Time</th>}
-                      {visibleColumns.suggested && <th className="py-3 px-3 text-right text-violet-700 bg-violet-50/50">16. Suggéré RM</th>}
-                      {visibleColumns.safety_alert && <th className="py-3 px-2 text-center text-rose-700 bg-rose-50/50">🚨 Sécurité Bornes</th>}
+                      {visibleColumns.suggested && <th className="py-3 px-3 text-right text-violet-700 dark:text-violet-300 bg-violet-50/50 dark:bg-violet-950/35">16. Suggéré RM</th>}
+                      {visibleColumns.safety_alert && <th className="py-3 px-2 text-center text-rose-700 dark:text-rose-300 bg-rose-50/50 dark:bg-rose-950/35">🚨 Sécurité Bornes</th>}
                       {visibleColumns.delta && <th className="py-3 px-2 text-center">17. Écart</th>}
                       {visibleColumns.strategy && <th className="py-3 px-2 text-center whitespace-nowrap">18. Stratégie</th>}
                       {visibleColumns.justification && <th className="py-3 px-2 text-center whitespace-nowrap">19. Explication</th>}
@@ -1603,13 +1631,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       {visibleColumns.validation && <th className="py-3 px-3 text-right">21. Validation</th>}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                     {synchronizedRecords.map((r) => {
                       const isExpanded = expandedRowId === r.id;
                       const ranking = calculateCompsetRanking(r, hotel.name);
                       const isUnderpriced = r.underpricedAlert && r.status === 'pending';
                       const isApplied = r.status === 'applied';
-                      const safetyAlert = detectSafetyAlert(r);
+                      const safetyAlert = detectSafetyAlert(r, barFloor, barCeiling, maxJumpEur);
                       const strategyInfo = getStrategyShortInfo(r.rmRecommendation.strategyLabel);
 
                       return (
@@ -1618,12 +1646,12 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             onClick={() => setExpandedRowId(isExpanded ? null : r.id)}
                             className={`transition-colors cursor-pointer select-none ${
                               safetyAlert.hasAlert && safetyAlert.severity === 'critical'
-                                ? 'bg-rose-50/25 hover:bg-rose-50/60'
+                                ? 'bg-rose-50/25 dark:bg-rose-950/20 hover:bg-rose-50/60 dark:hover:bg-rose-950/35'
                                 : isUnderpriced
-                                ? 'bg-rose-50/35 hover:bg-rose-50/70'
+                                ? 'bg-rose-50/35 dark:bg-rose-950/25 hover:bg-rose-50/70 dark:hover:bg-rose-950/40'
                                 : isApplied
-                                ? 'bg-emerald-50/25 hover:bg-emerald-50/50'
-                                : 'hover:bg-slate-50/90'
+                                ? 'bg-emerald-50/25 dark:bg-emerald-950/20 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/35'
+                                : 'hover:bg-slate-50/90 dark:hover:bg-slate-800/50'
                             }`}
                           >
                             {/* 1 & 2. Date & Jour */}
@@ -1631,7 +1659,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                               <td className="py-3 px-3 whitespace-nowrap">
                                 <div className="flex items-center gap-1.5">
                                   <div>
-                                    <div className="font-bold text-slate-900">
+                                    <div className="font-bold text-slate-900 dark:text-slate-100">
                                       {r.dayOfWeek.slice(0, 3)}. {new Date(r.dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                                     </div>
                                     <div className="text-[10px] text-slate-400 font-mono">{r.dateStr}</div>
@@ -1660,7 +1688,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                       });
                                       setSelectedPredictiveRec(pred);
                                     }}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                                    className="p-1 rounded-lg text-slate-400 hover:text-violet-700 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/50 transition-colors"
                                     title="Ouvrir le panneau d'analyse prédictive multi-années et scénarios"
                                   >
                                     <Sparkles className="w-3.5 h-3.5 text-violet-500" />
@@ -1674,11 +1702,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                               <td className="py-3 px-3 max-w-[160px]">
                                 {r.eventTitle ? (
                                   <div className="space-y-0.5">
-                                    <div className="text-[11px] font-bold text-violet-700 truncate" title={r.eventTitle}>
+                                    <div className="text-[11px] font-bold text-violet-700 dark:text-violet-300 truncate" title={r.eventTitle}>
                                       {r.eventTitle}
                                     </div>
                                     <div className="flex items-center gap-1">
-                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800">
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
                                         Score {r.rmScore}
                                       </span>
                                     </div>
@@ -1695,12 +1723,12 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                 <span
                                   className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide ${
                                     r.demandLevel === 'exceptionnel'
-                                      ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                      ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70'
                                       : r.demandLevel === 'tres_fort'
-                                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                      ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70'
                                       : r.demandLevel === 'eleve'
-                                      ? 'bg-violet-100 text-violet-800 border border-violet-200'
-                                      : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                      ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
                                   }`}
                                   title={`Taux de tension du marché estimé : ${
                                     r.demandLevel === 'exceptionnel' ? '96%' : r.demandLevel === 'tres_fort' ? '86%' : r.demandLevel === 'eleve' ? '74%' : '58%'
@@ -1720,40 +1748,32 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             {/* 5. Tarif Actuel commercialisé */}
                             {visibleColumns.current_bar && (
                               <td className="py-3 px-2 text-right whitespace-nowrap">
-                                <span className="font-black text-slate-900 text-xs tabular-nums">
+                                <span className="font-black text-slate-900 dark:text-slate-100 text-xs tabular-nums">
                                   {r.currentBarEur} €
                                 </span>
                                 <div className="text-[9px] text-slate-400">Min {r.currentMinStay}n</div>
                               </td>
                             )}
 
-                            {/* Position Compset (ex: 1/6) & Statut Visuel */}
+                            {/* Position Compset & Statut Visuel */}
                             {visibleColumns.compset_rank && (
                               <td className="py-3 px-2 text-center whitespace-nowrap">
                                 <div className="flex flex-col items-center gap-0.5">
                                   <span
                                     className={`inline-flex items-center gap-1 font-black text-[11px] px-2 py-0.5 rounded-md border tabular-nums shadow-2xs ${
                                       ranking.isCheapest
-                                        ? 'bg-violet-100 text-violet-900 border-violet-300 ring-1 ring-violet-400/30'
+                                        ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-900 dark:text-violet-200 border-violet-300 dark:border-violet-700/70 ring-1 ring-violet-400/30'
                                         : ranking.isMostExpensive
-                                        ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                        : 'bg-slate-100 text-slate-800 border-slate-300'
+                                        ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700/70'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700'
                                     }`}
-                                    title={`Position : ${ranking.rankingFraction}`}
+                                    title={`Position : ${ranking.rankingFraction} (${r.lighthouse.exploitableSummary})`}
                                   >
-                                    <Trophy className="w-3 h-3 text-violet-700" />
+                                    <Trophy className="w-3 h-3 text-violet-700 dark:text-violet-300" />
                                     <span>{ranking.rankingFraction}</span>
                                   </span>
-                                  <span
-                                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
-                                      ranking.statusClassification === 'significantly_cheaper'
-                                        ? 'bg-emerald-100 text-emerald-800'
-                                        : ranking.statusClassification === 'more_expensive'
-                                        ? 'bg-amber-100 text-amber-800'
-                                        : 'bg-sky-100 text-sky-800'
-                                    }`}
-                                  >
-                                    {ranking.statusClassification === 'significantly_cheaper' ? 'Moins cher' : ranking.statusClassification === 'more_expensive' ? 'Plus cher' : 'Aligné'}
+                                  <span className="text-[9px] text-slate-400 tabular-nums">
+                                    {r.lighthouse.exploitableSummary}
                                   </span>
                                 </div>
                               </td>
@@ -1761,22 +1781,24 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
                             {/* 6. Tarif Médian Lighthouse */}
                             {visibleColumns.lh_median && (
-                              <td className="py-3 px-2 text-right whitespace-nowrap font-bold text-slate-800 tabular-nums">
-                                {r.lighthouse.compsetMedianEur} €
+                              <td className="py-3 px-2 text-right whitespace-nowrap font-bold text-slate-800 dark:text-slate-200 tabular-nums">
+                                {r.lighthouse.hasExploitableCompset ? `${r.lighthouse.compsetMedianEur} €` : 'N/D'}
                               </td>
                             )}
 
                             {/* 7. Tarif Moyen Lighthouse */}
                             {visibleColumns.lh_avg && (
-                              <td className="py-3 px-2 text-right whitespace-nowrap text-slate-600 tabular-nums">
-                                {r.lighthouse.compsetAvgEur} €
+                              <td className="py-3 px-2 text-right whitespace-nowrap text-slate-600 dark:text-slate-400 tabular-nums">
+                                {r.lighthouse.hasExploitableCompset ? `${r.lighthouse.compsetAvgEur} €` : 'N/D'}
                               </td>
                             )}
 
                             {/* 8 & 9. Tarif Min / Max Compset */}
                             {visibleColumns.lh_range && (
-                              <td className="py-3 px-2 text-center whitespace-nowrap text-[10px] text-slate-500 tabular-nums">
-                                [{r.lighthouse.compsetMinEur}€ - {r.lighthouse.compsetMaxEur}€]
+                              <td className="py-3 px-2 text-center whitespace-nowrap text-[10px] text-slate-500 dark:text-slate-400 tabular-nums">
+                                {r.lighthouse.hasExploitableCompset
+                                  ? `[${r.lighthouse.compsetMinEur}€ - ${r.lighthouse.compsetMaxEur}€]`
+                                  : 'Indisponible'}
                               </td>
                             )}
 
@@ -1786,10 +1808,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                 <span
                                   className={`font-bold tabular-nums text-xs px-1.5 py-0.5 rounded ${
                                     r.dedgePickup.pickup1d >= 5
-                                      ? 'bg-rose-100 text-rose-800 font-black'
+                                      ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 font-black'
                                       : r.dedgePickup.pickup1d >= 2
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'text-slate-600'
+                                      ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                                      : 'text-slate-600 dark:text-slate-400'
                                   }`}
                                 >
                                   {r.dedgePickup.pickup1d > 0 ? `+${r.dedgePickup.pickup1d}` : `${r.dedgePickup.pickup1d}`}
@@ -1800,7 +1822,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             {/* 11. Disponibilité (Stock restant sur 45 ch.) */}
                             {visibleColumns.dispo && (
                               <td className="py-3 px-2 text-center whitespace-nowrap tabular-nums">
-                                <span className={`font-bold text-xs ${r.remainingRooms <= 8 ? 'text-rose-600 font-black' : 'text-slate-800'}`}>
+                                <span className={`font-bold text-xs ${r.remainingRooms <= 8 ? 'text-rose-600 dark:text-rose-400 font-black' : 'text-slate-800 dark:text-slate-200'}`}>
                                   {r.remainingRooms} ch.
                                 </span>
                               </td>
@@ -1809,51 +1831,51 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             {/* 12. Taux d'Occupation */}
                             {visibleColumns.occ && (
                               <td className="py-3 px-2 text-center whitespace-nowrap tabular-nums">
-                                <span className="font-semibold text-slate-800">{r.occupancyPercent}%</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">{r.occupancyPercent}%</span>
                               </td>
                             )}
 
                             {/* 13. ADR Net */}
                             {visibleColumns.adr && (
-                              <td className="py-3 px-2 text-right whitespace-nowrap tabular-nums font-bold text-slate-800">
+                              <td className="py-3 px-2 text-right whitespace-nowrap tabular-nums font-bold text-slate-800 dark:text-slate-200">
                                 {r.dedgeReservations.adrNetEur} €
                               </td>
                             )}
 
                             {/* 14. RevPAR (sur 45 chambres) */}
                             {visibleColumns.revpar && (
-                              <td className="py-3 px-2 text-right whitespace-nowrap tabular-nums font-bold text-emerald-700">
+                              <td className="py-3 px-2 text-right whitespace-nowrap tabular-nums font-bold text-emerald-700 dark:text-emerald-300">
                                 {r.dedgeReservations.revparEur} €
                               </td>
                             )}
 
                             {/* 15. Lead Time Majoritaire */}
                             {visibleColumns.lead_time && (
-                              <td className="py-3 px-2 text-center whitespace-nowrap text-[10px] text-slate-600 font-medium">
+                              <td className="py-3 px-2 text-center whitespace-nowrap text-[10px] text-slate-600 dark:text-slate-400 font-medium">
                                 {r.dedgeReservations.leadTimeMajorityBucket}
                               </td>
                             )}
 
                             {/* 16. Tarif Suggéré Moteur RM */}
                             {visibleColumns.suggested && (
-                              <td className="py-3 px-3 text-right whitespace-nowrap bg-violet-50/50">
+                              <td className="py-3 px-3 text-right whitespace-nowrap bg-violet-50/50 dark:bg-violet-950/35">
                                 <div className="flex flex-col items-end gap-0.5">
                                   <div className="flex items-center gap-1.5">
                                     {safetyAlert.hasAlert && (
                                       <span
                                         className={`p-0.5 rounded ${
                                           safetyAlert.type === 'ceiling'
-                                            ? 'text-rose-600 bg-rose-100'
+                                            ? 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40'
                                             : safetyAlert.type === 'floor'
-                                            ? 'text-amber-600 bg-amber-100'
-                                            : 'text-orange-600 bg-orange-100'
+                                            ? 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40'
+                                            : 'text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40'
                                         }`}
                                         title={safetyAlert.description}
                                       >
                                         <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
                                       </span>
                                     )}
-                                    <span className="font-black text-violet-700 text-sm tabular-nums">
+                                    <span className="font-black text-violet-700 dark:text-violet-300 text-sm tabular-nums">
                                       {r.suggestedBarEur} €
                                     </span>
                                   </div>
@@ -1866,7 +1888,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                     </span>
                                   )}
                                   {r.suggestedMinStay > 1 && (
-                                    <div className="text-[9px] font-bold text-violet-600">Min {r.suggestedMinStay}n</div>
+                                    <div className="text-[9px] font-bold text-violet-600 dark:text-violet-400">Min {r.suggestedMinStay}n</div>
                                   )}
                                 </div>
                               </td>
@@ -1884,17 +1906,17 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                       <ShieldAlert className="w-3 h-3 shrink-0" />
                                       <span>{safetyAlert.shortBadge}</span>
                                     </span>
-                                    <span className="text-[8px] text-slate-500 font-semibold truncate max-w-[110px]" title={safetyAlert.description}>
+                                    <span className="text-[8px] text-slate-500 dark:text-slate-400 font-semibold truncate max-w-[110px]" title={safetyAlert.description}>
                                       {safetyAlert.type === 'ceiling'
-                                        ? `Plafond ${RATE_CEILING_EUR}€`
+                                        ? `Plafond ${barCeiling}€`
                                         : safetyAlert.type === 'floor'
-                                        ? `Plancher ${RATE_FLOOR_EUR}€`
-                                        : 'Saut >100€'}
+                                        ? `Plancher ${barFloor}€`
+                                        : `Saut >${maxJumpEur}€`}
                                     </span>
                                   </div>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                    <Check className="w-2.5 h-2.5 text-emerald-600" />
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/70">
+                                    <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                                     <span>Conforme</span>
                                   </span>
                                 )}
@@ -1905,11 +1927,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             {visibleColumns.delta && (
                               <td className="py-3 px-2 text-center whitespace-nowrap">
                                 {r.deltaVsCurrentEur > 0 ? (
-                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800 tabular-nums">
+                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 tabular-nums">
                                     +{r.deltaVsCurrentEur} € (+{r.deltaVsCurrentPercent}%)
                                   </span>
                                 ) : r.deltaVsCurrentEur < 0 ? (
-                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 tabular-nums">
+                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 tabular-nums">
                                     {r.deltaVsCurrentEur} € ({r.deltaVsCurrentPercent}%)
                                   </span>
                                 ) : (
@@ -1972,10 +1994,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                         epistemologicalExplanation: r.rmRecommendation.epistemologicalExplanation,
                                       });
                                     }}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-700 hover:text-violet-700 bg-slate-100 hover:bg-violet-50 hover:border-violet-200 border border-slate-200/80 transition-all cursor-pointer shadow-2xs group/btn"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-violet-700 dark:hover:text-violet-300 bg-slate-100 dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-violet-950/50 hover:border-violet-200 dark:hover:border-violet-700/70 border border-slate-200/80 dark:border-slate-800/80 transition-all cursor-pointer shadow-2xs group/btn"
                                     title="Cliquer pour afficher la justification complète"
                                   >
-                                    <Info className="w-3.5 h-3.5 text-violet-600 group-hover/btn:text-violet-800 shrink-0" />
+                                    <Info className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 group-hover/btn:text-violet-800 shrink-0" />
                                     <span className="whitespace-nowrap">Justification RM</span>
                                   </button>
 
@@ -2008,8 +2030,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                     r.rmRecommendation.confidenceLevel === 'fiable'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'bg-amber-100 text-amber-800'
+                                      ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                                      : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
                                   }`}
                                   title={r.rmRecommendation.confidenceLabel}
                                 >
@@ -2023,17 +2045,17 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                               <td className="py-3 px-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                 <div className="inline-flex items-center gap-1">
                                   {r.status === 'applied' ? (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/70">
                                       <Check className="w-3.5 h-3.5" />
                                       <span>Validé</span>
                                     </span>
                                   ) : r.status === 'modified' ? (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-200">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/70">
                                       <Sliders className="w-3.5 h-3.5" />
                                       <span>Modifié</span>
                                     </span>
                                   ) : r.status === 'rejected' ? (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-1 rounded-lg border border-rose-200">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 px-2 py-1 rounded-lg border border-rose-200 dark:border-rose-800/70">
                                       <X className="w-3.5 h-3.5" />
                                       <span>Refusé</span>
                                     </span>
@@ -2050,14 +2072,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                       <button
                                         onClick={() => handleOpenModifyModal(r)}
                                         title="Modifier le tarif avec motif RM"
-                                        className="p-1 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg transition-colors cursor-pointer"
                                       >
                                         <Sliders className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => handleOpenRejectModal(r)}
                                         title="Refuser la recommandation"
-                                        className="p-1 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 rounded-lg transition-colors cursor-pointer"
                                       >
                                         <X className="w-3.5 h-3.5" />
                                       </button>
@@ -2066,7 +2088,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
                                   <button
                                     onClick={() => setExpandedRowId(isExpanded ? null : r.id)}
-                                    className="p-1 hover:bg-slate-200 text-slate-500 rounded-lg cursor-pointer ml-1"
+                                    className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg cursor-pointer ml-1"
                                     title="Ouvrir le détail complet"
                                   >
                                     {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -2078,27 +2100,27 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
                           {/* Tiroir d'Analyse Épistémologique en 5 Niveaux & Benchmark Compset (Section 8) */}
                           {isExpanded && (
-                            <tr className="bg-slate-50/95 border-b border-slate-200">
+                            <tr className="bg-slate-50/95 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800">
                               <td colSpan={activeColumnsCount} className="p-5 space-y-5">
                                 {/* Entête du Tiroir */}
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
                                   <div className="flex flex-wrap items-center gap-2.5">
-                                    <span className="font-black text-sm text-slate-900 flex items-center gap-1.5">
-                                      <Sparkles className="w-4 h-4 text-violet-600" />
+                                    <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                      <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                                       <span>Justification Épistémologique & Décision RM pour le {r.dateStr}</span>
                                     </span>
-                                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-800">
+                                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
                                       Position Compset : {ranking.rankingFraction}
                                     </span>
                                     {r.lighthouse.comparabilityWarning && (
-                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center gap-1">
+                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 flex items-center gap-1">
                                         <AlertTriangle className="w-3 h-3" />
                                         <span>Avertissement de Comparabilité</span>
                                       </span>
                                     )}
                                   </div>
 
-                                  <div className="text-xs text-slate-500 font-mono">
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                                     Sources : D-EDGE CRS + Lighthouse API ({TODAY_DATE_STR})
                                   </div>
                                 </div>
@@ -2106,11 +2128,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                 {/* Les 5 Niveaux Épistémologiques */}
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                                   {/* 1. FAITS OBSERVÉS */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1.5">
+                                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
                                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
                                       1. Faits Observés
                                     </div>
-                                    <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
+                                    <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
                                       {r.rmRecommendation.epistemologicalExplanation.faitsObserves.map((f, i) => (
                                         <li key={i} className="leading-tight">{f}</li>
                                       ))}
@@ -2118,11 +2140,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   </div>
 
                                   {/* 2. ANALYSE DU MARCHÉ */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1.5">
+                                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
                                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
                                       2. Analyse de Marché
                                     </div>
-                                    <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
+                                    <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
                                       {r.rmRecommendation.epistemologicalExplanation.analyseMarche.map((a, i) => (
                                         <li key={i} className="leading-tight">{a}</li>
                                       ))}
@@ -2130,11 +2152,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   </div>
 
                                   {/* 3. PRÉVISION */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1.5">
+                                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
                                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
                                       3. Prévision Demande
                                     </div>
-                                    <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
+                                    <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
                                       {r.rmRecommendation.epistemologicalExplanation.previsionDemande.map((p, i) => (
                                         <li key={i} className="leading-tight">{p}</li>
                                       ))}
@@ -2142,132 +2164,179 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   </div>
 
                                   {/* 4. RECOMMANDATION RM */}
-                                  <div className="bg-violet-50/70 rounded-xl border border-violet-200 p-3 space-y-1.5">
-                                    <div className="text-[10px] font-black uppercase text-violet-700 tracking-wider">
+                                  <div className="bg-violet-50/70 dark:bg-violet-950/40 rounded-xl border border-violet-200 dark:border-violet-800/70 p-3 space-y-1.5">
+                                    <div className="text-[10px] font-black uppercase text-violet-700 dark:text-violet-300 tracking-wider">
                                       4. Recommandation RM
                                     </div>
-                                    <p className="text-xs font-bold text-violet-950 leading-tight">
+                                    <p className="text-xs font-bold text-violet-950 dark:text-violet-100 leading-tight">
                                       {r.rmRecommendation.epistemologicalExplanation.recommandationAction}
                                     </p>
-                                    <div className="text-[10px] text-violet-700 font-semibold pt-1 border-t border-violet-200/60">
+                                    <div className="text-[10px] text-violet-700 dark:text-violet-300 font-semibold pt-1 border-t border-violet-200/60">
                                       Stratégie : {r.rmRecommendation.strategyLabel}
                                     </div>
                                   </div>
 
                                   {/* 5. HYPOTHÈSES & LIMITES */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1.5">
+                                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
                                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
                                       5. Limites & Risques
                                     </div>
-                                    <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
+                                    <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
                                       {r.rmRecommendation.epistemologicalExplanation.risquesIdentifies.map((risk, i) => (
-                                        <li key={i} className="text-rose-700 font-medium leading-tight">{risk}</li>
+                                        <li key={i} className="text-rose-700 dark:text-rose-300 font-medium leading-tight">{risk}</li>
                                       ))}
-                                      <li className="text-slate-500 text-[11px]">{r.rmRecommendation.confidenceLabel}</li>
+                                      <li className="text-slate-500 dark:text-slate-400 text-[11px]">{r.rmRecommendation.confidenceLabel}</li>
                                     </ul>
                                   </div>
                                 </div>
 
-                                {/* Comparatif Complet des 6 Hôtels du Compset */}
+                                {/* Comparatif Complet du Panel Concurrentiel (jusqu'à 10 concurrents actifs + Mon Hôtel) */}
                                 <div className="space-y-2">
-                                  <div className="text-xs font-bold text-slate-900 flex items-center justify-between">
-                                    <span>Classement et Relevé Tarifaire des 6 Hôtels du Quartier</span>
-                                    <span className="text-[11px] text-slate-500 font-normal">
-                                      Échantillon : {ranking.totalAvailable} disponibles / {ranking.totalCompset} compset
+                                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between flex-wrap gap-2">
+                                    <span>Classement et Relevé Tarifaire ({ranking.totalCompset} hôtels suivis)</span>
+                                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-normal tabular-nums">
+                                      Exploitables : {r.lighthouse.exploitableSummary} • {ranking.soldOutCount} épuisé(s) / indisponible(s) (exclus des médianes)
                                     </span>
                                   </div>
 
-                                  <div className="overflow-x-auto bg-white rounded-xl border border-slate-200">
+                                  <div className="overflow-x-auto bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                                     <table className="w-full text-left text-xs">
-                                      <thead className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                                      <thead className="bg-slate-50 dark:bg-slate-800/60 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                                         <tr>
                                           <th className="py-2 px-3 text-center">Rang</th>
                                           <th className="py-2 px-3">Établissement</th>
                                           <th className="py-2 px-3">Chambre & Conditions</th>
                                           <th className="py-2 px-3 text-right">Tarif BAR (€)</th>
+                                          <th className="py-2 px-3 text-center">Évol. 1j / 3j / 7j</th>
                                           <th className="py-2 px-3 text-right">Écart vs Mon Hôtel</th>
                                           <th className="py-2 px-3 text-center">Statut</th>
                                         </tr>
                                       </thead>
-                                      <tbody className="divide-y divide-slate-100">
-                                        {ranking.fullRankingTable.map((item, idx) => (
-                                          <tr
-                                            key={idx}
-                                            className={
-                                              item.isCurrentHotel
-                                                ? 'bg-violet-50/70 font-semibold text-violet-950 ring-1 ring-violet-300'
-                                                : item.isSoldOut
-                                                ? 'bg-slate-50 text-slate-400'
-                                                : 'hover:bg-slate-50/60'
-                                            }
-                                          >
-                                            <td className="py-2 px-3 text-center">
-                                              {item.rank !== null ? (
-                                                <span
-                                                  className={`inline-block font-extrabold text-xs px-2 py-0.5 rounded-md tabular-nums ${
-                                                    item.isCurrentHotel
-                                                      ? 'bg-violet-600 text-white shadow-2xs'
-                                                      : item.rank === 1
-                                                      ? 'bg-emerald-100 text-emerald-800'
-                                                      : 'bg-slate-100 text-slate-700'
-                                                  }`}
-                                                >
-                                                  {item.rank}/{ranking.totalAvailable}
-                                                </span>
-                                              ) : (
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase">Exclu</span>
-                                              )}
-                                            </td>
-                                            <td className="py-2 px-3">
-                                              <div className="flex items-center gap-1.5">
-                                                <span className="font-bold">{item.hotelName}</span>
-                                                {item.isCurrentHotel && (
-                                                  <span className="text-[9px] font-black uppercase bg-violet-600 text-white px-1.5 py-0.2 rounded-full">
-                                                    Mon Hôtel
+                                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                                        {ranking.fullRankingTable.map((item, idx) => {
+                                          const isNonExploitable = item.isSoldOut || item.rateEur === null;
+                                          return (
+                                            <tr
+                                              key={idx}
+                                              className={
+                                                item.isCurrentHotel
+                                                  ? 'bg-violet-50/70 dark:bg-violet-950/40 font-semibold text-violet-950 dark:text-violet-100'
+                                                  : isNonExploitable
+                                                  ? 'bg-slate-50 dark:bg-slate-800/60 text-slate-400'
+                                                  : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/60'
+                                              }
+                                            >
+                                              <td className="py-2 px-3 text-center">
+                                                {item.rank !== null ? (
+                                                  <span
+                                                    className={`inline-block font-extrabold text-xs px-2 py-0.5 rounded-md tabular-nums ${
+                                                      item.isCurrentHotel
+                                                        ? 'bg-violet-600 text-white'
+                                                        : item.rank === 1
+                                                        ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                                    }`}
+                                                  >
+                                                    {item.rank}/{ranking.totalAvailable}
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[10px] font-bold text-slate-400 uppercase">Exclu</span>
+                                                )}
+                                              </td>
+                                              <td className="py-2 px-3">
+                                                <div className="flex items-center gap-1.5">
+                                                  <span className="font-bold">{item.hotelName}</span>
+                                                  {item.isCurrentHotel && (
+                                                    <span className="text-[9px] font-black uppercase bg-violet-600 text-white px-1.5 py-0.5 rounded-full">
+                                                      Mon Hôtel
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </td>
+                                              <td className="py-2 px-3 text-slate-500 dark:text-slate-400">
+                                                <span>{item.stars}★ • {item.roomType}</span>
+                                                {item.restrictionLabel && (
+                                                  <span className="ml-1.5 text-[10px] text-amber-700 dark:text-amber-300 font-semibold">
+                                                    ({item.restrictionLabel})
                                                   </span>
                                                 )}
-                                              </div>
-                                            </td>
-                                            <td className="py-2 px-3 text-slate-500">
-                                              <span>{item.stars}★ • {item.roomType}</span>
-                                            </td>
-                                            <td className="py-2 px-3 text-right font-black tabular-nums">
-                                              {item.isSoldOut ? (
-                                                <span className="text-slate-400 line-through">Complet</span>
-                                              ) : (
-                                                <span>{item.rateEur} €</span>
-                                              )}
-                                            </td>
-                                            <td className="py-2 px-3 text-right tabular-nums">
-                                              {item.isCurrentHotel ? (
-                                                <span className="text-violet-700 font-bold">— Référence</span>
-                                              ) : item.isSoldOut ? (
-                                                <span className="text-slate-400">N/A</span>
-                                              ) : item.gapVsHotelEur > 0 ? (
-                                                <span className="text-emerald-700 font-semibold">
-                                                  +{item.gapVsHotelEur} € (+{Math.round((item.gapVsHotelEur / r.currentBarEur) * 100)}%)
-                                                </span>
-                                              ) : item.gapVsHotelEur < 0 ? (
-                                                <span className="text-rose-700 font-semibold">
-                                                  {item.gapVsHotelEur} € ({Math.round((item.gapVsHotelEur / r.currentBarEur) * 100)}%)
-                                                </span>
-                                              ) : (
-                                                <span className="text-slate-500">Identique</span>
-                                              )}
-                                            </td>
-                                            <td className="py-2 px-3 text-center">
-                                              {item.isSoldOut ? (
-                                                <span className="text-[10px] font-black uppercase text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-200">
-                                                  Sold Out
-                                                </span>
-                                              ) : (
-                                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                                                  Disponible
-                                                </span>
-                                              )}
-                                            </td>
-                                          </tr>
-                                        ))}
+                                              </td>
+                                              <td className="py-2 px-3 text-right font-black tabular-nums">
+                                                {item.availabilityStatus === 'epuise' ? (
+                                                  <span className="text-slate-400">Épuisé</span>
+                                                ) : item.availabilityStatus === 'non_disponible' || item.rateEur === null ? (
+                                                  <span className="text-slate-400">N/D</span>
+                                                ) : (
+                                                  <span>{item.rateEur} €</span>
+                                                )}
+                                              </td>
+                                              <td className="py-2 px-3 text-center tabular-nums text-[10px]">
+                                                {item.isCurrentHotel ? (
+                                                  <span className="text-slate-400">—</span>
+                                                ) : (
+                                                  <div className="inline-flex items-center gap-1.5">
+                                                    {[
+                                                      { lbl: '1j', val: item.evolution1dEur },
+                                                      { lbl: '3j', val: item.evolution3dEur },
+                                                      { lbl: '7j', val: item.evolution7dEur },
+                                                    ].map((ev) => (
+                                                      <span
+                                                        key={ev.lbl}
+                                                        className={`px-1 py-0.5 rounded ${
+                                                          ev.val == null
+                                                            ? 'text-slate-300'
+                                                            : ev.val > 0
+                                                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-bold'
+                                                            : ev.val < 0
+                                                            ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-bold'
+                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                                                        }`}
+                                                      >
+                                                        {ev.val == null ? `${ev.lbl}:—` : `${ev.val > 0 ? `+${ev.val}` : ev.val}€`}
+                                                      </span>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </td>
+                                              <td className="py-2 px-3 text-right tabular-nums">
+                                                {item.isCurrentHotel ? (
+                                                  <span className="text-violet-700 dark:text-violet-300 font-bold">— Référence</span>
+                                                ) : isNonExploitable || item.gapVsHotelEur === null ? (
+                                                  <span className="text-slate-400">N/A</span>
+                                                ) : item.gapVsHotelEur > 0 ? (
+                                                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold">
+                                                    +{item.gapVsHotelEur} € (+{Math.round((item.gapVsHotelEur / r.currentBarEur) * 100)}%)
+                                                  </span>
+                                                ) : item.gapVsHotelEur < 0 ? (
+                                                  <span className="text-rose-700 dark:text-rose-300 font-semibold">
+                                                    {item.gapVsHotelEur} € ({Math.round((item.gapVsHotelEur / r.currentBarEur) * 100)}%)
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-slate-500 dark:text-slate-400">Identique</span>
+                                                )}
+                                              </td>
+                                              <td className="py-2 px-3 text-center">
+                                                {item.availabilityStatus === 'epuise' ? (
+                                                  <span className="text-[10px] font-black uppercase text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/40 px-2 py-0.5 rounded-full border border-rose-200 dark:border-rose-800/70">
+                                                    Épuisé
+                                                  </span>
+                                                ) : item.availabilityStatus === 'non_disponible' ? (
+                                                  <span className="text-[10px] font-bold uppercase text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-800">
+                                                    Indisponible
+                                                  </span>
+                                                ) : item.availabilityStatus === 'restriction' ? (
+                                                  <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800/70">
+                                                    Restriction
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/70">
+                                                    Disponible
+                                                  </span>
+                                                )}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
                                       </tbody>
                                     </table>
                                   </div>
@@ -2289,42 +2358,42 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         <div className="space-y-6">
           {/* Cartes d'indicateurs d'apprentissage */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
-              <div className="text-xs font-semibold text-slate-500">Décisions Humaines Tracées</div>
-              <div className="text-2xl font-black text-slate-900">{learningStats.totalDecisions}</div>
-              <p className="text-[11px] text-slate-500">Validation systématique requise</p>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Décisions Humaines Tracées</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{learningStats.totalDecisions}</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Validation systématique requise</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
-              <div className="text-xs font-semibold text-emerald-700">Taux de Concordance RM / IA</div>
-              <div className="text-2xl font-black text-emerald-700">{learningStats.agreementRate}%</div>
-              <p className="text-[11px] text-emerald-700/80">Recommandations acceptées sans retouche</p>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Taux de Concordance RM / IA</div>
+              <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300">{learningStats.agreementRate}%</div>
+              <p className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80">Recommandations acceptées sans retouche</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
-              <div className="text-xs font-semibold text-indigo-700">Écart Moyen lors des Modifications</div>
-              <div className="text-2xl font-black text-indigo-700">+{learningStats.avgDelta} €</div>
-              <p className="text-[11px] text-indigo-700/80">Biais positif du RM sur les dates à fort potentiel</p>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Écart Moyen lors des Modifications</div>
+              <div className="text-2xl font-black text-indigo-700 dark:text-indigo-300">+{learningStats.avgDelta} €</div>
+              <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80">Biais positif du RM sur les dates à fort potentiel</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
-              <div className="text-xs font-semibold text-amber-700">Règles Actives Calibrées</div>
-              <div className="text-2xl font-black text-amber-700">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">Règles Actives Calibrées</div>
+              <div className="text-2xl font-black text-amber-700 dark:text-amber-300">
                 {calibrationRules.filter((r) => r.isActive).length} / {calibrationRules.length}
               </div>
-              <p className="text-[11px] text-amber-700/80">Règles réversibles avec switch direct</p>
+              <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80">Règles réversibles avec switch direct</p>
             </div>
           </div>
 
           {/* Règles d'apprentissage calibrées (Section 9) */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-violet-600" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   <span>Règles d’Apprentissage Contrôlé & Ajustements Calibrés</span>
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Dérivées statistiquement des arbitrages du Revenue Manager. Chaque règle est transparente, mesurable et débrayable en un clic.
                 </p>
               </div>
@@ -2336,28 +2405,28 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   key={rule.id}
                   className={`p-4 rounded-xl border transition-all ${
                     rule.isActive
-                      ? 'bg-violet-50/50 border-violet-200'
-                      : 'bg-slate-50 border-slate-200 opacity-60'
+                      ? 'bg-violet-50/50 dark:bg-violet-950/35 border-violet-200 dark:border-violet-800/70'
+                      : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 opacity-60'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="font-bold text-xs text-slate-900">{rule.title}</span>
+                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100">{rule.title}</span>
                     <button
                       onClick={() => handleToggleRule(rule.id)}
-                      className="cursor-pointer text-violet-600 hover:text-violet-800 transition-colors"
+                      className="cursor-pointer text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 transition-colors"
                       title={rule.isActive ? 'Désactiver cette règle' : 'Activer cette règle'}
                     >
                       {rule.isActive ? (
-                        <ToggleRight className="w-6 h-6 text-violet-600" />
+                        <ToggleRight className="w-6 h-6 text-violet-600 dark:text-violet-400" />
                       ) : (
                         <ToggleLeft className="w-6 h-6 text-slate-400" />
                       )}
                     </button>
                   </div>
-                  <p className="text-xs text-slate-600 mb-3">{rule.description}</p>
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-200/60">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">{rule.description}</p>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200/60 dark:border-slate-800/70">
                     <span>{rule.sampleDecisionsCount} décisions analysées</span>
-                    <span className="font-bold text-emerald-700">{rule.agreementRatePct}% concordance</span>
+                    <span className="font-bold text-emerald-700 dark:text-emerald-300">{rule.agreementRatePct}% concordance</span>
                   </div>
                 </div>
               ))}
@@ -2365,45 +2434,45 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           </div>
 
           {/* Journal chronologique d'audit des décisions RM (Section 9) */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <History className="w-4 h-4 text-violet-600" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <History className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   <span>Journal d’Audit et Traçabilité Complète des Arbitrages RM</span>
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Historique immuable : horodatage, utilisateur, tarif initial, tarif préconisé, tarif retenu et motif de décision.
                 </p>
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 border-b border-slate-200">
+              <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                   <tr>
                     <th className="py-2.5 px-3">Date Séjour</th>
                     <th className="py-2.5 px-3">Action RM</th>
                     <th className="py-2.5 px-3 text-right">Initial</th>
                     <th className="py-2.5 px-3 text-right">Suggéré</th>
-                    <th className="py-2.5 px-3 text-right font-bold text-violet-700">Retenu</th>
+                    <th className="py-2.5 px-3 text-right font-bold text-violet-700 dark:text-violet-300">Retenu</th>
                     <th className="py-2.5 px-4">Motif & Explication Enregistrée</th>
                     <th className="py-2.5 px-3">Utilisateur</th>
                     <th className="py-2.5 px-3 text-right">Horodatage</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                   {auditLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/60">
-                      <td className="py-2.5 px-3 font-bold text-slate-900">{log.dateStr}</td>
+                    <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                      <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100">{log.dateStr}</td>
                       <td className="py-2.5 px-3">
                         <span
                           className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             log.action === 'accept'
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
                               : log.action === 'modify'
-                              ? 'bg-indigo-100 text-indigo-800'
-                              : 'bg-rose-100 text-rose-800'
+                              ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300'
+                              : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
                           }`}
                         >
                           {log.action === 'accept' ? 'Accepté' : log.action === 'modify' ? 'Modifié' : 'Refusé'}
@@ -2411,13 +2480,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       </td>
                       <td className="py-2.5 px-3 text-right tabular-nums">{log.originalRateEur} €</td>
                       <td className="py-2.5 px-3 text-right tabular-nums">{log.suggestedRateEur} €</td>
-                      <td className="py-2.5 px-3 text-right tabular-nums font-black text-violet-700">
+                      <td className="py-2.5 px-3 text-right tabular-nums font-black text-violet-700 dark:text-violet-300">
                         {log.finalRateEur} €
                       </td>
-                      <td className="py-2.5 px-4 max-w-sm truncate text-slate-700" title={log.reasonText}>
+                      <td className="py-2.5 px-4 max-w-sm truncate text-slate-700 dark:text-slate-300" title={log.reasonText}>
                         {log.reasonText}
                       </td>
-                      <td className="py-2.5 px-3 text-[11px] text-slate-500 font-mono">{log.userEmail}</td>
+                      <td className="py-2.5 px-3 text-[11px] text-slate-500 dark:text-slate-400 font-mono">{log.userEmail}</td>
                       <td className="py-2.5 px-3 text-right text-[11px] text-slate-400">
                         {new Date(log.timestamp).toLocaleString('fr-FR')}
                       </td>
@@ -2433,65 +2502,65 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       {/* MODAL 1 : Modification Manuelle Tarif & Saisie du Motif RM (Section 9) */}
       {modifyingRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-violet-100 text-violet-700">
+                <span className="p-2 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
                   <Sliders className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-slate-900">Arbitrage Manuel Revenue Management</h3>
-                  <p className="text-xs text-slate-500">Date de séjour : {modifyingRecord.dateStr}</p>
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100">Arbitrage Manuel Revenue Management</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Date de séjour : {modifyingRecord.dateStr}</p>
                 </div>
               </div>
               <button
                 onClick={() => setModifyingRecord(null)}
-                className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Rappel des données de base */}
-            <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-slate-50 text-xs border border-slate-200/60">
+            <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs border border-slate-200/60 dark:border-slate-800/70">
               <div>
                 <span className="text-slate-400 block text-[10px]">BAR Actuel :</span>
-                <span className="font-bold text-slate-900">{modifyingRecord.currentBarEur} €</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">{modifyingRecord.currentBarEur} €</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px]">Médiane Compset :</span>
-                <span className="font-bold text-amber-600">{modifyingRecord.lighthouse.compsetMedianEur} €</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">{modifyingRecord.lighthouse.compsetMedianEur} €</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px]">Suggéré Moteur RM :</span>
-                <span className="font-bold text-violet-700">{modifyingRecord.suggestedBarEur} €</span>
+                <span className="font-bold text-violet-700 dark:text-violet-300">{modifyingRecord.suggestedBarEur} €</span>
               </div>
             </div>
 
             {/* Saisie Tarif & Min Stay */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Nouveau Tarif BAR (€) :</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Nouveau Tarif BAR (€) :</label>
                 <input
                   type="number"
-                  min={RATE_FLOOR_EUR}
-                  max={RATE_CEILING_EUR}
+                  min={barFloor}
+                  max={barCeiling}
                   step={5}
                   value={customRate}
                   onChange={(e) => setCustomRate(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-black text-slate-900 text-lg focus:outline-hidden focus:border-violet-600"
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-300 dark:border-slate-700 font-black text-slate-900 dark:text-slate-100 text-lg focus:outline-hidden focus:border-violet-600 tabular-nums"
                 />
-                <span className="text-[10px] text-slate-400">
-                  Plancher {RATE_FLOOR_EUR}€ • Plafond {RATE_CEILING_EUR}€
+                <span className="text-[10px] text-slate-400 tabular-nums">
+                  Plancher {barFloor}€ • Plafond {barCeiling}€
                 </span>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Durée Min. (Min Stay) :</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Durée Min. (Min Stay) :</label>
                 <select
                   value={customMinStay}
                   onChange={(e) => setCustomMinStay(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 text-sm focus:outline-hidden focus:border-violet-600 cursor-pointer"
+                  className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-300 dark:border-slate-700 font-bold text-slate-900 dark:text-slate-100 text-sm focus:outline-hidden focus:border-violet-600 cursor-pointer"
                 >
                   <option value={1}>1 Nuit (Pas de restriction)</option>
                   <option value={2}>2 Nuits minimum</option>
@@ -2503,13 +2572,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
             {/* Choix Obligatoire du Motif de Décision (Section 9) */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                 <span>Motif de modification de la recommandation (Obligatoire) :</span>
               </label>
               <select
                 value={selectedReasonCode}
                 onChange={(e) => setSelectedReasonCode(e.target.value as RMModificationReasonCode)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-violet-600 cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-300 dark:border-slate-700 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-violet-600 cursor-pointer"
               >
                 {RM_MODIFICATION_REASONS.map((r) => (
                   <option key={r.code} value={r.code}>
@@ -2517,28 +2586,28 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-slate-500 italic">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
                 {RM_MODIFICATION_REASONS.find((r) => r.code === selectedReasonCode)?.description}
               </p>
             </div>
 
             {/* Note complémentaire */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Note métier complémentaire :</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Note métier complémentaire :</label>
               <textarea
                 rows={2}
                 placeholder="Précisions pour la traçabilité et l'apprentissage..."
                 value={customNote}
                 onChange={(e) => setCustomNote(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:border-violet-600"
+                className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs focus:outline-hidden focus:border-violet-600"
               />
             </div>
 
             {/* Boutons d'action */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800/80">
               <button
                 onClick={() => setModifyingRecord(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Annuler
               </button>
@@ -2557,44 +2626,44 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       {/* MODAL 2 : Refus de la Recommandation (Section 9) */}
       {rejectingRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-rose-100 text-rose-700">
+                <span className="p-2 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300">
                   <X className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-slate-900">Refus de la Recommandation</h3>
-                  <p className="text-xs text-slate-500">Date : {rejectingRecord.dateStr}</p>
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100">Refus de la Recommandation</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Date : {rejectingRecord.dateStr}</p>
                 </div>
               </div>
               <button
                 onClick={() => setRejectingRecord(null)}
-                className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
               Le tarif actuel de <strong>{rejectingRecord.currentBarEur} €</strong> sera maintenu. La recommandation suggérée de <strong>{rejectingRecord.suggestedBarEur} €</strong> sera marquée comme refusée dans l'audit.
             </p>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Motif du refus :</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Motif du refus :</label>
               <input
                 type="text"
                 value={rejectNote}
                 onChange={(e) => setRejectNote(e.target.value)}
                 placeholder="Ex : Maintien de l'image prix, concurrence agressive..."
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:outline-hidden focus:border-rose-600"
+                className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs focus:outline-hidden focus:border-rose-600"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800/80">
               <button
                 onClick={() => setRejectingRecord(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 Annuler
               </button>
@@ -2613,28 +2682,28 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       {/* MODAL 3 : Roue de Configuration des Colonnes RM (Sélection Personnalisée) */}
       {showColumnConfigModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] flex flex-col">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4">
               <div className="flex items-center gap-3">
-                <span className="p-2.5 rounded-2xl bg-violet-100 text-violet-700">
+                <span className="p-2.5 rounded-2xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
                   <Settings className="w-5 h-5 animate-[spin_10s_linear_infinite]" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base flex items-center gap-2">
                     <span>Roue de Configuration des Colonnes RM</span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
                       {activeColumnsCount} / {RM_COLUMN_DEFINITIONS.length} actives
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Personnalisez les indicateurs affichés dans le tableau de recommandation tarifaire.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowColumnConfigModal(false)}
-                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl cursor-pointer"
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-xl cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2650,17 +2719,17 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   <button
                     key={p.id}
                     onClick={() => handleApplyPreset(p.id)}
-                    className="p-2 rounded-xl border text-left transition-all cursor-pointer bg-slate-50/70 hover:bg-violet-50 hover:border-violet-300 border-slate-200"
+                    className="p-2 rounded-xl border text-left transition-all cursor-pointer bg-slate-50/70 dark:bg-slate-800/50 hover:bg-violet-50 dark:hover:bg-violet-950/50 hover:border-violet-300 border-slate-200 dark:border-slate-800"
                   >
-                    <div className="text-xs font-bold text-slate-900">{p.name}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{p.description}</div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{p.name}</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{p.description}</div>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Search & Actions Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-slate-800/80">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -2668,7 +2737,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   placeholder="Filtrer les colonnes (ex : RevPAR, Médian, Stock...)"
                   value={columnSearchTerm}
                   onChange={(e) => setColumnSearchTerm(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs w-full focus:outline-hidden focus:border-violet-500"
+                  className="pl-8 pr-3 py-1.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-slate-100 text-xs w-full focus:outline-hidden focus:border-violet-500"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -2683,13 +2752,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       localStorage.setItem(STORAGE_COLUMN_KEY, JSON.stringify(allTrue));
                     } catch (e) {}
                   }}
-                  className="text-xs font-bold text-violet-700 hover:text-violet-900 bg-violet-50 px-2.5 py-1.5 rounded-lg cursor-pointer"
+                  className="text-xs font-bold text-violet-700 dark:text-violet-300 hover:text-violet-900 bg-violet-50 dark:bg-violet-950/40 px-2.5 py-1.5 rounded-lg cursor-pointer"
                 >
                   Tout cocher
                 </button>
                 <button
                   onClick={handleResetColumns}
-                  className="text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
+                  className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Réinitialiser</span>
@@ -2721,9 +2790,9 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
                 return (
                   <div key={grp} className="space-y-2">
-                    <div className="text-xs font-black text-slate-800 bg-slate-100/80 px-3 py-1.5 rounded-lg flex items-center justify-between">
+                    <div className="text-xs font-black text-slate-800 dark:text-slate-200 bg-slate-100/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-lg flex items-center justify-between">
                       <span>{grpLabel}</span>
-                      <span className="text-[10px] text-slate-500 font-normal">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
                         {groupCols.filter((c) => visibleColumns[c.id]).length} / {groupCols.length} visibles
                       </span>
                     </div>
@@ -2738,10 +2807,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             onClick={() => !isRequired && handleToggleColumn(col.id)}
                             className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
                               isRequired
-                                ? 'bg-slate-50 border-slate-200 opacity-90 cursor-not-allowed'
+                                ? 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 opacity-90 cursor-not-allowed'
                                 : isChecked
-                                ? 'bg-violet-50/50 border-violet-200 text-violet-950 shadow-2xs'
-                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                ? 'bg-violet-50/50 dark:bg-violet-950/35 border-violet-200 dark:border-violet-800/70 text-violet-950 dark:text-violet-100 shadow-2xs'
+                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80'
                             }`}
                           >
                             <input
@@ -2749,13 +2818,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                               checked={isChecked}
                               disabled={isRequired}
                               onChange={() => {}}
-                              className="mt-0.5 rounded text-violet-600 focus:ring-violet-500 cursor-pointer"
+                              className="mt-0.5 rounded text-violet-600 dark:text-violet-400 focus:ring-violet-500 cursor-pointer"
                             />
                             <div className="space-y-0.5 flex-1 min-w-0">
                               <div className="flex items-center justify-between">
                                 <span className="font-bold truncate">{col.name}</span>
                                 {isRequired ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 flex items-center gap-0.5">
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-0.5">
                                     <Lock className="w-2.5 h-2.5" />
                                     <span>Requis</span>
                                   </span>
@@ -2765,7 +2834,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-slate-500 leading-tight line-clamp-1">
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight line-clamp-1">
                                 {col.description}
                               </p>
                             </div>
@@ -2779,8 +2848,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <span className="text-xs text-slate-500">
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800/80">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 Sauvegarde automatique active • Stocké localement
               </span>
               <button
@@ -2804,15 +2873,15 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           />
 
           {/* Popover Card */}
-          <div className="relative bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 z-10 space-y-4 animate-scaleUp text-left">
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 z-10 space-y-4 animate-scaleUp text-left">
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-100 text-violet-800 border border-violet-200">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70">
                     Justification & Recommandation RM
                   </span>
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     {activeExplanationPopover.dayOfWeek}{' '}
                     {new Date(activeExplanationPopover.dateStr).toLocaleDateString('fr-FR', {
                       day: 'numeric',
@@ -2821,14 +2890,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                     })}
                   </span>
                 </div>
-                <h3 className="text-base font-black text-slate-900">
+                <h3 className="text-base font-black text-slate-900 dark:text-slate-100">
                   {activeExplanationPopover.eventTitle || 'Séjour standard (sans événement majeur)'}
                 </h3>
               </div>
 
               <button
                 onClick={() => setActiveExplanationPopover(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
                 title="Fermer la fenêtre"
               >
                 <X className="w-5 h-5" />
@@ -2836,24 +2905,24 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             </div>
 
             {/* Recap Tarifaire & Stratégie */}
-            <div className="grid grid-cols-3 gap-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 text-xs">
+            <div className="grid grid-cols-3 gap-2.5 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 text-xs">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Tarif Actuel</span>
-                <span className="text-base font-bold text-slate-800 tabular-nums block mt-0.5">
+                <span className="text-base font-bold text-slate-800 dark:text-slate-200 tabular-nums block mt-0.5">
                   {activeExplanationPopover.currentBarEur} €
                 </span>
                 <span className="text-[9px] text-slate-400">CRS D-EDGE</span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-violet-600 uppercase block">Tarif Conseillé</span>
-                <span className="text-base font-black text-violet-700 tabular-nums block mt-0.5">
+                <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase block">Tarif Conseillé</span>
+                <span className="text-base font-black text-violet-700 dark:text-violet-300 tabular-nums block mt-0.5">
                   {activeExplanationPopover.suggestedBarEur} €
                 </span>
                 <span className="text-[9px] text-violet-500 font-semibold">Yield optimal</span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-emerald-600 uppercase block">Écart (€ / %)</span>
-                <span className="text-base font-black text-emerald-600 tabular-nums block mt-0.5">
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Écart (€ / %)</span>
+                <span className="text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums block mt-0.5">
                   {activeExplanationPopover.deltaVsCurrentEur > 0
                     ? `+${activeExplanationPopover.deltaVsCurrentEur}€`
                     : `${activeExplanationPopover.deltaVsCurrentEur}€`}
@@ -2863,16 +2932,16 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       : `${activeExplanationPopover.deltaVsCurrentPercent}%`})
                   </span>
                 </span>
-                <span className="text-[9px] text-emerald-600 font-semibold">
+                <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold">
                   {activeExplanationPopover.deltaVsCurrentEur >= 0 ? 'Sous-coté' : 'Sur-coté'}
                 </span>
               </div>
             </div>
 
             {/* Badge Stratégie avec explication détaillée */}
-            <div className="space-y-1 bg-violet-50/70 p-3.5 rounded-2xl border border-violet-100">
+            <div className="space-y-1 bg-violet-50/70 dark:bg-violet-950/40 p-3.5 rounded-2xl border border-violet-100 dark:border-violet-900/60">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-violet-900 uppercase tracking-wider">
+                <span className="text-[10px] font-black text-violet-900 dark:text-violet-200 uppercase tracking-wider">
                   Stratégie Yield Retenue :
                 </span>
                 <span
@@ -2881,18 +2950,18 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   {activeExplanationPopover.strategyLabel}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600 leading-snug">
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
                 {activeExplanationPopover.strategyDescription}
               </p>
             </div>
 
             {/* Explication complète sans aucune coupure */}
-            <div className="space-y-2 bg-slate-50/90 p-4 rounded-2xl border border-slate-200">
-              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900">
-                <Info className="w-4 h-4 text-violet-600" />
+            <div className="space-y-2 bg-slate-50/90 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-slate-100">
+                <Info className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                 <span>Justification Complète de la Recommandation</span>
               </div>
-              <p className="text-xs text-slate-700 leading-relaxed font-normal bg-white p-3 rounded-xl border border-slate-200/70">
+              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-normal bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200/70 dark:border-slate-800/70">
                 {activeExplanationPopover.justification}
               </p>
             </div>
@@ -2900,13 +2969,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             {/* Signaux de marché issus du moteur épistémologique */}
             {activeExplanationPopover.epistemologicalExplanation?.faitsObserves &&
               activeExplanationPopover.epistemologicalExplanation.faitsObserves.length > 0 && (
-                <div className="space-y-1.5 text-xs text-slate-600">
+                <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
                   <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
                     Faits & Signaux Observés sur le Marché :
                   </div>
                   <ul className="space-y-1 pl-1">
                     {activeExplanationPopover.epistemologicalExplanation.faitsObserves.map((f, fIdx) => (
-                      <li key={fIdx} className="flex items-start gap-1.5 text-[11px] text-slate-600">
+                      <li key={fIdx} className="flex items-start gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
                         <span className="text-violet-500 font-bold">•</span>
                         <span>{f}</span>
                       </li>
@@ -2916,12 +2985,12 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
               )}
 
             {/* Footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>
                   Indice de confiance statistique :{' '}
-                  <strong className="text-slate-900">{activeExplanationPopover.confidenceScore}%</strong>
+                  <strong className="text-slate-900 dark:text-slate-100">{activeExplanationPopover.confidenceScore}%</strong>
                 </span>
               </div>
               <button

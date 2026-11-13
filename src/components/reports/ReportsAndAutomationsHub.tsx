@@ -198,7 +198,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       period: `Aujourd'hui : 11 nov. 2026 (J vs J-1) — ${hotelName}`,
       desc: 'Synthèse en direct de la journée, du remplissage, du pickup des dernières 24h et des arbitrages tarifaires urgents.',
       badge: 'EN DIRECT · AUJOURD\'HUI',
-      badgeColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      badgeColor: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70',
       kpis: [
         { label: 'OCCUPATION', value: '95,5 %', sub: '42 chambres vendues / 44 dispo', color: 'slate', badge: 'RÉALISÉ' },
         { label: 'ADR', value: '142,50 €', sub: 'Chiffre d\'affaires / ch. vendues', color: 'slate', badge: 'CALCULÉ' },
@@ -211,7 +211,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       period: `Semaine en cours : 11 nov. 2026 → 17 nov. 2026 (7 jours) — ${hotelName}`,
       desc: 'Vision consolidée des 7 prochains jours : rythme de montée en charge (pickup), pression concurrentielle et événements.',
       badge: '7 PROCHAINS JOURS',
-      badgeColor: 'bg-violet-50 text-violet-800 border-violet-200',
+      badgeColor: 'bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-800/70',
       kpis: [
         { label: 'OCCUPATION MOYENNE', value: '91,2 %', sub: '281 chambres vendues / 308 dispo', color: 'slate', badge: 'PRÉVISIONNEL' },
         { label: 'ADR MOYEN', value: '144,30 €', sub: 'Moyenne pondérée des 7 dates', color: 'slate', badge: 'CALCULÉ' },
@@ -224,7 +224,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       period: `Mois de Novembre 2026 : 1 nov. 2026 → 30 nov. 2026 (30 jours) — ${hotelName}`,
       desc: 'Bilan complet du mois : taux d\'occupation projeté, ADR moyen, comparaison à N-1 et tenue des objectifs budgétaires.',
       badge: 'MOIS CALENDAIRE',
-      badgeColor: 'bg-blue-50 text-blue-800 border-blue-200',
+      badgeColor: 'bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800/70',
       kpis: [
         { label: 'OCCUPATION MENSUELLE', value: '88,3 %', sub: '1 166 chambres vendues / 1 320 dispo', color: 'slate', badge: 'CONSOLIDÉ' },
         { label: 'ADR MENSUEL', value: '137,21 €', sub: 'Progression de +8.4% vs N-1', color: 'slate', badge: 'CALCULÉ' },
@@ -237,7 +237,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       period: `Courbe de montée en charge & Portefeuille OTB (J-90 à J-1) — ${hotelName}`,
       desc: 'Mesure de la vitesse d\'acquisition des réservations par horizon temporel pour déceler les accélérations ou les tassements.',
       badge: 'RYTHME D\'ABSORPTION',
-      badgeColor: 'bg-amber-50 text-amber-800 border-amber-200',
+      badgeColor: 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/70',
       kpis: [
         { label: 'PICKUP NET 30 JOURS', value: '+48 ch.', sub: 'Accélération nette des prises de résas', color: 'slate', badge: 'MESURÉ' },
         { label: 'VITESSE DE RÉSERVATION', value: '3,2 résas/j.', sub: 'Rythme supérieur de 1.32x vs N-1', color: 'slate', badge: 'CALCULÉ' },
@@ -250,7 +250,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       period: `Positionnement tarifaire vs Primary CompSet (5 hôtels concurrents) — ${hotelName}`,
       desc: 'Benchmark des indices Revenue Management (MPI, ARI, RGI) par rapport au marché concurrentiel direct.',
       badge: 'BENCHMARK COMPSET',
-      badgeColor: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+      badgeColor: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/70',
       kpis: [
         { label: 'INDICE OCCUPATION (MPI)', value: '104,2', sub: 'TO hôtel 90,5% vs Marché 86,8%', color: 'slate', badge: 'SURPERFORMANCE' },
         { label: 'INDICE TARIFAIRE (ARI)', value: '98,6', sub: 'ADR hôtel 137,85€ vs Marché 139,80€', color: 'slate', badge: 'COMPÉTITIF' },
@@ -263,7 +263,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       period: `Impact des manifestations et dates à surveiller (60 prochains jours) — ${hotelName}`,
       desc: 'Détection des pôles d\'attraction générateurs de flux (salons, congrès, concerts) et calcul du sur-revenu capté.',
       badge: 'INTELLIGENCE TERRITOIRE',
-      badgeColor: 'bg-rose-50 text-rose-800 border-rose-200',
+      badgeColor: 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800/70',
       kpis: [
         { label: 'ÉVÉNEMENTS INFLUENTS', value: '12', sub: 'Retenus dans le bassin de chalandise', color: 'slate', badge: 'GÉOLOCALISÉS' },
         { label: 'JOURS SOUS TENSION', value: '18 jours', sub: 'Tension marché ≥ 65% ou Forte Demande', color: 'slate', badge: 'ALERTES' },
@@ -276,7 +276,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       period: `Mix de distribution et rentabilité nette (13 août 2026 → 10 janv. 2027) — ${hotelName}`,
       desc: 'Décomposition du chiffre d\'affaires par source de réservation, part de vente directe et poids des commissions intermédiaires.',
       badge: 'MIX DISTRIBUTION',
-      badgeColor: 'bg-teal-50 text-teal-800 border-teal-200',
+      badgeColor: 'bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800/70',
       kpis: [
         { label: 'PART CANAL DIRECT', value: '38,4 %', sub: 'Site web direct, téléphone et direct corpo', color: 'slate', badge: 'CANAL RENTABLE' },
         { label: 'PART DES OTA', value: '48,6 %', sub: 'Booking.com, Expedia, autres plateformes', color: 'slate', badge: 'DÉPENDANCE' },
@@ -289,7 +289,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       period: `Journal d'audit et traçabilité des arbitrages humains — ${hotelName}`,
       desc: 'Historique immuable de chaque recommandation validée, ajustée ou refusée par le Revenue Manager, avec motif et gain mesuré.',
       badge: 'AUDIT TRAIL IMMUABLE',
-      badgeColor: 'bg-purple-50 text-purple-800 border-purple-200',
+      badgeColor: 'bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800/70',
       kpis: [
         { label: 'DÉCISIONS APPLIQUÉES', value: '28', sub: 'Recommandations validées et synchronisées', color: 'slate', badge: 'ACTIVES' },
         { label: 'DÉCISIONS EN ATTENTE', value: '6', sub: 'Arbitrages à réaliser dans le Decision Center', color: 'slate', badge: 'À ARBITRER' },
@@ -304,24 +304,24 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
   return (
     <div className="space-y-6 w-full pb-16">
       {/* 1. Yellow Warning Banner */}
-      <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-4 text-xs text-amber-900 flex items-center gap-3 shadow-2xs">
-        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+      <div className="bg-amber-50/90 dark:bg-slate-900 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-4 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-3 shadow-2xs">
+        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
         <div className="leading-relaxed">
           Toutes les données de ce rapport sont calculées en direct à partir des inventaires, réservations et données réelles en base. Les boutons d&apos;export CSV déclenchent des téléchargements réels de fichiers exploitables.
         </div>
       </div>
 
       {/* 2. Header and CSV Export Buttons */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-2xs space-y-6">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-2xs space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
-            <span className="text-[11px] font-black uppercase tracking-wider text-violet-700">
+            <span className="text-[11px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-300">
               REPORTS & AUTOMATIONS
             </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
               Rapports d&apos;activité Revenue Management
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 w-full leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 w-full leading-relaxed">
               Tableaux de bord opérationnels et analytiques pour la direction générale et les Revenue Managers. Les exports CSV sont 100 % opérationnels et téléchargeables instantanément.
             </p>
           </div>
@@ -331,37 +331,37 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             <button
               type="button"
               onClick={() => handleExportCsv('production')}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
               title="Télécharger l'historique complet de production en CSV"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>Production (CSV)</span>
             </button>
             <button
               type="button"
               onClick={() => handleExportCsv('decisions')}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
               title="Télécharger le journal d'audit des décisions en CSV"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>Décisions (CSV)</span>
             </button>
             <button
               type="button"
               onClick={() => handleExportCsv('tarifs')}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
               title="Télécharger les tarifs recommandés en CSV"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>Tarifs (CSV)</span>
             </button>
             <button
               type="button"
               onClick={() => handleExportCsv('evenements')}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
               title="Télécharger l'analyse des événements territoriaux en CSV"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>Événements (CSV)</span>
             </button>
           </div>
@@ -374,15 +374,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             onClick={() => setSelectedReport('daily')}
             className={`p-4 rounded-2xl border transition-all cursor-pointer ${
               selectedReport === 'daily'
-                ? 'border-violet-600 bg-violet-50/50 ring-2 ring-violet-200 shadow-xs'
-                : 'border-slate-200/80 bg-white hover:border-slate-300'
+                ? 'border-violet-600 dark:border-violet-500/70 bg-violet-50/50 dark:bg-violet-950/35 ring-2 ring-violet-200 dark:ring-violet-500/25 shadow-xs'
+                : 'border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
-            <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between">
               <span>Rapport quotidien</span>
               {selectedReport === 'daily' && <span className="w-2 h-2 rounded-full bg-violet-600" />}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
               Synthèse de la journée, des alertes et des décisions à prendre.
             </div>
           </div>
@@ -392,15 +392,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             onClick={() => setSelectedReport('weekly')}
             className={`p-4 rounded-2xl border transition-all cursor-pointer ${
               selectedReport === 'weekly'
-                ? 'border-violet-600 bg-violet-50/50 ring-2 ring-violet-200 shadow-xs'
-                : 'border-slate-200/80 bg-white hover:border-slate-300'
+                ? 'border-violet-600 dark:border-violet-500/70 bg-violet-50/50 dark:bg-violet-950/35 ring-2 ring-violet-200 dark:ring-violet-500/25 shadow-xs'
+                : 'border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
-            <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between">
               <span>Rapport hebdomadaire</span>
               {selectedReport === 'weekly' && <span className="w-2 h-2 rounded-full bg-violet-600" />}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
               Pickup, positionnement marché et événements des 7 prochains jours.
             </div>
           </div>
@@ -410,15 +410,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             onClick={() => setSelectedReport('monthly')}
             className={`p-4 rounded-2xl border transition-all cursor-pointer ${
               selectedReport === 'monthly'
-                ? 'border-violet-600 bg-violet-50/50 ring-2 ring-violet-200 shadow-xs'
-                : 'border-slate-200/80 bg-white hover:border-slate-300'
+                ? 'border-violet-600 dark:border-violet-500/70 bg-violet-50/50 dark:bg-violet-950/35 ring-2 ring-violet-200 dark:ring-violet-500/25 shadow-xs'
+                : 'border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
-            <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between">
               <span>Rapport mensuel</span>
               {selectedReport === 'monthly' && <span className="w-2 h-2 rounded-full bg-violet-600" />}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
               Performance du mois : occupation, ADR, RevPAR, mix de production.
             </div>
           </div>
@@ -428,15 +428,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             onClick={() => setSelectedReport('pickup')}
             className={`p-4 rounded-2xl border transition-all cursor-pointer ${
               selectedReport === 'pickup'
-                ? 'border-violet-600 bg-violet-50/50 ring-2 ring-violet-200 shadow-xs'
-                : 'border-slate-200/80 bg-white hover:border-slate-300'
+                ? 'border-violet-600 dark:border-violet-500/70 bg-violet-50/50 dark:bg-violet-950/35 ring-2 ring-violet-200 dark:ring-violet-500/25 shadow-xs'
+                : 'border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
-            <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between">
               <span>Analyse du pickup</span>
               {selectedReport === 'pickup' && <span className="w-2 h-2 rounded-full bg-violet-600" />}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
               Mouvement du portefeuille de réservations par horizon.
             </div>
           </div>
@@ -446,15 +446,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             onClick={() => setSelectedReport('competitors')}
             className={`p-4 rounded-2xl border transition-all cursor-pointer ${
               selectedReport === 'competitors'
-                ? 'border-violet-600 bg-violet-50/50 ring-2 ring-violet-200 shadow-xs'
-                : 'border-slate-200/80 bg-white hover:border-slate-300'
+                ? 'border-violet-600 dark:border-violet-500/70 bg-violet-50/50 dark:bg-violet-950/35 ring-2 ring-violet-200 dark:ring-violet-500/25 shadow-xs'
+                : 'border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
-            <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between">
               <span>Analyse des concurrents</span>
               {selectedReport === 'competitors' && <span className="w-2 h-2 rounded-full bg-violet-600" />}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
               Positionnement tarifaire et évolutions du CompSet.
             </div>
           </div>
@@ -464,15 +464,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             onClick={() => setSelectedReport('events')}
             className={`p-4 rounded-2xl border transition-all cursor-pointer ${
               selectedReport === 'events'
-                ? 'border-violet-600 bg-violet-50/50 ring-2 ring-violet-200 shadow-xs'
-                : 'border-slate-200/80 bg-white hover:border-slate-300'
+                ? 'border-violet-600 dark:border-violet-500/70 bg-violet-50/50 dark:bg-violet-950/35 ring-2 ring-violet-200 dark:ring-violet-500/25 shadow-xs'
+                : 'border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
-            <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between">
               <span>Analyse des événements</span>
               {selectedReport === 'events' && <span className="w-2 h-2 rounded-full bg-violet-600" />}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
               Événements à impact et dates sensibles.
             </div>
           </div>
@@ -482,15 +482,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             onClick={() => setSelectedReport('channel')}
             className={`p-4 rounded-2xl border transition-all cursor-pointer ${
               selectedReport === 'channel'
-                ? 'border-violet-600 bg-violet-50/50 ring-2 ring-violet-200 shadow-xs'
-                : 'border-slate-200/80 bg-white hover:border-slate-300'
+                ? 'border-violet-600 dark:border-violet-500/70 bg-violet-50/50 dark:bg-violet-950/35 ring-2 ring-violet-200 dark:ring-violet-500/25 shadow-xs'
+                : 'border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
-            <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between">
               <span>Performance par canal</span>
               {selectedReport === 'channel' && <span className="w-2 h-2 rounded-full bg-violet-600" />}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
               Production, commissions et revenu net par canal.
             </div>
           </div>
@@ -500,15 +500,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             onClick={() => setSelectedReport('decisions')}
             className={`p-4 rounded-2xl border transition-all cursor-pointer ${
               selectedReport === 'decisions'
-                ? 'border-violet-600 bg-violet-50/50 ring-2 ring-violet-200 shadow-xs'
-                : 'border-slate-200/80 bg-white hover:border-slate-300'
+                ? 'border-violet-600 dark:border-violet-500/70 bg-violet-50/50 dark:bg-violet-950/35 ring-2 ring-violet-200 dark:ring-violet-500/25 shadow-xs'
+                : 'border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
-            <div className="font-bold text-slate-900 text-sm flex items-center justify-between">
+            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center justify-between">
               <span>Historique des décisions</span>
               {selectedReport === 'decisions' && <span className="w-2 h-2 rounded-full bg-violet-600" />}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1 leading-snug">
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
               Décisions tarifaires validées, refusées et appliquées.
             </div>
           </div>
@@ -516,16 +516,16 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       </div>
 
       {/* 4. Active Report Dynamic View */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-2xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-8 shadow-2xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-4">
           <div className="space-y-1">
-            <h2 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
               {currentMeta.title}
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {currentMeta.period}
             </p>
-            <p className="text-xs text-slate-600 leading-relaxed w-full pt-0.5">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed w-full pt-0.5">
               {currentMeta.desc}
             </p>
           </div>
@@ -545,26 +545,26 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
               key={idx}
               className={`rounded-2xl p-5 flex flex-col justify-between space-y-3 border ${
                 kpi.color === 'emerald'
-                  ? 'bg-emerald-50/40 border-emerald-200/70'
-                  : 'bg-slate-50/60 border-slate-200/80'
+                  ? 'bg-emerald-50/40 dark:bg-emerald-950/30 border-emerald-200/70'
+                  : 'bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-800/80'
               }`}
             >
               <div>
-                <div className={`text-[10px] font-bold uppercase tracking-wider ${kpi.color === 'emerald' ? 'text-emerald-800' : 'text-slate-500'}`}>
+                <div className={`text-[10px] font-bold uppercase tracking-wider ${kpi.color === 'emerald' ? 'text-emerald-800 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}`}>
                   {kpi.label}
                 </div>
-                <div className="text-3xl font-black text-slate-900 tracking-tight mt-1">
+                <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1">
                   {kpi.value}
                 </div>
-                <div className="text-xs text-slate-500 mt-0.5">
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {kpi.sub}
                 </div>
               </div>
               <div>
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                   kpi.color === 'emerald'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : 'bg-slate-200/80 text-slate-700'
+                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                 }`}>
                   <span className="w-1.5 h-1.5 rounded-full bg-current" />
                   {kpi.badge}
@@ -580,24 +580,24 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       {/* SUB-VIEW 1: RAPPORT QUOTIDIEN — Typologies de chambres & Flux du jour */}
       {selectedReport === 'daily' && (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
-          <div className="xl:col-span-8 bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div className="xl:col-span-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                   Situation par typologie de chambre — Aujourd&apos;hui (11 nov. 2026)
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Détail en temps réel des ventes, de la capacité commercialisable et des prix moyens appliqués.
                 </p>
               </div>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200">
+              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70">
                 42 / 44 vendues (95,5%)
               </span>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
                   <tr>
                     <th className="py-3 px-4">TYPOLOGIE</th>
                     <th className="py-3 px-3">CAPACITÉ</th>
@@ -609,59 +609,59 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                     <th className="py-3 px-4 text-right">STATUT VENTE</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
-                  <tr className="hover:bg-slate-50/60">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">Chambre Standard Double</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-600">24</td>
-                    <td className="py-3.5 px-3 font-bold text-slate-900">24</td>
-                    <td className="py-3.5 px-3 font-bold text-rose-600">0</td>
-                    <td className="py-3.5 px-3 font-bold text-rose-700">100,0 %</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">138,00 €</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">138,00 €</td>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                  <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">Chambre Standard Double</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-600 dark:text-slate-400">24</td>
+                    <td className="py-3.5 px-3 font-bold text-slate-900 dark:text-slate-100">24</td>
+                    <td className="py-3.5 px-3 font-bold text-rose-600 dark:text-rose-400">0</td>
+                    <td className="py-3.5 px-3 font-bold text-rose-700 dark:text-rose-300">100,0 %</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">138,00 €</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">138,00 €</td>
                     <td className="py-3.5 px-4 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300">
                         Complet (Fermé)
                       </span>
                     </td>
                   </tr>
-                  <tr className="hover:bg-slate-50/60">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">Chambre Supérieure Twin / Double</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-600">12</td>
-                    <td className="py-3.5 px-3 font-bold text-slate-900">11</td>
-                    <td className="py-3.5 px-3 font-bold text-emerald-600">1</td>
-                    <td className="py-3.5 px-3 font-bold text-amber-700">91,7 %</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">146,50 €</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">134,29 €</td>
+                  <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">Chambre Supérieure Twin / Double</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-600 dark:text-slate-400">12</td>
+                    <td className="py-3.5 px-3 font-bold text-slate-900 dark:text-slate-100">11</td>
+                    <td className="py-3.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">1</td>
+                    <td className="py-3.5 px-3 font-bold text-amber-700 dark:text-amber-300">91,7 %</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">146,50 €</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">134,29 €</td>
                     <td className="py-3.5 px-4 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
                         Dernière ch. (Prix fort)
                       </span>
                     </td>
                   </tr>
-                  <tr className="hover:bg-slate-50/60">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">Chambre Deluxe Balcon</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-600">5</td>
-                    <td className="py-3.5 px-3 font-bold text-slate-900">4</td>
-                    <td className="py-3.5 px-3 font-bold text-emerald-600">1</td>
-                    <td className="py-3.5 px-3 font-bold text-emerald-700">80,0 %</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">158,00 €</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">126,40 €</td>
+                  <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">Chambre Deluxe Balcon</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-600 dark:text-slate-400">5</td>
+                    <td className="py-3.5 px-3 font-bold text-slate-900 dark:text-slate-100">4</td>
+                    <td className="py-3.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">1</td>
+                    <td className="py-3.5 px-3 font-bold text-emerald-700 dark:text-emerald-300">80,0 %</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">158,00 €</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">126,40 €</td>
                     <td className="py-3.5 px-4 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">
                         Ouverte à la vente
                       </span>
                     </td>
                   </tr>
-                  <tr className="hover:bg-slate-50/60">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">Suite Junior Opéra</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-600">3</td>
-                    <td className="py-3.5 px-3 font-bold text-slate-900">3</td>
-                    <td className="py-3.5 px-3 font-bold text-rose-600">0</td>
-                    <td className="py-3.5 px-3 font-bold text-rose-700">100,0 %</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">195,00 €</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">195,00 €</td>
+                  <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">Suite Junior Opéra</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-600 dark:text-slate-400">3</td>
+                    <td className="py-3.5 px-3 font-bold text-slate-900 dark:text-slate-100">3</td>
+                    <td className="py-3.5 px-3 font-bold text-rose-600 dark:text-rose-400">0</td>
+                    <td className="py-3.5 px-3 font-bold text-rose-700 dark:text-rose-300">100,0 %</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">195,00 €</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">195,00 €</td>
                     <td className="py-3.5 px-4 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300">
                         Complet (Fermé)
                       </span>
                     </td>
@@ -672,37 +672,37 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
           </div>
 
           <div className="xl:col-span-4 space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-violet-600" />
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                 <span>Flux de réception du jour</span>
               </h3>
               <div className="space-y-3 text-xs">
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-slate-600">Arrivées prévues (Check-in) :</span>
-                  <span className="font-extrabold text-slate-900">18 chambres</span>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80">
+                  <span className="text-slate-600 dark:text-slate-400">Arrivées prévues (Check-in) :</span>
+                  <span className="font-extrabold text-slate-900 dark:text-slate-100">18 chambres</span>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-slate-600">Départs prévus (Check-out) :</span>
-                  <span className="font-extrabold text-slate-900">15 chambres</span>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80">
+                  <span className="text-slate-600 dark:text-slate-400">Départs prévus (Check-out) :</span>
+                  <span className="font-extrabold text-slate-900 dark:text-slate-100">15 chambres</span>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-slate-600">Recouches en séjour :</span>
-                  <span className="font-extrabold text-slate-900">24 chambres</span>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80">
+                  <span className="text-slate-600 dark:text-slate-400">Recouches en séjour :</span>
+                  <span className="font-extrabold text-slate-900 dark:text-slate-100">24 chambres</span>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-900">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/60 text-emerald-900 dark:text-emerald-200">
                   <span className="font-semibold">Pickup net dernières 24h :</span>
-                  <span className="font-black text-emerald-800">+3 réservations</span>
+                  <span className="font-black text-emerald-800 dark:text-emerald-300">+3 réservations</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-3">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-violet-600" />
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                 <span>Consignes Yield du jour</span>
               </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 Fermeture immédiate des canaux de distribution tiers (OTA discount) sur les 2 dernières chambres disponibles. Autoriser le walk-in et les appels directs uniquement au tarif rack majoré (+25 €).
               </p>
             </div>
@@ -712,28 +712,28 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
 
       {/* SUB-VIEW 2: RAPPORT HEBDOMADAIRE — Tableau 7 jours */}
       {selectedReport === 'weekly' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden w-full">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden w-full">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                 Planning prévisionnel des 7 prochains jours (11 nov. → 17 nov. 2026)
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Suivi au jour le jour des taux de remplissage, du tarif moyen, du RevPAR et des événements moteurs.
               </p>
             </div>
             <button
               onClick={() => handleExportCsv('tarifs')}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>Exporter 7 jours</span>
             </button>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
                 <tr>
                   <th className="py-3 px-4">DATE</th>
                   <th className="py-3 px-3">JOUR</th>
@@ -747,7 +747,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   <th className="py-3 px-4 text-right">CONSIGNE YIELD</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {[
                   { date: '2026-11-11', day: 'Mercredi', dispo: totalRooms, sold: 42, occ: '95,5%', adr: '142,50 €', revpar: '136,02 €', ca: '5 985 €', event: 'Congrès Santé & Biotech (28k pax)', yield: 'Fermer OTA, Tarif Rack' },
                   { date: '2026-11-12', day: 'Jeudi', dispo: totalRooms, sold: 40, occ: '90,9%', adr: '145,00 €', revpar: '131,82 €', ca: '5 800 €', event: 'Congrès Santé & Biotech (J2)', yield: 'Hausse ADR +15€' },
@@ -757,18 +757,18 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   { date: '2026-11-16', day: 'Lundi', dispo: totalRooms, sold: 42, occ: '95,5%', adr: '144,00 €', revpar: '137,45 €', ca: '6 048 €', event: 'Salon Int. Énergie & Climat (42k pax)', yield: 'Hausse ADR +25€' },
                   { date: '2026-11-17', day: 'Mardi', dispo: totalRooms, sold: 41, occ: '93,2%', adr: '142,00 €', revpar: '132,32 €', ca: '5 822 €', event: 'Salon Int. Énergie (J2)', yield: 'MinStay 2 nuits' },
                 ].map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/60">
-                    <td className="py-3 px-4 font-mono font-semibold text-slate-900">{row.date}</td>
-                    <td className="py-3 px-3 text-slate-700 font-medium">{row.day}</td>
-                    <td className="py-3 px-3 text-slate-500">{row.dispo}</td>
-                    <td className="py-3 px-3 font-bold text-slate-900">{row.sold}</td>
-                    <td className="py-3 px-3 font-black text-violet-700">{row.occ}</td>
-                    <td className="py-3 px-3 font-semibold text-slate-800">{row.adr}</td>
-                    <td className="py-3 px-3 font-semibold text-slate-800">{row.revpar}</td>
-                    <td className="py-3 px-3 font-bold text-emerald-700">{row.ca}</td>
-                    <td className="py-3 px-4 text-slate-600 truncate max-w-xs">{row.event}</td>
+                  <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                    <td className="py-3 px-4 font-mono font-semibold text-slate-900 dark:text-slate-100">{row.date}</td>
+                    <td className="py-3 px-3 text-slate-700 dark:text-slate-300 font-medium">{row.day}</td>
+                    <td className="py-3 px-3 text-slate-500 dark:text-slate-400">{row.dispo}</td>
+                    <td className="py-3 px-3 font-bold text-slate-900 dark:text-slate-100">{row.sold}</td>
+                    <td className="py-3 px-3 font-black text-violet-700 dark:text-violet-300">{row.occ}</td>
+                    <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200">{row.adr}</td>
+                    <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200">{row.revpar}</td>
+                    <td className="py-3 px-3 font-bold text-emerald-700 dark:text-emerald-300">{row.ca}</td>
+                    <td className="py-3 px-4 text-slate-600 dark:text-slate-400 truncate max-w-xs">{row.event}</td>
                     <td className="py-3 px-4 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
                         {row.yield}
                       </span>
                     </td>
@@ -782,24 +782,24 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
 
       {/* SUB-VIEW 4: ANALYSE DU PICKUP — Tableau par Horizon J-90 à J-1 */}
       {selectedReport === 'pickup' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden w-full">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden w-full">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                 Vitesse d&apos;absorption et historique de pickup par horizon
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Mesure du rythme de montée en charge pour le mois de Novembre 2026 comparé à la même période N-1.
               </p>
             </div>
-            <span className="text-xs font-bold px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl">
+            <span className="text-xs font-bold px-3 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70 rounded-xl">
               Pickup 30j : +48 chambres
             </span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
                 <tr>
                   <th className="py-3 px-4">HORIZON</th>
                   <th className="py-3 px-3">CHAMBRES OTB</th>
@@ -810,7 +810,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   <th className="py-3 px-4 text-right">DIAGNOSTIC</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {[
                   { horizon: 'J-90 (3 mois)', otb: 142, share: '10,8%', pickup: '+14 ch.', vsN1: '+12% plus rapide', adr: '128,00 €', diag: 'Ouverture des tarifs d\'appel' },
                   { horizon: 'J-60 (2 mois)', otb: 385, share: '29,2%', pickup: '+243 ch.', vsN1: '+18% plus rapide', adr: '132,50 €', diag: 'Fermeture des promotions non-flex' },
@@ -820,15 +820,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   { horizon: 'J-3 (Dernière minute)', otb: 1152, share: '87,3%', pickup: '+37 ch.', vsN1: 'Stable vs N-1', adr: '154,50 €', diag: 'Vente directe privilégiée' },
                   { horizon: 'J-1 (Veille)', otb: 1166, share: '88,3%', pickup: '+14 ch.', vsN1: '+5% plus rapide', adr: '158,00 €', diag: 'Tarif rack walk-in' },
                 ].map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/60">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{row.horizon}</td>
-                    <td className="py-3.5 px-3 font-black text-slate-900">{row.otb} ch.</td>
-                    <td className="py-3.5 px-3 font-semibold text-violet-700">{row.share}</td>
-                    <td className="py-3.5 px-3 font-bold text-emerald-700">{row.pickup}</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">{row.vsN1}</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">{row.adr}</td>
+                  <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">{row.horizon}</td>
+                    <td className="py-3.5 px-3 font-black text-slate-900 dark:text-slate-100">{row.otb} ch.</td>
+                    <td className="py-3.5 px-3 font-semibold text-violet-700 dark:text-violet-300">{row.share}</td>
+                    <td className="py-3.5 px-3 font-bold text-emerald-700 dark:text-emerald-300">{row.pickup}</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">{row.vsN1}</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">{row.adr}</td>
                     <td className="py-3.5 px-4 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
                         {row.diag}
                       </span>
                     </td>
@@ -842,24 +842,24 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
 
       {/* SUB-VIEW 5: ANALYSE DES CONCURRENTS — Primary CompSet */}
       {selectedReport === 'competitors' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden w-full">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden w-full">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                 Veille tarifaire et benchmark direct — Primary CompSet
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Comparaison instantanée des tarifs publics, de l&apos;indice ARI et des états de saturation des concurrents directs.
               </p>
             </div>
-            <span className="text-xs font-bold px-3 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-xl">
+            <span className="text-xs font-bold px-3 py-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/70 rounded-xl">
               Médiane CompSet : 149,85 € (+12,00 €)
             </span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
                 <tr>
                   <th className="py-3 px-4">ÉTABLISSEMENT</th>
                   <th className="py-3 px-3">CATÉGORIE</th>
@@ -870,19 +870,19 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   <th className="py-3 px-4 text-right">DISPONIBILITÉ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr className="bg-violet-50/40 font-bold">
-                  <td className="py-3.5 px-4 text-violet-950 flex items-center gap-1.5">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                <tr className="bg-violet-50/40 dark:bg-violet-950/30 font-bold">
+                  <td className="py-3.5 px-4 text-violet-950 dark:text-violet-100 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-violet-600" />
                     <span>{hotelName} (Notre Hôtel)</span>
                   </td>
-                  <td className="py-3.5 px-3 text-violet-900">3★ Boutique</td>
-                  <td className="py-3.5 px-3 text-violet-900">—</td>
-                  <td className="py-3.5 px-3 text-violet-950 text-sm">137,85 €</td>
-                  <td className="py-3.5 px-3 text-violet-900">Référence (0 €)</td>
-                  <td className="py-3.5 px-3 text-violet-950">100,0</td>
+                  <td className="py-3.5 px-3 text-violet-900 dark:text-violet-200">3★ Boutique</td>
+                  <td className="py-3.5 px-3 text-violet-900 dark:text-violet-200">—</td>
+                  <td className="py-3.5 px-3 text-violet-950 dark:text-violet-100 text-sm">137,85 €</td>
+                  <td className="py-3.5 px-3 text-violet-900 dark:text-violet-200">Référence (0 €)</td>
+                  <td className="py-3.5 px-3 text-violet-950 dark:text-violet-100">100,0</td>
                   <td className="py-3.5 px-4 text-right">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-200 text-violet-900">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-200 dark:bg-violet-900/50 text-violet-900 dark:text-violet-200">
                       90,5% Rempli
                     </span>
                   </td>
@@ -894,20 +894,20 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   { name: 'Novotel Métropole', stars: '4★', dist: '1.1 km', price: '139,00 €', delta: '+1,15 €', ari: '100,8', status: 'Disponible' },
                   { name: 'Hôtel Ibis Styles Centre', stars: '3★', dist: '0.5 km', price: '119,00 €', delta: '-18,85 €', ari: '86,3', status: 'Disponible' },
                 ].map((comp, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/60">
-                    <td className="py-3.5 px-4 font-semibold text-slate-900">{comp.name}</td>
-                    <td className="py-3.5 px-3 text-slate-600">{comp.stars}</td>
-                    <td className="py-3.5 px-3 text-slate-500">{comp.dist}</td>
-                    <td className="py-3.5 px-3 font-bold text-slate-900">{comp.price}</td>
-                    <td className="py-3.5 px-3 font-semibold text-emerald-700">{comp.delta}</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-700">{comp.ari}</td>
+                  <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                    <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{comp.name}</td>
+                    <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">{comp.stars}</td>
+                    <td className="py-3.5 px-3 text-slate-500 dark:text-slate-400">{comp.dist}</td>
+                    <td className="py-3.5 px-3 font-bold text-slate-900 dark:text-slate-100">{comp.price}</td>
+                    <td className="py-3.5 px-3 font-semibold text-emerald-700 dark:text-emerald-300">{comp.delta}</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-700 dark:text-slate-300">{comp.ari}</td>
                     <td className="py-3.5 px-4 text-right">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         comp.status.includes('Complet')
-                          ? 'bg-rose-100 text-rose-800'
+                          ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
                           : comp.status.includes('Saturation')
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
+                          : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300'
                       }`}>
                         {comp.status}
                       </span>
@@ -922,28 +922,28 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
 
       {/* SUB-VIEW 6: ANALYSE DES ÉVÉNEMENTS — Impact territorial */}
       {selectedReport === 'events' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden w-full">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden w-full">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                 Cartographie des événements moteurs & sur-revenu généré
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Événements retenus dans le bassin de chalandise de l&apos;hôtel avec recommandations tarifaires et de durée de séjour.
               </p>
             </div>
             <button
               onClick={() => handleExportCsv('evenements')}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>Exporter Événements</span>
             </button>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
                 <tr>
                   <th className="py-3 px-4">ÉVÉNEMENT</th>
                   <th className="py-3 px-3">CATÉGORIE</th>
@@ -955,7 +955,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   <th className="py-3 px-4 text-right">RECOMMANDATION RESTRICTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {[
                   { title: 'Congrès National Santé & Biotech', cat: 'Congrès Médical', dates: '11 nov. → 13 nov. 2026', pax: '28 000 pax', dist: '2.8 km', score: 86, boost: '+28,5 %', action: 'MinStay 2 nuits & non-annulable' },
                   { title: 'Salon International Énergie & Climat', cat: 'Salons & Foires', dates: '16 nov. → 18 nov. 2026', pax: '42 000 pax', dist: '4.5 km', score: 91, boost: '+38,0 %', action: 'MinStay 3 nuits & fermeture OTA' },
@@ -963,16 +963,16 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   { title: 'Sommet Tech & Intelligence Artificielle', cat: 'Corporate & Sommets', dates: '25 nov. → 27 nov. 2026', pax: '18 000 pax', dist: '1.8 km', score: 82, boost: '+24,5 %', action: 'Surcote chambres supérieures' },
                   { title: 'Festival International du Vin & Terroirs', cat: 'Festivals & Culture', dates: '4 déc. → 6 déc. 2026', pax: '35 000 pax', dist: '2.1 km', score: 88, boost: '+32,0 %', action: 'MinStay 2 nuits' },
                 ].map((ev, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/60">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">{ev.title}</td>
-                    <td className="py-3.5 px-3 text-slate-600">{ev.cat}</td>
-                    <td className="py-3.5 px-3 font-mono text-slate-700">{ev.dates}</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">{ev.pax}</td>
-                    <td className="py-3.5 px-3 text-slate-600">{ev.dist}</td>
-                    <td className="py-3.5 px-3 font-black text-rose-600">{ev.score}/100</td>
-                    <td className="py-3.5 px-3 font-bold text-emerald-700">{ev.boost}</td>
+                  <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">{ev.title}</td>
+                    <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">{ev.cat}</td>
+                    <td className="py-3.5 px-3 font-mono text-slate-700 dark:text-slate-300">{ev.dates}</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">{ev.pax}</td>
+                    <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">{ev.dist}</td>
+                    <td className="py-3.5 px-3 font-black text-rose-600 dark:text-rose-400">{ev.score}/100</td>
+                    <td className="py-3.5 px-3 font-bold text-emerald-700 dark:text-emerald-300">{ev.boost}</td>
                     <td className="py-3.5 px-4 text-right">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-800">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
                         {ev.action}
                       </span>
                     </td>
@@ -988,29 +988,29 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       {(selectedReport === 'channel' || selectedReport === 'monthly') && (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
           {/* Left Column: Performance par canal et par segment (8 cols on XL) */}
-          <div className="xl:col-span-8 bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden flex flex-col justify-between">
+          <div className="xl:col-span-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden flex flex-col justify-between">
             <div>
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                     Performance par canal et par segment
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Production observée entre 13 août 2026 et 10 janv. 2027.
                   </p>
                 </div>
                 <button
                   onClick={() => handleExportCsv('production')}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5 text-slate-500" />
+                  <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                   <span>Exporter Production</span>
                 </button>
               </div>
 
               <div className="overflow-x-auto max-h-[620px] overflow-y-auto">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider z-10">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 sticky top-0 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider z-10">
                     <tr>
                       <th className="py-3 px-4">CANAL</th>
                       <th className="py-3 px-3">SEGMENT</th>
@@ -1020,28 +1020,28 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                       <th className="py-3 px-3 text-right">ANNULATIONS</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                     {channelPerformanceData.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3 px-4 font-semibold text-slate-900">
+                      <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60 transition-colors">
+                        <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">
                           {row.canal}
                         </td>
-                        <td className="py-3 px-3 text-slate-600">
+                        <td className="py-3 px-3 text-slate-600 dark:text-slate-400">
                           {row.segment}
                         </td>
-                        <td className="py-3 px-3 font-semibold text-slate-800">
+                        <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200">
                           {row.chambres}
                         </td>
-                        <td className="py-3 px-3 font-semibold text-slate-800">
+                        <td className="py-3 px-3 font-semibold text-slate-800 dark:text-slate-200">
                           {row.ca.toLocaleString('fr-FR')} €
                         </td>
                         <td className="py-3 px-4">
                           <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700">
+                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
                               <span className="w-1.5 h-1.5 rounded-full bg-violet-600" />
                               <span>{row.part.toFixed(1)}%</span>
                             </div>
-                            <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
+                            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1 overflow-hidden">
                               <div
                                 className="bg-violet-600 h-1 rounded-full"
                                 style={{ width: `${Math.min(100, row.part * 8)}%` }}
@@ -1049,7 +1049,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-3 text-right font-medium text-slate-700">
+                        <td className="py-3 px-3 text-right font-medium text-slate-700 dark:text-slate-300">
                           {row.annulations}
                         </td>
                       </tr>
@@ -1060,30 +1060,30 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             </div>
 
             {/* 3 Bottom Summary Metrics */}
-            <div className="p-4 bg-slate-50/70 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-4">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <div className="p-4 bg-slate-50/70 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   LEAD TIME MOYEN
                 </div>
-                <div className="text-xl font-black text-slate-900 mt-1">
+                <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">
                   35.4 jours
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-4">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   LOS MOYEN
                 </div>
-                <div className="text-xl font-black text-slate-900 mt-1">
+                <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">
                   1.90 nuits
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-4">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   RÉSERVATIONS ANALYSÉES
                 </div>
-                <div className="text-xl font-black text-slate-900 mt-1">
+                <div className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">
                   125
                 </div>
               </div>
@@ -1092,26 +1092,26 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
 
           {/* Right Column: Historique des décisions & Automatisations (4 cols on XL) */}
           <div className="xl:col-span-4 space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-2xs space-y-6">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-7 shadow-2xs space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
                   Centre de Décision Revenue Management
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Arbitrez et validez les recommandations tarifaires du moteur.
                 </p>
               </div>
 
               <div className="py-8 px-4 text-center space-y-4">
-                <div className="w-12 h-12 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center mx-auto">
-                  <Sparkles className="w-6 h-6 text-violet-600" />
+                <div className="w-12 h-12 rounded-full bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto">
+                  <Sparkles className="w-6 h-6 text-violet-600 dark:text-violet-400" />
                 </div>
 
                 <div className="space-y-1">
-                  <h3 className="font-bold text-slate-900 text-sm">
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                     6 recommandations en attente d&apos;arbitrage
                   </h3>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
                     Validez ou personnalisez les tarifs suggérés sur les dates à fort enjeu pour appliquer immédiatement les consignes.
                   </p>
                 </div>
@@ -1128,11 +1128,11 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-2xs space-y-4">
-              <h2 className="text-base font-bold text-slate-900">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 sm:p-7 shadow-2xs space-y-4">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Automatisations & Alertes
               </h2>
-              <div className="space-y-3 text-xs text-slate-500 leading-relaxed">
+              <div className="space-y-3 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                 <p>
                   Les règles de surveillance de la parité et les alertes de compression sont actives en arrière-plan.
                 </p>
@@ -1147,28 +1147,28 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
 
       {/* SUB-VIEW 8: HISTORIQUE DES DÉCISIONS TARIFAIRES */}
       {selectedReport === 'decisions' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden w-full">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden w-full">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                 Journal d&apos;audit des décisions tarifaires appliquées
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Traçabilité intégrale des validations humaines : date de séjour, tarifs avant/après, motif normalisé et impact économique.
               </p>
             </div>
             <button
               onClick={() => handleExportCsv('decisions')}
-              className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>Exporter Journal (CSV)</span>
             </button>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
                 <tr>
                   <th className="py-3 px-4">RÉFÉRENCE</th>
                   <th className="py-3 px-3">DATE SÉJOUR</th>
@@ -1182,7 +1182,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   <th className="py-3 px-4 text-right">STATUT</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {[
                   { id: 'DEC-801', date: '2026-11-11', cat: 'Standard Double', oldP: '124 €', sugP: '142 €', valP: '142 €', delta: '+18 €', reason: 'Tension territoriale forte & salon professionnel', user: 'Nabil Amrani', status: 'Appliquée' },
                   { id: 'DEC-802', date: '2026-11-12', cat: 'Standard Double', oldP: '124 €', sugP: '145 €', valP: '145 €', delta: '+21 €', reason: 'Pickup soutenu J-1 & Compset médian à 179€', user: 'Nabil Amrani', status: 'Appliquée' },
@@ -1191,19 +1191,19 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                   { id: 'DEC-805', date: '2026-11-15', cat: 'Deluxe Balcon', oldP: '180 €', sugP: '205 €', valP: '205 €', delta: '+25 €', reason: 'Maintien marge haute et restriction MinStay 2j', user: 'Nabil Amrani', status: 'Appliquée' },
                   { id: 'DEC-806', date: '2026-11-16', cat: 'Standard Double', oldP: '124 €', sugP: '144 €', valP: '144 €', delta: '+20 €', reason: 'Pression corporate internationale', user: 'Nabil Amrani', status: 'Appliquée' },
                 ].map((dec, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/60">
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{dec.id}</td>
-                    <td className="py-3.5 px-3 font-semibold text-slate-800">{dec.date}</td>
-                    <td className="py-3.5 px-3 text-slate-700">{dec.cat}</td>
-                    <td className="py-3.5 px-3 text-slate-500 line-through">{dec.oldP}</td>
-                    <td className="py-3.5 px-3 text-slate-700 font-medium">{dec.sugP}</td>
-                    <td className="py-3.5 px-3 font-black text-slate-900">{dec.valP}</td>
-                    <td className="py-3.5 px-3 font-bold text-emerald-700">{dec.delta}</td>
-                    <td className="py-3.5 px-4 text-slate-600 max-w-xs">{dec.reason}</td>
-                    <td className="py-3.5 px-3 text-slate-700">{dec.user}</td>
+                  <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100">{dec.id}</td>
+                    <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">{dec.date}</td>
+                    <td className="py-3.5 px-3 text-slate-700 dark:text-slate-300">{dec.cat}</td>
+                    <td className="py-3.5 px-3 text-slate-500 dark:text-slate-400 line-through">{dec.oldP}</td>
+                    <td className="py-3.5 px-3 text-slate-700 dark:text-slate-300 font-medium">{dec.sugP}</td>
+                    <td className="py-3.5 px-3 font-black text-slate-900 dark:text-slate-100">{dec.valP}</td>
+                    <td className="py-3.5 px-3 font-bold text-emerald-700 dark:text-emerald-300">{dec.delta}</td>
+                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 max-w-xs">{dec.reason}</td>
+                    <td className="py-3.5 px-3 text-slate-700 dark:text-slate-300">{dec.user}</td>
                     <td className="py-3.5 px-4 text-right">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                        <Check className="w-3 h-3 text-emerald-600" />
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                         {dec.status}
                       </span>
                     </td>
@@ -1216,9 +1216,9 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
       )}
 
       {/* Global Bottom Status Footnote */}
-      <div className="pt-4 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] text-slate-500">
+      <div className="pt-4 border-t border-slate-200/60 dark:border-slate-800/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] text-slate-500 dark:text-slate-400">
         <div className="flex items-center gap-3">
-          <span className="font-bold text-slate-700">FLOWTYM REVENUE</span>
+          <span className="font-bold text-slate-700 dark:text-slate-300">FLOWTYM REVENUE</span>
           <span>Accès ouvert (authentification désactivée) — Nabil Amrani · Revenue Manager</span>
           <span className="text-slate-400">Groupe Folkestone</span>
         </div>

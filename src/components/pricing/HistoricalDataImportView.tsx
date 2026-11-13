@@ -161,18 +161,18 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
   return (
     <div className="space-y-6">
       {/* 1. Header & Navigation des sous-onglets */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-violet-100 text-violet-700">
+              <span className="p-2 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
                 <Database className="w-5 h-5" />
               </span>
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">
+              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100 tracking-tight">
                 Données Historiques & Apprentissage Prédictif
               </h2>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Importez l’historique certifié de l’établissement (N-1, N-2, N-3) pour calibrer le moteur de prédiction et de tarification dynamique.
             </p>
           </div>
@@ -190,13 +190,13 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
         </div>
 
         {/* Barre d'onglets internes */}
-        <div className="flex items-center gap-2 border-b border-slate-100 pt-2 text-xs font-bold">
+        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pt-2 text-xs font-bold">
           <button
             onClick={() => setActiveTab('import')}
             className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'import'
-                ? 'border-violet-600 text-violet-700'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-violet-600 text-violet-700 dark:text-violet-300'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
             <Upload className="w-4 h-4" />
@@ -206,8 +206,8 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
             onClick={() => setActiveTab('history')}
             className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'history'
-                ? 'border-violet-600 text-violet-700'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-violet-600 text-violet-700 dark:text-violet-300'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
             <Layers className="w-4 h-4" />
@@ -217,8 +217,8 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
             onClick={() => setActiveTab('dictionary')}
             className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'dictionary'
-                ? 'border-violet-600 text-violet-700'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-violet-600 text-violet-700 dark:text-violet-300'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
             <FileSpreadsheet className="w-4 h-4" />
@@ -233,7 +233,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
           {/* Zone de Drop */}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-violet-200 hover:border-violet-400 bg-violet-50/40 hover:bg-violet-50/70 transition-all rounded-3xl p-8 text-center cursor-pointer space-y-3 group"
+            className="border-2 border-dashed border-violet-200 dark:border-violet-800/70 hover:border-violet-400 bg-violet-50/40 dark:bg-violet-950/30 hover:bg-violet-50/70 transition-all rounded-3xl p-8 text-center cursor-pointer space-y-3 group"
           >
             <input
               type="file"
@@ -242,18 +242,18 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
               accept=".xlsx,.xls"
               className="hidden"
             />
-            <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform shadow-xs">
               <Upload className="w-6 h-6" />
             </div>
             <div>
-              <div className="text-sm font-bold text-slate-900">
+              <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 Glissez-déposez votre export historique Excel (.xlsx) ou cliquez pour parcourir
               </div>
-              <p className="text-xs text-slate-500 mt-1 max-w-lg mx-auto">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-lg mx-auto">
                 Conforme au modèle officiel FLOWTYM. Analyse automatique des 3 onglets, détection des doublons et recalcul instantané du RevPAR.
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 text-[11px] font-semibold text-violet-700 bg-white px-3 py-1 rounded-full border border-violet-200">
+            <div className="inline-flex items-center gap-2 text-[11px] font-semibold text-violet-700 dark:text-violet-300 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-violet-200 dark:border-violet-800/70">
               <Building className="w-3.5 h-3.5" />
               <span>Établissement cible : {hotel.name} (45 chambres)</span>
             </div>
@@ -261,16 +261,16 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
           {/* Prévisualisation après analyse du fichier */}
           {previewData && (
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-5 animate-in fade-in duration-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-5 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <FileCheck className="w-5 h-5 text-emerald-600" />
-                    <h3 className="text-base font-bold text-slate-900">
+                    <FileCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                       Rapport d'Analyse Pré-Import : {previewData.fileName}
                     </h3>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Période couverte : <strong>{previewData.log.dateRange}</strong> • Taille : {previewData.fileSizeKb} Ko
                   </p>
                 </div>
@@ -278,7 +278,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setPreviewData(null)}
-                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
                   >
                     Annuler
                   </button>
@@ -295,21 +295,21 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
               {/* Métriques clés détectées */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Dates Valides</div>
-                  <div className="text-xl font-black text-slate-900">{previewData.records.length}</div>
+                  <div className="text-xl font-black text-slate-900 dark:text-slate-100">{previewData.records.length}</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Snapshots OTB</div>
-                  <div className="text-xl font-black text-indigo-700">{previewData.log.snapshotsCount}</div>
+                  <div className="text-xl font-black text-indigo-700 dark:text-indigo-300">{previewData.log.snapshotsCount}</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Colonnes Reconnues</div>
-                  <div className="text-xl font-black text-emerald-700">{previewData.log.detectedColumns.length} / 78</div>
+                  <div className="text-xl font-black text-emerald-700 dark:text-emerald-300">{previewData.log.detectedColumns.length} / 78</div>
                 </div>
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Avertissements</div>
-                  <div className={`text-xl font-black ${previewData.log.warningsCount > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
+                  <div className={`text-xl font-black ${previewData.log.warningsCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'}`}>
                     {previewData.log.warningsCount}
                   </div>
                 </div>
@@ -317,21 +317,21 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
               {/* Tableau d'erreurs et d'ajustements si existants */}
               {previewData.log.errorsList.length > 0 && (
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2">
-                  <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/70 space-y-2">
+                  <div className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                     <span>Contrôles de cohérence et recalculs automatiques ({previewData.log.errorsList.length}) :</span>
                   </div>
-                  <div className="max-h-40 overflow-y-auto space-y-1 text-[11px] text-amber-800">
+                  <div className="max-h-40 overflow-y-auto space-y-1 text-[11px] text-amber-800 dark:text-amber-300">
                     {previewData.log.errorsList.slice(0, 8).map((err, idx) => (
                       <div key={idx} className="flex items-start gap-2">
-                        <span className="font-mono font-bold bg-amber-200/60 px-1 rounded">Ligne {err.rowNumber}</span>
+                        <span className="font-mono font-bold bg-amber-200/60 dark:bg-amber-900/60 px-1 rounded">Ligne {err.rowNumber}</span>
                         <span className="font-semibold">{err.column} :</span>
                         <span>{err.message}</span>
                       </div>
                     ))}
                     {previewData.log.errorsList.length > 8 && (
-                      <div className="text-[10px] italic text-amber-700">
+                      <div className="text-[10px] italic text-amber-700 dark:text-amber-300">
                         + {previewData.log.errorsList.length - 8} autres lignes vérifiées et corrigées automatiquement.
                       </div>
                     )}
@@ -340,10 +340,10 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
               )}
 
               {/* Aperçu des 5 premières lignes */}
-              <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] border-b border-slate-200">
+                    <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
                       <th className="py-2.5 px-3">Date</th>
                       <th className="py-2.5 px-2">Jour</th>
                       <th className="py-2.5 px-2 text-center">Événement</th>
@@ -355,26 +355,26 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                       <th className="py-2.5 px-2 text-center">Pickup J-7</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                     {previewData.records.slice(0, 5).map((r) => (
-                      <tr key={r.id} className="hover:bg-slate-50/80">
-                        <td className="py-2.5 px-3 font-bold text-slate-900">{r.dateStr}</td>
-                        <td className="py-2.5 px-2 text-slate-600">{r.dayOfWeek}</td>
+                      <tr key={r.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/70">
+                        <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100">{r.dateStr}</td>
+                        <td className="py-2.5 px-2 text-slate-600 dark:text-slate-400">{r.dayOfWeek}</td>
                         <td className="py-2.5 px-2 text-center">
                           {r.eventName ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-800">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300">
                               {r.eventName.slice(0, 20)}...
                             </span>
                           ) : (
                             <span className="text-slate-400 text-[10px]">—</span>
                           )}
                         </td>
-                        <td className="py-2.5 px-2 text-center font-bold text-slate-800">{r.occupancyPercent}%</td>
+                        <td className="py-2.5 px-2 text-center font-bold text-slate-800 dark:text-slate-200">{r.occupancyPercent}%</td>
                         <td className="py-2.5 px-2 text-right">{r.roomsSold} / {r.totalMarketableRooms}</td>
-                        <td className="py-2.5 px-2 text-right font-bold text-slate-900">{r.adrNetEur} €</td>
-                        <td className="py-2.5 px-2 text-right font-black text-emerald-700">{r.revparEur} €</td>
+                        <td className="py-2.5 px-2 text-right font-bold text-slate-900 dark:text-slate-100">{r.adrNetEur} €</td>
+                        <td className="py-2.5 px-2 text-right font-black text-emerald-700 dark:text-emerald-300">{r.revparEur} €</td>
                         <td className="py-2.5 px-2 text-right tabular-nums">{r.accommodationRevenueEur.toLocaleString('fr-FR')} €</td>
-                        <td className="py-2.5 px-2 text-center font-semibold text-slate-700">{r.pickupJ14toJ7 ?? 'N/D'}</td>
+                        <td className="py-2.5 px-2 text-center font-semibold text-slate-700 dark:text-slate-300">{r.pickupJ14toJ7 ?? 'N/D'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -387,22 +387,22 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
       {/* 3. ONGLET : HISTORIQUE ACTUELLEMENT ENREGISTRÉ */}
       {activeTab === 'history' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-violet-600" />
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                 <span>Base Historique Active ({currentHistory.length} jours enregistrés)</span>
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Période couverte : {currentHistory.length > 0 ? `${currentHistory[0].dateStr} — ${currentHistory[currentHistory.length - 1].dateStr}` : 'Aucune donnée'}
               </p>
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-2xl max-h-[500px]">
+          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl max-h-[500px]">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="sticky top-0 bg-slate-50 z-10 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
+              <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/60 z-10 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">
                 <tr>
                   <th className="py-3 px-3">Date</th>
                   <th className="py-3 px-2">Jour</th>
@@ -419,36 +419,36 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                   <th className="py-3 px-2 text-right">Compset Médian</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {currentHistory.slice(-60).reverse().map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">{r.dateStr}</td>
-                    <td className="py-2.5 px-2 text-slate-600">{r.dayOfWeek.slice(0, 3)}</td>
+                  <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors">
+                    <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">{r.dateStr}</td>
+                    <td className="py-2.5 px-2 text-slate-600 dark:text-slate-400">{r.dayOfWeek.slice(0, 3)}</td>
                     <td className="py-2.5 px-2 text-center">
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                        r.season === 'Haute' ? 'bg-rose-100 text-rose-800' : r.season === 'Moyenne' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                        r.season === 'Haute' ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300' : r.season === 'Moyenne' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                       }`}>
                         {r.season}
                       </span>
                     </td>
                     <td className="py-2.5 px-2 text-center">
                       {r.eventName ? (
-                        <span className="text-[10px] font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-200">
+                        <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 px-2 py-0.5 rounded-md border border-violet-200 dark:border-violet-800/70">
                           {r.eventName.slice(0, 24)}
                         </span>
                       ) : (
                         <span className="text-slate-400 text-[10px]">—</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-2 text-center font-bold text-slate-800">{r.occupancyPercent}%</td>
+                    <td className="py-2.5 px-2 text-center font-bold text-slate-800 dark:text-slate-200">{r.occupancyPercent}%</td>
                     <td className="py-2.5 px-2 text-right">{r.roomsSold} / 45</td>
-                    <td className="py-2.5 px-2 text-right font-bold text-slate-900">{r.adrNetEur} €</td>
-                    <td className="py-2.5 px-2 text-right font-black text-emerald-700">{r.revparEur} €</td>
+                    <td className="py-2.5 px-2 text-right font-bold text-slate-900 dark:text-slate-100">{r.adrNetEur} €</td>
+                    <td className="py-2.5 px-2 text-right font-black text-emerald-700 dark:text-emerald-300">{r.revparEur} €</td>
                     <td className="py-2.5 px-2 text-right tabular-nums">{r.accommodationRevenueEur.toLocaleString('fr-FR')} €</td>
                     <td className="py-2.5 px-2 text-center">{r.otbJ30 ?? '—'}</td>
                     <td className="py-2.5 px-2 text-center">{r.otbJ7 ?? '—'}</td>
-                    <td className="py-2.5 px-2 text-right text-slate-700">{r.publicBarEur ? `${r.publicBarEur} €` : '—'}</td>
-                    <td className="py-2.5 px-2 text-right font-medium text-indigo-700">{r.compsetAvgEur ? `${r.compsetAvgEur} €` : '—'}</td>
+                    <td className="py-2.5 px-2 text-right text-slate-700 dark:text-slate-300">{r.publicBarEur ? `${r.publicBarEur} €` : '—'}</td>
+                    <td className="py-2.5 px-2 text-right font-medium text-indigo-700 dark:text-indigo-300">{r.compsetAvgEur ? `${r.compsetAvgEur} €` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -459,20 +459,20 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
       {/* 4. ONGLET : DICTIONNAIRE DES DONNÉES (78 COLONNES) */}
       {activeTab === 'dictionary' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               <span>Dictionnaire de Données Officiel FLOWTYM (78 Colonnes, A à BZ)</span>
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Spécification exhaustive des indicateurs de l'onglet 1 "Historique Quotidien", types de données, contraintes et contrôles de cohérence.
             </p>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] border-b border-slate-200">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className="py-3 px-3">Col.</th>
                   <th className="py-3 px-4">Nom de l'Indicateur</th>
@@ -481,24 +481,24 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                   <th className="py-3 px-4">Valeur Exemple</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {OFFICIAL_DAILY_COLUMNS.map((col) => (
-                  <tr key={col.id} className="hover:bg-slate-50">
-                    <td className="py-2.5 px-3 font-mono font-bold text-violet-700">{col.letter}</td>
-                    <td className="py-2.5 px-4 font-semibold text-slate-900">{col.name}</td>
+                  <tr key={col.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/80">
+                    <td className="py-2.5 px-3 font-mono font-bold text-violet-700 dark:text-violet-300">{col.letter}</td>
+                    <td className="py-2.5 px-4 font-semibold text-slate-900 dark:text-slate-100">{col.name}</td>
                     <td className="py-2.5 px-3">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         col.importance === 'Obligatoire'
-                          ? 'bg-rose-100 text-rose-800'
+                          ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
                           : col.importance === 'Très important'
-                          ? 'bg-violet-100 text-violet-800'
-                          : 'bg-slate-100 text-slate-700'
+                          ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                       }`}>
                         {col.importance}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">{col.type}</td>
-                    <td className="py-2.5 px-4 font-medium text-slate-700">{String(col.example)}</td>
+                    <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">{col.type}</td>
+                    <td className="py-2.5 px-4 font-medium text-slate-700 dark:text-slate-300">{String(col.example)}</td>
                   </tr>
                 ))}
               </tbody>

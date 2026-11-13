@@ -85,7 +85,7 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -120,12 +120,12 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
           {/* Left Column: Configuration Settings (5 cols) */}
           <div className="lg:col-span-5 space-y-5">
             {/* Main Toggle Switch */}
-            <div className="p-4 rounded-2xl bg-violet-50/70 border border-violet-200/80 flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-violet-50/70 dark:bg-violet-950/40 border border-violet-200/80 dark:border-violet-800/70 flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold text-violet-950 block">
+                <span className="text-xs font-bold text-violet-950 dark:text-violet-100 block">
                   Activer l&apos;envoi automatique
                 </span>
-                <span className="text-[11px] text-violet-700">
+                <span className="text-[11px] text-violet-700 dark:text-violet-300">
                   Déclenchement récurrent chaque lundi
                 </span>
               </div>
@@ -136,20 +136,20 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
                   onChange={(e) => setConfig({ ...config, enabled: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600" />
+                <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600" />
               </label>
             </div>
 
             {/* Time of dispatch */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-violet-600" />
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                 <span>Heure d&apos;envoi le lundi matin :</span>
               </label>
               <select
                 value={config.timeOfDay}
                 onChange={(e) => setConfig({ ...config, timeOfDay: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-300 text-xs font-semibold rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 text-xs font-semibold rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500"
               >
                 <option value="07:30">07:30 (Avant l&apos;ouverture opérationnelle)</option>
                 <option value="08:00">08:00 (Recommandé · Heure standard de briefing)</option>
@@ -160,8 +160,8 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
 
             {/* Recipients */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-violet-600" />
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                 <span>Destinataires du récapitulatif :</span>
               </label>
               <div className="flex gap-2">
@@ -170,11 +170,11 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
                   value={recipientInput}
                   onChange={(e) => setRecipientInput(e.target.value)}
                   placeholder="nom@hotel.com"
-                  className="flex-1 bg-slate-50 border border-slate-300 text-xs rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="flex-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 text-xs rounded-xl px-3 py-2 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
                 <button
                   onClick={handleAddEmail}
-                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  className="px-3 py-2 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   Ajouter
                 </button>
@@ -185,7 +185,7 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
                 {config.recipients.map((email) => (
                   <span
                     key={email}
-                    className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-200"
+                    className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800"
                   >
                     <span>{email}</span>
                     <button
@@ -200,15 +200,15 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
             </div>
 
             {/* Distribution Channels */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
-              <label className="text-xs font-bold text-slate-700">Canaux de notification :</label>
-              <div className="space-y-1.5 text-xs text-slate-700">
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Canaux de notification :</label>
+              <div className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={config.channels.email}
                     onChange={(e) => setConfig({ ...config, channels: { ...config.channels, email: e.target.checked } })}
-                    className="rounded text-violet-600 focus:ring-violet-500"
+                    className="rounded text-violet-600 dark:text-violet-400 focus:ring-violet-500"
                   />
                   <span>Email HTML responsive consolidé</span>
                 </label>
@@ -217,7 +217,7 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
                     type="checkbox"
                     checked={config.channels.slack}
                     onChange={(e) => setConfig({ ...config, channels: { ...config.channels, slack: e.target.checked } })}
-                    className="rounded text-violet-600 focus:ring-violet-500"
+                    className="rounded text-violet-600 dark:text-violet-400 focus:ring-violet-500"
                   />
                   <span>Canal Slack interne (#revenue-management)</span>
                 </label>
@@ -226,7 +226,7 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
                     type="checkbox"
                     checked={config.channels.inApp}
                     onChange={(e) => setConfig({ ...config, channels: { ...config.channels, inApp: e.target.checked } })}
-                    className="rounded text-violet-600 focus:ring-violet-500"
+                    className="rounded text-violet-600 dark:text-violet-400 focus:ring-violet-500"
                   />
                   <span>Notification push in-app dans Flowtym</span>
                 </label>
@@ -234,12 +234,12 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
             </div>
 
             {/* Test Trigger Button */}
-            <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
-              <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <div className="p-3.5 bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 rounded-2xl space-y-2">
+              <div className="text-xs font-bold text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span>Tester l&apos;envoi instantanément</span>
               </div>
-              <p className="text-[11px] text-amber-800">
+              <p className="text-[11px] text-amber-800 dark:text-amber-300">
                 Envoie immédiatement un récapitulatif test à <strong>{recipientInput}</strong> pour valider le contenu avant le prochain lundi.
               </p>
               <button
@@ -254,21 +254,21 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
           </div>
 
           {/* Right Column: Interactive Digest Preview (7 cols) */}
-          <div className="lg:col-span-7 bg-slate-50 rounded-2xl border border-slate-200/90 p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div className="lg:col-span-7 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4 text-violet-600" />
-                <span className="text-xs font-bold text-slate-900">
+                <Eye className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
                   Aperçu du Brief Hebdomadaire (Rendu Réel)
                 </span>
               </div>
-              <span className="text-[10px] text-slate-500 font-medium">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                 {digestContent.generationDate}
               </span>
             </div>
 
             {/* Email Container Simulation */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4 shadow-2xs text-xs">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 shadow-2xs text-xs">
               {/* Header Box */}
               <div className="bg-violet-900 text-white p-3.5 rounded-lg space-y-1">
                 <div className="text-[10px] uppercase font-bold text-violet-300">
@@ -280,51 +280,51 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
 
               {/* S-1 Performance Block */}
               <div className="space-y-1.5">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 text-xs">
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>1. Bilan de la semaine écoulée (S-1)</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/60">
-                    <div className="text-[10px] text-slate-500">Taux d&apos;Occupation</div>
-                    <div className="text-sm font-black text-slate-900 mt-0.5">{digestContent.pastWeek.occupancyPercent}%</div>
-                    <div className="text-[9px] text-emerald-600 font-bold">{digestContent.pastWeek.roomNightsSold} RN</div>
+                  <div className="p-2 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200/60 dark:border-slate-800/70">
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">Taux d&apos;Occupation</div>
+                    <div className="text-sm font-black text-slate-900 dark:text-slate-100 mt-0.5">{digestContent.pastWeek.occupancyPercent}%</div>
+                    <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">{digestContent.pastWeek.roomNightsSold} RN</div>
                   </div>
-                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/60">
-                    <div className="text-[10px] text-slate-500">ADR Net Réalisé</div>
-                    <div className="text-sm font-black text-slate-900 mt-0.5">{digestContent.pastWeek.adrEur} €</div>
-                    <div className="text-[9px] text-slate-500">RevPAR {digestContent.pastWeek.revparEur}€</div>
+                  <div className="p-2 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200/60 dark:border-slate-800/70">
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">ADR Net Réalisé</div>
+                    <div className="text-sm font-black text-slate-900 dark:text-slate-100 mt-0.5">{digestContent.pastWeek.adrEur} €</div>
+                    <div className="text-[9px] text-slate-500 dark:text-slate-400">RevPAR {digestContent.pastWeek.revparEur}€</div>
                   </div>
-                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-200/60">
-                    <div className="text-[10px] text-slate-500">Pickup 7 jours</div>
-                    <div className="text-sm font-black text-emerald-700 mt-0.5">+{digestContent.pastWeek.pickup7dRooms} ch.</div>
-                    <div className="text-[9px] text-emerald-600 font-bold">+14.8% vs budget</div>
+                  <div className="p-2 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-200/60 dark:border-slate-800/70">
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">Pickup 7 jours</div>
+                    <div className="text-sm font-black text-emerald-700 dark:text-emerald-300 mt-0.5">+{digestContent.pastWeek.pickup7dRooms} ch.</div>
+                    <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">+14.8% vs budget</div>
                   </div>
                 </div>
               </div>
 
               {/* S+1 Pricing Recommendations Table */}
               <div className="space-y-2">
-                <div className="font-bold text-slate-900 flex items-center justify-between text-xs">
+                <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5 text-amber-500" />
                     <span>2. Recommandations tarifaires de la semaine à venir</span>
                   </span>
-                  <span className="text-[10px] font-bold text-violet-700">5 dates ciblées</span>
+                  <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300">5 dates ciblées</span>
                 </div>
 
                 <div className="space-y-2">
                   {digestContent.upcomingWeekRecommendations.map((rec) => (
                     <div
                       key={rec.dateStr}
-                      className="p-2.5 rounded-lg border border-slate-200/80 bg-slate-50 flex items-center justify-between gap-3 text-xs"
+                      className="p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between gap-3 text-xs"
                     >
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900">{rec.dayOfWeek} {rec.dateStr.split('-').slice(1).join('/')}</span>
-                          <span className="text-[10px] text-slate-500 truncate max-w-[160px]">{rec.eventTitle}</span>
+                          <span className="font-bold text-slate-900 dark:text-slate-100">{rec.dayOfWeek} {rec.dateStr.split('-').slice(1).join('/')}</span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[160px]">{rec.eventTitle}</span>
                         </div>
-                        <div className="text-[10px] text-violet-700 font-medium mt-0.5">
+                        <div className="text-[10px] text-violet-700 dark:text-violet-300 font-medium mt-0.5">
                           {rec.strategyAction}
                         </div>
                       </div>
@@ -332,10 +332,10 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
                       <div className="text-right shrink-0">
                         <div className="flex items-center gap-1.5 justify-end">
                           <span className="line-through text-slate-400 text-[11px]">{rec.currentBarEur}€</span>
-                          <ArrowRight className="w-3 h-3 text-emerald-600" />
-                          <span className="font-black text-emerald-700 text-xs">{rec.suggestedBarEur}€</span>
+                          <ArrowRight className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          <span className="font-black text-emerald-700 dark:text-emerald-300 text-xs">{rec.suggestedBarEur}€</span>
                         </div>
-                        <span className="text-[10px] font-bold text-emerald-600">+{rec.deltaEur}€ (+{rec.deltaPercent}%)</span>
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">+{rec.deltaEur}€ (+{rec.deltaPercent}%)</span>
                       </div>
                     </div>
                   ))}
@@ -343,15 +343,15 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
               </div>
 
               {/* Yield Directives */}
-              <div className="p-3 bg-violet-50/60 rounded-lg border border-violet-200/80 space-y-1.5">
-                <div className="font-bold text-violet-950 text-xs flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-violet-700" />
+              <div className="p-3 bg-violet-50/60 dark:bg-violet-950/40 rounded-lg border border-violet-200/80 dark:border-violet-800/70 space-y-1.5">
+                <div className="font-bold text-violet-950 dark:text-violet-100 text-xs flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-violet-700 dark:text-violet-300" />
                   <span>3. Directives de yield prioritaires pour vos équipes</span>
                 </div>
-                <div className="space-y-1 text-[11px] text-slate-700">
+                <div className="space-y-1 text-[11px] text-slate-700 dark:text-slate-300">
                   {digestContent.yieldDirectives.map((d, i) => (
                     <div key={i} className="flex items-start gap-1.5">
-                      <span className="text-violet-600 font-bold">•</span>
+                      <span className="text-violet-600 dark:text-violet-400 font-bold">•</span>
                       <span><strong>{d.title}</strong> — {d.description}</span>
                     </div>
                   ))}
@@ -362,14 +362,14 @@ export const WeeklyMondayDigestConfigModal: React.FC<WeeklyMondayDigestConfigMod
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-          <div className="text-xs text-slate-500">
+        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
             Dernier envoi automatique : <strong>{config.lastSentAt || 'En attente du prochain lundi'}</strong>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
             >
               Fermer
             </button>

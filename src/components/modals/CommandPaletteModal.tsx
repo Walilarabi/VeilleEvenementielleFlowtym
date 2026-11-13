@@ -298,11 +298,11 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
       >
         {/* Search Header Input */}
-        <div className="relative flex items-center px-4 py-3.5 border-b border-slate-200">
-          <Search className="w-5 h-5 text-violet-600 mr-3 shrink-0" />
+        <div className="relative flex items-center px-4 py-3.5 border-b border-slate-200 dark:border-slate-800">
+          <Search className="w-5 h-5 text-violet-600 dark:text-violet-400 mr-3 shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -313,7 +313,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             }}
             onKeyDown={handleKeyDown}
             placeholder="Tapez une commande, un module ou un événement... (ex: Pricing, SIAL, Excel, Ctrl+1)"
-            className="w-full bg-transparent text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-hidden"
+            className="w-full bg-transparent text-sm font-semibold text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden"
           />
           {query && (
             <button
@@ -323,15 +323,15 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
               <X className="w-4 h-4" />
             </button>
           )}
-          <span className="hidden sm:inline-flex items-center text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 ml-2 shrink-0">
+          <span className="hidden sm:inline-flex items-center text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 ml-2 shrink-0">
             ÉCHAP
           </span>
         </div>
 
         {/* Action Items List */}
-        <div className="max-h-[60vh] overflow-y-auto p-2 divide-y divide-slate-100">
+        <div className="max-h-[60vh] overflow-y-auto p-2 divide-y divide-slate-100 dark:divide-slate-800/80">
           {filteredActions.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-500">
+            <div className="py-12 text-center text-xs text-slate-500 dark:text-slate-400">
               Aucun résultat pour &laquo; <strong>{query}</strong> &raquo;
             </div>
           ) : (
@@ -347,13 +347,13 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                   className={`p-3 rounded-2xl flex items-center justify-between gap-3 cursor-pointer transition-all ${
                     isSelected
                       ? 'bg-violet-600 text-white shadow-xs'
-                      : 'hover:bg-slate-50 text-slate-800'
+                      : 'hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-800 dark:text-slate-200'
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-violet-700'
+                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-violet-700 dark:text-violet-300'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -369,7 +369,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                             className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
                               isSelected
                                 ? 'bg-white/20 text-white'
-                                : 'bg-violet-100 text-violet-800'
+                                : 'bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300'
                             }`}
                           >
                             {action.badge}
@@ -391,7 +391,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
                       className={`hidden sm:inline-flex px-2 py-1 text-[10px] font-mono font-bold rounded shadow-2xs border ${
                         isSelected
                           ? 'bg-white/20 text-white border-white/30'
-                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
                       }`}
                     >
                       {action.shortcut}
@@ -404,13 +404,13 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         </div>
 
         {/* Footer Hints */}
-        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
+        <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span>↑↓ pour naviguer</span>
             <span>↵ pour sélectionner</span>
             <span>Échap pour quitter</span>
           </div>
-          <span className="text-violet-700 font-semibold hidden sm:inline">
+          <span className="text-violet-700 dark:text-violet-300 font-semibold hidden sm:inline">
             Flowtym Command Palette
           </span>
         </div>
