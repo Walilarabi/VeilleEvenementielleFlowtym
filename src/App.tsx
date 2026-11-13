@@ -653,6 +653,7 @@ export default function App() {
               onGoToExcelUpload={() => setActiveTab('sources')}
               onShowToast={showToast}
               backendRates={revenueWorkspace.rates}
+              backendLighthouse={revenueWorkspace.lighthouse}
               backendLoading={revenueLoading}
               backendError={revenueError}
               supabase={supabase}
