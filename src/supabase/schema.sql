@@ -10,6 +10,7 @@
 --   /supabase/migrations/20261113000300_rm_rbac_and_decisions.sql
 --   /supabase/migrations/20261113000400_same_hotel_foreign_keys.sql
 --   /supabase/migrations/20261113000500_index_composite_foreign_keys.sql
+--   /supabase/migrations/20261113000600_hotel_directory_membership_rls.sql
 --
 -- The auth baseline remains managed separately by the existing authentication
 -- migrations. Never run the old monolithic schema.sql or recreate organizations,
