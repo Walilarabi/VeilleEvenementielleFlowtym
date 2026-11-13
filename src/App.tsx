@@ -290,39 +290,20 @@ export default function App() {
   }, [allEventsWithHolidays, filterState]);
 
   // Event interaction handlers
-  const handleToggleFavorite = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, isFavorite: !e.isFavorite } : e))
-    );
-    if (selectedEvent && selectedEvent.id === eventId) {
-      setSelectedEvent((prev) => (prev ? { ...prev, isFavorite: !prev.isFavorite } : null));
-    }
+  const handleToggleFavorite = (_eventId: string) => {
+    showToast('La gestion des favoris sera activée après ajout de sa persistance dans le backend.');
   };
 
-  const handleToggleWatchlist = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, isWatchlist: !e.isWatchlist } : e))
-    );
-    if (selectedEvent && selectedEvent.id === eventId) {
-      setSelectedEvent((prev) => (prev ? { ...prev, isWatchlist: !prev.isWatchlist } : null));
-    }
-    showToast('Statut de surveillance RM mis à jour');
+  const handleToggleWatchlist = (_eventId: string) => {
+    showToast('La liste de surveillance n’est pas encore persistée. Aucun changement local n’est présenté comme enregistré.');
   };
 
-  const handleToggleYieldActive = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, isYieldActive: !e.isYieldActive } : e))
-    );
-    if (selectedEvent && selectedEvent.id === eventId) {
-      setSelectedEvent((prev) => (prev ? { ...prev, isYieldActive: !prev.isYieldActive } : null));
-    }
-    showToast('Politique Yield & Stop-Sell mise à jour pour cet événement');
+  const handleToggleYieldActive = (_eventId: string) => {
+    showToast('L’activation Yield/Stop-Sell n’est pas disponible : aucune écriture PMS n’est connectée.');
   };
 
-  // Add event handler
-  const handleAddEvent = (newEvent: EventItem) => {
-    setEvents((prev) => [newEvent, ...prev]);
-    showToast(`Événement "${newEvent.title}" ajouté avec succès`);
+  const handleAddEvent = (_newEvent: EventItem) => {
+    showToast('Création événementielle non enregistrée : le formulaire sera réactivé après ajout de la route backend sécurisée.');
   };
 
   const handleOpenAddOnDate = (dateStr: string) => {
@@ -330,10 +311,8 @@ export default function App() {
     setIsAddModalOpen(true);
   };
 
-  // Excel / CSV Import handler
-  const handleImportEvents = (imported: EventItem[]) => {
-    setEvents((prev) => [...imported, ...prev]);
-    showToast(`${imported.length} événements importés dans le référentiel`);
+  const handleImportEvents = (_imported: EventItem[]) => {
+    showToast('Import événementiel non enregistré : aucun événement fictif n’a été ajouté au référentiel.');
   };
 
   // Excel / CSV Export handler
@@ -394,83 +373,24 @@ export default function App() {
 
   // Refresh flow completion
   const handleRefreshComplete = (
-    newHighImpact: EventItem[],
-    newProps: EventProposal[],
+    _newHighImpact: EventItem[],
+    _newProps: EventProposal[],
     stats: { newCount: number; modifiedCount: number; cancelledCount: number; verifiedCount: number }
   ) => {
-    // Score >= 60 auto-integrated
-    if (newHighImpact.length > 0) {
-      setEvents((prev) => [...newHighImpact, ...prev]);
-    }
-    // Score 30-59 added to proposals
-    if (newProps.length > 0) {
-      setProposals((prev) => [...newProps, ...prev]);
-    }
-    showToast(`Actualisation terminée : ${stats.newCount} nouveaux événements détectés`);
+    showToast(`Actualisation terminée côté source : ${stats.newCount} détection(s). La persistance n’est pas activée pour ce flux.`);
+    refreshRevenueWorkspace();
   };
 
-  // Proposal acceptance / refusal
-  const handleAcceptProposal = (propId: string) => {
-    const p = proposals.find((x) => x.id === propId);
-    if (!p) return;
-
-    // 1. Mark as accepted in proposals list
-    setProposals((prev) =>
-      prev.map((x) => (x.id === propId ? { ...x, status: 'accepted' } : x))
-    );
-
-    // 2. Integrate into events calendar immediately
-    const newEvent: EventItem = {
-      id: `ev-accepted-${Date.now()}`,
-      title: p.title,
-      subtitle: p.subtitle,
-      category: p.category,
-      venueId: 'venue-porte-versailles',
-      venueName: p.venueName,
-      city: p.city,
-      country: 'France',
-      startDate: p.startDate,
-      endDate: p.endDate,
-      expectedAttendance: p.expectedAttendance,
-      internationalRatioPercent: 35,
-      status: 'confirmed',
-      impactLevel: p.impactLevel,
-      scoreBreakdown: {
-        attendanceScore: 12,
-        internationalScore: 8,
-        saturationScore: 10,
-        proximityScore: 10,
-        compressionScore: 8,
-        finalRMScore: p.score,
-        confidenceScore: 95,
-      },
-      sources: [p.detectedSource],
-      evidences: [],
-      hotelImpacts: {},
-      isRecurring: false,
-      isFavorite: false,
-      isWatchlist: true,
-      isYieldActive: false,
-      createdAt: new Date().toISOString().slice(0, 10),
-      lastVerifiedAt: new Date().toISOString().slice(0, 10),
-    };
-
-    setEvents((prev) => [newEvent, ...prev]);
-    showToast(`L'événement "${p.title}" a été validé et intégré au calendrier.`);
+  const handleAcceptProposal = (_propId: string) => {
+    showToast('Validation de propositions indisponible tant que leur persistance backend n’est pas implémentée.');
   };
 
-  const handleRefuseProposal = (propId: string) => {
-    setProposals((prev) =>
-      prev.map((x) => (x.id === propId ? { ...x, status: 'refused' } : x))
-    );
-    showToast('Événement refusé (conservé avec mention barrée)');
+  const handleRefuseProposal = (_propId: string) => {
+    showToast('Refus de proposition non persisté : action désactivée.');
   };
 
-  const handleRestoreProposal = (propId: string) => {
-    setProposals((prev) =>
-      prev.map((x) => (x.id === propId ? { ...x, status: 'pending' } : x))
-    );
-    showToast('Proposition rétablie en attente');
+  const handleRestoreProposal = (_propId: string) => {
+    showToast('Restauration de proposition non persistée : action désactivée.');
   };
 
   // Hotel management
