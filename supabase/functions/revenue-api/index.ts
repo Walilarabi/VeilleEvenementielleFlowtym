@@ -811,7 +811,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       return fail("Période de recommandations invalide (maximum 120 jours)");
     }
     const { data, error } = await supabase.from("daily_rate_intelligence")
-      .select("*")
+      .select("id,stay_date,currency,current_bar,suggested_bar,delta_amount,delta_pct,demand_index,demand_level,occupancy_pct,rooms_remaining,pickup_24h,pickup_3d,pickup_7d,lighthouse_median,strategy_code,explanation,confidence_score,data_quality_status,recommendation_status")
       .eq("hotel_id", hotelId)
       .gte("stay_date", start)
       .lte("stay_date", end)
