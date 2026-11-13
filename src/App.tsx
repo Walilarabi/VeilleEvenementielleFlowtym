@@ -649,6 +649,7 @@ export default function App() {
               onShowToast={showToast}
               backendRates={revenueWorkspace.rates}
               backendLighthouse={revenueWorkspace.lighthouse}
+              backendCalibrationRules={revenueWorkspace.calibrationRules}
               backendLoading={revenueLoading}
               backendError={revenueError}
               supabase={supabase}
