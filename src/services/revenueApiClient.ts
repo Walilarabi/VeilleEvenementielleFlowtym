@@ -61,9 +61,19 @@ export const generateBaselineForecast = (supabase: SupabaseClient, hotelId: stri
     { method: "POST", body: { startDate, endDate } },
   );
 
+export const getRecommendationsV2Status = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; version: 2 }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/recommendations-v2-status`,
+  );
+
+export const getHotelRecommendations = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; data: Record<string, unknown>[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/recommendations-v2?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  );
+
 export const generatePricingRecommendations = (supabase: SupabaseClient, hotelId: string, startDate: string, endDate: string) =>
   revenueApiRequest<{ ok: true; generated: number; requiresHumanApproval: true; automaticPublication: false; data: unknown[] }>(
-    supabase, `/hotels/${encodeURIComponent(hotelId)}/recommendations/generate`,
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/recommendations-v2-generate`,
     { method: "POST", body: { startDate, endDate } },
   );
 
