@@ -296,6 +296,23 @@ function parseOptionalBoolean(value: any): boolean | undefined {
   return undefined;
 }
 
+function parseHistoricalDateCell(value: any): string | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d)).toISOString().slice(0, 10);
+  }
+  if (typeof value === 'string') {
+    const raw = value.trim();
+    if (/^\\d{4}-\\d{2}-\\d{2}/.test(raw)) return raw.slice(0, 10);
+    const french = raw.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})$/);
+    if (french) return `${french[3]}-${french[2].padStart(2, '0')}-${french[1].padStart(2, '0')}`;
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  }
+  return null;
+}
+
 export function parseAndValidateHistoricalExcel(
   buffer: ArrayBuffer,
   fileName: string,
@@ -569,31 +586,98 @@ export function parseAndValidateHistoricalExcel(
     const snapRows: any[][] = XLSX.utils.sheet_to_json(wsSnap, { header: 1 });
     for (let i = 1; i < snapRows.length; i++) {
       const row = snapRows[i];
-      if (!row || !row[0] || !row[1]) continue;
-      const obsDate = String(row[0]).slice(0, 10);
-      const arrDate = String(row[1]).slice(0, 10);
-      const bookedRooms = Number(row[2]) || 0;
-      const availRooms = Number(row[3]) || 45 - bookedRooms;
-      const occ = Number(row[4]) || Math.round((bookedRooms / 45) * 100);
-      const bookedAdr = Number(row[5]) || 250;
-      const bookedRev = Number(row[6]) || bookedRooms * bookedAdr;
+      if (!row || row[0] == null || row[1] == null) continue;
+      const rowNumber = i + 1;
+      const obsDate = parseHistoricalDateCell(row[0]);
+      const arrDate = parseHistoricalDateCell(row[1]);
+      const bookedRooms = row[2] == null || row[2] === '' ? null : Number(row[2]);
+      const availRooms = row[3] == null || row[3] === '' ? null : Number(row[3]);
+      const occRaw = row[4] == null || row[4] === '' ? null : Number(row[4]);
+      let bookedAdr = row[5] == null || row[5] === '' ? null : Number(row[5]);
+      let bookedRev = row[6] == null || row[6] === '' ? null : Number(row[6]);
+
+      if (!obsDate || !arrDate || bookedRooms === null || availRooms === null ||
+          !Number.isInteger(bookedRooms) || bookedRooms < 0 ||
+          !Number.isInteger(availRooms) || availRooms < 0) {
+        errorsList.push({
+          rowNumber,
+          column: 'Snapshots OTB',
+          value: row.slice(0, 7),
+          message: 'Snapshot invalide : dates, chambres réservées ou chambres disponibles absentes/incorrectes.',
+        });
+        continue;
+      }
+
+      const totalRoomsAtSnapshot = bookedRooms + availRooms;
+      const occ = occRaw === null
+        ? totalRoomsAtSnapshot > 0 ? Math.round((bookedRooms / totalRoomsAtSnapshot) * 1000) / 10 : null
+        : occRaw;
+      if (occ === null || !Number.isFinite(occ) || occ < 0 || occ > 100) {
+        errorsList.push({
+          rowNumber,
+          column: 'Occupation projetée snapshot',
+          value: occRaw,
+          message: 'Taux d’occupation snapshot absent ou invalide.',
+        });
+        continue;
+      }
+
+      if (bookedAdr !== null && (!Number.isFinite(bookedAdr) || bookedAdr < 0)) bookedAdr = null;
+      if (bookedRev !== null && (!Number.isFinite(bookedRev) || bookedRev < 0)) bookedRev = null;
+      if (bookedRev === null && bookedAdr !== null) bookedRev = bookedRooms * bookedAdr;
+      if (bookedAdr === null && bookedRev !== null && bookedRooms > 0) bookedAdr = bookedRev / bookedRooms;
+      if (bookedRev === null && bookedRooms === 0) bookedRev = 0;
+      if (bookedRooms > 0 && bookedAdr === null && bookedRev === null) {
+        errorsList.push({
+          rowNumber,
+          column: 'ADR / CA acquis snapshot',
+          value: { bookedAdr: row[5], bookedRevenue: row[6] },
+          message: 'ADR et CA acquis absents ou invalides dans le snapshot.',
+        });
+        continue;
+      }
+
+      const expectedLeadDays = Math.round((Date.parse(arrDate + 'T00:00:00Z') - Date.parse(obsDate + 'T00:00:00Z')) / 86400000);
+      const leadDaysRaw = row[9] == null || row[9] === '' ? expectedLeadDays : Number(row[9]);
+      if (!Number.isInteger(leadDaysRaw) || leadDaysRaw < 0 || leadDaysRaw !== expectedLeadDays) {
+        errorsList.push({
+          rowNumber,
+          column: 'Jours avant arrivée',
+          value: row[9],
+          message: 'Lead time snapshot invalide ou incohérent avec les dates.',
+        });
+        continue;
+      }
+
+      const pickup = row[7] == null || row[7] === '' ? undefined : Number(row[7]);
+      const cancellations = row[8] == null || row[8] === '' ? undefined : Number(row[8]);
+      if ((pickup !== undefined && !Number.isInteger(pickup)) ||
+          (cancellations !== undefined && (!Number.isInteger(cancellations) || cancellations < 0))) {
+        errorsList.push({
+          rowNumber,
+          column: 'Pickup / annulations snapshot',
+          value: { pickup: row[7], cancellations: row[8] },
+          message: 'Pickup ou annulations snapshot invalide.',
+        });
+        continue;
+      }
 
       snapshots.push({
         id: `snap-${hotelId}-${obsDate}-${arrDate}`,
         hotelId,
         observationDate: obsDate,
         arrivalDate: arrDate,
-        daysBeforeArrival: Number(row[9]) || Math.max(0, Math.round((new Date(arrDate).getTime() - new Date(obsDate).getTime()) / (1000 * 3600 * 24))),
+        daysBeforeArrival: leadDaysRaw,
         roomsBookedOtb: bookedRooms,
         roomsAvailable: availRooms,
         projectedOccupancyPercent: occ,
-        bookedAdrEur: bookedAdr,
-        bookedRevenueEur: bookedRev,
-        pickupSincePrevSnapshot: Number(row[7]) || 0,
-        cancellationsSincePrevSnapshot: Number(row[8]) || 0,
-        publicRateAtSnapshotEur: row[10] ? Number(row[10]) : undefined,
-        compsetRateAtSnapshotEur: row[11] ? Number(row[11]) : undefined,
-        turnawaysAtSnapshot: row[12] ? Number(row[12]) : 0,
+        bookedAdrEur: bookedAdr ?? undefined,
+        bookedRevenueEur: bookedRev ?? undefined,
+        pickupSincePrevSnapshot: pickup,
+        cancellationsSincePrevSnapshot: cancellations,
+        publicRateAtSnapshotEur: row[10] == null || row[10] === '' ? undefined : Number(row[10]),
+        compsetRateAtSnapshotEur: row[11] == null || row[11] === '' ? undefined : Number(row[11]),
+        turnawaysAtSnapshot: row[12] == null || row[12] === '' ? undefined : Number(row[12]),
         dataSource: (row[13] as any) || 'Import Excel',
       });
     }
