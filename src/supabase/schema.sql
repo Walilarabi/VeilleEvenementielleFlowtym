@@ -20,6 +20,11 @@
 --   /supabase/migrations/20261113001300_harden_event_impact_decisions.sql
 --   /supabase/migrations/20261113001400_fix_event_decision_rpc.sql
 --   /supabase/migrations/20261113001500_lighthouse_los_pos_dimensions.sql
+--   /supabase/migrations/20261113001600_price_experiments_and_censoring.sql
+--   /supabase/migrations/20261113001700_calibration_rules.sql
+--   /supabase/migrations/20261113001800_index_experiment_and_audit_fks.sql
+--   /supabase/migrations/20261113001900_index_organization_foreign_keys.sql
+--   /supabase/migrations/20261113002000_move_event_decision_definer_private.sql
 --
 -- The auth baseline remains managed separately by the existing authentication
 -- migrations. Never run the old monolithic schema.sql or recreate organizations,
