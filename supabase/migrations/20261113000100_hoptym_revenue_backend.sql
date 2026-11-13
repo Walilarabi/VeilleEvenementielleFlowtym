@@ -685,7 +685,7 @@ begin
     'hotel_memberships','cities','venues','events','event_occurrences','event_sources','event_evidence',
     'event_hotel_impacts','event_suggestions','hotel_room_types','hotel_rate_plans','competitor_hotels',
     'lighthouse_extractions','lighthouse_rate_observations','hotel_inventory_snapshots','hotel_reservation_snapshots',
-    'daily_rate_intelligence','rm_decision_audit_logs','hotel_historical_daily','hotel_historical_demand_snapshots',
+    'daily_rate_intelligence','hotel_historical_daily','hotel_historical_demand_snapshots',
     'hotel_parameters_profiles','hotel_historical_import_logs','hotel_backtest_evaluations','revenue_forecast_runs',
     'daily_demand_forecasts','integration_connections','data_ingestion_jobs'
   ] loop
