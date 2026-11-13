@@ -1872,7 +1872,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
                     <span>Établissement : <strong>{currentHotel.name}</strong> ({currentHotel.city})</span>
                     <span className="text-slate-300">·</span>
-                    <span>Capacité {currentHotel.roomCount} ch.</span>
+                    <span>Capacité {currentHotel.roomCount ?? '—'} ch.</span>
                     <span className="text-slate-300">·</span>
                     <span>Base ADR {currentHotel.baseADR}€</span>
                   </p>
@@ -1952,7 +1952,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-600">Taux d'occupation estimé :</span>
                       <span className="font-extrabold text-slate-900 tabular-nums">
-                        {selectedDateInfo.projectedOccupancy}% ({Math.round((selectedDateInfo.projectedOccupancy / 100) * currentHotel.roomCount)} ch.)
+                        {selectedDateInfo.projectedOccupancy}% ({currentHotel.roomCount === null ? '—' : `${Math.round((selectedDateInfo.projectedOccupancy / 100) * currentHotel.roomCount)} ch.`})
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
