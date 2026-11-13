@@ -94,7 +94,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
   onShowToast,
   onApplyRecommendationToRMS,
 }) => {
-  // Extraction Dataset State (initialized with authentic 60-day dataset matching Folkestone Opéra)
+  // Extraction Dataset State (demo fixture, explicitly labelled as simulation until a real export is imported)
   const [dataset, setDataset] = useState<LighthouseExtractionDataset>(() => createDefaultLighthouseDataset());
   const [extractionsHistory, setExtractionsHistory] = useState<LighthouseExtractionDataset[]>([dataset]);
   const [selectedExtractionId, setSelectedExtractionId] = useState<string>(dataset.metadata.id);
@@ -309,6 +309,17 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
   }, [dataset.records]);
 
   return (
+    <>
+      {dataset.metadata.sourceStatus === 'simulation' && (
+        <div role="status" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <strong>Mode démonstration — données simulées.</strong> Les tarifs, disponibilités, évolutions et scores affichés ne proviennent pas d’un relevé Lighthouse en direct. Importez un export réel pour analyser des données observées.
+        </div>
+      )}
+      {dataset.metadata.sourceStatus === 'imported' && (
+        <div role="status" className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900">
+          <strong>Données importées.</strong> Ce fichier est enregistré comme import ; vérifiez sa date, sa devise, son LOS, son occupation et sa comparabilité avant de l’utiliser dans une décision tarifaire.
+        </div>
+      )}
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Banner: Parameters, File Metadata & Actions */}
       <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
@@ -1395,6 +1406,8 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         </div>
       )}
     </div>
+  );
+    </>
   );
 };
 
