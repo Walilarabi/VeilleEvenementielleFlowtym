@@ -38,6 +38,7 @@ All routes require a valid Supabase user access token.
 | POST | `/hotels/:hotelId/events/decisions` | Human validate/dismiss decision with immutable audit row |
 | POST | `/hotels/:hotelId/price-experiments` | Register a controlled pricing experiment (randomization unverified by default) |
 | POST | `/hotels/:hotelId/price-experiment-observations` | Ingest control/treatment exposure and booking outcomes |
+| POST | `/hotels/:hotelId/price-experiments/review` | Audited randomization verification or experiment completion |
 | POST | `/hotels/:hotelId/demand-censoring-observations` | Ingest sold-out/capacity-censored demand evidence |
 | POST | `/hotels/:hotelId/elasticity/estimate` | Estimate elasticity only from completed, verified randomized experiments |
 | GET | `/hotels/:hotelId/calibration-rules` | Read pending/active hotel calibration rules |
