@@ -23,7 +23,7 @@
  * (src/services/revenueApiClient.ts) and its RLS-protected database contracts.
  */
 
-export const TODAY_DATE_STR = '2026-11-04';
+export const TODAY_DATE_STR = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 export const HOTEL_TOTAL_ROOMS = 45; // Grand Hôtel Folkestone Opéra (4★)
 export const RATE_FLOOR_EUR = 180; // Tarif plancher de rentabilité minimale
 export const RATE_CEILING_EUR = 550; // Tarif plafond de marché
@@ -63,13 +63,8 @@ export interface CompetitorMeta {
   defaultRoomType: string;
 }
 
-export const COMPSET_METAS: CompetitorMeta[] = [
-  { name: 'Hôtel Saint-Pétersbourg Opéra', stars: 4, color: '#3b82f6', defaultRoomType: 'Classique' },
-  { name: 'Hôtel Charing Cross', stars: 4, color: '#10b981', defaultRoomType: 'Supérieure' },
-  { name: 'Hôtel Astra Opéra', stars: 4, color: '#f59e0b', defaultRoomType: 'Standard' },
-  { name: 'Hotel Indigo Paris-Opéra', stars: 4, color: '#ec4899', defaultRoomType: 'Deluxe' },
-  { name: 'Hôtel Saint-Augustin Elysées', stars: 3, color: '#06b6d4', defaultRoomType: 'Standard' },
-];
+export const COMPSET_METAS: CompetitorMeta[] = [];
+
 
 export interface CompsetRankedItem {
   hotelName: string;
@@ -948,274 +943,15 @@ export function computeRMEngineRecommendation(
 }
 
 // -------------------------------------------------------------
-// GÉNÉRATEUR DE DONNÉES CONTINUES GRAND HÔTEL FOLKESTONE OPÉRA
+// Accès aux recommandations réelles via Revenue API
 // -------------------------------------------------------------
 
-export function generateContinuous90DaysData(): DailyRateIntelligence[] {
-  const days: DailyRateIntelligence[] = [];
-  const frenchDays = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-
-  // Start 15 days before today (Oct 20, 2026) and go through Feb 8, 2027 (112 days continuous)
-  const baseDate = new Date('2026-10-20T12:00:00Z');
-  const totalDays = 112;
-
-  for (let i = 0; i < totalDays; i++) {
-    const curDate = new Date(baseDate);
-    curDate.setUTCDate(baseDate.getUTCDate() + i);
-    const dateStr = curDate.toISOString().split('T')[0];
-    const dayOfWeek = frenchDays[curDate.getUTCDay()];
-    const isWeekend = curDate.getUTCDay() === 5 || curDate.getUTCDay() === 6;
-
-    let eventTitle: string | undefined;
-    let eventCategory: string | undefined;
-    let expectedAttendance: number | undefined;
-    let rmScore = 60;
-    let demandLevel: DailyRateIntelligence['demandLevel'] = 'modere';
-    let soldOutIndices: number[] = [];
-
-    // Calendrier Événements réels Paris 8e / Opéra
-    if (dateStr >= '2026-11-12' && dateStr <= '2026-11-15') {
-      eventTitle = 'Paris Photo 2026 — Grand Palais';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 68000;
-      rmScore = 88;
-      demandLevel = 'tres_fort';
-      soldOutIndices = [3]; // Indigo sold out
-    } else if (dateStr >= '2026-11-18' && dateStr <= '2026-11-20') {
-      eventTitle = 'Congrès National de Cardiologie & Recherche Médicale';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 24000;
-      rmScore = 85;
-      demandLevel = 'eleve';
-      soldOutIndices = [0]; // Saint-Pétersbourg sold out
-    } else if (dateStr >= '2026-11-23' && dateStr <= '2026-11-26') {
-      eventTitle = 'Salon des Maires et des Collectivités Locales 2026 (SMCL)';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 60000;
-      rmScore = 96;
-      demandLevel = 'exceptionnel';
-      soldOutIndices = dateStr === '2026-11-25' ? [0, 2, 3] : [0, 3];
-    } else if (dateStr >= '2026-11-27' && dateStr <= '2026-11-29') {
-      eventTitle = 'Illuminations de Noël & Shopping Grands Magasins';
-      eventCategory = 'culture_loisirs';
-      expectedAttendance = 35000;
-      rmScore = 76;
-      demandLevel = 'eleve';
-    } else if (dateStr >= '2026-12-05' && dateStr <= '2026-12-13') {
-      eventTitle = 'Salon Nautique International de Paris 2026';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 140000;
-      rmScore = 84;
-      demandLevel = 'eleve';
-      soldOutIndices = [3];
-    } else if (dateStr >= '2026-12-24' && dateStr <= '2026-12-28') {
-      eventTitle = 'Fêtes de Noël à Paris';
-      eventCategory = 'culture_loisirs';
-      expectedAttendance = 45000;
-      rmScore = 82;
-      demandLevel = 'eleve';
-    } else if (dateStr >= '2026-12-30' && dateStr <= '2027-01-02') {
-      eventTitle = 'Réveillon de la Saint-Sylvestre Paris 2026/2027';
-      eventCategory = 'culture_loisirs';
-      expectedAttendance = 120000;
-      rmScore = 99;
-      demandLevel = 'exceptionnel';
-      soldOutIndices = [0, 1, 2, 3];
-    } else if (dateStr >= '2027-01-18' && dateStr <= '2027-01-24') {
-      eventTitle = 'Paris Fashion Week Homme Automne/Hiver 2027';
-      eventCategory = 'salons_foires';
-      expectedAttendance = 32000;
-      rmScore = 94;
-      demandLevel = 'exceptionnel';
-      soldOutIndices = [0, 3];
-    } else if (isWeekend) {
-      demandLevel = 'eleve';
-      rmScore = 72;
-    } else {
-      demandLevel = 'modere';
-      rmScore = 60;
-    }
-
-    // Prix commercialisé actuel de l'hôtel (BAR)
-    let currentBar = 240;
-    if (demandLevel === 'exceptionnel') currentBar = dateStr.includes('12-31') ? 310 : 265;
-    else if (demandLevel === 'tres_fort') currentBar = 255;
-    else if (demandLevel === 'eleve') currentBar = 245;
-    else if (isWeekend) currentBar = 250;
-    else currentBar = 230;
-
-    // Tarifs concurrents simulés Lighthouse
-    const compBase = [
-      { name: 'Hôtel Saint-Pétersbourg Opéra', base: 310, stars: 4, roomType: 'Classique', comparable: true },
-      { name: 'Hôtel Charing Cross', base: 285, stars: 4, roomType: 'Supérieure', comparable: true },
-      { name: 'Hôtel Astra Opéra', base: 295, stars: 4, roomType: 'Standard', comparable: true },
-      { name: 'Hotel Indigo Paris-Opéra', base: 345, stars: 4, roomType: 'Deluxe', comparable: false, reason: 'Chambre Deluxe avec petit-déjeuner inclus (non-annulable)' },
-      { name: 'Hôtel Saint-Augustin Elysées', base: 260, stars: 3, roomType: 'Standard', comparable: true },
-    ];
-
-    const eventMultiplier = demandLevel === 'exceptionnel' ? 1.38 : demandLevel === 'tres_fort' ? 1.25 : demandLevel === 'eleve' ? 1.15 : 1.0;
-    const weekendAdd = isWeekend ? 20 : 0;
-
-    const competitors: CompetitorRateInfo[] = compBase.map((cb, idx) => {
-      const isSoldOut = soldOutIndices.includes(idx);
-      const rate = Math.round((cb.base * eventMultiplier + weekendAdd + (idx % 3) * 5) / 5) * 5;
-      return {
-        hotelName: cb.name,
-        rateEur: isSoldOut ? rate + 40 : rate,
-        isSoldOut,
-        stars: cb.stars,
-        roomType: cb.roomType,
-        isFullyComparable: cb.comparable,
-        nonComparableReason: cb.reason,
-      };
-    });
-
-    // 1. Indicateurs Lighthouse
-    const lighthouse = computeLighthouseIndicators(currentBar, competitors, isWeekend, demandLevel);
-
-    // 2. Disponibilités & Pickup D-EDGE
-    const roomsSold = Math.min(HOTEL_TOTAL_ROOMS, Math.round(28 + (rmScore / 100) * 15));
-    const remainingRooms = HOTEL_TOTAL_ROOMS - roomsSold;
-    const dedgePickup = computeDEdgePickup(remainingRooms, HOTEL_TOTAL_ROOMS, demandLevel, isWeekend);
-
-    // 3. Réservations, CA, ADR & RevPAR D-EDGE
-    const dedgeReservations = computeDEdgeReservations(dateStr, currentBar, roomsSold, HOTEL_TOTAL_ROOMS, demandLevel, isWeekend);
-
-    // 4. Moteur de Recommandation RM
-    const rmRecommendation = computeRMEngineRecommendation(
-      dateStr,
-      currentBar,
-      lighthouse.compsetMedianEur,
-      lighthouse.compsetMinEur,
-      lighthouse.compsetMaxEur,
-      dedgePickup.occupancyPercent,
-      remainingRooms,
-      dedgePickup.pickup1d,
-      demandLevel,
-      isWeekend,
-      rmScore,
-      lighthouse.soldOutCount
-    );
-
-    // Détail des typologies de chambres de l'hôtel
-    const roomCategories: RoomCategoryDetail[] = [
-      {
-        category: 'classique',
-        name: 'Chambre Classique Double',
-        totalRooms: 23,
-        availableRooms: Math.round(remainingRooms * 0.52),
-        currentBarEur: currentBar,
-        suggestedBarEur: rmRecommendation.suggestedBarEur,
-        adrNetEur: dedgeReservations.adrNetEur,
-      },
-      {
-        category: 'superieure',
-        name: 'Chambre Supérieure',
-        totalRooms: 8,
-        availableRooms: Math.round(remainingRooms * 0.18),
-        currentBarEur: currentBar + 35,
-        suggestedBarEur: rmRecommendation.suggestedBarEur + 35,
-        adrNetEur: dedgeReservations.adrNetEur + 35,
-      },
-      {
-        category: 'deluxe_famille',
-        name: 'Chambre Deluxe / Familiale',
-        totalRooms: 14,
-        availableRooms: Math.round(remainingRooms * 0.30),
-        currentBarEur: currentBar + 75,
-        suggestedBarEur: rmRecommendation.suggestedBarEur + 75,
-        adrNetEur: dedgeReservations.adrNetEur + 75,
-      },
-    ];
-
-    days.push({
-      id: `rate-${dateStr}`,
-      hotelId: 'hotel-opera',
-      dateStr,
-      dayOfWeek,
-      isWeekend,
-      eventId: eventTitle ? `evt-${dateStr}` : undefined,
-      eventTitle,
-      eventCategory,
-      expectedAttendance,
-      rmScore,
-      demandLevel,
-      currentBarEur: currentBar,
-      currentMinStay: isWeekend ? 2 : 1,
-      currentStopSell: false,
-      lighthouse,
-      compsetMinEur: lighthouse.compsetMinEur,
-      compsetMedianEur: lighthouse.compsetMedianEur,
-      compsetMaxEur: lighthouse.compsetMaxEur,
-      compsetSoldOutCount: lighthouse.soldOutCount,
-      compsetTotalCount: 5,
-      competitors,
-      rateIndexVsCompset: Math.round((currentBar / (lighthouse.compsetMedianEur || 1)) * 1000) / 10,
-      gapVsMedianEur: currentBar - lighthouse.compsetMedianEur,
-      sourceLighthouse: `Lighthouse Rate Insight API (Snapshot ${TODAY_DATE_STR})`,
-      dedgePickup,
-      totalRooms: HOTEL_TOTAL_ROOMS,
-      remainingRooms,
-      occupancyPercent: dedgePickup.occupancyPercent,
-      roomsSoldOtb: roomsSold,
-      pickup24h: dedgePickup.pickup1d,
-      pickup7d: dedgePickup.pickup7d,
-      sourcePmsDedge: 'D-EDGE CRS + Opera Cloud PMS',
-      dedgeReservations,
-      rmRecommendation,
-      suggestedBarEur: rmRecommendation.suggestedBarEur,
-      deltaVsCurrentEur: rmRecommendation.deltaVsCurrentEur,
-      deltaVsCurrentPercent: rmRecommendation.deltaVsCurrentPercent,
-      suggestedMinStay: rmRecommendation.suggestedMinStay,
-      suggestedStopSellPromos: rmRecommendation.suggestedStopSellPromos,
-      revenueGainPotentialEur: rmRecommendation.revenueGainPotentialEur,
-      confidenceScore: rmRecommendation.confidenceScore,
-      justification: rmRecommendation.epistemologicalExplanation.recommandationAction,
-      compressionAlert: lighthouse.soldOutCount >= 2 || demandLevel === 'exceptionnel',
-      underpricedAlert: currentBar < lighthouse.compsetMedianEur - 25,
-      status: 'pending',
-      roomCategories,
-    });
-  }
-
-  return days;
+export function getRateIntelligenceRecords(_hotelId: string = 'hotel-opera'): DailyRateIntelligence[] {
+  return [];
 }
 
-// -------------------------------------------------------------
-// STOCKAGE LOCAL, VALIDATION HUMAINE & AUDIT TRAIL (Section 9)
-// -------------------------------------------------------------
-
-const STORAGE_PREFIX = 'flowtym_pricing_intelligence_v2_';
-const AUDIT_STORAGE_KEY = 'flowtym_rm_decision_audit_log_v2';
-const RULES_STORAGE_KEY = 'flowtym_rm_learned_calibration_rules_v2';
-
-export function getRateIntelligenceRecords(hotelId: string = 'hotel-opera'): DailyRateIntelligence[] {
-  try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${hotelId}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load rate intelligence records', e);
-  }
-
-  const generated = generateContinuous90DaysData().map((item) => ({
-    ...item,
-    hotelId,
-  }));
-  saveRateIntelligenceRecords(hotelId, generated);
-  return generated;
-}
-
-export function saveRateIntelligenceRecords(hotelId: string, records: DailyRateIntelligence[]): void {
-  try {
-    localStorage.setItem(`${STORAGE_PREFIX}${hotelId}`, JSON.stringify(records));
-  } catch (e) {
-    console.error('Failed to save rate intelligence records', e);
-  }
+export function saveRateIntelligenceRecords(_hotelId: string, _records: DailyRateIntelligence[]): void {
+  // Deliberately disabled; use authenticated Revenue API persistence.
 }
 
 // Validation humaine : Accepter
@@ -1417,131 +1153,22 @@ export function applyAllRateSuggestions(hotelId: string): { updated: DailyRateIn
 }
 
 // Traçabilité des décisions
-export function recordDecisionAudit(entry: RMDecisionAuditRecord): void {
-  try {
-    const list = getDecisionAuditLog();
-    list.unshift(entry);
-    localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(list.slice(0, 200)));
-  } catch (e) {
-    console.error('Failed to record decision audit', e);
-  }
+export function recordDecisionAudit(_entry: RMDecisionAuditRecord): void {
+  // Deliberately disabled; decisions must be persisted through the Revenue API.
 }
 
 export function getDecisionAuditLog(): RMDecisionAuditRecord[] {
-  try {
-    const raw = localStorage.getItem(AUDIT_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {
-    console.error('Failed to get decision audit log', e);
-  }
-  // Logs initiaux de démonstration
-  return [
-    {
-      id: 'audit-init-1',
-      recordId: 'rate-2026-11-25',
-      hotelId: 'hotel-opera',
-      dateStr: '2026-11-25',
-      action: 'accept',
-      originalRateEur: 265,
-      suggestedRateEur: 350,
-      finalRateEur: 350,
-      originalMinStay: 1,
-      finalMinStay: 2,
-      reasonText: 'Recommandation acceptée. Pression SMCL 2026 avec 3 concurrents complets.',
-      userEmail: 'wali.larabi@flowtym.com',
-      timestamp: '2026-11-03T18:32:00Z',
-      snapshotContext: {
-        occupancyPercent: 86.7,
-        compsetMedianEur: 360,
-        pickup1d: 7,
-        demandLevel: 'exceptionnel',
-      },
-    },
-    {
-      id: 'audit-init-2',
-      recordId: 'rate-2026-11-14',
-      hotelId: 'hotel-opera',
-      dateStr: '2026-11-14',
-      action: 'modify',
-      originalRateEur: 255,
-      suggestedRateEur: 300,
-      finalRateEur: 320,
-      originalMinStay: 1,
-      finalMinStay: 2,
-      reasonCode: 'increase_higher',
-      reasonText: 'Souhait d’augmenter davantage le prix (+20€ vs IA). Salon Paris Photo à fort pouvoir d’achat.',
-      userEmail: 'wali.larabi@flowtym.com',
-      timestamp: '2026-11-02T14:15:00Z',
-      snapshotContext: {
-        occupancyPercent: 80.0,
-        compsetMedianEur: 310,
-        pickup1d: 5,
-        demandLevel: 'tres_fort',
-      },
-    },
-  ];
+  return [];
 }
-
-// -------------------------------------------------------------
-// MOTEUR D'APPRENTISSAGE CONTRÔLÉ ET RÉVERSIBLE (Section 9)
-// -------------------------------------------------------------
 
 export function getLearnedCalibrationRules(): RMLearnedCalibrationRule[] {
-  try {
-    const raw = localStorage.getItem(RULES_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {
-    console.error('Failed to get calibration rules', e);
-  }
-  // Règles apprises initiales fondées sur le comportement du Revenue Manager
-  return [
-    {
-      id: 'rule-event-weekend-premium',
-      title: 'Majoration Événements Week-End (+15€)',
-      condition: 'Événements majeurs le samedi soir avec occupation OTB > 70%',
-      adjustmentType: 'offset_eur',
-      adjustmentValue: 15,
-      sampleDecisionsCount: 14,
-      agreementRatePct: 92,
-      isActive: true,
-      learnedAt: '02/11/2026',
-      description: 'Le RM surcote systématiquement les samedis d’événements de +15€ au-delà de la médiane compset.',
-    },
-    {
-      id: 'rule-mlos-saturation',
-      title: 'Min Stay 2 Nuits automatique lors de compression compset',
-      condition: 'Quand au moins 2 concurrents sont complets (sold-out)',
-      adjustmentType: 'mlos_shift',
-      adjustmentValue: 2,
-      sampleDecisionsCount: 22,
-      agreementRatePct: 95,
-      isActive: true,
-      learnedAt: '28/10/2026',
-      description: 'Sécurise la durée de séjour et bloque les séjours d’une seule nuit en période de compression.',
-    },
-    {
-      id: 'rule-protection-corporate-midweek',
-      title: 'Plafond d’alignement en milieu de semaine corporate (-10€)',
-      condition: 'Mardi et Mercredi sans grand salon international',
-      adjustmentType: 'offset_eur',
-      adjustmentValue: -10,
-      sampleDecisionsCount: 18,
-      agreementRatePct: 83,
-      isActive: false,
-      learnedAt: '20/10/2026',
-      description: 'Garde une marge de compétitivité de 10€ sous l’Astra Opéra pour capter la clientèle affaires récurrente.',
-    },
-  ];
+  return [];
 }
 
-export function toggleLearnedCalibrationRule(ruleId: string): RMLearnedCalibrationRule[] {
-  const rules = getLearnedCalibrationRules();
-  const updated = rules.map((r) => (r.id === ruleId ? { ...r, isActive: !r.isActive } : r));
-  localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(updated));
-  return updated;
+export function toggleLearnedCalibrationRule(_ruleId: string): RMLearnedCalibrationRule[] {
+  return [];
 }
 
-// -------------------------------------------------------------
 // EXPORT CSV À 21 COLONNES CONFORME AU CAHIER DES CHARGES (Section 5)
 // -------------------------------------------------------------
 

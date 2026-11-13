@@ -45,8 +45,9 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
   const [showOtherHotels, setShowOtherHotels] = useState(true);
 
   // Center coordinate
-  const centerLat = hotel.lat;
-  const centerLng = hotel.lng;
+  const hasHotelCoordinates = hotel.lat !== null && hotel.lng !== null;
+  const centerLat = hotel.lat ?? 0;
+  const centerLng = hotel.lng ?? 0;
 
   // 1 degree latitude ~ 111.2 km
   // 1 degree longitude at 48.8°N ~ 111.2 * cos(48.8°) ~ 73.2 km
@@ -86,6 +87,10 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
     { name: 'Versailles', lat: 48.801, lng: 2.13 },
   ];
 
+  if (!hasHotelCoordinates) {
+    return <div role="status" className="flex min-h-48 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">Carte de rayon désactivée : coordonnées GPS de l'hôtel absentes.</div>;
+  }
+
   return (
     <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-md select-none">
       {/* Map Header Overlay */}
@@ -101,7 +106,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
         <div className="hidden sm:flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 text-xs text-slate-300">
           <Navigation className="w-3.5 h-3.5 text-violet-400" />
           <span>
-            {hotel.lat.toFixed(4)}°N, {hotel.lng.toFixed(4)}°E
+            {centerLat.toFixed(4)}°N, {centerLng.toFixed(4)}°E
           </span>
         </div>
       </div>
@@ -338,6 +343,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           {/* Other Hotels Markers */}
           {showOtherHotels &&
             otherHotels.map((oth) => {
+              if (oth.lat === null || oth.lng === null) return null;
               const pt = coordsToSvg(oth.lat, oth.lng);
               return (
                 <g key={`oth-${oth.id}`} className="cursor-pointer">

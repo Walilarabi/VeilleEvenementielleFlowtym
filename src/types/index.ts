@@ -35,16 +35,16 @@ export interface Venue {
 export interface Hotel {
   id: string;
   name: string;
-  group: string;
+  group: string | null;
   city: string;
   country: string;
-  address: string;
-  lat: number;
-  lng: number;
-  stars: number;
-  roomCount: number;
-  segment: 'Luxe' | 'Boutique' | 'Affaires' | 'Économique' | 'Resort';
-  baseADR: number;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  stars: number | null;
+  roomCount: number | null;
+  segment: 'Luxe' | 'Boutique' | 'Affaires' | 'Économique' | 'Resort' | null;
+  baseADR: number | null;
 }
 
 export interface EventEvidence {
@@ -79,6 +79,15 @@ export interface EventScoreBreakdown {
   compressionScore: number; // e.g. 0-15
   finalRMScore: number; // 0-100
   confidenceScore: number; // 0-100
+  durationScore?: number;
+  recurrenceScore?: number;
+  capacityScore?: number;
+  notorietyScore?: number;
+  extraNightsScore?: number;
+  segmentFitScore?: number;
+  sourceConfidenceScore?: number;
+  historicalDemandScore?: number;
+  historicalDemandSampleCount?: number;
 }
 
 export interface EventItem {

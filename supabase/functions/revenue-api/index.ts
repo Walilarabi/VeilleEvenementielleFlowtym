@@ -158,6 +158,24 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return fail("Corps JSON invalide"); }
 
+  if (actionPath === "location") {
+    const rawLat = body.lat;
+    const rawLng = body.lng;
+    const lat = rawLat === null ? null : numberOrNull(rawLat);
+    const lng = rawLng === null ? null : numberOrNull(rawLng);
+    if ((rawLat !== null && lat === null) || (rawLng !== null && lng === null)) return fail("Latitude ou longitude invalide");
+    if ((lat === null) !== (lng === null)) return fail("Latitude et longitude doivent être renseignées ensemble");
+    if (lat !== null && (lat < -90 || lat > 90)) return fail("Latitude hors limites");
+    if (lng !== null && (lng < -180 || lng > 180)) return fail("Longitude hors limites");
+    const { data, error } = await supabase.rpc("update_hotel_coordinates", {
+      p_hotel_id: hotelId,
+      p_lat: lat,
+      p_lng: lng,
+    });
+    if (error) return fail("Coordonnées non enregistrées. Vérifiez que la migration hotel_coordinates_rpc est appliquée.", 409, error.message);
+    return json({ ok: true, data });
+  }
+
   if (actionPath === "decisions") {
     const { rateIntelligenceId, action, appliedRate, appliedMinStay, reasonCode, reasonText } = body;
     if (typeof rateIntelligenceId !== "string" || !["accept", "modify", "reject"].includes(String(action))) {
@@ -180,8 +198,14 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const floor = numberOrNull(body.floorRate);
     const ceiling = numberOrNull(body.ceilingRate);
     const maxChange = numberOrNull(body.maxDailyRateChangePct);
-    if (floor === null || ceiling === null || maxChange === null || floor <= 0 || ceiling < floor || maxChange <= 0 || maxChange > 100) {
-      return fail("Plancher, plafond et variation quotidienne maximale doivent être renseignés et cohérents");
+    if (
+      (floor !== null && floor <= 0) ||
+      (ceiling !== null && ceiling <= 0) ||
+      ((floor === null) !== (ceiling === null)) ||
+      (floor !== null && ceiling !== null && ceiling < floor) ||
+      (maxChange !== null && (maxChange <= 0 || maxChange > 100))
+    ) {
+      return fail("Le plancher et le plafond doivent être renseignés ensemble et cohérents ; la variation maximale, si renseignée, doit être comprise entre 0 et 100 %");
     }
     const profileRow = {
       organization_id: hotel.organization_id,
@@ -236,7 +260,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const experimentCode=body.experimentCode,experimentName=body.experimentName,assignmentUnit=body.assignmentUnit;
     const startDate=body.startDate,endDate=body.endDate;
     if (typeof experimentCode!=="string"||!experimentCode.trim()||typeof experimentName!=="string"||!experimentName.trim()||
-        !["stay_date","room_type","rate_plan","channel","stay_date_room_type_rate_plan_channel"].includes(assignmentUnit)||
+        typeof assignmentUnit!=="string"||!["stay_date","room_type","rate_plan","channel","stay_date_room_type_rate_plan_channel"].includes(assignmentUnit)||
         !isDate(startDate)||!isDate(endDate)||endDate<startDate) return fail("Définition d'expérience invalide");
     const {data,error}=await supabase.from("hotel_price_experiments").insert({
       organization_id:hotel.organization_id,hotel_id:hotelId,experiment_code:experimentCode.trim(),
@@ -298,7 +322,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
 
   if (actionPath === "price-experiments/review") {
     const experimentId=body.experimentId,action=body.action,reasonCode=body.reasonCode;
-    if (typeof experimentId!=="string"||!["verify_randomization","complete"].includes(action)||
+    if (typeof experimentId!=="string"||typeof action!=="string"||!["verify_randomization","complete"].includes(action)||
         typeof reasonCode!=="string"||!reasonCode.trim()) return fail("experimentId, action et reasonCode obligatoires");
     const evidence=body.evidence&&typeof body.evidence==="object"?body.evidence:null;
     if (action==="verify_randomization"&&!evidence) return fail("Les preuves de randomisation sont obligatoires");
@@ -389,41 +413,117 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ok:true,inserted:data?.length??0,data},201);
   }
 
-  if (actionPath === "historical-import") {
+  if (actionPath === "historical-import-v2-status") {
+    return json({ ok: true, version: 2 });
+  }
+
+  if (actionPath === "historical-import-v2") {
     if (!Array.isArray(body.rows) || body.rows.length < 1 || body.rows.length > 5000) {
       return fail("Fournir entre 1 et 5000 lignes historiques");
     }
+    const snapshots = Array.isArray(body.snapshots) ? body.snapshots : [];
+    if (snapshots.length > 10000) return fail("Maximum 10000 snapshots historiques par import");
     const sourceName = typeof body.sourceName === "string" && body.sourceName.trim() ? body.sourceName.trim().slice(0,120) : null;
     if (!sourceName) return fail("sourceName est obligatoire pour garantir la déduplication");
-    const invalid = body.rows.filter((r: any) => !isDate(r.stay_date));
-    if (invalid.length) return fail("Une ou plusieurs lignes ont une stay_date invalide", 422, { invalidRows: invalid.length });
+    const invalid = body.rows.filter((r: any) => {
+      if (!isDate(r.stay_date)) return true;
+      if (!Number.isInteger(r.day_of_week) || r.day_of_week < 0 || r.day_of_week > 6) return true;
+      if (!Number.isInteger(r.week_of_year) || r.week_of_year < 1 || r.week_of_year > 53) return true;
+      if (!Number.isInteger(r.month_of_year) || r.month_of_year < 1 || r.month_of_year > 12) return true;
+      if (!Number.isInteger(r.year_of_stay) || r.year_of_stay < 2000 || r.year_of_stay > 2100) return true;
+      if (!Number.isInteger(r.total_marketable_rooms) || r.total_marketable_rooms < 1) return true;
+      if (!Number.isInteger(r.rooms_sold) || r.rooms_sold < 0) return true;
+      for (const field of ["available_rooms", "complimentary_rooms", "out_of_order_rooms", "reservations_count", "guests_count"]) {
+        if (r[field] != null && (!Number.isInteger(r[field]) || r[field] < 0)) return true;
+      }
+      const occupancy = numberOrNull(r.occupancy_pct);
+      if (occupancy === null || occupancy < 0 || occupancy > 100) return true;
+      for (const field of ["adr_net", "revpar", "accommodation_revenue", "net_adr"]) {
+        if (r[field] != null && (!Number.isFinite(Number(r[field])) || Number(r[field]) < 0)) return true;
+      }
+      return false;
+    });
+    if (invalid.length) {
+      return fail("Une ou plusieurs lignes historiques contiennent des dates, capacités ou indicateurs invalides", 422, { invalidRows: invalid.length });
+    }
+
+    const invalidSnapshots = snapshots.filter((s: any) => {
+      if (!isDate(s.observation_date) || !isDate(s.arrival_date)) return true;
+      const expectedDays = Math.round((Date.parse(s.arrival_date + "T00:00:00Z") - Date.parse(s.observation_date + "T00:00:00Z")) / 86400000);
+      return !Number.isInteger(s.days_before_arrival) || s.days_before_arrival < 0 ||
+        s.days_before_arrival !== expectedDays ||
+        !Number.isInteger(s.rooms_booked_otb) || s.rooms_booked_otb < 0 ||
+        !Number.isInteger(s.rooms_available) || s.rooms_available < 0 ||
+        numberOrNull(s.projected_occupancy_pct) === null || Number(s.projected_occupancy_pct) < 0 || Number(s.projected_occupancy_pct) > 100 ||
+        (s.booked_adr != null && (!Number.isFinite(Number(s.booked_adr)) || Number(s.booked_adr) < 0)) ||
+        (s.booked_revenue != null && (!Number.isFinite(Number(s.booked_revenue)) || Number(s.booked_revenue) < 0)) ||
+        (s.rooms_booked_otb > 0 && s.booked_adr == null && s.booked_revenue == null) ||
+        (s.pickup_since_previous != null && !Number.isInteger(s.pickup_since_previous)) ||
+        (s.cancellations_since_previous != null && (!Number.isInteger(s.cancellations_since_previous) || s.cancellations_since_previous < 0));
+    });
+    if (invalidSnapshots.length) {
+      return fail("Un ou plusieurs snapshots sont invalides : dates, lead time ou métriques OTB incohérentes", 422, { invalidSnapshots: invalidSnapshots.length });
+    }
+
     const dates = body.rows.map((r: any) => r.stay_date).sort();
     const { data: log, error: logError } = await supabase.from("hotel_historical_import_logs").insert({
       organization_id: hotel.organization_id, hotel_id: hotelId,
       file_name: typeof body.fileName === "string" ? body.fileName.slice(0,255) : "historical-import",
+      file_size_bytes: Number.isFinite(Number(body.fileSizeBytes)) && Number(body.fileSizeBytes) > 0 ? Math.round(Number(body.fileSizeBytes)) : null,
       records_count: body.rows.length, rejected_count: 0, date_start: dates[0], date_end: dates[dates.length-1],
       import_status: "pending", warnings: [], errors: [], detected_columns: Array.isArray(body.detectedColumns) ? body.detectedColumns : [],
       imported_by: profile.id,
     }).select("id").single();
     if (logError || !log) return fail("Création du journal d'import impossible", 400, logError?.message);
+
     const rows = body.rows.map((r: any) => ({
       ...r, id: undefined, organization_id: hotel.organization_id, hotel_id: hotelId,
       source_name: sourceName, source_status: "imported", import_batch_id: log.id,
       raw_record: r.raw_record && typeof r.raw_record === "object" ? r.raw_record : r,
-      currency: typeof r.currency === "string" ? r.currency : hotel.currency,
+      currency: hotel.currency,
     }));
     const { data, error } = await supabase.from("hotel_historical_daily")
       .upsert(rows, { onConflict: "hotel_id,stay_date,source_name" }).select("id");
     if (error) {
       await supabase.from("hotel_historical_import_logs").update({
-        import_status: "failed", rejected_count: body.rows.length, errors: [{ message: error.message }],
+        import_status: "failed", rejected_count: body.rows.length, errors: [{ phase: "daily", message: error.message }],
       }).eq("id", log.id);
-      return fail("Import historique échoué", 400, error.message);
+      return fail("Import historique quotidien échoué", 400, error.message);
     }
+
+    let snapshotsImported = 0;
+    if (snapshots.length > 0) {
+      const snapshotRows = snapshots.map((s: any) => ({
+        organization_id: hotel.organization_id, hotel_id: hotelId,
+        observation_date: s.observation_date, arrival_date: s.arrival_date,
+        days_before_arrival: s.days_before_arrival, rooms_booked_otb: s.rooms_booked_otb,
+        rooms_available: s.rooms_available, projected_occupancy_pct: s.projected_occupancy_pct,
+        booked_adr: s.booked_adr, booked_revenue: s.booked_revenue,
+        pickup_since_previous: s.pickup_since_previous,
+        cancellations_since_previous: s.cancellations_since_previous,
+        public_rate: numberOrNull(s.public_rate), compset_rate: numberOrNull(s.compset_rate),
+        source_status: "imported", source_name: sourceName, import_batch_id: log.id,
+      }));
+      const { data: snapshotData, error: snapshotError } = await supabase.from("hotel_historical_demand_snapshots")
+        .upsert(snapshotRows, { onConflict: "hotel_id,observation_date,arrival_date,source_name" }).select("id");
+      if (snapshotError) {
+        await supabase.from("hotel_historical_import_logs").update({
+          import_status: "failed",
+          records_count: data?.length ?? 0,
+          errors: [{ phase: "snapshots", message: snapshotError.message }],
+        }).eq("id", log.id);
+        return fail("Historique quotidien enregistré, mais import des snapshots OTB échoué", 400, {
+          importId: log.id, dailyImported: data?.length ?? 0, snapshotError: snapshotError.message,
+        });
+      }
+      snapshotsImported = snapshotData?.length ?? 0;
+    }
+
     await supabase.from("hotel_historical_import_logs").update({
       import_status: "completed", records_count: data?.length ?? 0,
+      warnings: snapshots.length === 0 ? [{ message: "Aucun snapshot OTB fourni dans le fichier." }] : [],
     }).eq("id", log.id);
-    return json({ ok: true, importId: log.id, imported: data?.length ?? 0 }, 201);
+    return json({ ok: true, importId: log.id, imported: data?.length ?? 0, snapshotsImported }, 201);
   }
 
   if (actionPath === "forecasts/baseline") {
@@ -487,7 +587,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
 
   if (actionPath === "events/decisions") {
     const occurrenceId=body.occurrenceId,action=body.action,reasonCode=body.reasonCode,reasonText=body.reasonText;
-    if (typeof occurrenceId!=="string" || !["validate","dismiss"].includes(action) || typeof reasonCode!=="string" || !reasonCode.trim()) {
+    if (typeof occurrenceId!=="string" || typeof action!=="string" || !["validate","dismiss"].includes(action) || typeof reasonCode!=="string" || !reasonCode.trim()) {
       return fail("occurrenceId, action validate/dismiss et reasonCode sont obligatoires");
     }
     const {data:impact,error:impactError}=await supabase.from("event_hotel_impacts")
@@ -718,7 +818,29 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ok:true,data:evaluation},201);
   }
 
-  if (actionPath === "recommendations/generate") {
+  if (actionPath === "recommendations-v2-status") {
+    return json({ ok: true, version: 2 });
+  }
+
+  if (actionPath === "recommendations-v2") {
+    const requestUrl = new URL(req.url);
+    const start = requestUrl.searchParams.get("from");
+    const end = requestUrl.searchParams.get("to");
+    if (!start || !end || !isDate(start) || !isDate(end) || start > end || eachDate(start, end).length > 120) {
+      return fail("Période de recommandations invalide (maximum 120 jours)");
+    }
+    const { data, error } = await supabase.from("daily_rate_intelligence")
+      .select("id,stay_date,currency,current_bar,suggested_bar,delta_amount,delta_pct,demand_index,demand_level,occupancy_pct,rooms_remaining,pickup_24h,pickup_3d,pickup_7d,lighthouse_median,strategy_code,explanation,confidence_score,data_quality_status,recommendation_status")
+      .eq("hotel_id", hotelId)
+      .gte("stay_date", start)
+      .lte("stay_date", end)
+      .order("stay_date", { ascending: true })
+      .limit(1000);
+    if (error) return fail("Lecture des recommandations Revenue impossible", 400, error.message);
+    return json({ ok: true, data: data ?? [] });
+  }
+
+  if (actionPath === "recommendations-v2-generate") {
     const start = body.startDate, end = body.endDate;
     if (!isDate(start) || !isDate(end) || start > end || eachDate(start,end).length > 90) {
       return fail("startDate/endDate invalides (maximum 90 jours)");
@@ -760,7 +882,10 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const compsetConfigValid=Number(weights.compset)===0 || (
       Number.isInteger(compsetLos)&&compsetLos>0&&Number.isInteger(compsetPos)&&compsetPos>0&&
       Number.isInteger(minimumCompsetHotels)&&minimumCompsetHotels>0&&
-      Number.isFinite(compsetGapScale)&&compsetGapScale>0
+      Number.isFinite(compsetGapScale)&&compsetGapScale>0&&
+      ["compset_room_type","compset_rate_plan","compset_channel"].every((key) =>
+        typeof cfg[key] === "string" && cfg[key].trim().length > 0
+      )
     );
     const pickupConfigValid = Number(weights.pickup) === 0 || (
       !!pickupWindowWeights && !!pickupWindowScales &&
@@ -777,10 +902,13 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       return fail("Configuration pricing_v1 invalide : weights, thresholds et rate_adjustments_pct requis", 422);
     }
 
+    const compRatesPromise = Number(weights.compset) > 0
+      ? supabase.from("lighthouse_rate_observations").select("stay_date,competitor_id,rate_amount,availability_status,observed_at,source_status,los,pos,currency,room_type,rate_plan,channel").eq("hotel_id",hotelId).eq("availability_status","available").eq("los",compsetLos).eq("pos",compsetPos).eq("currency",hotel.currency).eq("room_type",cfg.compset_room_type).eq("rate_plan",cfg.compset_rate_plan).eq("channel",cfg.compset_channel).not("competitor_id","is",null).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000)
+      : Promise.resolve({ data: [], error: null });
     const [inventoryResult,reservationResult,compRateResult,impactResult] = await Promise.all([
       supabase.from("hotel_inventory_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
       supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).in("pickup_window_hours",[24,72,168]).not("net_pickup_rooms","is",null).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
-      supabase.from("lighthouse_rate_observations").select("stay_date,competitor_id,rate_amount,availability_status,observed_at,source_status,los,pos,currency,room_type,rate_plan,channel").eq("hotel_id",hotelId).eq("availability_status","available").eq("los",compsetLos).eq("pos",compsetPos).eq("currency",hotel.currency).eq("room_type",cfg.compset_room_type).eq("rate_plan",cfg.compset_rate_plan).eq("channel",cfg.compset_channel).not("competitor_id","is",null).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
+      compRatesPromise,
       supabase.from("event_hotel_impacts").select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)").eq("hotel_id",hotelId).eq("impact_status","validated").gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end).not("final_rm_score","is",null),
     ]);
     const queryError = inventoryResult.error ?? reservationResult.error ?? compRateResult.error ?? impactResult.error;
@@ -816,6 +944,10 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
       const inv=latestInventory.get(stayDate);
       const current=numberOrNull(inv?.current_bar);
       if (current===null || current<=0) continue;
+      if (current < floor || current > ceiling) {
+        output.push({stayDate,status:"skipped",reason:"current_rate_outside_configured_bounds"});
+        continue;
+      }
       const inventoryAgeHours=(Date.now()-Date.parse(inv.snapshot_at))/3600000;
       if (!Number.isFinite(inventoryAgeHours) || inventoryAgeHours < 0 || inventoryAgeHours > maxInventoryAge) {
         output.push({stayDate,status:"skipped",reason:"stale_inventory_snapshot"});

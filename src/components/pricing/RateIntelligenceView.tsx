@@ -104,12 +104,51 @@ import {
   exportRateGridToCSV,
 } from '../../services/rateIntelligenceService';
 import { exportCompleteHistoricalExcel } from '../../services/excelHistoricalExportService';
+import { useAuth } from '../../auth/AuthProvider';
+import { resolveAccessibleRmsHotel } from '../../services/lighthouseImportService';
+import { getHotelRecommendations, getRecommendationsV2Status, generatePricingRecommendations, submitRevenueDecision } from '../../services/revenueApiClient';
 import { LighthouseCompetitiveIntelligenceView } from './LighthouseCompetitiveIntelligenceView';
 import { HistoricalDataImportView } from './HistoricalDataImportView';
 import { BacktestingValidationDashboard } from './BacktestingValidationDashboard';
 import { PredictiveRecommendationDetailDrawer } from './PredictiveRecommendationDetailDrawer';
 import { computeFullPredictivePricingRecommendation } from '../../services/predictiveRevenueEngine';
 import { FullPredictivePricingRecommendation } from '../../types/historicalData';
+
+type PersistedRMRecommendation = {
+  id: string;
+  stay_date: string;
+  currency: string;
+  current_bar: number;
+  suggested_bar: number;
+  delta_amount: number;
+  delta_pct: number;
+  demand_index: number | null;
+  demand_level: string | null;
+  occupancy_pct: number | null;
+  rooms_remaining: number | null;
+  pickup_24h: number | null;
+  pickup_3d: number | null;
+  pickup_7d: number | null;
+  lighthouse_median: number | null;
+  strategy_code: string;
+  explanation: string;
+  confidence_score: number;
+  data_quality_status: string;
+  recommendation_status: string;
+};
+
+function getParisDateRange(days: number) {
+  const start = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+  const endDate = new Date(`${start}T00:00:00Z`);
+  endDate.setUTCDate(endDate.getUTCDate() + days);
+  return { start, end: endDate.toISOString().slice(0, 10) };
+}
+
+function formatRevenueValue(value: unknown, digits = 0): string {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? new Intl.NumberFormat('fr-FR', { maximumFractionDigits: digits }).format(value)
+    : '—';
+}
 
 export type ColumnId =
   | 'date_day'
@@ -413,11 +452,113 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const [records, setRecords] = useState<DailyRateIntelligence[]>(() =>
     getRateIntelligenceRecords(hotel.id)
   );
+  const { supabase } = useAuth();
+  const [realHotelId, setRealHotelId] = useState<string | null>(null);
+  const [recommendationsApiReady, setRecommendationsApiReady] = useState(false);
+  const [apiRecommendations, setApiRecommendations] = useState<PersistedRMRecommendation[]>([]);
+  const [isLoadingApiRecommendations, setIsLoadingApiRecommendations] = useState(true);
+  const [isGeneratingApiRecommendations, setIsGeneratingApiRecommendations] = useState(false);
+  const [savingDecisionId, setSavingDecisionId] = useState<string | null>(null);
+  const [apiRecommendationError, setApiRecommendationError] = useState<string | null>(null);
 
-  // Synchronisation lors du changement d'hôtel
+  const refreshApiRecommendations = async (hotelId: string, client = supabase) => {
+    if (!client) throw new Error('Session Supabase absente.');
+    const range = getParisDateRange(90);
+    const result = await getHotelRecommendations(client, hotelId, range.start, range.end);
+    setApiRecommendations(result.data as PersistedRMRecommendation[]);
+  };
+
   useEffect(() => {
-    setRecords(getRateIntelligenceRecords(hotel.id));
-  }, [hotel.id]);
+    let cancelled = false;
+    const loadApiRecommendations = async () => {
+      setIsLoadingApiRecommendations(true);
+      setRecommendationsApiReady(false);
+      setRealHotelId(null);
+      if (!supabase) {
+        if (!cancelled) {
+          setApiRecommendationError('Session Supabase absente. Aucune donnée RM locale ou simulée ne sera affichée.');
+          setIsLoadingApiRecommendations(false);
+        }
+        return;
+      }
+      try {
+        const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+          name: hotel.name,
+          city: hotel.city,
+          country: hotel.country,
+        });
+        await getRecommendationsV2Status(supabase, dbHotel.id);
+        const range = getParisDateRange(90);
+        const result = await getHotelRecommendations(supabase, dbHotel.id, range.start, range.end);
+        if (cancelled) return;
+        setRealHotelId(dbHotel.id);
+        setRecommendationsApiReady(true);
+        setApiRecommendations(result.data as PersistedRMRecommendation[]);
+        setApiRecommendationError(null);
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "L'API Revenue v2 n'est pas disponible.";
+          setApiRecommendationError(
+            message.toLowerCase().includes('route inconnue') || message.includes('404')
+              ? "L'Edge Function Revenue v2 n'est pas encore déployée sur Supabase. Lecture et génération restent désactivées pour éviter d'appeler une ancienne version."
+              : message,
+          );
+          setRecommendationsApiReady(false);
+          setApiRecommendations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingApiRecommendations(false);
+      }
+    };
+    void loadApiRecommendations();
+    return () => { cancelled = true; };
+  }, [supabase, hotel.name, hotel.city, hotel.country]);
+
+  const handleGenerateApiRecommendations = async () => {
+    if (!supabase || !realHotelId || !recommendationsApiReady) return;
+    setIsGeneratingApiRecommendations(true);
+    try {
+      const range = getParisDateRange(30);
+      const generated = await generatePricingRecommendations(supabase, realHotelId, range.start, range.end);
+      await refreshApiRecommendations(realHotelId);
+      onShowToast(
+        generated.generated > 0
+          ? `✓ ${generated.generated} recommandations calculées et enregistrées ; validation humaine obligatoire.`
+          : 'Aucune recommandation créée : vérifiez la configuration pricing_v1 et les snapshots D-EDGE/Lighthouse requis.',
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Échec du calcul des recommandations.';
+      setApiRecommendationError(message);
+      onShowToast(`Calcul Revenue impossible : ${message}`);
+    } finally {
+      setIsGeneratingApiRecommendations(false);
+    }
+  };
+
+  const handlePersistedRecommendationDecision = async (
+    recommendation: PersistedRMRecommendation,
+    action: 'accept' | 'reject',
+  ) => {
+    if (!supabase || !realHotelId || !recommendationsApiReady) return;
+    setSavingDecisionId(recommendation.id);
+    try {
+      await submitRevenueDecision(supabase, realHotelId, {
+        rateIntelligenceId: recommendation.id,
+        action,
+        ...(action === 'accept' ? { appliedRate: Number(recommendation.suggested_bar) } : {}),
+        reasonCode: action === 'accept' ? 'RM_ACCEPTED' : 'RM_REJECTED',
+        reasonText: action === 'accept'
+          ? 'Recommandation acceptée par le Revenue Manager ; aucune publication automatique.'
+          : 'Recommandation refusée par le Revenue Manager.',
+      });
+      await refreshApiRecommendations(realHotelId);
+      onShowToast(action === 'accept' ? 'Décision d’acceptation enregistrée.' : 'Décision de refus enregistrée.');
+    } catch (error) {
+      onShowToast(`Décision non enregistrée : ${error instanceof Error ? error.message : 'erreur inconnue'}`);
+    } finally {
+      setSavingDecisionId(null);
+    }
+  };
 
   // Mode d'affichage de la grille : 'both' (Graph + Grille), 'table', 'chart'
   const [viewMode, setViewMode] = useState<'both' | 'table' | 'chart'>('both');
@@ -435,13 +576,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const [showPastDates, setShowPastDates] = useState<boolean>(false);
 
   // Visibilité des courbes concurrentes dans le graphique Recharts
-  const [visibleCompetitors, setVisibleCompetitors] = useState<Record<string, boolean>>({
-    'Hôtel Saint-Pétersbourg Opéra': false,
-    'Hôtel Charing Cross': false,
-    'Hôtel Astra Opéra': false,
-    'Hotel Indigo Paris-Opéra': false,
-    'Hôtel Saint-Augustin Elysées': false,
-  });
+  const [visibleCompetitors, setVisibleCompetitors] = useState<Record<string, boolean>>({});
 
   // Configuration des colonnes affichées (Roue de Configuration RM)
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnId, boolean>>(() =>
@@ -632,8 +767,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const summaryKpis = useMemo(() => {
     if (!synchronizedRecords.length) {
       return {
-        avgRank: '1.0',
-        avgTotalAvailable: 6,
+        avgRank: '—',
+        avgTotalAvailable: 0,
         avgCurrentBar: 0,
         avgCompsetMedian: 0,
         avgAdrNet: 0,
@@ -741,13 +876,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
     const acceptedCount = auditLogs.filter((l) => l.action === 'accept').length;
     const modifiedCount = auditLogs.filter((l) => l.action === 'modify').length;
     const rejectedCount = auditLogs.filter((l) => l.action === 'reject').length;
-    const agreementRate = totalDecisions > 0 ? Math.round((acceptedCount / totalDecisions) * 100) : 85;
+    const agreementRate = totalDecisions > 0 ? Math.round((acceptedCount / totalDecisions) * 100) : null;
 
     // Écart moyen lors des modifications
     const deltas = auditLogs
       .filter((l) => l.action === 'modify')
       .map((l) => l.finalRateEur - l.suggestedRateEur);
-    const avgDelta = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : 12;
+    const avgDelta = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : null;
 
     return {
       totalDecisions,
@@ -1022,6 +1157,104 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         />
       ) : activeSubTab === 'grid' ? (
         <>
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+            <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Recommandations persistées — API Revenue</h2>
+                <p className="mt-1 text-xs text-slate-500">Source : daily_rate_intelligence • calcul backend • approbation humaine obligatoire • aucune publication D-EDGE automatique</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateApiRecommendations}
+                disabled={!recommendationsApiReady || isGeneratingApiRecommendations || isLoadingApiRecommendations}
+                className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isGeneratingApiRecommendations ? 'Calcul en cours…' : 'Calculer les 30 prochains jours'}
+              </button>
+            </div>
+            {apiRecommendationError && (
+              <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                <strong>API Revenue :</strong> {apiRecommendationError}
+              </div>
+            )}
+            {isLoadingApiRecommendations ? (
+              <div role="status" className="p-6 text-center text-xs text-slate-500">Chargement des recommandations persistées…</div>
+            ) : apiRecommendations.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">
+                Aucune recommandation persistée pour les 90 prochains jours. Le calcul restera bloqué tant que les paramètres pricing_v1 et les sources réelles nécessaires ne sont pas disponibles.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1100px] text-left text-xs">
+                  <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-3">Séjour</th>
+                      <th className="px-3 py-3 text-right">BAR actuel</th>
+                      <th className="px-3 py-3 text-right">BAR proposé</th>
+                      <th className="px-3 py-3 text-right">Écart</th>
+                      <th className="px-3 py-3 text-right">Demande</th>
+                      <th className="px-3 py-3 text-right">Occupation</th>
+                      <th className="px-3 py-3 text-right">Pickup 24h / 3j / 7j</th>
+                      <th className="px-3 py-3 text-right">Médiane LH</th>
+                      <th className="px-3 py-3 text-right">Confiance</th>
+                      <th className="px-3 py-3">Qualité / statut</th>
+                      <th className="px-3 py-3 text-right">Décision</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {apiRecommendations.map((recommendation) => {
+                      const pending = recommendation.recommendation_status === 'pending';
+                      const valid = recommendation.data_quality_status === 'valid';
+                      return (
+                        <tr key={recommendation.id} className="align-top">
+                          <td className="px-3 py-3 font-semibold text-slate-800">{recommendation.stay_date}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.current_bar)} {recommendation.currency}</td>
+                          <td className="px-3 py-3 text-right font-bold tabular-nums text-violet-700">{formatRevenueValue(recommendation.suggested_bar)} {recommendation.currency}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.delta_amount)} ({formatRevenueValue(recommendation.delta_pct, 1)}%)</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{recommendation.demand_index == null ? '—' : `${recommendation.demand_index}/100`}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{recommendation.occupancy_pct == null ? '—' : `${formatRevenueValue(recommendation.occupancy_pct, 1)}%`}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.pickup_24h)} / {formatRevenueValue(recommendation.pickup_3d)} / {formatRevenueValue(recommendation.pickup_7d)}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{recommendation.lighthouse_median == null ? '—' : `${formatRevenueValue(recommendation.lighthouse_median)} ${recommendation.currency}`}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.confidence_score)}%</td>
+                          <td className="px-3 py-3">
+                            <div className="font-semibold">{valid ? 'Valide' : 'Données insuffisantes'}</div>
+                            <div className="text-[10px] text-slate-500">{recommendation.recommendation_status}</div>
+                            <p className="mt-1 max-w-xs whitespace-normal text-[10px] text-slate-500">{recommendation.explanation}</p>
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            {pending ? (
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  disabled={!valid || savingDecisionId === recommendation.id}
+                                  onClick={() => void handlePersistedRecommendationDecision(recommendation, 'accept')}
+                                  className="rounded-lg bg-emerald-600 px-2 py-1.5 text-[10px] font-bold text-white disabled:opacity-30"
+                                >Accepter</button>
+                                <button
+                                  type="button"
+                                  disabled={savingDecisionId === recommendation.id}
+                                  onClick={() => void handlePersistedRecommendationDecision(recommendation, 'reject')}
+                                  className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[10px] font-bold text-rose-700 disabled:opacity-30"
+                                >Refuser</button>
+                              </div>
+                            ) : <span className="text-[10px] text-slate-500">Décision enregistrée</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+          {synchronizedRecords.length === 0 && (
+            <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+              <strong>La grille 21 colonnes historique n'est plus alimentée par les anciennes données locales.</strong>
+              <p className="mt-1 text-xs text-amber-900">
+                Les recommandations persistées par le backend sont affichées dans le tableau API ci-dessus. Cette grille détaillée restera vide jusqu'à sa migration complète vers le contrat de données Revenue.
+              </p>
+            </div>
+          )}
           {/* 2. Cartes Synthétiques de Performance RM & Positionnement */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* KPI 1 : Position Compset & Rang */}
@@ -1036,14 +1269,16 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 </span>
               </div>
               <div className="text-xl font-black text-violet-950 tracking-tight">
-                {Number(summaryKpis.avgRank) <= 1.8
+                {summaryKpis.avgTotalAvailable === 0
+                  ? 'Données insuffisantes'
+                  : Number(summaryKpis.avgRank) <= 1.8
                   ? '1er moins cher du quartier'
                   : Number(summaryKpis.avgRank) <= 2.8
                   ? '2e moins cher'
                   : 'Position Médiane'}
               </div>
               <p className="text-[11px] text-violet-700 leading-tight">
-                BAR Moyen : <strong>{summaryKpis.avgCurrentBar} €</strong> vs Méd. <strong>{summaryKpis.avgCompsetMedian} €</strong>
+                BAR Moyen : <strong>{synchronizedRecords.length ? `${summaryKpis.avgCurrentBar} €` : '—'}</strong> vs Méd. <strong>{synchronizedRecords.length ? `${summaryKpis.avgCompsetMedian} €` : '—'}</strong>
               </p>
             </div>
 
@@ -2297,13 +2532,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
             <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
               <div className="text-xs font-semibold text-emerald-700">Taux de Concordance RM / IA</div>
-              <div className="text-2xl font-black text-emerald-700">{learningStats.agreementRate}%</div>
+              <div className="text-2xl font-black text-emerald-700">{learningStats.agreementRate == null ? '—' : `${learningStats.agreementRate}%`}</div>
               <p className="text-[11px] text-emerald-700/80">Recommandations acceptées sans retouche</p>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
               <div className="text-xs font-semibold text-indigo-700">Écart Moyen lors des Modifications</div>
-              <div className="text-2xl font-black text-indigo-700">+{learningStats.avgDelta} €</div>
+              <div className="text-2xl font-black text-indigo-700">{learningStats.avgDelta == null ? '—' : `+${learningStats.avgDelta} €`}</div>
               <p className="text-[11px] text-indigo-700/80">Biais positif du RM sur les dates à fort potentiel</p>
             </div>
 

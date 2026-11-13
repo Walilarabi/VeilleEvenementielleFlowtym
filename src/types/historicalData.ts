@@ -19,12 +19,12 @@ export interface HistoricalDailyRecord {
   weekOfYear: number; // C : 1 - 53
   month: number; // D : 1 - 12
   year: number; // E : 2023, 2024, 2025...
-  isHoliday: boolean; // F : Jour férié (Oui/Non)
-  isSchoolHoliday: boolean; // G : Vacances scolaires (Oui/Non)
-  schoolHolidayZone: string; // H : Zone A/B/C / Toutes
-  isHolidayEve: boolean; // I : Veille de jour férié (Oui/Non)
-  season: 'Haute' | 'Moyenne' | 'Basse'; // J
-  dayType: 'Semaine' | 'Weekend' | 'Pont'; // K
+  isHoliday?: boolean; // F : absent si non renseigné dans la source
+  isSchoolHoliday?: boolean; // G : absent si non renseigné dans la source
+  schoolHolidayZone?: string; // H : absent si non renseigné dans la source
+  isHolidayEve?: boolean; // I : absent si non renseigné dans la source
+  season?: 'Haute' | 'Moyenne' | 'Basse'; // J
+  dayType?: 'Semaine' | 'Weekend' | 'Pont'; // K
 
   // B. Événement et attractivité de la destination
   eventName?: string; // L
@@ -41,25 +41,25 @@ export interface HistoricalDailyRecord {
 
   // C. Capacité et occupation de l'hôtel
   totalMarketableRooms: number; // W : Nombre total de chambres commercialisables (ex: 45)
-  availableRoomsForSale: number; // X : Chambres disponibles à la vente (ex: 43 si 2 OOO)
+  availableRoomsForSale?: number; // X : absent si non renseigné (ex: 43 si 2 OOO)
   roomsSold: number; // Y : Chambres vendues payantes
-  complimentaryRooms: number; // Z : Chambres offertes / gratuites
-  outOfOrderRooms: number; // AA : Hors service (OOO)
-  occupancyPercent: number; // AB : Taux d'occupation (%) = (roomsSold + comp) / totalMarketableRooms * 100
-  turnawaysCount: number; // AC : Chambres refusées
-  reservationsCount: number; // AD : Nombre de dossiers de réservation
-  guestsCount: number; // AE : Nombre de clients hébergés
+  complimentaryRooms?: number; // Z : absent si non renseigné
+  outOfOrderRooms?: number; // AA : absent si non renseigné
+  occupancyPercent: number; // AB : taux réel ou calculé depuis les chambres déclarées
+  turnawaysCount?: number; // AC : absent si non renseigné
+  reservationsCount?: number; // AD : absent si non renseigné
+  guestsCount?: number; // AE : absent si non renseigné
 
   // D. Performance financière
-  adrNetEur: number; // AF : ADR HT net = CA hébergement HT / Chambres vendues
-  revparEur: number; // AG : RevPAR HT = CA hébergement HT / Total chambres commercialisables
-  accommodationRevenueEur: number; // AH : CA hébergement HT
-  avgSoldRoomPrice: number; // AI : Prix moyen facial des chambres vendues
+  adrNetEur: number; // AF : réel ou calculé depuis CA hébergement / chambres vendues
+  revparEur: number; // AG : calculé depuis CA hébergement / stock commercialisable
+  accommodationRevenueEur: number; // AH : réel ou calculé depuis ADR net / chambres vendues
+  avgSoldRoomPrice?: number; // AI : absent si non renseigné
   totalHotelRevenueEur?: number; // AJ : CA total hôtel HT (avec extras, PDJ...)
   trevparEur?: number; // AK : TRevPAR
   avgDistributionCostEur?: number; // AL : Coût moyen de distribution
   avgCommissionPercent?: number; // AM : Commission moyenne (%)
-  avgNetRateAfterCommissionsEur: number; // AN : Prix moyen net après commissions
+  avgNetRateAfterCommissionsEur?: number; // AN : absent si non renseigné
 
   // E. Historique de la demande et du pickup (Snapshots passés connus)
   otbJ90?: number; // AO
@@ -119,10 +119,10 @@ export interface HistoricalDemandSnapshot {
   roomsBookedOtb: number; // Chambres déjà réservées
   roomsAvailable: number; // Chambres disponibles
   projectedOccupancyPercent: number; // Taux d'occupation à cet instant
-  bookedAdrEur: number; // ADR du portefeuille acquis
-  bookedRevenueEur: number; // CA hébergement déjà acquis
-  pickupSincePrevSnapshot: number; // Chambres gagnées depuis relevé précédent
-  cancellationsSincePrevSnapshot: number; // Annulations subies
+  bookedAdrEur?: number; // ADR du portefeuille acquis, absent si non renseigné
+  bookedRevenueEur?: number; // CA hébergement déjà acquis, absent si non renseigné
+  pickupSincePrevSnapshot?: number; // absent si non renseigné
+  cancellationsSincePrevSnapshot?: number; // absent si non renseigné
   publicRateAtSnapshotEur?: number; // Tarif public affiché à cet instant
   compsetRateAtSnapshotEur?: number; // Tarif compset à cet instant
   turnawaysAtSnapshot?: number; // Refus enregistrés

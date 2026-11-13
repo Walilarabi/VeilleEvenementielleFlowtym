@@ -6,9 +6,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from './auth/AuthProvider';
 import { PanelLeftOpen, ChevronRight } from 'lucide-react';
-import { Navbar } from './components/layout/Navbar';
-import { Sidebar, NavTab, SidebarMode } from './components/layout/Sidebar';
-import { KPIHeader } from './components/kpi/KPIHeader';
+const Navbar = React.lazy(() => import('./components/layout/Navbar').then((module) => ({ default: module.Navbar })));
+const Sidebar = React.lazy(() => import('./components/layout/Sidebar').then((module) => ({ default: module.Sidebar })));
+import type { NavTab, SidebarMode } from './components/layout/Sidebar';
+const KPIHeader = React.lazy(() => import('./components/kpi/KPIHeader').then((module) => ({ default: module.KPIHeader })));
 
 const SIDEBAR_MODE_STORAGE_KEY = 'flowtym_sidebar_mode_v1';
 
@@ -23,52 +24,56 @@ const getInitialSidebarMode = (): SidebarMode => {
   }
   return 'full';
 };
-import { CalendarControls } from './components/calendar/CalendarControls';
-import { CalendarView } from './components/calendar/CalendarView';
-import { TableView } from './components/calendar/TableView';
-import { FlowboardView } from './components/flowboard/FlowboardView';
-import { ExplorerView } from './components/explorer/ExplorerView';
-import { EventIntelligenceView } from './components/intelligence/EventIntelligenceView';
-import { SourcesCoverageView } from './components/sources/SourcesCoverageView';
-import { SettingsView } from './components/settings/SettingsView';
-import { GeoIntelligenceView } from './components/geo/GeoIntelligenceView';
-import { EventDetailModal } from './components/events/EventDetailModal';
-import { AddEventModal } from './components/modals/AddEventModal';
-import { ImportExcelModal } from './components/modals/ImportExcelModal';
-import { RefreshModal } from './components/modals/RefreshModal';
-import { ProposalsModal } from './components/proposals/ProposalsModal';
+const CalendarControls = React.lazy(() => import('./components/calendar/CalendarControls').then((module) => ({ default: module.CalendarControls })));
+const CalendarView = React.lazy(() => import('./components/calendar/CalendarView').then((module) => ({ default: module.CalendarView })));
+const TableView = React.lazy(() => import('./components/calendar/TableView').then((module) => ({ default: module.TableView })));
+const FlowboardView = React.lazy(() => import('./components/flowboard/FlowboardView').then((module) => ({ default: module.FlowboardView })));
+const ExplorerView = React.lazy(() => import('./components/explorer/ExplorerView').then((module) => ({ default: module.ExplorerView })));
+const EventIntelligenceView = React.lazy(() => import('./components/intelligence/EventIntelligenceView').then((module) => ({ default: module.EventIntelligenceView })));
+const SourcesCoverageView = React.lazy(() => import('./components/sources/SourcesCoverageView').then((module) => ({ default: module.SourcesCoverageView })));
+const SettingsView = React.lazy(() => import('./components/settings/SettingsView').then((module) => ({ default: module.SettingsView })));
+const GeoIntelligenceView = React.lazy(() => import('./components/geo/GeoIntelligenceView').then((module) => ({ default: module.GeoIntelligenceView })));
+const EventDetailModal = React.lazy(() => import('./components/events/EventDetailModal').then((module) => ({ default: module.EventDetailModal })));
+const AddEventModal = React.lazy(() => import('./components/modals/AddEventModal').then((module) => ({ default: module.AddEventModal })));
+const ImportExcelModal = React.lazy(() => import('./components/modals/ImportExcelModal').then((module) => ({ default: module.ImportExcelModal })));
+const RefreshModal = React.lazy(() => import('./components/modals/RefreshModal').then((module) => ({ default: module.RefreshModal })));
+const ProposalsModal = React.lazy(() => import('./components/proposals/ProposalsModal').then((module) => ({ default: module.ProposalsModal })));
 import { LoginPage } from './components/auth/LoginPage';
-import { MarketCalendarView } from './components/market/MarketCalendarView';
-import { SchoolHolidaysCalendarView } from './components/events/SchoolHolidaysCalendarView';
-import { CalendarSubNavbar, CalendarSubTabMode } from './components/calendar/CalendarSubNavbar';
-import { RMDecisionCenter } from './components/intelligence/RMDecisionCenter';
-import { DemandForecastView } from './components/forecast/DemandForecastView';
-import { DateDetailModal } from './components/events/DateDetailModal';
-import { HotelConnectivityHub } from './components/connectivity/HotelConnectivityHub';
-import { RateIntelligenceView } from './components/pricing/RateIntelligenceView';
-import { RateOpportunityPushNotification } from './components/notifications/RateOpportunityPushNotification';
+const MarketCalendarView = React.lazy(() => import('./components/market/MarketCalendarView').then((module) => ({ default: module.MarketCalendarView })));
+const SchoolHolidaysCalendarView = React.lazy(() => import('./components/events/SchoolHolidaysCalendarView').then((module) => ({ default: module.SchoolHolidaysCalendarView })));
+const CalendarSubNavbar = React.lazy(() => import('./components/calendar/CalendarSubNavbar').then((module) => ({ default: module.CalendarSubNavbar })));
+import type { CalendarSubTabMode } from './components/calendar/CalendarSubNavbar';
+const RMDecisionCenter = React.lazy(() => import('./components/intelligence/RMDecisionCenter').then((module) => ({ default: module.RMDecisionCenter })));
+const DemandForecastView = React.lazy(() => import('./components/forecast/DemandForecastView').then((module) => ({ default: module.DemandForecastView })));
+const DateDetailModal = React.lazy(() => import('./components/events/DateDetailModal').then((module) => ({ default: module.DateDetailModal })));
+const HotelConnectivityHub = React.lazy(() => import('./components/connectivity/HotelConnectivityHub').then((module) => ({ default: module.HotelConnectivityHub })));
+const RateIntelligenceView = React.lazy(() => import('./components/pricing/RateIntelligenceView').then((module) => ({ default: module.RateIntelligenceView })));
+const RateOpportunityPushNotification = React.lazy(() => import('./components/notifications/RateOpportunityPushNotification').then((module) => ({ default: module.RateOpportunityPushNotification })));
 import { PushOpportunityAlert } from './services/pushNotificationService';
-import { ReportsAndAutomationsHub } from './components/reports/ReportsAndAutomationsHub';
+const ReportsAndAutomationsHub = React.lazy(() => import('./components/reports/ReportsAndAutomationsHub').then((module) => ({ default: module.ReportsAndAutomationsHub })));
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
-import { CommandPaletteModal } from './components/modals/CommandPaletteModal';
-import { KeyboardShortcutsModal } from './components/modals/KeyboardShortcutsModal';
-import { exportCompleteHistoricalExcel } from './services/excelHistoricalExportService';
+const CommandPaletteModal = React.lazy(() => import('./components/modals/CommandPaletteModal').then((module) => ({ default: module.CommandPaletteModal })));
+const KeyboardShortcutsModal = React.lazy(() => import('./components/modals/KeyboardShortcutsModal').then((module) => ({ default: module.KeyboardShortcutsModal })));
+
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
-import {
-  INITIAL_HOTELS,
-  INITIAL_VENUES,
-  INITIAL_SUGGESTIONS,
-  INITIAL_SOURCES,
-  generateFullMockEvents,
-} from './data/mockData';
-import { EventItem, FilterState, Hotel, EventProposal } from './types';
+import { EventItem, EventSuggestion, EventSource, FilterState, Hotel, EventProposal, Venue, EventEvidence, EventHotelImpact, EventScoreBreakdown, EventCategory, ConfirmationStatus, RMImpactLevel } from './types';
+
+const EMPTY_HOTEL: Hotel = { id: '', name: '', group: null, city: '', country: '', address: null, lat: null, lng: null, stars: null, roomCount: null, segment: null, baseADR: null };
+
+const EVENT_CATEGORIES = new Set<EventCategory>(['salons_foires', 'congres_medical', 'concerts_spectacles', 'sport', 'festivals', 'mode_luxe', 'corporate_sommet', 'culturel', 'vacances_scolaires']);
+const CONFIRMATION_STATUSES = new Set<ConfirmationStatus>(['confirmed', 'probable', 'estime', 'a_verifier', 'estimated_recurrent', 'announced_pending', 'rumored']);
+const EVIDENCE_TYPES = new Set<EventEvidence['sourceType']>(['official_organizer', 'venue_calendar', 'press', 'ticketing', 'city_agenda']);
+const VENUE_TYPES = new Set<Venue['type']>(['parc_expositions', 'arena', 'stade', 'centre_congres', 'theatre', 'espace_public']);
+
+const mapRMImpactLevel = (score: number): RMImpactLevel => score >= 80 ? 'hyper' : score >= 60 ? 'critique' : score >= 30 ? 'modere' : 'faible';
+const mapEvidenceType = (value: string): EventEvidence['sourceType'] | null => EVIDENCE_TYPES.has(value as EventEvidence['sourceType']) ? value as EventEvidence['sourceType'] : null;
 import { exportEventsToCSV } from './utils/helpers';
-import { exportEventsToPDF } from './utils/pdfExport';
+
 
 export default function App() {
-  const { user, loading: authLoading, error: authError, recoveryMode, signOut } = useAuth();
+  const { supabase, user, loading: authLoading, error: authError, recoveryMode, signOut } = useAuth();
   const handleLogout = async () => {
     try { await signOut(); }
     catch (error) { console.error('Supabase sign-out failed:', error); showToast('La déconnexion a échoué. Veuillez réessayer.'); }
@@ -130,45 +135,73 @@ export default function App() {
   });
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
-  const [venues, setVenues] = useState(INITIAL_VENUES);
-  const [sources, setSources] = useState(INITIAL_SOURCES);
-  const [suggestions, setSuggestions] = useState(INITIAL_SUGGESTIONS);
-  const [events, setEvents] = useState<EventItem[]>(() => generateFullMockEvents());
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [hotelsLoading, setHotelsLoading] = useState(true);
+  const [hotelsError, setHotelsError] = useState<string | null>(null);
+  const [eventDataLoading, setEventDataLoading] = useState(false);
+  const [eventDataError, setEventDataError] = useState<string | null>(null);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [sources, setSources] = useState<EventSource[]>([]);
+  const [suggestions, setSuggestions] = useState<EventSuggestion[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
 
   // Proposals State (Score RM 30 à 59)
-  const [proposals, setProposals] = useState<EventProposal[]>([
-    {
-      id: 'prop-init-1',
-      title: 'Salon du Vélo Urbain & Mobilités Douces',
-      subtitle: 'Écomobilité & transition urbaine',
-      category: 'salons_foires',
-      city: 'Paris',
-      venueName: 'Porte de Versailles',
-      startDate: '2026-11-27',
-      endDate: '2026-11-29',
-      expectedAttendance: 19000,
-      score: 48,
-      status: 'pending',
-      detectedSource: 'Fédération des Usagers de la Bicyclette (FUB)',
-      impactLevel: 'modere',
-    },
-    {
-      id: 'prop-init-2',
-      title: 'Championnat d’Europe d’Escrime Junior',
-      subtitle: 'Escrime épée & fleuret',
-      category: 'sport',
-      city: 'Paris',
-      venueName: 'Halle Carpentier',
-      startDate: '2026-12-04',
-      endDate: '2026-12-06',
-      expectedAttendance: 8500,
-      score: 36,
-      status: 'pending',
-      detectedSource: 'Fédération Française d’Escrime',
-      impactLevel: 'modere',
-    },
-  ]);
+  const [proposals, setProposals] = useState<EventProposal[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadAccessibleHotels = async () => {
+      if (!supabase) {
+        if (active) {
+          setHotelsError('Connexion Supabase indisponible : aucun portefeuille hôtelier réel ne peut être chargé.');
+          setHotelsLoading(false);
+        }
+        return;
+      }
+      setHotelsLoading(true);
+      setHotelsError(null);
+      try {
+        const { data, error } = await supabase
+          .from('hotels')
+          .select('id,name,group_name,city,country,address,lat,lng,stars,room_count,segment,base_adr')
+          .eq('is_active', true)
+          .order('name');
+        if (error) throw error;
+        const rows = (data ?? []).map((row: any): Hotel => ({
+          id: row.id,
+          name: row.name,
+          group: row.group_name ?? null,
+          city: row.city ?? '',
+          country: row.country ?? '',
+          address: row.address ?? null,
+          lat: typeof row.lat === 'number' ? row.lat : null,
+          lng: typeof row.lng === 'number' ? row.lng : null,
+          stars: typeof row.stars === 'number' ? row.stars : null,
+          roomCount: typeof row.room_count === 'number' ? row.room_count : null,
+          segment: ['Luxe', 'Boutique', 'Affaires', 'Économique', 'Resort'].includes(row.segment) ? row.segment : null,
+          baseADR: typeof row.base_adr === 'number' ? row.base_adr : null,
+        }));
+        if (!active) return;
+        setHotels(rows);
+        if (rows.length === 0) {
+          setHotelsError('Aucun hôtel actif accessible dans Supabase. Faites initialiser l’établissement et ses droits avant d’utiliser le RMS.');
+          return;
+        }
+        setFilterState((prev) => ({
+          ...prev,
+          selectedHotelId: rows.some((hotel) => hotel.id === prev.selectedHotelId)
+            ? prev.selectedHotelId
+            : rows[0].id,
+        }));
+      } catch (error) {
+        if (active) setHotelsError(error instanceof Error ? error.message : 'Impossible de charger les hôtels depuis Supabase.');
+      } finally {
+        if (active) setHotelsLoading(false);
+      }
+    };
+    void loadAccessibleHotels();
+    return () => { active = false; };
+  }, [supabase]);
 
   // View switch: 'calendar' vs 'table' (default to 'table' so Table View is immediately active)
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
@@ -188,9 +221,9 @@ export default function App() {
     anomaliesOnly: false,
     watchlistOnly: false,
     showSchoolHolidays: true,
-    selectedHotelId: 'hotel-opera',
-    currentYear: 2026,
-    currentMonth: 9, // October 2026 (0-indexed)
+    selectedHotelId: '',
+    currentYear: new Date().getFullYear(),
+    currentMonth: new Date().getMonth(),
   });
 
   // Collapsible advanced filters (open by default like the screenshot)
@@ -199,7 +232,7 @@ export default function App() {
   // Modals & Drawers
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [addEventDefaultDate, setAddEventDefaultDate] = useState<string>('2026-10-15');
+  const [addEventDefaultDate, setAddEventDefaultDate] = useState<string>(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()));
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isRefreshModalOpen, setIsRefreshModalOpen] = useState(false);
   const [isProposalsModalOpen, setIsProposalsModalOpen] = useState(false);
@@ -236,8 +269,186 @@ export default function App() {
 
   // Current Hotel selection
   const currentHotel = useMemo(() => {
-    return hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0];
+    return hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0] || EMPTY_HOTEL;
   }, [hotels, filterState.selectedHotelId]);
+  useEffect(() => {
+    let active = true;
+    const loadVerifiedHotelEvents = async () => {
+      setEventDataLoading(true);
+      setEventDataError(null);
+      setEvents([]);
+      setSources([]);
+      setVenues([]);
+      if (!supabase || !currentHotel.id) {
+        if (active) { setEventDataError('Session Supabase ou hôtel sélectionné indisponible.'); setEventDataLoading(false); }
+        return;
+      }
+      if (currentHotel.lat === null || currentHotel.lng === null) {
+        if (active) { setEventDataError('Coordonnées GPS absentes : aucun événement géographique ne sera associé à cet hôtel.'); setEventDataLoading(false); }
+        return;
+      }
+      try {
+        const impactResult = await supabase
+          .from('event_hotel_impacts')
+          .select('*')
+          .eq('hotel_id', currentHotel.id)
+          .eq('impact_status', 'validated')
+          .not('final_rm_score', 'is', null)
+          .not('distance_km', 'is', null)
+          .lte('distance_km', 30)
+          .order('final_rm_score', { ascending: false });
+        if (impactResult.error) throw impactResult.error;
+        const impacts = impactResult.data ?? [];
+        const eventIds = [...new Set(impacts.map((row: any) => row.event_id).filter(Boolean))];
+        const occurrenceIds = [...new Set(impacts.map((row: any) => row.occurrence_id).filter(Boolean))];
+        if (eventIds.length === 0 || occurrenceIds.length === 0) {
+          if (active) setEvents([]);
+          return;
+        }
+
+        const [eventResult, occurrenceResult, evidenceResult] = await Promise.all([
+          supabase.from('events').select('*').in('id', eventIds),
+          supabase.from('event_occurrences').select('*').in('id', occurrenceIds),
+          supabase.from('event_evidence').select('*').in('event_id', eventIds),
+        ]);
+        if (eventResult.error) throw eventResult.error;
+        if (occurrenceResult.error) throw occurrenceResult.error;
+        if (evidenceResult.error) throw evidenceResult.error;
+
+        const eventRows = eventResult.data ?? [];
+        const occurrenceRows = occurrenceResult.data ?? [];
+        const evidenceRows = evidenceResult.data ?? [];
+        const venueIds = [...new Set(eventRows.map((row: any) => row.venue_id).filter(Boolean))];
+        const sourceIds = [...new Set(evidenceRows.map((row: any) => row.source_id).filter(Boolean))];
+        const [venueResult, sourceResult] = await Promise.all([
+          venueIds.length ? supabase.from('venues').select('*').in('id', venueIds) : Promise.resolve({ data: [], error: null }),
+          sourceIds.length ? supabase.from('event_sources').select('*').in('id', sourceIds) : Promise.resolve({ data: [], error: null }),
+        ]);
+        if (venueResult.error) throw venueResult.error;
+        if (sourceResult.error) throw sourceResult.error;
+
+        const eventsById = new Map(eventRows.map((row: any) => [row.id, row]));
+        const occurrencesById = new Map(occurrenceRows.map((row: any) => [row.id, row]));
+        const venuesById = new Map((venueResult.data ?? []).map((row: any) => [row.id, row]));
+        const evidenceByEvent = new Map<string, any[]>();
+        for (const evidence of evidenceRows as any[]) {
+          const list = evidenceByEvent.get(evidence.event_id) ?? [];
+          list.push(evidence);
+          evidenceByEvent.set(evidence.event_id, list);
+        }
+
+        const mappedEvents: EventItem[] = [];
+        for (const impact of impacts as any[]) {
+          const event: any = eventsById.get(impact.event_id);
+          const occurrence: any = occurrencesById.get(impact.occurrence_id);
+          if (!event || !occurrence || !EVENT_CATEGORIES.has(event.category as EventCategory)) continue;
+          const venue: any = venuesById.get(event.venue_id);
+          const score = Number(impact.final_rm_score ?? 0);
+          const confidence = Number(impact.confidence_score ?? 0);
+          const eventEvidence: EventEvidence[] = (evidenceByEvent.get(event.id) ?? [])
+            .filter((row) => (!row.occurrence_id || row.occurrence_id === occurrence.id) && Boolean(row.source_name) && Boolean(row.source_url) && Boolean(row.verified_at ?? row.captured_at))
+            .map((row) => {
+              const sourceType = mapEvidenceType(String(row.evidence_type ?? ''));
+              if (!sourceType) return null;
+              return {
+                id: row.id,
+                sourceName: row.source_name ?? 'Source non nommée',
+                sourceUrl: row.source_url ?? '',
+                sourceType,
+                verifiedAt: row.verified_at ?? row.captured_at ?? row.created_at ?? '',
+                excerpt: row.excerpt ?? '',
+                trustScore: Number(row.trust_score ?? 0),
+              };
+            })
+            .filter((row): row is EventEvidence => row !== null);
+          if (eventEvidence.length === 0) continue;
+          const hotelImpact: EventHotelImpact = {
+            hotelId: currentHotel.id,
+            distanceKm: Number(impact.distance_km),
+            ...(impact.drive_time_minutes !== null ? { distanceMins: Number(impact.drive_time_minutes) } : {}),
+            ...(impact.estimated_demand_lift_pct !== null ? { directDemandShare: Number(impact.estimated_demand_lift_pct) } : {}),
+            estimatedADRBoostPercent: Number(impact.estimated_adr_lift_pct ?? 0),
+            ...(impact.recommended_action ? { recommendedAction: impact.recommended_action } : {}),
+          };
+          const scoreBreakdown: EventScoreBreakdown = {
+            attendanceScore: Number(impact.attendance_score ?? 0),
+            internationalScore: Number(impact.international_score ?? 0),
+            saturationScore: Number(impact.capacity_score ?? 0),
+            proximityScore: Number(impact.proximity_score ?? 0),
+            compressionScore: Number(impact.extra_nights_score ?? 0),
+            finalRMScore: score,
+            confidenceScore: confidence,
+            durationScore: Number(impact.duration_score ?? 0),
+            recurrenceScore: Number(impact.recurrence_score ?? 0),
+            capacityScore: Number(impact.capacity_score ?? 0),
+            notorietyScore: Number(impact.notoriety_score ?? 0),
+            extraNightsScore: Number(impact.extra_nights_score ?? 0),
+            segmentFitScore: Number(impact.segment_fit_score ?? 0),
+            sourceConfidenceScore: Number(impact.source_confidence_score ?? 0),
+            historicalDemandScore: Number(impact.historical_demand_score ?? 0),
+            historicalDemandSampleCount: Number(impact.historical_demand_sample_count ?? 0),
+          };
+          const status = CONFIRMATION_STATUSES.has(event.status as ConfirmationStatus) ? event.status as ConfirmationStatus : 'a_verifier';
+          mappedEvents.push({
+            id: occurrence.id,
+            title: event.title,
+            subtitle: event.subtitle ?? undefined,
+            category: event.category as EventCategory,
+            venueId: event.venue_id ?? '',
+            venueName: venue?.name ?? 'Lieu non renseigné',
+            city: event.city ?? currentHotel.city,
+            country: event.country_code ?? currentHotel.country,
+            startDate: occurrence.start_date,
+            endDate: occurrence.end_date,
+            expectedAttendance: Number(occurrence.attendance_estimate ?? event.expected_attendance ?? 0),
+            internationalRatioPercent: Number(event.international_ratio_pct ?? 0),
+            status,
+            impactLevel: mapRMImpactLevel(score),
+            scoreBreakdown,
+            sources: [...new Set(eventEvidence.map((row) => row.sourceName))],
+            evidences: eventEvidence,
+            hotelImpacts: { [currentHotel.id]: hotelImpact },
+            isRecurring: ['annual', 'biennial'].includes(event.recurrence_frequency),
+            ...(event.recurrence_frequency === 'annual' || event.recurrence_frequency === 'biennial' || event.recurrence_frequency === 'one_time' ? { recurrenceFrequency: event.recurrence_frequency } : {}),
+            notes: [impact.recommended_action, occurrence.notes, occurrence.attendance_estimate == null && event.expected_attendance == null ? 'Fréquentation non renseignée dans les sources.' : null].filter(Boolean).join(' · ') || undefined,
+            officialUrl: event.official_url ?? undefined,
+            createdAt: event.created_at,
+            lastVerifiedAt: event.last_verified_at ?? event.first_verified_at ?? event.created_at,
+          });
+        }
+
+        const mappedVenues: Venue[] = (venueResult.data ?? [])
+          .filter((row: any) => typeof row.latitude === 'number' && typeof row.longitude === 'number')
+          .filter((row: any) => VENUE_TYPES.has(row.venue_type as Venue['type']))
+          .map((row: any) => ({
+            id: row.id, name: row.name, city: row.city ?? '', country: row.country_code ?? '',
+            address: row.address ?? '', lat: row.latitude, lng: row.longitude,
+            capacity: Number(row.capacity ?? 0), type: row.venue_type as Venue['type'],
+          }));
+        const evidenceCounts = new Map<string, number>();
+        for (const evidence of evidenceRows as any[]) if (evidence.source_id) evidenceCounts.set(evidence.source_id, (evidenceCounts.get(evidence.source_id) ?? 0) + 1);
+        const mappedSources: EventSource[] = (sourceResult.data ?? []).map((row: any) => ({
+          id: row.id, name: row.name, url: row.source_url ?? '', category: row.source_type ?? 'unknown',
+          city: row.city ?? '', reliabilityScore: Number(row.reliability_score ?? 0),
+          lastCrawledAt: row.last_crawled_at ?? '',
+          status: ['healthy', 'warning', 'error'].includes(row.status) ? row.status : 'warning',
+          detectedEventsCount: evidenceCounts.get(row.id) ?? 0, isOfficial: Boolean(row.is_official),
+        }));
+
+        if (!active) return;
+        setEvents(mappedEvents);
+        setVenues(mappedVenues);
+        setSources(mappedSources);
+      } catch (error) {
+        if (active) setEventDataError(error instanceof Error ? error.message : 'Impossible de charger les événements validés.');
+      } finally {
+        if (active) setEventDataLoading(false);
+      }
+    };
+    void loadVerifiedHotelEvents();
+    return () => { active = false; };
+  }, [supabase, currentHotel.id, currentHotel.lat, currentHotel.lng, currentHotel.city, currentHotel.country]);
+
 
   // School holidays converted into EventItem representations
   const schoolHolidayEvents = useMemo(() => {
@@ -265,14 +476,14 @@ export default function App() {
 
       // Period Tab
       if (filterState.periodTab === 'upcoming') {
-        if (new Date(ev.startDate) < new Date('2026-10-01')) return false;
+        if (new Date(ev.startDate) < new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()))) return false;
       } else if (filterState.periodTab === 'ongoing') {
         const inMonth =
           ev.startDate.startsWith(`${filterState.currentYear}-${String(filterState.currentMonth + 1).padStart(2, '0')}`) ||
           ev.endDate.startsWith(`${filterState.currentYear}-${String(filterState.currentMonth + 1).padStart(2, '0')}`);
         if (!inMonth) return false;
       } else if (filterState.periodTab === 'past') {
-        if (new Date(ev.startDate) >= new Date('2026-10-01')) return false;
+        if (new Date(ev.startDate) >= new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()))) return false;
       }
 
       // Impact
@@ -337,8 +548,8 @@ export default function App() {
 
   // Add event handler
   const handleAddEvent = (newEvent: EventItem) => {
-    setEvents((prev) => [newEvent, ...prev]);
-    showToast(`Événement "${newEvent.title}" ajouté avec succès`);
+    void newEvent;
+    showToast("Création non enregistrée : le backend événementiel n'est pas encore raccordé. Aucun événement n'a été ajouté.");
   };
 
   const handleOpenAddOnDate = (dateStr: string) => {
@@ -348,8 +559,8 @@ export default function App() {
 
   // Excel / CSV Import handler
   const handleImportEvents = (imported: EventItem[]) => {
-    setEvents((prev) => [...imported, ...prev]);
-    showToast(`${imported.length} événements importés dans le référentiel`);
+    void imported;
+    showToast("Import bloqué : aucun backend événementiel persistant n'est disponible.");
   };
 
   // Excel / CSV Export handler
@@ -362,15 +573,13 @@ export default function App() {
   const handleExportPDF = () => {
     const currentHotel = hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0];
     showToast('Génération du rapport PDF en cours...');
-    exportEventsToPDF({
-      events: filteredEvents,
-      hotel: currentHotel,
-      viewMode,
-      filterState,
+    void import('./utils/pdfExport').then(({ exportEventsToPDF }) => {
+      exportEventsToPDF({ events: filteredEvents, hotel: currentHotel, viewMode, filterState });
+      showToast('Rapport PDF généré.');
+    }).catch((error) => {
+      console.error('PDF export failed:', error);
+      showToast('Échec de génération du rapport PDF.');
     });
-    setTimeout(() => {
-      showToast('Rapport PDF téléchargé avec succès');
-    }, 1000);
   };
 
   const handleDownloadTemplate = () => {
@@ -414,15 +623,8 @@ export default function App() {
     newProps: EventProposal[],
     stats: { newCount: number; modifiedCount: number; cancelledCount: number; verifiedCount: number }
   ) => {
-    // Score >= 60 auto-integrated
-    if (newHighImpact.length > 0) {
-      setEvents((prev) => [...newHighImpact, ...prev]);
-    }
-    // Score 30-59 added to proposals
-    if (newProps.length > 0) {
-      setProposals((prev) => [...newProps, ...prev]);
-    }
-    showToast(`Actualisation terminée : ${stats.newCount} nouveaux événements détectés`);
+    void newHighImpact; void newProps; void stats;
+    showToast("Actualisation non enregistrée : la veille événementielle n'est pas encore raccordée à un stockage persistant.");
   };
 
   // Proposal acceptance / refusal
@@ -490,17 +692,16 @@ export default function App() {
   };
 
   // Hotel management
-  const handleAddHotel = (newHotel: Hotel) => {
-    setHotels((prev) => [...prev, newHotel]);
-    showToast(`Hôtel "${newHotel.name}" ajouté au portefeuille`);
+  const handleAddHotel = (_newHotel: Hotel) => {
+    showToast("Ajout bloqué : les hôtels doivent être créés et autorisés dans Supabase par un administrateur.");
   };
 
-  const handleDeleteHotel = (hotelId: string) => {
-    setHotels((prev) => prev.filter((h) => h.id !== hotelId));
-    if (filterState.selectedHotelId === hotelId) {
-      setFilterState((prev) => ({ ...prev, selectedHotelId: hotels[0]?.id || 'all' }));
-    }
-    showToast('Hôtel supprimé');
+  const handleDeleteHotel = (_hotelId: string) => {
+    showToast("Suppression bloquée : aucun hôtel n'est supprimé depuis cette interface non raccordée à un flux d'administration sécurisé.");
+  };
+
+  const handleHotelCoordinatesUpdated = (hotelId: string, lat: number | null, lng: number | null) => {
+    setHotels((prev) => prev.map((hotel) => hotel.id === hotelId ? { ...hotel, lat, lng } : hotel));
   };
 
   const pendingSuggestionsCount = suggestions.filter((s) => s.status === 'pending').length;
@@ -512,11 +713,13 @@ export default function App() {
     </div>
   );
   if (recoveryMode || !user) return <LoginPage authError={authError} recoveryMode={recoveryMode} />;
+  if (hotelsLoading) return <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]"><div className="text-center space-y-3"><div className="mx-auto h-9 w-9 rounded-full border-4 border-violet-100 border-t-violet-600 animate-spin" /><p className="text-sm font-medium text-slate-600">Chargement des établissements autorisés depuis Supabase…</p></div></div>;
+  if (hotelsError || hotels.length === 0) return <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] p-6"><div className="max-w-xl rounded-2xl border border-amber-200 bg-white p-6 shadow-sm"><h1 className="text-lg font-bold text-slate-900">Portefeuille hôtelier indisponible</h1><p className="mt-2 text-sm text-slate-600">{hotelsError || 'Aucun hôtel actif accessible.'}</p><button onClick={() => window.location.reload()} className="mt-4 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white">Réessayer</button></div></div>;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 antialiased font-sans">
       {/* Top Navbar */}
-      <Navbar
+      <React.Suspense fallback={null}><Navbar
         hotels={hotels}
         selectedHotelId={filterState.selectedHotelId}
         onSelectHotel={(id) => handleFilterChange({ selectedHotelId: id })}
@@ -537,12 +740,12 @@ export default function App() {
         onOpenShortcutsHelp={() => setIsShortcutsHelpOpen(true)}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
-      />
+      /></React.Suspense>
 
       {/* Main Container: Fixed Sidebar + Content */}
       <div className="flex-1 flex relative">
         {/* Sidebar Navigation (Slim Icon-Rail) */}
-        <Sidebar
+        <React.Suspense fallback={null}><Sidebar
           activeTab={activeTab}
           onChangeTab={(tab) => {
             setActiveTab(tab);
@@ -553,13 +756,16 @@ export default function App() {
           onCloseMobile={() => setIsMobileMenuOpen(false)}
           onLogout={handleLogout}
           userInitials={user.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
-          userName={user?.name || 'Nabil Amrani'}
-        />
+          userName={user?.name || 'Utilisateur'}
+        /></React.Suspense>
 
         {/* Dynamic Content Viewport */}
         <main
           className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 transition-[margin] duration-200 ease-in-out lg:ml-16 w-full"
         >
+          {eventDataLoading ? <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Chargement des événements validés et de leurs preuves depuis Supabase…</div> : null}
+          {eventDataError ? <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">Veille événementielle : {eventDataError}</div> : null}
+          <React.Suspense fallback={<div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">Chargement du module…</div>}>
           {/* TAB: CALENDRIER & ÉVÉNEMENTS (VUE TABLEAU / CALENDRIER / VACANCES SCOLAIRES) */}
           {activeTab === 'calendar' && (
             <div className="space-y-6">
@@ -831,11 +1037,14 @@ export default function App() {
               selectedHotelId={filterState.selectedHotelId}
               onSelectHotel={(id) => setFilterState((prev) => ({ ...prev, selectedHotelId: id }))}
               onShowToast={showToast}
+              onHotelCoordinatesUpdated={handleHotelCoordinatesUpdated}
             />
           )}
+          </React.Suspense>
         </main>
       </div>
 
+      <React.Suspense fallback={null}>
       {/* Side Drawer: Event Detail Sheet */}
       <EventDetailModal
         event={selectedEvent}
@@ -923,8 +1132,13 @@ export default function App() {
         onToggleFullscreen={handleToggleFullscreen}
         isFullscreen={isFullscreen}
         onExportExcel={() => {
-          const res = exportCompleteHistoricalExcel({ hotelName: currentHotel.name });
-          showToast(`✓ ${res.totalRows} dates de prix et d'occupation exportées dans "${res.filename}"`);
+          void import('./services/excelHistoricalExportService').then(({ exportCompleteHistoricalExcel }) => {
+            const res = exportCompleteHistoricalExcel({ hotelName: currentHotel.name });
+            showToast(`✓ ${res.totalRows} dates de prix et d'occupation exportées dans "${res.filename}"`);
+          }).catch((error) => {
+            console.error('Historical Excel export failed:', error);
+            showToast("Échec de l'export Excel.");
+          });
         }}
         onOpenShortcutsHelp={() => setIsShortcutsHelpOpen(true)}
       />
@@ -934,6 +1148,7 @@ export default function App() {
         isOpen={isShortcutsHelpOpen}
         onClose={() => setIsShortcutsHelpOpen(false)}
       />
+      </React.Suspense>
 
       {/* Toast Feedback */}
       {toastMessage && (
