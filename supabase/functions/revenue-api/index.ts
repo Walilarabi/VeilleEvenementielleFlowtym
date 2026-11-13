@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.118.0";
+import { withSupabase } from "npm:@supabase/server@1";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -54,14 +54,14 @@ const dateRange = (url: URL) => {
   return days <= 365 ? { from, to } : null;
 };
 
-async function getProfile(supabase: SupabaseClient, userId: string): Promise<Profile | null> {
+async function getProfile(supabase: any, userId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("users").select("id,organization_id,role,email").eq("id", userId).maybeSingle();
   if (error || !data) return null;
   return data as Profile;
 }
 
-async function getHotel(supabase: SupabaseClient, hotelId: string): Promise<Hotel | null> {
+async function getHotel(supabase: any, hotelId: string): Promise<Hotel | null> {
   const { data, error } = await supabase
     .from("hotels")
     .select("id,organization_id,name,room_count,timezone,currency,rate_floor,rate_ceiling,max_rate_change_pct")
@@ -74,27 +74,11 @@ function requireManager(profile: Profile) {
   return ["super_admin", "admin", "revenue_manager"].includes(profile.role);
 }
 
-async function handle(req: Request): Promise<Response> {
+async function handle(req: Request, supabase: any, userId: string): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (!["GET", "POST"].includes(req.method)) return fail("Method not allowed", 405);
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return fail("Authentification requise", 401);
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const apiKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-  if (!supabaseUrl || !apiKey) return fail("Configuration serveur Supabase incomplète", 500);
-
-  // The caller's JWT is forwarded to PostgREST. No service-role key is used:
-  // every database operation remains subject to the caller's RLS policies.
-  const supabase = createClient(supabaseUrl, apiKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData.user) return fail("Session invalide ou expirée", 401);
-  const profile = await getProfile(supabase, authData.user.id);
+  const profile = await getProfile(supabase, userId);
   if (!profile) return fail("Profil Flowtym introuvable ou inaccessible", 403);
 
   const url = new URL(req.url);
@@ -462,11 +446,14 @@ async function handle(req: Request): Promise<Response> {
   return fail("Route inconnue", 404);
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(withSupabase({ auth: "user" }, async (req, ctx) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    return await handle(req);
+    const userId = ctx.userClaims?.id;
+    if (!userId) return fail("Authentification requise", 401);
+    return await handle(req, ctx.supabase, userId);
   } catch (error) {
     console.error("[revenue-api]", error);
     return fail("Erreur interne du service Revenue Management", 500);
   }
-});
+}));
