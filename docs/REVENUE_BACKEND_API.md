@@ -30,6 +30,7 @@ All routes require a valid Supabase user access token.
 | GET | `/hotels/:hotelId/forecasts?from=...&to=...` | Persisted daily forecasts |
 | GET | `/hotels/:hotelId/backtests` | Historical model evaluations |
 | POST | `/hotels/:hotelId/backtests/evaluate` | Evaluate a completed forecast run against realized occupancy |
+| POST | `/hotels/:hotelId/backtests/walk-forward` | Rolling-origin evaluation of four historical baselines |
 | POST | `/hotels/:hotelId/decisions` | Accept, modify or reject a recommendation |
 | POST | `/hotels/:hotelId/events/score` | Calculate hotel-specific impact from verified event evidence and configured weights |
 | POST | `/hotels/:hotelId/parameters` | Save hotel pricing parameters |
@@ -125,9 +126,11 @@ Example configuration only — not a pre-approved set of weights or hotel thresh
 
 `event_impact_v1` requires hotel-specific weights and scales in `hotel_parameters_profiles.demand_thresholds`. Inputs are the event attendance estimate, international ratio, occurrence duration, straight-line hotel-to-venue distance, verified venue capacity, verified evidence trust scores, configured recurrence scores and optional segment-fit scores. Components with missing evidence remain NULL and their weights are excluded from the available-weight mean. The result is stored as `to_review`; it is never auto-validated. Drive time and extra-night lift are explicitly not calculated until verified routing and hotel-history models exist. Only confirmed/probable events with confirmed occurrence dates are scored.
 
-## Forecast baseline
+## Forecast baselines
 
-`seasonal_naive_same_month_weekday@1.0.0` uses only historical rows strictly earlier than the forecast run date, grouped by month and weekday. It requires at least three observations per target date and returns empirical p10/p50/p90 occupancy quantiles. It is a baseline, not a production-grade demand model. The backtest endpoint evaluates completed forecast runs only when actual observations exist strictly after the run's `as_of` timestamp; it persists WAPE, MAE, RMSE, bias and empirical interval coverage. Walk-forward backtest orchestration and multi-model promotion gates remain future work.
+The forecast endpoint persists four separate, versioned baseline runs: `seasonal_naive_same_month_weekday`, `same_weekday_last_year`, `seasonal_average_same_month` and `pickup_historical_comparable`. All training rows are restricted to information available before the run's `as_of`; the pickup-comparable baseline matches historical demand snapshots by lead time and uses the realized occupancy of those historical arrival dates. At least three samples are required for the seasonal baselines; the same-weekday-last-year baseline can use one comparable year, but its interval bounds remain NULL until at least three samples exist. Quantiles p10/p50/p90 are persisted when sample size supports them. No complex model is promoted by this baseline layer.
+
+The walk-forward endpoint evaluates those four baselines on a historical test window. Each target date has its own origin (`stay_date - horizonDays`); only training rows and demand snapshots available at that origin are used. It persists WAPE, MAE, RMSE, bias and empirical interval coverage per model. The completed-run evaluator remains available for future live forecasts once actuals arrive.
 
 ## Source status and data truth
 
