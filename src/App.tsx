@@ -726,6 +726,7 @@ export default function App() {
               hotel={currentHotel}
               onNavigateToPricing={() => setActiveTab('pricing')}
               onShowToast={showToast}
+              backendMode
             />
           )}
 
