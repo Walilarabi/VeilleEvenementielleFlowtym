@@ -59,11 +59,9 @@ import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEvent
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
 import {
-  INITIAL_HOTELS,
   INITIAL_VENUES,
   INITIAL_SUGGESTIONS,
   INITIAL_SOURCES,
-  generateFullMockEvents,
 } from './data/mockData';
 import { EventItem, FilterState, Hotel, EventProposal } from './types';
 import { exportEventsToCSV } from './utils/helpers';
@@ -139,38 +137,7 @@ export default function App() {
   const [events, setEvents] = useState<EventItem[]>([]);
 
   // Proposals State (Score RM 30 à 59)
-  const [proposals, setProposals] = useState<EventProposal[]>([
-    {
-      id: 'prop-init-1',
-      title: 'Salon du Vélo Urbain & Mobilités Douces',
-      subtitle: 'Écomobilité & transition urbaine',
-      category: 'salons_foires',
-      city: 'Paris',
-      venueName: 'Porte de Versailles',
-      startDate: '2026-11-27',
-      endDate: '2026-11-29',
-      expectedAttendance: 19000,
-      score: 48,
-      status: 'pending',
-      detectedSource: 'Fédération des Usagers de la Bicyclette (FUB)',
-      impactLevel: 'modere',
-    },
-    {
-      id: 'prop-init-2',
-      title: 'Championnat d’Europe d’Escrime Junior',
-      subtitle: 'Escrime épée & fleuret',
-      category: 'sport',
-      city: 'Paris',
-      venueName: 'Halle Carpentier',
-      startDate: '2026-12-04',
-      endDate: '2026-12-06',
-      expectedAttendance: 8500,
-      score: 36,
-      status: 'pending',
-      detectedSource: 'Fédération Française d’Escrime',
-      impactLevel: 'modere',
-    },
-  ]);
+  const [proposals, setProposals] = useState<EventProposal[]>([]);
 
   // View switch: 'calendar' vs 'table' (default to 'table' so Table View is immediately active)
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
