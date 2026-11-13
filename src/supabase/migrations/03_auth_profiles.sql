@@ -19,3 +19,12 @@ revoke all on function public.handle_new_auth_user() from public,anon,authentica
 drop trigger if exists on_auth_user_created_flowtym on auth.users;
 create trigger on_auth_user_created_flowtym after insert on auth.users for each row execute function public.handle_new_auth_user();
 do $$ begin if to_regprocedure('public.rls_auto_enable()') is not null then execute 'revoke all on function public.rls_auto_enable() from public, anon, authenticated'; end if; end; $$;
+
+grant select on table public.organizations to authenticated;
+drop policy if exists "organization_members_read_own_organization" on public.organizations;
+create policy "organization_members_read_own_organization" on public.organizations
+for select to authenticated
+using (exists (
+ select 1 from public.users u
+ where u.id = (select auth.uid()) and u.organization_id = organizations.id
+));

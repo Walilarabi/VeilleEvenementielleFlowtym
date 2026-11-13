@@ -110,9 +110,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         setLoading(true);
-        void loadProfile(session?.user ?? null).finally(() => {
-          if (active) setLoading(false);
-        });
+        window.setTimeout(() => {
+          if (!active) return;
+          void loadProfile(session?.user ?? null).finally(() => {
+            if (active) setLoading(false);
+          });
+        }, 0);
       }
     });
 
