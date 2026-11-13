@@ -197,3 +197,8 @@ export const getHotelRevenueParameters = (supabase: SupabaseClient, hotelId: str
   revenueApiRequest<{ ok: true; data: Record<string, unknown> | null }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/parameters`,
   );
+
+export const getHotelLighthouseObservations = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; data: unknown[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/lighthouse-observations?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  );
