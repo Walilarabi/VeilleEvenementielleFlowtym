@@ -64,7 +64,7 @@ import {
   LighthouseExtractionDataset,
   MarketDemandThresholds,
   DEFAULT_DEMAND_THRESHOLDS,
-  createDefaultLighthouseDataset,
+  createEmptyLighthouseDataset,
   exportLighthouseWorkbookToXLSX,
   parseLighthouseExcelFile,
   getDemandColor,
@@ -94,10 +94,10 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
   onShowToast,
   onApplyRecommendationToRMS,
 }) => {
-  // Extraction Dataset State (demo fixture, explicitly labelled as simulation until a real export is imported)
-  const [dataset, setDataset] = useState<LighthouseExtractionDataset>(() => createDefaultLighthouseDataset());
-  const [extractionsHistory, setExtractionsHistory] = useState<LighthouseExtractionDataset[]>([dataset]);
-  const [selectedExtractionId, setSelectedExtractionId] = useState<string>(dataset.metadata.id);
+  // Aucune donnée synthétique au démarrage : seules les extractions réellement importées sont affichées.
+  const [dataset, setDataset] = useState<LighthouseExtractionDataset>(() => createEmptyLighthouseDataset());
+  const [extractionsHistory, setExtractionsHistory] = useState<LighthouseExtractionDataset[]>([]);
+  const [selectedExtractionId, setSelectedExtractionId] = useState<string>('');
 
   // Flowtym Configurable Demand Thresholds
   const [thresholds, setThresholds] = useState<MarketDemandThresholds>(DEFAULT_DEMAND_THRESHOLDS);
