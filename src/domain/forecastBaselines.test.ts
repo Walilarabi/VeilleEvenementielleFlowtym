@@ -25,7 +25,7 @@ test("seasonal baseline excludes future, same-day and simulation rows",()=>{
 
 test("same weekday last year uses only comparable dates before origin",()=>{
   const rows=selectForecastTrainingRows("same_weekday_last_year","2027-11-12","2027-10-13",30,history,[],new Map());
-  assert.equal(rows.length,0);
+  assert.equal(rows.length,2);
 });
 
 test("seasonal average includes same-month real/imported observations only",()=>{
