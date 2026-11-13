@@ -117,7 +117,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const range = dateRange(url);
     if (!range) return fail("Les paramètres from et to sont obligatoires (maximum 365 jours)");
     const { data, error } = await supabase.from("event_hotel_impacts")
-      .select("*,events(id,title,subtitle,category,status,city,country_code,expected_attendance,international_ratio_pct,recurrence_frequency,official_url,created_at,updated_at,venues(id,name,city,country_code,address,latitude,longitude,capacity,verification_status),event_evidence(id,source_name,source_url,excerpt,evidence_type,trust_score,verified_at)) ,event_occurrences(id,start_date,end_date,date_status,attendance_estimate)")
+      .select("*,events(id,title,subtitle,category,status,city,country_code,expected_attendance,international_ratio_pct,recurrence_frequency,official_url,created_at,updated_at,venues(id,name,city,country_code,address,latitude,longitude,capacity,verification_status),event_evidence(id,source_name,source_url,excerpt,evidence_type,trust_score,verified_at,event_sources(source_type))) ,event_occurrences(id,start_date,end_date,date_status,attendance_estimate)")
       .eq("hotel_id", hotelId).gte("event_occurrences.start_date", range.from)
       .lte("event_occurrences.end_date", range.to).order("final_rm_score", { ascending: false });
     if (error) return fail("Lecture des impacts événementiels impossible", 400, error.message);
