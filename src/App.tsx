@@ -58,9 +58,17 @@ const KeyboardShortcutsModal = React.lazy(() => import('./components/modals/Keyb
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
-import { EventItem, EventSuggestion, EventSource, FilterState, Hotel, EventProposal, Venue } from './types';
+import { EventItem, EventSuggestion, EventSource, FilterState, Hotel, EventProposal, Venue, EventEvidence, EventHotelImpact, EventScoreBreakdown, EventCategory, ConfirmationStatus, RMImpactLevel } from './types';
 
 const EMPTY_HOTEL: Hotel = { id: '', name: '', group: null, city: '', country: '', address: null, lat: null, lng: null, stars: null, roomCount: null, segment: null, baseADR: null };
+
+const EVENT_CATEGORIES = new Set<EventCategory>(['salons_foires', 'congres_medical', 'concerts_spectacles', 'sport', 'festivals', 'mode_luxe', 'corporate_sommet', 'culturel', 'vacances_scolaires']);
+const CONFIRMATION_STATUSES = new Set<ConfirmationStatus>(['confirmed', 'probable', 'estime', 'a_verifier', 'estimated_recurrent', 'announced_pending', 'rumored']);
+const EVIDENCE_TYPES = new Set<EventEvidence['sourceType']>(['official_organizer', 'venue_calendar', 'press', 'ticketing', 'city_agenda']);
+const VENUE_TYPES = new Set<Venue['type']>(['parc_expositions', 'arena', 'stade', 'centre_congres', 'theatre', 'espace_public']);
+
+const mapRMImpactLevel = (score: number): RMImpactLevel => score >= 80 ? 'hyper' : score >= 60 ? 'critique' : score >= 30 ? 'modere' : 'faible';
+const mapEvidenceType = (value: string): EventEvidence['sourceType'] | null => EVIDENCE_TYPES.has(value as EventEvidence['sourceType']) ? value as EventEvidence['sourceType'] : null;
 import { exportEventsToCSV } from './utils/helpers';
 
 
@@ -130,6 +138,8 @@ export default function App() {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [hotelsLoading, setHotelsLoading] = useState(true);
   const [hotelsError, setHotelsError] = useState<string | null>(null);
+  const [eventDataLoading, setEventDataLoading] = useState(false);
+  const [eventDataError, setEventDataError] = useState<string | null>(null);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [sources, setSources] = useState<EventSource[]>([]);
   const [suggestions, setSuggestions] = useState<EventSuggestion[]>([]);
@@ -261,6 +271,174 @@ export default function App() {
   const currentHotel = useMemo(() => {
     return hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0] || EMPTY_HOTEL;
   }, [hotels, filterState.selectedHotelId]);
+  useEffect(() => {
+    let active = true;
+    const loadVerifiedHotelEvents = async () => {
+      setEventDataLoading(true);
+      setEventDataError(null);
+      setEvents([]);
+      setSources([]);
+      setVenues([]);
+      if (!supabase || !currentHotel.id) {
+        if (active) { setEventDataError('Session Supabase ou hôtel sélectionné indisponible.'); setEventDataLoading(false); }
+        return;
+      }
+      if (currentHotel.lat === null || currentHotel.lng === null) {
+        if (active) { setEventDataError('Coordonnées GPS absentes : aucun événement géographique ne sera associé à cet hôtel.'); setEventDataLoading(false); }
+        return;
+      }
+      try {
+        const impactResult = await supabase
+          .from('event_hotel_impacts')
+          .select('*')
+          .eq('hotel_id', currentHotel.id)
+          .eq('impact_status', 'validated')
+          .not('final_rm_score', 'is', null)
+          .not('distance_km', 'is', null)
+          .lte('distance_km', 30)
+          .order('final_rm_score', { ascending: false });
+        if (impactResult.error) throw impactResult.error;
+        const impacts = impactResult.data ?? [];
+        const eventIds = [...new Set(impacts.map((row: any) => row.event_id).filter(Boolean))];
+        const occurrenceIds = [...new Set(impacts.map((row: any) => row.occurrence_id).filter(Boolean))];
+        if (eventIds.length === 0 || occurrenceIds.length === 0) {
+          if (active) setEvents([]);
+          return;
+        }
+
+        const [eventResult, occurrenceResult, evidenceResult] = await Promise.all([
+          supabase.from('events').select('*').in('id', eventIds),
+          supabase.from('event_occurrences').select('*').in('id', occurrenceIds),
+          supabase.from('event_evidence').select('*').in('event_id', eventIds),
+        ]);
+        if (eventResult.error) throw eventResult.error;
+        if (occurrenceResult.error) throw occurrenceResult.error;
+        if (evidenceResult.error) throw evidenceResult.error;
+
+        const eventRows = eventResult.data ?? [];
+        const occurrenceRows = occurrenceResult.data ?? [];
+        const evidenceRows = evidenceResult.data ?? [];
+        const venueIds = [...new Set(eventRows.map((row: any) => row.venue_id).filter(Boolean))];
+        const sourceIds = [...new Set(evidenceRows.map((row: any) => row.source_id).filter(Boolean))];
+        const [venueResult, sourceResult] = await Promise.all([
+          venueIds.length ? supabase.from('venues').select('*').in('id', venueIds) : Promise.resolve({ data: [], error: null }),
+          sourceIds.length ? supabase.from('event_sources').select('*').in('id', sourceIds) : Promise.resolve({ data: [], error: null }),
+        ]);
+        if (venueResult.error) throw venueResult.error;
+        if (sourceResult.error) throw sourceResult.error;
+
+        const eventsById = new Map(eventRows.map((row: any) => [row.id, row]));
+        const occurrencesById = new Map(occurrenceRows.map((row: any) => [row.id, row]));
+        const venuesById = new Map((venueResult.data ?? []).map((row: any) => [row.id, row]));
+        const evidenceByEvent = new Map<string, any[]>();
+        for (const evidence of evidenceRows as any[]) {
+          const list = evidenceByEvent.get(evidence.event_id) ?? [];
+          list.push(evidence);
+          evidenceByEvent.set(evidence.event_id, list);
+        }
+
+        const mappedEvents: EventItem[] = [];
+        for (const impact of impacts as any[]) {
+          const event: any = eventsById.get(impact.event_id);
+          const occurrence: any = occurrencesById.get(impact.occurrence_id);
+          if (!event || !occurrence || !EVENT_CATEGORIES.has(event.category as EventCategory)) continue;
+          const venue: any = venuesById.get(event.venue_id);
+          const score = Number(impact.final_rm_score ?? 0);
+          const confidence = Number(impact.confidence_score ?? 0);
+          const eventEvidence: EventEvidence[] = (evidenceByEvent.get(event.id) ?? [])
+            .filter((row) => !row.occurrence_id || row.occurrence_id === occurrence.id)
+            .map((row) => {
+              const sourceType = mapEvidenceType(String(row.evidence_type ?? ''));
+              if (!sourceType) return null;
+              return {
+                id: row.id,
+                sourceName: row.source_name ?? 'Source non nommée',
+                sourceUrl: row.source_url ?? '',
+                sourceType,
+                verifiedAt: row.verified_at ?? row.captured_at ?? row.created_at ?? '',
+                excerpt: row.excerpt ?? '',
+                trustScore: Number(row.trust_score ?? 0),
+              };
+            })
+            .filter((row): row is EventEvidence => row !== null);
+          const hotelImpact: EventHotelImpact = {
+            hotelId: currentHotel.id,
+            distanceKm: Number(impact.distance_km),
+            ...(impact.drive_time_minutes !== null ? { distanceMins: Number(impact.drive_time_minutes) } : {}),
+            ...(impact.estimated_demand_lift_pct !== null ? { directDemandShare: Number(impact.estimated_demand_lift_pct) } : {}),
+            estimatedADRBoostPercent: Number(impact.estimated_adr_lift_pct ?? 0),
+            ...(impact.recommended_action ? { recommendedAction: impact.recommended_action } : {}),
+          };
+          const scoreBreakdown: EventScoreBreakdown = {
+            attendanceScore: Number(impact.attendance_score ?? 0),
+            internationalScore: Number(impact.international_score ?? 0),
+            saturationScore: Number(impact.capacity_score ?? 0),
+            proximityScore: Number(impact.proximity_score ?? 0),
+            compressionScore: Number(impact.extra_nights_score ?? 0),
+            finalRMScore: score,
+            confidenceScore: confidence,
+          };
+          const status = CONFIRMATION_STATUSES.has(event.status as ConfirmationStatus) ? event.status as ConfirmationStatus : 'a_verifier';
+          mappedEvents.push({
+            id: occurrence.id,
+            title: event.title,
+            subtitle: event.subtitle ?? undefined,
+            category: event.category as EventCategory,
+            venueId: event.venue_id ?? '',
+            venueName: venue?.name ?? 'Lieu non renseigné',
+            city: event.city ?? currentHotel.city,
+            country: event.country_code ?? currentHotel.country,
+            startDate: occurrence.start_date,
+            endDate: occurrence.end_date,
+            expectedAttendance: Number(occurrence.attendance_estimate ?? event.expected_attendance ?? 0),
+            internationalRatioPercent: Number(event.international_ratio_pct ?? 0),
+            status,
+            impactLevel: mapRMImpactLevel(score),
+            scoreBreakdown,
+            sources: [...new Set(eventEvidence.map((row) => row.sourceName))],
+            evidences: eventEvidence,
+            hotelImpacts: { [currentHotel.id]: hotelImpact },
+            isRecurring: ['annual', 'biennial'].includes(event.recurrence_frequency),
+            ...(event.recurrence_frequency === 'annual' || event.recurrence_frequency === 'biennial' || event.recurrence_frequency === 'one_time' ? { recurrenceFrequency: event.recurrence_frequency } : {}),
+            notes: impact.recommended_action ?? occurrence.notes ?? undefined,
+            officialUrl: event.official_url ?? undefined,
+            createdAt: event.created_at,
+            lastVerifiedAt: event.last_verified_at ?? event.first_verified_at ?? event.created_at,
+          });
+        }
+
+        const mappedVenues: Venue[] = (venueResult.data ?? [])
+          .filter((row: any) => typeof row.latitude === 'number' && typeof row.longitude === 'number')
+          .filter((row: any) => VENUE_TYPES.has(row.venue_type as Venue['type']))
+          .map((row: any) => ({
+            id: row.id, name: row.name, city: row.city ?? '', country: row.country_code ?? '',
+            address: row.address ?? '', lat: row.latitude, lng: row.longitude,
+            capacity: Number(row.capacity ?? 0), type: row.venue_type as Venue['type'],
+          }));
+        const evidenceCounts = new Map<string, number>();
+        for (const evidence of evidenceRows as any[]) if (evidence.source_id) evidenceCounts.set(evidence.source_id, (evidenceCounts.get(evidence.source_id) ?? 0) + 1);
+        const mappedSources: EventSource[] = (sourceResult.data ?? []).map((row: any) => ({
+          id: row.id, name: row.name, url: row.source_url ?? '', category: row.source_type ?? 'unknown',
+          city: row.city ?? '', reliabilityScore: Number(row.reliability_score ?? 0),
+          lastCrawledAt: row.last_crawled_at ?? '',
+          status: ['healthy', 'warning', 'error'].includes(row.status) ? row.status : 'warning',
+          detectedEventsCount: evidenceCounts.get(row.id) ?? 0, isOfficial: Boolean(row.is_official),
+        }));
+
+        if (!active) return;
+        setEvents(mappedEvents);
+        setVenues(mappedVenues);
+        setSources(mappedSources);
+      } catch (error) {
+        if (active) setEventDataError(error instanceof Error ? error.message : 'Impossible de charger les événements validés.');
+      } finally {
+        if (active) setEventDataLoading(false);
+      }
+    };
+    void loadVerifiedHotelEvents();
+    return () => { active = false; };
+  }, [supabase, currentHotel.id, currentHotel.lat, currentHotel.lng, currentHotel.city, currentHotel.country]);
+
 
   // School holidays converted into EventItem representations
   const schoolHolidayEvents = useMemo(() => {
