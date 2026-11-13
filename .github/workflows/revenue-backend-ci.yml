@@ -25,6 +25,8 @@ jobs:
         run: npm install
       - name: Dependency security audit
         run: npm audit --audit-level=high
+      - name: Verify patched SheetJS version
+        run: node -e "const x = require('xlsx'); if (x.version !== '0.20.3') { console.error('Unexpected SheetJS version:', x.version); process.exit(1); }"
       - name: Revenue domain tests
         run: npm test
       - name: TypeScript validation
