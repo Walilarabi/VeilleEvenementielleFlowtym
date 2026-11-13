@@ -346,7 +346,7 @@ export default function App() {
           const score = Number(impact.final_rm_score ?? 0);
           const confidence = Number(impact.confidence_score ?? 0);
           const eventEvidence: EventEvidence[] = (evidenceByEvent.get(event.id) ?? [])
-            .filter((row) => !row.occurrence_id || row.occurrence_id === occurrence.id)
+            .filter((row) => (!row.occurrence_id || row.occurrence_id === occurrence.id) && Boolean(row.source_name) && Boolean(row.source_url) && Boolean(row.verified_at ?? row.captured_at))
             .map((row) => {
               const sourceType = mapEvidenceType(String(row.evidence_type ?? ''));
               if (!sourceType) return null;
