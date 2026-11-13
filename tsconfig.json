@@ -4,7 +4,10 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "types": ["vite/client", "google.maps"],
+    "types": [
+      "vite/client",
+      "google.maps"
+    ],
     "lib": [
       "ES2022",
       "DOM",
@@ -24,5 +27,8 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "exclude": ["dist"]
+  "exclude": [
+    "dist",
+    "supabase/functions"
+  ]
 }
