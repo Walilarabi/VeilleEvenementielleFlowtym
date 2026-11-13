@@ -62,7 +62,7 @@ export interface EventHotelImpact {
   distanceKm: number;
   distanceMins: number;
   directDemandShare: number; // % estimated demand
-  directImpact?: number; // legacy fixture field, never treated as a verified metric
+  directImpact?: boolean; // legacy fixture flag, never treated as a verified metric
   compressionIndex: number; // 1-10
   recommendedAction: string;
   estimatedADRBoostPercent: number;
