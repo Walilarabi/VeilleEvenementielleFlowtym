@@ -313,7 +313,7 @@ async function handle(req: Request): Promise<Response> {
       forecasts.push({
         organization_id: hotel.organization_id, hotel_id: hotelId, forecast_run_id: run.id, stay_date: stayDate,
         occupancy_p10: quantile(occ,0.1), occupancy_p50: median(occ), occupancy_p90: quantile(occ,0.9),
-        adr_p50: median(adr), revpar_p50: median(revpar), confidence_score: Math.min(90, sample.length*10),
+        adr_p50: median(adr), revpar_p50: median(revpar), confidence_score: null,
         drivers: [{ type: "seasonal_naive", sampleCount: sample.length, sameMonthWeekday: true }],
         source_status: "derived",
       });
@@ -362,12 +362,18 @@ async function handle(req: Request): Promise<Response> {
       return fail("Configuration pricing_v1 invalide : weights, thresholds et rate_adjustments_pct requis", 422);
     }
 
-    const [{ data: inventory },{ data: reservations },{ data: compRates },{ data: impacts }] = await Promise.all([
+    const [inventoryResult,reservationResult,compRateResult,impactResult] = await Promise.all([
       supabase.from("hotel_inventory_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
       supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
       supabase.from("lighthouse_rate_observations").select("stay_date,rate_amount,availability_status,observed_at,source_status").eq("hotel_id",hotelId).eq("availability_status","available").in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
-      supabase.from("event_hotel_impacts").select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)").eq("hotel_id",hotelId).gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end).not("final_rm_score","is",null),
+      supabase.from("event_hotel_impacts").select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)").eq("hotel_id",hotelId).eq("impact_status","validated").gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end).not("final_rm_score","is",null),
     ]);
+    const queryError = inventoryResult.error ?? reservationResult.error ?? compRateResult.error ?? impactResult.error;
+    if (queryError) return fail("Lecture des données sources Revenue impossible", 400, queryError.message);
+    const inventory = inventoryResult.data ?? [];
+    const reservations = reservationResult.data ?? [];
+    const compRates = compRateResult.data ?? [];
+    const impacts = impactResult.data ?? [];
     const latestInventory = new Map<string,any>();
     for (const r of inventory ?? []) if (!latestInventory.has(r.stay_date)) latestInventory.set(r.stay_date,r);
     const reservationByDate = new Map<string,any[]>();
