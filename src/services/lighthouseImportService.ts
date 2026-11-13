@@ -203,6 +203,15 @@ export async function loadRecentLighthouseExtractions(
     id: row.id,
     fileName: row.file_name || "Extraction Lighthouse",
     observedAt: row.observed_at,
-    dataset: row.metadata?.parsedDataset?.records ? row.metadata.parsedDataset as LighthouseExtractionDataset : null,
+    dataset: row.metadata?.parsedDataset?.records
+      ? {
+          ...(row.metadata.parsedDataset as LighthouseExtractionDataset),
+          metadata: {
+            ...(row.metadata.parsedDataset as LighthouseExtractionDataset).metadata,
+            id: row.id,
+            fileName: row.file_name || (row.metadata.parsedDataset as LighthouseExtractionDataset).metadata.fileName,
+          },
+        }
+      : null,
   }));
 }
