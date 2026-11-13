@@ -113,6 +113,17 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ ok: true, hotelId, ...range, data });
   }
 
+  if (req.method === "GET" && actionPath === "lighthouse-observations") {
+    const range = dateRange(url);
+    if (!range) return fail("Les paramètres from et to sont obligatoires (maximum 365 jours)");
+    const { data, error } = await supabase.from("lighthouse_rate_observations")
+      .select("*,lighthouse_extractions!left(file_name,observed_at,source_status,los_nights,guests_count,occupancy_context)")
+      .eq("hotel_id", hotelId).gte("stay_date", range.from).lte("stay_date", range.to)
+      .order("stay_date").order("observed_at", { ascending: false }).limit(5000);
+    if (error) return fail("Lecture des observations Lighthouse impossible", 400, error.message);
+    return json({ ok: true, hotelId, ...range, data });
+  }
+
   if (req.method === "GET" && actionPath === "events") {
     const range = dateRange(url);
     if (!range) return fail("Les paramètres from et to sont obligatoires (maximum 365 jours)");
