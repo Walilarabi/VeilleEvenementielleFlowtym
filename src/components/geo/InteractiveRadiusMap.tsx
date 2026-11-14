@@ -362,7 +362,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
             })}
 
           {/* Venue Pins */}
-          {venues.map((venue) => {
+          {mappableVenues.map((venue) => {
             const pt = coordsToSvg(venue.lat, venue.lng);
             const isHovered = hoveredVenue?.id === venue.id;
             const isSelected = selectedVenue?.id === venue.id;
