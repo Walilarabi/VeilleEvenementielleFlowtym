@@ -594,9 +594,34 @@ export async function runEventIntelligenceCampaign(
     logs.push(formatted);
   };
 
+  // Safety gate: the former campaign used a hard-coded discovery pool, not live event APIs.
+  // Do not surface those fixture events as verified market intelligence.
+  addLog('[AgentGuard] Campagne suspendue : aucun connecteur événementiel live validé. Aucune donnée de démonstration n’est injectée.');
+  const completedAt = new Date().toISOString();
+  return {
+    campaignId,
+    hotelId: hotel.id,
+    hotelName: hotel.name,
+    startedAt: new Date(startTime).toISOString(),
+    completedAt,
+    durationMs: Date.now() - startTime,
+    sourcesAnalyzedCount: 0,
+    newSourcesDiscoveredCount: 0,
+    eventsFoundCount: 0,
+    duplicatesFilteredCount: 0,
+    eventsIntegratedCount: 0,
+    proposalsCount: 0,
+    newIntegratedEvents: [],
+    newProposals: [],
+    newDiscoveredSources: [],
+    allActiveSources: [],
+    logs,
+    summaryStats: { primaryRadiusKm: 0, extendedRadiusKm: 0, rollingMonths: 36, avgConfidence: 0, highImpactRatioPercent: 0 },
+  };
+
   addLog(`[AgentInit] Démarrage de la campagne d'Event Intelligence autonome`);
   addLog(`[TargetHotel] Établissement cible : ${hotel.name} (${hotel.city}, ${hotel.stars}★, ${hotel.roomCount} ch., base ADR ${hotel.baseADR}€)`);
-  addLog(`[Catchment] Périmètre géographique actif : Rayon principal 10 km · Rayon étendu 30 km (Coord: ${hotel.lat}, ${hotel.lng})`);
+  addLog(`[Catchment] Périmètre géographique actif : Rayon principal 10 km · Rayon étendu 30 km (Coord: ${hotel.lat as number}, ${hotel.lng as number})`);
   addLog(`[Horizon] Période glissante de prospection : 24 à 36 mois (2026 → 2028)`);
 
   const currentSources = getDiscoveredSources();
