@@ -158,6 +158,7 @@ export async function importHoptymFile(args: {
   dataset: HoptymImportDataset;
   hotelName: string;
   fileName: string;
+  providerName?: string;
   records: Row[];
 }): Promise<HoptymImportResult> {
   const errors: string[] = [];
