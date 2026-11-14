@@ -21,12 +21,10 @@ import {
   CheckCircle,
   Activity,
   Sparkles,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { EventSource, Venue, EventItem, Hotel } from '../../types';
 import { batchScrape2027Events, ScrapingVerificationResult } from '../../services/scraperService';
 import { getDiscoveredSources } from '../../services/eventIntelligenceAgent';
-import { HotelDataExcelUploadSection } from './HotelDataExcelUploadSection';
 import { DataManagementWorkspace } from './DataManagementWorkspace';
 
 interface SourcesCoverageViewProps {
@@ -84,7 +82,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
   );
 
   const [activeSubTab, setActiveSubTab] = useState<
-    'data_hub' | 'excel_uploads' | 'crawler' | 'sources_list' | 'venues'
+    'data_hub' | 'crawler' | 'sources_list' | 'venues'
   >('data_hub');
 
   const handleStartBatchScraping = async () => {
@@ -209,12 +207,6 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
               badge: 'Catalogue API + imports',
             },
             {
-              id: 'excel_uploads',
-              label: 'Upload Excel : Lighthouse, D-EDGE & PMS',
-              icon: FileSpreadsheet,
-              badge: 'Mode Alternatif Hors-API',
-            },
-            {
               id: 'crawler',
               label: 'Scraper & Robot Crawler 2027',
               icon: Globe,
@@ -263,20 +255,6 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
       {/* CENTRE DE DONNÉES HOPTYM */}
       {activeSubTab === 'data_hub' && (
         <DataManagementWorkspace hotel={hotel} onShowToast={onShowToast} />
-      )}
-
-      {/* EXCEL UPLOADS SECTION (LIGHTHOUSE, D-EDGE, PMS) */}
-      {activeSubTab === 'excel_uploads' && (
-        <HotelDataExcelUploadSection
-          hotel={hotel}
-          onShowToast={onShowToast}
-          onNavigateToPricing={onNavigateToPricing}
-          onDataImported={(sourceType, rowCount) => {
-            if (onShowToast) {
-              onShowToast(`${rowCount} lignes importées avec succès depuis l'export ${sourceType.toUpperCase()} !`);
-            }
-          }}
-        />
       )}
 
       {/* CRAWLER & SCRAPER AUTOMATISÉ 2027 BANNER */}
