@@ -55,15 +55,15 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
     const hotelImpact = hotel ? event.hotelImpacts[hotel.id] : undefined;
 
     // 1. Attractivité & Fréquentation (max 25)
-    const rawAttendance = sb.attendanceScore || 15;
+    const rawAttendance = sb.attendanceScore ?? 0;
     const normAttendance = Math.min(100, Math.round((rawAttendance / 25) * 100));
 
     // 2. Saturation Marché & Tension (max 20)
-    const rawSaturation = sb.saturationScore || 14;
+    const rawSaturation = sb.saturationScore ?? 0;
     const normSaturation = Math.min(100, Math.round((rawSaturation / 20) * 100));
 
     // 3. Rayonnement International (max 20)
-    const rawInternational = sb.internationalScore || (event.internationalRatioPercent ? Math.round(event.internationalRatioPercent / 5) : 12);
+    const rawInternational = sb.internationalScore ?? (event.internationalRatioPercent ? Math.round(event.internationalRatioPercent / 5) : 0);
     const normInternational = Math.min(100, Math.round((rawInternational / 20) * 100));
 
     // 4. Proximité Géographique & Accès (max 20)
@@ -71,12 +71,12 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
     const normProximity = Math.min(100, Math.round((rawProximity / 20) * 100));
 
     // 5. Dynamique Pickup & Vélocité (max 15)
-    const rawCompression = sb.compressionScore || 11;
+    const rawCompression = sb.compressionScore ?? 0;
     const normCompression = Math.min(100, Math.round((rawCompression / 15) * 100));
 
     // 6. Pouvoir d'Achat & ADR Boost
     const adrBoost = hotelImpact?.estimatedADRBoostPercent ?? 0;
-    const normPricingPower = Math.min(100, Math.max(20, Math.round((adrBoost / 35) * 100)));
+    const normPricingPower = adrBoost > 0 ? Math.min(100, Math.round((adrBoost / 35) * 100)) : 0;
 
     return [
       {
