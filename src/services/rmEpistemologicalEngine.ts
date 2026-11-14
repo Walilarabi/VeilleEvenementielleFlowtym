@@ -28,6 +28,18 @@ export function generateRMEpistemologicalBreakdown(
   compset: CompsetSnapshot,
   dedge: DEdgeInventoryDay
 ): RMEpistemologicalBreakdown {
+  if (hotel.baseADR === null) {
+    return {
+      faitObserve: ['ADR de référence absent du référentiel hôtelier.'],
+      analyse: ['Les données tarifaires et concurrentielles ne permettent pas encore une comparaison fiable.'],
+      prevision: ['Prévision suspendue : historique et BAR de référence insuffisants.'],
+      recommandation: 'Aucune suggestion tarifaire publiée. Renseigner le BAR réel et connecter les flux PMS / Channel Manager / Rate Shopper avant toute décision.',
+      hypothese: ['Aucune hypothèse de prix n’est produite tant que la donnée de référence manque.'],
+      confidenceScore: 0,
+      primaryDrivers: [],
+    };
+  }
+
   const faitObserve: string[] = [];
   const analyse: string[] = [];
   const prevision: string[] = [];
