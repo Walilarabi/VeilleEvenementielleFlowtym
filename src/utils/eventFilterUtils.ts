@@ -152,9 +152,9 @@ export function evaluateEventGeographyForHotel(
   });
 
   const existingImpact = event.hotelImpacts?.[hotel.id];
-  const distanceKm = coords
+  const distanceKm = coords && hotel.lat !== null && hotel.lng !== null
     ? calculateHaversineDistanceKm(hotel.lat, hotel.lng, coords.lat, coords.lng)
-    : existingImpact?.distanceKm ?? (eventCityNorm === hotelCityNorm ? 2.5 : 450);
+    : existingImpact?.distanceKm ?? Number.POSITIVE_INFINITY;
 
   const isSameCity = eventCityNorm === hotelCityNorm || eventCityNorm.includes(hotelCityNorm);
   const travelTimes = estimateTravelTimes(distanceKm, isSameCity);
