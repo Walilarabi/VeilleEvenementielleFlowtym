@@ -23,12 +23,19 @@ Le catalogue déroulant doit être alimenté par des métadonnées versionnées.
 
 | Fournisseur | Capacités/documentation identifiées | Accès et limites | État de préparation |
 |---|---|---|---|
-| Lighthouse (ex OTA Insight) | API v3 ; hôtels, hôtels concurrents/compsets, tarifs observés, parity/demand selon abonnement ; auth par header `X-Oi-Authorization` | API orientée reporting ; quotas publiés ; Live Rate Shopping et Raw Rates peuvent exiger un token/abonnement ; consentement écrit préalable requis pour certains usages commerciaux/affichage aux clients | Documentation publique partielle ; contrat et droits d'affichage à vérifier |
-| RateGain Rate Intelligence | API REST entrante/sortante pour RMS : push de changements de tarifs, recherche d'hôtels, historique des tarifs, calendriers de shopping et chargement à la demande | Onboarding commercial/technique et contrat partenaire à obtenir | Capacités 2-Way documentées par le fournisseur ; spécification détaillée à obtenir |
-| RateTiger / RateTiger Shopper | Produit à étudier pour le catalogue rate-shopping | Ne pas supposer l'existence d'une API publique ; demander documentation partenaire, périmètre des données et droits de redistribution | À qualifier |
-| D-EDGE RateScreener / outils de rate shopping D-EDGE | À confirmer avec D-EDGE selon les produits souscrits | Ne pas assimiler l'API CRS D-EDGE à une API Rate Shopper | À qualifier |
-| BEONx / BEONPRICE | Solution RMS/pricing à évaluer comme source ou partenaire de données | Valider le périmètre API et les droits de lecture/écriture | À qualifier |
-| Duetto | Solution RMS/pricing à évaluer comme partenaire/intégration, pas comme rate shopper universel | Valider API, endpoints, scopes et contrat | À qualifier |
+| Lighthouse (ex OTA Insight) | API v3 ; hôtels/compsets, tarifs observés, historiques, parity et demand selon abonnement ; header `X-Oi-Authorization` | Reporting ; 20 requêtes/API/subscription/24h et 120 requêtes/min ; Live Rate Shopping/Raw Rates avec token ; usage commercial/affichage des données aux clients soumis à consentement écrit préalable | Documentation publique ; accord commercial requis |
+| RateGain Navigator / Rate Intelligence | API REST inbound/outbound pour RMS : hôtels, historique tarifaire, calendriers de shopping, push de changements et demandes de chargement | Onboarding commercial/technique et contrat partenaire ; API 2-Way selon contrat | Spécification technique à obtenir |
+| RateTiger Shopper (eRevMax) | Rate shopper et intelligence concurrentielle ; API publique non confirmée | Demander API/exports, scopes et droits de réutilisation | À qualifier |
+| D-EDGE RateScreener | Produit Rate Shopper identifié ; API exacte distincte des APIs CRS à confirmer | Ne pas assimiler RateScreener aux APIs Channel Manager/CRS | À qualifier |
+| SiteMinder Insights | Produit de rate shopping, parity et market insights ; documentation publique du portail SiteMinder pour les autres familles d'API | API Insights dédiée et droits d'accès à confirmer ; ne pas confondre avec pmsXchange | À qualifier |
+| Fornova Competitive Intelligence | Rate shopping, compset, visibilité et comparaison tarifaire multi-canaux | API/exports et droits de redistribution à obtenir | Partenaire à qualifier |
+| Optimand Rate Shopper | Rate shopper hôtelier avec compset | Documentation API partenaire non confirmée ; demander export structuré | À qualifier |
+| Hotellistat | Suite comprenant rate shopping, historique et market intelligence | API et rate feed à confirmer selon offre | À qualifier |
+| Price Seeker (Paraty Tech) | Rate shopper, monitoring concurrentiel et parité | Demander contrat API/export et conditions de réutilisation | À qualifier |
+| Amadeus Rate360 / PricePosition | Solutions de rate shopping identifiées dans le catalogue d'intégrations IDeaS | Documentation API et programme partenaire à obtenir | À qualifier |
+| BEONx / BEONPRICE | Solution de rate shopping / RMS référencée dans le catalogue d'intégrations IDeaS | Valider les API, scopes et droits d'accès exacts | À qualifier |
+| SightPrice | Surveillance quotidienne des prix publics et disponibilités ; rapports PDF | Le fournisseur indique ne pas proposer de connexion PMS ; aucune API publique confirmée, donc pas de connecteur direct sans export structuré | Import fichier possible ; API à qualifier |
+
 
 **Règle métier :** un rate shopper est généralement une source de lecture (observations concurrentes). Il ne doit pas être artificiellement présenté comme un connecteur 2-Way ARI. Les actions d'écriture de prix appartiennent au PMS ou au Channel Manager.
 
@@ -40,7 +47,9 @@ Le catalogue déroulant doit être alimenté par des métadonnées versionnées.
 | SiteMinder | SiteConnect ; pmsXchange ; SiteMinder Exchange API ; Channels Plus | pmsXchange : PMS/RMS 2-Way, push ARI/restrictions et synchronisation des réservations ; Exchange : lecture réservations, disponibilités et tarifs selon scopes | Accès partenaire, certification et contrats selon produit |
 | Vertical Booking | API-XML ; Replicative Interface ; Transactional Interface ; API PMS | Flux ARI répliqués vers portails ; transaction Get Availability / Make Reservation ; intégration CRS-PMS et synchronisation temps réel selon interface | Spécifications techniques et mapping fournis dans le cadre du partenariat |
 | RateGain Channel Manager / Smart Distribution | À distinguer de Smart Distribution demand-side ; interfaces distribution à confirmer | ARI et réservations selon produit souscrit | À qualifier auprès du fournisseur |
-| Cloudbeds Distribution | APIs Distribution, rate plans, availability et restrictions ; webhooks/événements | Lecture et mise à jour selon scopes et produit ; événements de réservation | Developer Hub, sandbox et validation partenaire |\n| STAAH ChannelConnect | APIs Property, Room Types, Rates/Availability/Restrictions, Reservations et Push Data | Pull ARI, push des deltas, réservations vers STAAH et vérification live avant confirmation selon doc | Accord de connectivité, IP whitelisting et certification ; push delta obligatoire selon la doc v1 |\n| eZee Centrix | Interface Channel Manager XML/API | Synchronisation ARI et réservations selon contrat et version | Documentation officielle détaillée et provisioning par établissement à obtenir |
+| Cloudbeds Distribution | APIs Distribution, rate plans, availability et restrictions ; webhooks/événements | Lecture et mise à jour selon scopes et produit ; événements de réservation | Developer Hub, sandbox et validation partenaire |
+| STAAH ChannelConnect | APIs Property, Room Types, Rates/Availability/Restrictions, Reservations et Push Data | Pull ARI, push des deltas, réservations vers STAAH et vérification live avant confirmation selon doc | Accord de connectivité, IP whitelisting et certification ; push delta obligatoire selon la doc v1 |
+| eZee Centrix | Interface Channel Manager XML/API | Synchronisation ARI et réservations selon contrat et version | Documentation officielle détaillée et provisioning par établissement à obtenir |
 | Autres | Ajouter uniquement après validation de l'existence d'un produit/API pertinent | Capacités documentées individuellement | Jamais de connecteur fictif |
 
 ### 2.3 PMS
@@ -298,14 +307,18 @@ Chaque carte fournisseur doit afficher : type, nom, lien docs, accès requis, en
 ### Rate Shopper
 - Lighthouse API v3 : https://api.mylighthouse.com/
 - Lighthouse API documentation mirror / latest version : https://devapi.mylighthouse.com/
-- RateGain — Rate Intelligence APIs for RMS : https://rategain.com/solutions-for-rms-companies/\n- BEONx : https://www.beonx.com/\n- Duetto : https://www.duettocloud.com/
+- RateGain — Rate Intelligence APIs for RMS : https://rategain.com/solutions-for-rms-companies/
+- BEONx : https://www.beonx.com/
+- Duetto : https://www.duettocloud.com/
 
 ### Channel Managers
 - D-EDGE Partner & Developer Portal : https://developers.portal.d-edge.com/
 - D-EDGE documentation portal : https://docs.d-edge.com/
 - SiteMinder Developer Guide : https://www.siteminder.com/developer-guide/
 - SiteMinder Developer Docs : https://developer.siteminder.com/
-- Vertical Booking API-XML : https://online.verticalbooking.ovosodo.net/en/connectivity/api-xml/\n- STAAH ChannelConnect v1 : https://getapidoc.staah.net/v1/\n- eZee Centrix : https://www.ezeecentrix.com/ycdemo/faqs.php
+- Vertical Booking API-XML : https://online.verticalbooking.ovosodo.net/en/connectivity/api-xml/
+- STAAH ChannelConnect v1 : https://getapidoc.staah.net/v1/
+- eZee Centrix : https://www.ezeecentrix.com/ycdemo/faqs.php
 
 ### PMS
 - Mews Open API : https://docs.mews.com/
@@ -315,7 +328,10 @@ Chaque carte fournisseur doit afficher : type, nom, lien docs, accès requis, en
 - Oracle Hospitality Integration Platform : https://www.oracle.com/hospitality/integration-platform/
 - Oracle OPERA Cloud Distribution APIs : https://docs.oracle.com/en/industries/hospitality/integration-platform/ohipu/c_oracle_hospitality_distribution_apis.htm
 - Cloudbeds Developer Hub : https://developers.cloudbeds.com/
-- Cloudbeds PMS API : https://developers.cloudbeds.com/reference/about-pms-api\n- Stayntouch Connect API v2 : https://api-specs.stayntouch.com/v2/index.html\n- Clock PMS+ API : https://api-docs.clock-software.com/\n- Guestline Rezlynx API Portal : https://developers.guestline.com/
+- Cloudbeds PMS API : https://developers.cloudbeds.com/reference/about-pms-api
+- Stayntouch Connect API v2 : https://api-specs.stayntouch.com/v2/index.html
+- Clock PMS+ API : https://api-docs.clock-software.com/
+- Guestline Rezlynx API Portal : https://developers.guestline.com/
 
 ### Événements
 - OpenAgenda API : https://developers.openagenda.com/en/
