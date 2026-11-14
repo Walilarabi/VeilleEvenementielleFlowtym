@@ -56,7 +56,7 @@ import { exportCompleteHistoricalExcel } from './services/excelHistoricalExportS
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
-import { EventItem, FilterState, Hotel, EventProposal } from './types';
+import { EventItem, FilterState, Hotel, EventProposal, Venue, EventSource, EventSuggestion } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 import { exportEventsToPDF } from './utils/pdfExport';
 import {
@@ -66,6 +66,7 @@ import {
 } from './utils/eventFilterUtils';
 import { getHotelRMSConfig } from './services/rmsSettingsService';
 import { getSupabaseClient } from './services/supabaseClient';
+import { loadWorkspaceData } from './services/supabaseDataService';
 
 interface UserSession {
   id: string;
@@ -232,9 +233,11 @@ export default function App() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [venues, setVenues] = useState([]);
-  const [sources, setSources] = useState([]);
-  const [suggestions, setSuggestions] = useState([]);
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [sources, setSources] = useState<EventSource[]>([]);
+  const [suggestions, setSuggestions] = useState<EventSuggestion[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [configVersion, setConfigVersion] = useState(0);
 
@@ -263,6 +266,39 @@ export default function App() {
     currentYear: 2026,
     currentMonth: 10, // Novembre 2026 (0-indexed 10)
   });
+
+  useEffect(() => {
+    if (!user?.organizationId) return;
+    let active = true;
+    setDataLoading(true);
+    setDataError(null);
+    loadWorkspaceData(user.organizationId)
+      .then((data) => {
+        if (!active) return;
+        setHotels(data.hotels);
+        setVenues(data.venues);
+        setSources(data.sources);
+        setEvents(data.events);
+        setSuggestions(data.suggestions);
+        setProposals([]);
+        setFilterState((previous) => ({
+          ...previous,
+          selectedHotelId: data.hotels.some((hotel) => hotel.id === previous.selectedHotelId)
+            ? previous.selectedHotelId
+            : data.hotels[0]?.id || '',
+        }));
+        if (data.warnings.length) setDataError(data.warnings.join(' '));
+      })
+      .catch((error: any) => {
+        if (active) setDataError(error?.message || 'Impossible de charger les données réelles de votre organisation.');
+      })
+      .finally(() => {
+        if (active) setDataLoading(false);
+      });
+    return () => { active = false; };
+  }, [user?.organizationId]);
+
+
 
   // Collapsible advanced filters (open by default like the screenshot)
   const [isFilterExpanded, setIsFilterExpanded] = useState(true);
@@ -307,16 +343,17 @@ export default function App() {
 
   // Current Hotel selection & persisted RMS configuration
   const currentHotel = useMemo(() => {
-    return hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0];
+    return hotels.find((h) => h.id === filterState.selectedHotelId) || hotels[0] || null;
   }, [hotels, filterState.selectedHotelId]);
 
   const activeHotelConfig = useMemo(
-    () => getHotelRMSConfig(currentHotel),
+    () => currentHotel ? getHotelRMSConfig(currentHotel) : null,
     [currentHotel, configVersion]
   );
 
   // School holidays converted into EventItem representations
   const schoolHolidayEvents = useMemo(() => {
+    if (!currentHotel) return [];
     const hList = generateSchoolHolidaysForYear(filterState.currentYear);
     return convertSchoolHolidaysToEventItems(hList, currentHotel);
   }, [currentHotel, filterState.currentYear]);
@@ -337,6 +374,7 @@ export default function App() {
 
   // Strict Data-Level Geographic & EventWatch Filtering bound to the active hotel
   const geoFilteredEvents = useMemo(() => {
+    if (!currentHotel || !activeHotelConfig) return [];
     const geoScoped = filterEventsByHotelGeography(
       allEventsWithHolidays,
       currentHotel,
@@ -349,7 +387,7 @@ export default function App() {
       if ((ev.scoreBreakdown?.finalRMScore ?? 0) < minScore) return false;
       return true;
     });
-  }, [allEventsWithHolidays, currentHotel, activeHotelConfig.eventWatch]);
+  }, [allEventsWithHolidays, currentHotel, activeHotelConfig]);
 
   // Filtered & Chronologically Sorted Events Calculation (Centralized via filterEventsByDate)
   const filteredEvents = useMemo(() => {
@@ -624,6 +662,22 @@ export default function App() {
   }
   if (!user) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} authError={authError} />;
+  }
+
+  if (dataLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-sm text-slate-500">Chargement des données réelles de votre organisation…</div>;
+  }
+  if (!currentHotel || !activeHotelConfig) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-6">
+        <div className="max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center space-y-4">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Aucun hôtel actif configuré</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-300">HOPTYM n'affiche plus de données de démonstration. Ajoutez ou activez un hôtel dans le référentiel Supabase de votre organisation pour ouvrir les modules Revenue Management.</p>
+          {dataError && <p role="alert" className="text-xs text-amber-700 dark:text-amber-300">{dataError}</p>}
+          <button onClick={() => void handleLogout()} className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold">Se déconnecter</button>
+        </div>
+      </div>
+    );
   }
 
   return (
