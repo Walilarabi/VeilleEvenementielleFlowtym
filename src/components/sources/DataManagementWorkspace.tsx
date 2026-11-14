@@ -174,6 +174,7 @@ export const DataManagementWorkspace: React.FC<DataManagementWorkspaceProps> = (
         dataset: importDataset,
         hotelName: hotel.name,
         fileName: fileResult.name,
+        providerName: selectedProvider.name,
         records: fileResult.records,
       });
       setImportMessage(result.message);
