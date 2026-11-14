@@ -162,16 +162,46 @@ Les politiques lues dans `pg_policies` utilisent `flowtym_private.can_access_hot
 
 **Constat important :** les tables ci-dessus sont vides au moment de l'audit. Le schéma est préparé, mais il ne prouve pas qu'un historique de réservation, d'inventaire, de prix concurrents ou de décisions RM alimente déjà le moteur.
 
-### 4.2 Blocage applicatif avant toute écriture de données
+### 4.2 Authentification et sécurité d'accès — correction engagée
 
-L'inspection statique du code révèle que l'application ne dispose pas encore d'un parcours d'authentification réel cohérent avec les politiques RLS de Supabase :
+Le parcours applicatif a été remplacé sur la branche de travail :
+- Connexion par `supabase.auth.signInWithPassword`, sans utilisateur de démonstration ni identité locale persistée.
+- Restauration de session par `auth.getUser()` (validation serveur) et abonnement `onAuthStateChange`.
+- Chargement du profil `public.users` par `id = auth.uid()`, avec contrôle de présence de `organization_id` (sauf super-admin).
+- Déconnexion par `auth.signOut()`.
+- Récupération par `resetPasswordForEmail` et écran dédié de définition du nouveau mot de passe via `updateUser`.
+- Client Vite compatible avec `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY`, en donnant priorité aux variables d'environnement.
+- Les anciennes écritures de seed qui créaient une organisation fictive via `DEFAULT_ORG_ID` ont été désactivées ; elles échouent désormais de manière explicite et sûre.
 
-- `src/App.tsx` restaure une session locale `flowtym_user` et crée un utilisateur de démonstration par défaut.
-- `src/components/auth/LoginPage.tsx` accepte actuellement toute adresse e-mail et tout mot de passe non vides, propose un accès direct démo et affiche un faux succès de récupération de mot de passe.
-- `src/services/supabaseClient.ts` ne lit que `VITE_SUPABASE_ANON_KEY` côté Vite ; il doit également prendre en charge la clé publishable utilisée dans la configuration de déploiement. La configuration locale ne doit pas remplacer le contexte de session Auth.
-- `src/services/supabaseSyncService.ts` utilise un `DEFAULT_ORG_ID` codé en dur et tente un upsert d'une organisation de démonstration. Cela doit être remplacé par le `organization_id` issu du profil Auth vérifié.
+Vérifications Supabase en lecture seule :
+- 2 profils applicatifs existent, et les 2 correspondent à un utilisateur Auth Supabase et possèdent une organisation.
+- RLS est activé sur toutes les tables de `public` examinées.
+- La politique `users_read_own_profile` limite le profil à `auth.uid() = users.id`.
+- Les politiques organisation/hôtel et les tables d'ingestion utilisent les fonctions `flowtym_private.can_access_hotel` et `flowtym_private.can_manage_hotel`.
+- Le Security Advisor signale encore `auth_leaked_password_protection` (protection contre les mots de passe compromis désactivée).
 
-**Conséquence :** le workspace d'import reste en pré-analyse seulement. Il est interdit d'écrire dans `hotel_historical_daily`, `hotel_inventory_snapshots`, `hotel_reservation_snapshots` ou `integration_connections` tant que le vrai utilisateur Supabase, son organisation, son accès à l'hôtel et le contexte de session n'ont pas été établis côté application. Le pipeline devra ensuite effectuer une validation RLS réelle avec deux comptes/hôtels de test.
+Configuration Vercel du projet `mon-flowtym-rms` :
+- `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY` sont maintenant présents en development, preview et production.
+- Les valeurs sont reprises des variables Supabase existantes et n'ont pas été affichées dans les logs ou le rapport.
+
+Limites restantes avant validation de bout en bout :
+- Aucun identifiant de compte de test n'a été utilisé ; les parcours connexion, reset et session invalide restent à tester dans un navigateur avec un compte de test autorisé.
+- La configuration SMTP, les URL Auth autorisées et la désactivation des inscriptions publiques ne sont pas exposées par les outils de gestion disponibles dans cette session ; elles doivent être vérifiées dans le dashboard.
+- La protection contre les mots de passe compromis doit être activée dans Supabase Auth.
+- Le déploiement de production n'a pas été déclenché.
+
+### 4.3 Moteur d'import universel — première implémentation
+
+Le nouveau service `src/services/hoptymImportService.ts` traite les fichiers normalisés en cinq familles :
+- Historique hôtelier : `hotel_historical_daily`, calcul des champs calendaires, occupancy, ADR et RevPAR lorsqu'ils peuvent être déduits, conservation du brut et des champs OTB/Pickup.
+- Disponibilités : `hotel_inventory_snapshots`, inventaire, chambres vendues/disponibles, occupation, BAR, MinStay, CTA et CTD.
+- Réservations : agrégation par date de séjour, canal, segment et devise dans `hotel_reservation_snapshots`, lead time moyen et pickup net lorsque les colonnes sont fournies.
+- Rate Shopper : extraction source et observations dans `lighthouse_extractions` / `lighthouse_rate_observations`, rapprochement du concurrent par nom.
+- Événements : mise en attente dans `event_suggestions` avec statut `pending` ; aucune publication automatique dans le référentiel partagé.
+
+Chaque import vérifie l'utilisateur Auth et son profil, résout l'hôtel dans la même organisation, crée un job `data_ingestion_jobs`, utilise le client publishable sous RLS, écrit par lots et journalise les lignes rejetées. Aucun service_role n'est embarqué dans le navigateur. En cas d'erreur, le job passe à `failed` ou `partial`.
+
+**Limites :** aucun fichier métier n'a encore été injecté en base, faute de compte de test autorisé et d'un fichier fourni pour validation. Le parcours de mapping doit être testé sur des exports réels avant d'activer les connecteurs automatiques.
 
 ## 5. Moteur universel de fichiers
 
