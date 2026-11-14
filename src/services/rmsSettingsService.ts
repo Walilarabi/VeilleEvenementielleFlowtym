@@ -274,7 +274,6 @@ function getCompsetCatalogKey(hotel: Pick<Hotel, 'id' | 'city'>): string {
 
 export function buildDefaultCompSetForHotel(_hotel: Pick<Hotel, 'id' | 'city' | 'baseADR'>): CompetitorProfileConfig[] {
   // Competitors must come from public.competitor_hotels and verified rate observations.
-  // Never seed fictional competitor names or BAR values into an authenticated tenant.
   return [];
 }
 
