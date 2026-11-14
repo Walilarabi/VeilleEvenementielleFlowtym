@@ -37,6 +37,7 @@ import { ImportExcelModal } from './components/modals/ImportExcelModal';
 import { RefreshModal } from './components/modals/RefreshModal';
 import { ProposalsModal } from './components/proposals/ProposalsModal';
 import { LoginPage } from './components/auth/LoginPage';
+import { PasswordRecoveryPage } from './components/auth/PasswordRecoveryPage';
 import { MarketCalendarView } from './components/market/MarketCalendarView';
 import { SchoolHolidaysCalendarView } from './components/events/SchoolHolidaysCalendarView';
 import { CalendarSubNavbar, CalendarSubTabMode } from './components/calendar/CalendarSubNavbar';
@@ -86,6 +87,7 @@ export default function App() {
   const [user, setUser] = useState<UserSession | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
     const client = getSupabaseClient();
@@ -143,7 +145,8 @@ export default function App() {
       }
     };
 
-    const { data: authListener } = client.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && active) setPasswordRecovery(true);
       if (!session) {
         if (active) {
           setUser(null);
@@ -648,6 +651,14 @@ export default function App() {
   // Do not render protected RMS data while session/profile is unresolved.
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] dark:bg-[#141824] text-sm text-slate-500">Vérification de votre session sécurisée…</div>;
+  }
+  if (passwordRecovery) {
+    return <PasswordRecoveryPage onComplete={async () => {
+      const client = getSupabaseClient();
+      if (client) await client.auth.signOut();
+      setPasswordRecovery(false);
+      setUser(null);
+    }} />;
   }
   if (!user) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} authError={authError} />;
