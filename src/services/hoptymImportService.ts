@@ -301,7 +301,7 @@ export async function importHoptymFile(args: {
           rate_plan: String(readValue(row, 'ratePlan') || '').slice(0, 120) || null,
           channel: String(readValue(row, 'channel') || 'unknown').slice(0, 100),
           currency: String(readValue(row, 'currency') || tenant.hotel.currency || 'EUR').slice(0, 3).toUpperCase(),
-          rate_amount: rate, availability_status: soldOut ? 'sold_out' : (numberValue(availability) > 0 || /available|disponible/i.test(String(availability || '')) ? 'available' : 'unknown'),
+          rate_amount: rate, availability_status: soldOut ? 'sold_out' : ((numberValue(availability) ?? -1) > 0 || /available|disponible/i.test(String(availability || '')) ? 'available' : 'unknown'),
           observed_at: observedAt, source_status: 'imported', comparability: { status: 'unverified', reason: 'Import fichier sans validation de typologie, occupation, plan tarifaire, conditions et LOS.' }, los: 1,
         }];
       });
