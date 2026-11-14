@@ -696,7 +696,7 @@ export async function runEventIntelligenceCampaign(
     eventsFound++;
 
     // Calculate distance from hotel to candidate venue
-    const distKm = calculateDistanceKm(hotel.lat, hotel.lng, cand.venueLat, cand.venueLng);
+    const distKm = calculateDistanceKm(hotel.lat as number, hotel.lng as number, cand.venueLat, cand.venueLng);
 
     // Filter by geographic catchment (10km primary, 30km extended)
     if (distKm > 30) {
