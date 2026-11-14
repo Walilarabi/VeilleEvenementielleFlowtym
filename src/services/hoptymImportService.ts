@@ -96,6 +96,13 @@ function isoWeek(date: Date): number {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
 function batches<T>(items: T[], size = 200): T[][] {
   const result: T[][] = [];
   for (let i = 0; i < items.length; i += size) result.push(items.slice(i, i + size));
@@ -340,6 +347,54 @@ export async function importHoptymFile(args: {
         const { error } = await client.from('lighthouse_rate_observations').insert(batch);
         if (error) throw error;
         written += batch.length;
+      }
+
+      // Store market statistics only; never infer or publish a suggested BAR from unverified rates.
+      try {
+        const byDate = new Map<string, typeof valid>();
+        for (const item of valid) byDate.set(item.stay_date, [...(byDate.get(item.stay_date) || []), item]);
+        for (const [stayDate, dayRows] of byDate) {
+          const currencies = [...new Set(dayRows.map((item) => item.currency))];
+          if (currencies.length !== 1) {
+            errors.push(`${stayDate}: statistiques marché non calculées, devises concurrentes mélangées.`);
+            continue;
+          }
+          const amounts = dayRows.map((item) => item.rate_amount).filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0);
+          if (!amounts.length) continue;
+          const marketMedian = median(amounts);
+          const existing = await client.from('daily_rate_intelligence')
+            .select('id')
+            .eq('organization_id', organizationId)
+            .eq('hotel_id', hotelId)
+            .eq('stay_date', stayDate)
+            .eq('engine_version', 'market-baseline-0.1')
+            .is('room_type_id', null)
+            .is('rate_plan_id', null)
+            .maybeSingle();
+          if (existing.error) throw existing.error;
+          const intelligence = {
+            organization_id: organizationId,
+            hotel_id: hotelId,
+            stay_date: stayDate,
+            currency: currencies[0],
+            lighthouse_median: /lighthouse|ota insight/i.test(args.providerName || '') ? marketMedian : null,
+            flowtym_compset_median: marketMedian,
+            compset_min: Math.min(...amounts),
+            compset_max: Math.max(...amounts),
+            data_quality_status: 'degraded',
+            recommendation_status: 'pending',
+            engine_version: 'market-baseline-0.1',
+            explanation: 'Statistiques concurrentielles importées. Comparabilité, BAR hôtel et demande non encore validés : aucune suggestion tarifaire n’est calculée.',
+            evidence: { provider: args.providerName || 'manual_file', observation_count: amounts.length, competitor_count: new Set(dayRows.map((item) => item.competitor_name.toLowerCase())).size },
+            input_snapshot: { source_file: args.fileName, observations: dayRows },
+          };
+          const write = existing.data?.id
+            ? await client.from('daily_rate_intelligence').update(intelligence).eq('id', existing.data.id)
+            : await client.from('daily_rate_intelligence').insert(intelligence);
+          if (write.error) throw write.error;
+        }
+      } catch (statsError: any) {
+        errors.push(`Statistiques concurrentielles non persistées : ${statsError?.message || 'erreur inconnue'}`);
       }
     } else if (args.dataset === 'events') {
       const mapped = args.records.flatMap((row) => {
