@@ -299,7 +299,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
                 <div className="flex items-center justify-between text-slate-700 dark:text-slate-300 font-medium pt-2 border-t border-slate-200/60 dark:border-slate-800/70">
                   <span>Capacité maximale :</span>
                   <span className="font-bold tabular-nums">
-                    {venue.capacity.toLocaleString('fr-FR')} places
+                    {venue.capacity?.toLocaleString('fr-FR') || 'Non renseignée'} places
                   </span>
                 </div>
               </div>
