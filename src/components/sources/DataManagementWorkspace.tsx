@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Activity, ArrowDownToLine, ArrowLeftRight, CalendarDays, CheckCircle2, Database, FileSpreadsheet, Info, Link2, LockKeyhole, Plug, RefreshCw, Search, ShieldAlert, UploadCloud, Workflow } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { importHoptymFile, HoptymImportDataset } from '../../services/hoptymImportService';
 import { Hotel } from '../../types';
 
 type ProviderCategory = 'rate_shopper' | 'channel_manager' | 'pms' | 'events';
@@ -75,6 +76,10 @@ const HEADER_HINTS: Record<string, string[]> = {
   restrictions: ['minlos', 'maxlos', 'cta', 'ctd', 'stop_sell', 'restriction', 'min_stay', 'max_stay'],
 };
 
+function normalizeHeaderForImport(value: string): string {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
 function classifyHeaders(headers: string[]): { type: string; score: number } {
   const normalized = headers.map((h) => String(h || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_ -]/g, ''));
   const scores = Object.entries(HEADER_HINTS).map(([type, hints]) => ({
@@ -94,7 +99,10 @@ export const DataManagementWorkspace: React.FC<DataManagementWorkspaceProps> = (
   const [category, setCategory] = useState<ProviderCategory>('rate_shopper');
   const [providerId, setProviderId] = useState('lighthouse');
   const [query, setQuery] = useState('');
-  const [fileResult, setFileResult] = useState<{ name: string; sheet: string; headers: string[]; rows: unknown[][]; rowCount: number; detectedType: string; confidence: string } | null>(null);
+  const [fileResult, setFileResult] = useState<{ name: string; sheet: string; headers: string[]; rows: unknown[][]; records: Record<string, unknown>[]; rowCount: number; detectedType: string; confidence: string } | null>(null);
+  const [importDataset, setImportDataset] = useState<HoptymImportDataset>('historical');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
   const [fileError, setFileError] = useState('');
   const [isParsing, setIsParsing] = useState(false);
 
@@ -134,11 +142,18 @@ export const DataManagementWorkspace: React.FC<DataManagementWorkspaceProps> = (
       const headers = nonEmpty[0].map((v) => String(v ?? '').trim());
       const dataRows = nonEmpty.slice(1);
       const detection = classifyHeaders(headers);
+      const normalizedHeaders = headers.map((header) => normalizeHeaderForImport(header));
+      const records = dataRows.map((row) => Object.fromEntries(normalizedHeaders.map((header, index) => [header || ('column_' + (index + 1)), row[index] ?? null])));
+      const headerText = normalizedHeaders.join(' ');
+      const suggestedDataset: HoptymImportDataset = detection.type === 'events' ? 'events' : detection.type === 'competitors' || headerText.includes('competitor') || headerText.includes('concurrent') ? 'rates' : detection.type === 'inventory' ? 'inventory' : detection.type === 'reservations' ? 'reservations' : 'historical';
+      setImportDataset(suggestedDataset);
+      setImportMessage(null);
       setFileResult({
         name: file.name,
         sheet: sheetName,
         headers,
         rows: dataRows.slice(0, 8),
+        records,
         rowCount: dataRows.length,
         detectedType: detection.type,
         confidence: detection.score >= 4 ? 'Élevée' : detection.score >= 2 ? 'Moyenne' : detection.score === 1 ? 'Faible' : 'À déterminer',
@@ -147,6 +162,28 @@ export const DataManagementWorkspace: React.FC<DataManagementWorkspaceProps> = (
       setFileError(error instanceof Error ? error.message : 'Impossible de lire ce fichier.');
     } finally {
       setIsParsing(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!fileResult || !hotel?.name) return;
+    setIsImporting(true);
+    setImportMessage(null);
+    try {
+      const result = await importHoptymFile({
+        dataset: importDataset,
+        hotelName: hotel.name,
+        fileName: fileResult.name,
+        records: fileResult.records,
+      });
+      setImportMessage(result.message);
+      onShowToast?.(result.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "L'import a échoué.";
+      setImportMessage(message);
+      onShowToast?.(message);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -225,6 +262,21 @@ export const DataManagementWorkspace: React.FC<DataManagementWorkspaceProps> = (
         {fileError && <p role="alert" className="text-xs text-rose-600">{fileError}</p>}
         {fileResult && (
           <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+              <label className="flex-1 text-xs font-semibold text-slate-600 dark:text-slate-300">Type de données à importer
+                <select value={importDataset} onChange={(event) => setImportDataset(event.target.value as HoptymImportDataset)} className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100">
+                  <option value="historical">Historique hôtelier / tarifs / ADR / RevPAR</option>
+                  <option value="inventory">Disponibilités & inventaire</option>
+                  <option value="reservations">Réservations / OTB / Pickup</option>
+                  <option value="rates">Tarifs concurrents / Rate Shopper</option>
+                  <option value="events">Événements à valider</option>
+                </select>
+              </label>
+              <button type="button" onClick={() => void handleImport()} disabled={isImporting || !hotel?.name || !fileResult.records.length} className="rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white px-4 py-2.5 text-xs font-bold">
+                {isImporting ? 'Import sécurisé en cours…' : 'Valider et importer'}
+              </button>
+            </div>
+            {importMessage && <p role="status" className="text-xs text-slate-600 dark:text-slate-300">{importMessage}</p>}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {[['Fichier', fileResult.name], ['Feuille', fileResult.sheet], ['Lignes détectées', String(fileResult.rowCount)], ['Type probable', fileResult.detectedType]].map(([k, v]) => <div key={k} className="rounded-lg bg-slate-50 dark:bg-slate-800/70 p-3"><div className="text-[10px] uppercase font-bold text-slate-400">{k}</div><div className="text-xs font-semibold text-slate-800 dark:text-slate-100 mt-1 break-words">{v}</div></div>)}
             </div>
