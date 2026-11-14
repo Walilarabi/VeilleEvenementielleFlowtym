@@ -153,6 +153,17 @@ Les politiques lues dans `pg_policies` utilisent `flowtym_private.can_access_hot
 
 **Constat important :** les tables ci-dessus sont vides au moment de l'audit. Le schéma est préparé, mais il ne prouve pas qu'un historique de réservation, d'inventaire, de prix concurrents ou de décisions RM alimente déjà le moteur.
 
+### 4.2 Blocage applicatif avant toute écriture de données
+
+L'inspection statique du code révèle que l'application ne dispose pas encore d'un parcours d'authentification réel cohérent avec les politiques RLS de Supabase :
+
+- `src/App.tsx` restaure une session locale `flowtym_user` et crée un utilisateur de démonstration par défaut.
+- `src/components/auth/LoginPage.tsx` accepte actuellement toute adresse e-mail et tout mot de passe non vides, propose un accès direct démo et affiche un faux succès de récupération de mot de passe.
+- `src/services/supabaseClient.ts` ne lit que `VITE_SUPABASE_ANON_KEY` côté Vite ; il doit également prendre en charge la clé publishable utilisée dans la configuration de déploiement. La configuration locale ne doit pas remplacer le contexte de session Auth.
+- `src/services/supabaseSyncService.ts` utilise un `DEFAULT_ORG_ID` codé en dur et tente un upsert d'une organisation de démonstration. Cela doit être remplacé par le `organization_id` issu du profil Auth vérifié.
+
+**Conséquence :** le workspace d'import reste en pré-analyse seulement. Il est interdit d'écrire dans `hotel_historical_daily`, `hotel_inventory_snapshots`, `hotel_reservation_snapshots` ou `integration_connections` tant que le vrai utilisateur Supabase, son organisation, son accès à l'hôtel et le contexte de session n'ont pas été établis côté application. Le pipeline devra ensuite effectuer une validation RLS réelle avec deux comptes/hôtels de test.
+
 ## 5. Moteur universel de fichiers
 
 Formats initiaux : XLSX, XLS, CSV UTF-8 et CSV avec séparateur détecté. Les fichiers PDF ne sont pas une source tabulaire de première intention ; leur extraction sera une phase distincte.
