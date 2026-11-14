@@ -957,26 +957,8 @@ export function resolveEventCoordinates(event: {
   venueName?: string;
   city: string;
 }): { lat: number; lng: number; territoryKey: string } | null {
-  if (event.venueId) {
-    const venueMatch = MUTUALIZED_VENUES_DATABASE.find((v) => v.id === event.venueId);
-    if (venueMatch) {
-      const terr = getTerritoryForCity(venueMatch.city);
-      if (venueMatch.lat !== null && venueMatch.lng !== null) return { lat: venueMatch.lat, lng: venueMatch.lng, territoryKey: terr.cityKey };
-    }
-  }
-
-  const venueNameLower = (event.venueName || '').toLowerCase();
-  if (venueNameLower) {
-    const venueByName = MUTUALIZED_VENUES_DATABASE.find(
-      (v) =>
-        venueNameLower.includes(v.name.toLowerCase()) ||
-        v.name.toLowerCase().includes(venueNameLower)
-    );
-    if (venueByName) {
-      const terr = getTerritoryForCity(venueByName.city);
-      if (venueByName.lat !== null && venueByName.lng !== null) return { lat: venueByName.lat, lng: venueByName.lng, territoryKey: terr.cityKey };
-    }
-  }
+  // Exact venue coordinates are resolved only from verified Supabase venue records.
+  // Without that record, fall back to city-level coordinates below.
 
   const cityKey = event.city.trim().toLowerCase();
   if (CITY_COORDINATES_LOOKUP[cityKey]) {
