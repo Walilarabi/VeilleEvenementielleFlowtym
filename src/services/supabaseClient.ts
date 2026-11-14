@@ -61,7 +61,7 @@ export const FLOWTYM_CORE_TABLES = [
 
 export function getSupabaseCredentials(): { url: string; anonKey: string } {
   const envUrl = ((import.meta as any).env?.VITE_SUPABASE_URL || '').trim();
-  const envKey = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '').trim();
+  const envKey = ((import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '').trim();
   const localUrl = (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_URL_KEY) || '' : '').trim();
   const localKey = (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_ANON_KEY) || '' : '').trim();
 
@@ -69,15 +69,13 @@ export function getSupabaseCredentials(): { url: string; anonKey: string } {
   const looksLikeKey = (v: string) => Boolean(v) && !looksLikeUrl(v);
 
   const resolvedUrl =
-    (looksLikeUrl(localUrl) ? localUrl : '') ||
     (looksLikeUrl(envUrl) ? envUrl : '') ||
-    (looksLikeUrl(envKey) ? envKey : '') ||
+    (looksLikeUrl(localUrl) ? localUrl : '') ||
     DEFAULT_SUPABASE_URL;
 
   const resolvedKey =
-    (looksLikeKey(localKey) ? localKey : '') ||
     (looksLikeKey(envKey) ? envKey : '') ||
-    (looksLikeKey(envUrl) ? envUrl : '');
+    (looksLikeKey(localKey) ? localKey : '');
 
   return {
     url: resolvedUrl,
@@ -148,7 +146,7 @@ export async function testSupabaseConnection(
   if (!targetUrl || !targetKey) {
     return {
       success: false,
-      message: 'URL Supabase et clé Anon Key requises pour vérifier la connexion.',
+      message: 'URL Supabase et clé publishable requises pour vérifier la connexion.',
     };
   }
 

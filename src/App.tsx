@@ -37,6 +37,7 @@ import { ImportExcelModal } from './components/modals/ImportExcelModal';
 import { RefreshModal } from './components/modals/RefreshModal';
 import { ProposalsModal } from './components/proposals/ProposalsModal';
 import { LoginPage } from './components/auth/LoginPage';
+import { PasswordRecoveryPage } from './components/auth/PasswordRecoveryPage';
 import { MarketCalendarView } from './components/market/MarketCalendarView';
 import { SchoolHolidaysCalendarView } from './components/events/SchoolHolidaysCalendarView';
 import { CalendarSubNavbar, CalendarSubTabMode } from './components/calendar/CalendarSubNavbar';
@@ -55,13 +56,6 @@ import { exportCompleteHistoricalExcel } from './services/excelHistoricalExportS
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
-import {
-  INITIAL_HOTELS,
-  INITIAL_VENUES,
-  INITIAL_SUGGESTIONS,
-  INITIAL_SOURCES,
-  generateFullMockEvents,
-} from './data/mockData';
 import { EventItem, FilterState, Hotel, EventProposal } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 import { exportEventsToPDF } from './utils/pdfExport';
@@ -71,41 +65,113 @@ import {
   CURRENT_REFERENCE_DATE,
 } from './utils/eventFilterUtils';
 import { getHotelRMSConfig } from './services/rmsSettingsService';
+import { getSupabaseClient } from './services/supabaseClient';
 
 interface UserSession {
+  id: string;
   name: string;
   email: string;
   role: string;
+  organizationId: string | null;
 }
 
 export default function App() {
-  // Authentication State
-  const [user, setUser] = useState<UserSession | null>(() => {
-    const saved = localStorage.getItem('flowtym_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
-      }
-    }
-    // Default logged-in demo user for immediate testing if desired, but let's allow clean logout/login
-    return {
-      name: 'Wali Larabi',
-      email: 'wali.larabi@flowtym.com',
-      role: 'Head of Revenue Management',
-    };
-  });
+  // Supabase Auth is the sole source of identity. Never restore an app-level demo user.
+  const [user, setUser] = useState<UserSession | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
-  const handleLoginSuccess = (newUser: UserSession) => {
-    setUser(newUser);
-    localStorage.setItem('flowtym_user', JSON.stringify(newUser));
-    showToast(`Bienvenue, ${newUser.name}`);
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) {
+      setAuthError('Configuration Supabase absente. Vérifiez VITE_SUPABASE_URL et VITE_SUPABASE_PUBLISHABLE_KEY dans l’environnement de déploiement.');
+      setAuthLoading(false);
+      return;
+    }
+
+    let active = true;
+    let resolving = false;
+
+    const loadVerifiedProfile = async () => {
+      if (resolving) return;
+      resolving = true;
+      try {
+        const { data: authData, error: authLookupError } = await client.auth.getUser();
+        if (authLookupError || !authData.user) {
+          if (active) {
+            setUser(null);
+            setAuthError(null);
+          }
+          return;
+        }
+
+        const { data: profile, error: profileError } = await client
+          .from('users')
+          .select('id,email,full_name,role,organization_id')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+        if (!profile || (!profile.organization_id && profile.role !== 'super_admin')) {
+          throw new Error("Votre profil Flowtym n'est pas initialisé ou n'est rattaché à aucune organisation. Contactez l'administrateur.");
+        }
+
+        if (active) {
+          setUser({
+            id: profile.id,
+            name: profile.full_name || profile.email || authData.user.email || 'Utilisateur',
+            email: profile.email || authData.user.email || '',
+            role: profile.role,
+            organizationId: profile.organization_id,
+          });
+          setAuthError(null);
+        }
+      } catch (error: any) {
+        if (active) {
+          setUser(null);
+          setAuthError(error?.message || "Impossible de charger votre profil Flowtym.");
+        }
+      } finally {
+        resolving = false;
+        if (active) setAuthLoading(false);
+      }
+    };
+
+    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && active) setPasswordRecovery(true);
+      if (!session) {
+        if (active) {
+          setUser(null);
+          setAuthError(null);
+          setAuthLoading(false);
+        }
+        return;
+      }
+      void Promise.resolve().then(loadVerifiedProfile);
+    });
+
+    void loadVerifiedProfile();
+    return () => {
+      active = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLoginSuccess = () => {
+    setAuthError(null);
+    setAuthLoading(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const client = getSupabaseClient();
+    if (!client) return;
+    const { error } = await client.auth.signOut();
+    if (error) {
+      setAuthError("La déconnexion n'a pas abouti. Réessayez.");
+      return;
+    }
     setUser(null);
-    localStorage.removeItem('flowtym_user');
     showToast('Vous avez été déconnecté avec succès');
   };
 
@@ -165,46 +231,15 @@ export default function App() {
   });
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
-  const [venues, setVenues] = useState(INITIAL_VENUES);
-  const [sources, setSources] = useState(INITIAL_SOURCES);
-  const [suggestions, setSuggestions] = useState(INITIAL_SUGGESTIONS);
-  const [events, setEvents] = useState<EventItem[]>(() => generateFullMockEvents());
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [venues, setVenues] = useState([]);
+  const [sources, setSources] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [configVersion, setConfigVersion] = useState(0);
 
-  // Proposals State (Score RM 30 à 59)
-  const [proposals, setProposals] = useState<EventProposal[]>([
-    {
-      id: 'prop-init-1',
-      title: 'Salon du Vélo Urbain & Mobilités Douces',
-      subtitle: 'Écomobilité & transition urbaine',
-      category: 'salons_foires',
-      city: 'Paris',
-      venueName: 'Porte de Versailles',
-      startDate: '2026-11-27',
-      endDate: '2026-11-29',
-      expectedAttendance: 19000,
-      score: 48,
-      status: 'pending',
-      detectedSource: 'Fédération des Usagers de la Bicyclette (FUB)',
-      impactLevel: 'modere',
-    },
-    {
-      id: 'prop-init-2',
-      title: 'Championnat d’Europe d’Escrime Junior',
-      subtitle: 'Escrime épée & fleuret',
-      category: 'sport',
-      city: 'Paris',
-      venueName: 'Halle Carpentier',
-      startDate: '2026-12-04',
-      endDate: '2026-12-06',
-      expectedAttendance: 8500,
-      score: 36,
-      status: 'pending',
-      detectedSource: 'Fédération Française d’Escrime',
-      impactLevel: 'modere',
-    },
-  ]);
+  // No fabricated proposals: this list is populated only from persisted data.
+  const [proposals, setProposals] = useState<EventProposal[]>([]);
 
   // View switch: 'calendar' vs 'table' (default to 'table' so Table View is immediately active)
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
@@ -224,7 +259,7 @@ export default function App() {
     anomaliesOnly: false,
     watchlistOnly: false,
     showSchoolHolidays: true,
-    selectedHotelId: 'hotel-opera',
+    selectedHotelId: '',
     currentYear: 2026,
     currentMonth: 10, // Novembre 2026 (0-indexed 10)
   });
@@ -575,9 +610,20 @@ export default function App() {
   const pendingSuggestionsCount = suggestions.filter((s) => s.status === 'pending').length;
   const pendingProposalsCount = proposals.filter((p) => p.status === 'pending').length;
 
-  // If user is not authenticated, render Login Page!
+  // Do not render protected RMS data while session/profile is unresolved.
+  if (authLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] dark:bg-[#141824] text-sm text-slate-500">Vérification de votre session sécurisée…</div>;
+  }
+  if (passwordRecovery) {
+    return <PasswordRecoveryPage onComplete={async () => {
+      const client = getSupabaseClient();
+      if (client) await client.auth.signOut();
+      setPasswordRecovery(false);
+      setUser(null);
+    }} />;
+  }
   if (!user) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return <LoginPage onLoginSuccess={handleLoginSuccess} authError={authError} />;
   }
 
   return (

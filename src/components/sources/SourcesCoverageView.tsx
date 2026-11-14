@@ -21,12 +21,10 @@ import {
   CheckCircle,
   Activity,
   Sparkles,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { EventSource, Venue, EventItem, Hotel } from '../../types';
-import { batchScrape2027Events, ScrapingVerificationResult } from '../../services/scraperService';
 import { getDiscoveredSources } from '../../services/eventIntelligenceAgent';
-import { HotelDataExcelUploadSection } from './HotelDataExcelUploadSection';
+import { DataManagementWorkspace } from './DataManagementWorkspace';
 
 interface SourcesCoverageViewProps {
   sources: EventSource[];
@@ -60,73 +58,15 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
     return Array.from(map.values());
   }, [sources, discoveredSources]);
 
-  const [isBatchScraping, setIsBatchScraping] = useState(false);
-  const [batchProgress, setBatchProgress] = useState<{
-    current: number;
-    total: number;
-    log: string;
-  } | null>(null);
-  const [terminalLogs, setTerminalLogs] = useState<string[]>([
-    '[System] Moteur de crawling & scraping initialisé',
-    '[Worker] 12 workers prêts pour la validation sémantique Schema.org Event',
-  ]);
-  const [verifiedCount2027, setVerifiedCount2027] = useState<number>(() => {
-    return events.filter((e) => e.startDate.startsWith('2027') && e.city === 'Paris').length;
-  });
-
-  const healthyCount = allSources.filter((s) => s.status === 'healthy').length;
   const officialCount = allSources.filter((s) => s.isOfficial).length;
-  const totalEventsIndexed = allSources.reduce((acc, curr) => acc + curr.detectedEventsCount, 0);
 
   const paris2027Events = events.filter(
     (e) => e.startDate.startsWith('2027') && e.city === 'Paris'
   );
 
   const [activeSubTab, setActiveSubTab] = useState<
-    'excel_uploads' | 'crawler' | 'sources_list' | 'venues'
-  >('excel_uploads');
-
-  const handleStartBatchScraping = async () => {
-    if (paris2027Events.length === 0) {
-      if (onShowToast) onShowToast('Aucun événement 2027 détecté pour Paris');
-      return;
-    }
-
-    setIsBatchScraping(true);
-    setTerminalLogs((prev) => [
-      ...prev,
-      `[Crawler] Démarrage du scan automatisé de ${paris2027Events.length} événements Paris 2027...`,
-    ]);
-
-    try {
-      const result = await batchScrape2027Events(paris2027Events, (p) => {
-        setBatchProgress({
-          current: p.current,
-          total: p.total,
-          log: p.log,
-        });
-        setTerminalLogs((prevLogs) => [
-          ...prevLogs.slice(-25),
-          `[HTTP 200] ${p.currentEvent.title} (${p.currentEvent.startDate}) › ${p.currentEvent.officialUrl || p.currentEvent.venueName}`,
-        ]);
-      });
-
-      setVerifiedCount2027(result.verifiedCount);
-      setTerminalLogs((prevLogs) => [
-        ...prevLogs,
-        `[Terminé] ${result.verifiedCount} événements 2027 certifiés avec succès. Concordance 100%.`,
-      ]);
-
-      if (onShowToast) {
-        onShowToast(`Scraping terminé : ${result.verifiedCount} événements Paris 2027 validés`);
-      }
-    } catch {
-      if (onShowToast) onShowToast('Erreur durant le cycle de scraping');
-    } finally {
-      setIsBatchScraping(false);
-      setBatchProgress(null);
-    }
-  };
+    'data_hub' | 'crawler' | 'sources_list' | 'venues'
+  >('data_hub');
 
   return (
     <div className="space-y-6">
@@ -139,10 +79,10 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Sources d&apos;Information & Couverture Événementielle
+                Données & Inventaire HOPTYM
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Audit de l&apos;ingestion des données, gestionnaires de sites officiels et protocoles de vérification
+                Connectivités, imports, qualité des données et référentiels événementiels
               </p>
             </div>
           </div>
@@ -150,7 +90,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/70">
               <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Couverture certifiée 99.4%</span>
+              <span>Catalogue & imports</span>
             </span>
           </div>
         </div>
@@ -158,12 +98,12 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
         {/* 4 Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
           <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/70 dark:border-slate-800/70">
-            <div className="text-[11px] font-bold text-slate-400 uppercase">Sources Actives</div>
+            <div className="text-[11px] font-bold text-slate-400 uppercase">Sources référencées</div>
             <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
-              {healthyCount} / {sources.length}
+              {allSources.length}
             </div>
             <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-              0 source en anomalie
+              Sources du référentiel
             </div>
           </div>
 
@@ -193,7 +133,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
               {paris2027Events.length}
             </div>
             <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-              100% avec URLs officielles
+              {paris2027Events.filter((event) => Boolean(event.officialUrl)).length} avec URL officielle
             </div>
           </div>
         </div>
@@ -202,16 +142,10 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
         <div className="flex items-center gap-2 border-t border-slate-100 dark:border-slate-800/80 pt-4 overflow-x-auto">
           {[
             {
-              id: 'excel_uploads',
-              label: 'Upload Excel : Lighthouse, D-EDGE & PMS',
-              icon: FileSpreadsheet,
-              badge: 'Mode Alternatif Hors-API',
-            },
-            {
-              id: 'crawler',
-              label: 'Scraper & Robot Crawler 2027',
-              icon: Globe,
-              badge: `${paris2027Events.length} événements`,
+              id: 'data_hub',
+              label: 'Centre de données & connectivités',
+              icon: Database,
+              badge: 'Catalogue API + imports',
             },
             {
               id: 'sources_list',
@@ -253,112 +187,9 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
         </div>
       </div>
 
-      {/* EXCEL UPLOADS SECTION (LIGHTHOUSE, D-EDGE, PMS) */}
-      {activeSubTab === 'excel_uploads' && (
-        <HotelDataExcelUploadSection
-          hotel={hotel}
-          onShowToast={onShowToast}
-          onNavigateToPricing={onNavigateToPricing}
-          onDataImported={(sourceType, rowCount) => {
-            if (onShowToast) {
-              onShowToast(`${rowCount} lignes importées avec succès depuis l'export ${sourceType.toUpperCase()} !`);
-            }
-          }}
-        />
-      )}
-
-      {/* CRAWLER & SCRAPER AUTOMATISÉ 2027 BANNER */}
-      {activeSubTab === 'crawler' && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-violet-200/80 dark:border-violet-800/70 p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center text-white shadow-xs">
-                <Globe className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    Scraper & Robot de Vérification Automatisé — Paris 2027
-                  </h3>
-                <span className="text-[10px] font-bold uppercase bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-800/70">
-                  Web Crawler Live
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Vérifie l&apos;accessibilité HTTP 200, les certificats TLS, le balisage Schema.org Event et la concordance des dates sur les sites officiels.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleStartBatchScraping}
-            disabled={isBatchScraping}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 shrink-0 cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 ${isBatchScraping ? 'animate-spin' : ''}`} />
-            <span>
-              {isBatchScraping
-                ? `Scraping en cours (${batchProgress?.current || 0}/${batchProgress?.total || paris2027Events.length})...`
-                : 'Lancer le Scraping Global 2027'}
-            </span>
-          </button>
-        </div>
-
-        {/* Progress Bar when scraping */}
-        {isBatchScraping && batchProgress && (
-          <div className="space-y-1.5 pt-2">
-            <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
-              <span>Progression du crawl</span>
-              <span className="font-bold text-violet-700 dark:text-violet-300 tabular-nums">
-                {Math.round((batchProgress.current / batchProgress.total) * 100)}% ({batchProgress.current} / {batchProgress.total})
-              </span>
-            </div>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-violet-600 h-2 rounded-full transition-all duration-150"
-                style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
-              />
-            </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-              {batchProgress.log}
-            </div>
-          </div>
-        )}
-
-        {/* Live Terminal Log */}
-        <div className="space-y-2 pt-2">
-          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-            <span className="font-bold flex items-center gap-1.5">
-              <Terminal className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
-              Console d&apos;Exécution du Crawler Web
-            </span>
-            <span className="text-[11px] text-slate-400">
-              {terminalLogs.length} requêtes enregistrées
-            </span>
-          </div>
-
-          <div className="bg-slate-950 text-slate-200 p-4 rounded-xl font-mono text-[11px] space-y-1 h-36 overflow-y-auto leading-relaxed border border-slate-800 shadow-inner">
-            {terminalLogs.map((log, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <span className="text-emerald-400 select-none">›</span>
-                <span
-                  className={
-                    log.includes('Terminé') || log.includes('100%')
-                      ? 'text-emerald-300 font-bold'
-                      : log.includes('HTTP 200')
-                      ? 'text-slate-300'
-                      : log.includes('Crawler')
-                      ? 'text-violet-300 font-semibold'
-                      : 'text-slate-400'
-                  }
-                >
-                  {log}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* CENTRE DE DONNÉES HOPTYM */}
+      {activeSubTab === 'data_hub' && (
+        <DataManagementWorkspace hotel={hotel} onShowToast={onShowToast} />
       )}
 
       {/* Workers & Ingestion Architecture Banner + Sources Table */}
@@ -367,24 +198,13 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
           <div className="bg-slate-900 dark:bg-slate-800 text-slate-200 rounded-2xl p-6 shadow-sm space-y-3">
             <div className="flex items-center gap-2 text-violet-400 font-bold text-xs uppercase tracking-wider">
               <Server className="w-4 h-4" />
-              <span>Architecture de Collecte Découplée (Background Workers)</span>
+              <span>Architecture cible de collecte (non déployée)</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed max-w-4xl">
               Conformément au PRD technique, le moteur de crawling et de déduplication est exécuté en dehors des fonctions serverless Vercel sur des conteneurs workers dédiés avec queue de tâches. Les données vérifiées sont synchronisées de manière asynchrone dans PostgreSQL / Supabase avec contrôle d&apos;intégrité.
             </p>
-            <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                Worker Ingestion Paris 2027 : En ligne ({paris2027Events.length} sources surveillées)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                Worker Ingestion Lyon/Nice : En ligne (Fréquence : 2h)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                Moteur de Déduplication & Calcul Score RM : Actif
-              </span>
+            <div className="text-[11px] text-amber-700 dark:text-amber-300 pt-2 border-t border-slate-800">
+              Statut : architecture cible documentée — aucun worker actif confirmé.
             </div>
           </div>
 
