@@ -118,7 +118,7 @@ export const SchoolHolidaysImpactDashboard: React.FC<SchoolHolidaysImpactDashboa
             <div className="bg-white/10 border border-white/20 rounded-2xl px-4 py-2.5 text-center">
               <div className="text-[10px] uppercase font-bold text-violet-300">ADR Moyen Vacances</div>
               <div className="text-xl font-black text-white mt-0.5">{profile.historicalHolidayADR}€</div>
-              <div className="text-[10px] text-emerald-300">+{Math.round(((profile.historicalHolidayADR - hotel.baseADR) / hotel.baseADR) * 100)}% vs Base</div>
+              <div className="text-[10px] text-emerald-300">+{hotel.baseADR && hotel.baseADR > 0 ? Math.round(((profile.historicalHolidayADR - hotel.baseADR) / hotel.baseADR) * 100) + '% vs Base' : 'ADR de base non renseigné'}</div>
             </div>
           </div>
         </div>
