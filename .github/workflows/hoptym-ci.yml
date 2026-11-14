@@ -3,10 +3,6 @@ name: HOPTYM CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches:
-      - main
-      - feat/hoptym-data-connectivity-foundation
 
 permissions:
   contents: read
