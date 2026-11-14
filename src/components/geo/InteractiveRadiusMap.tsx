@@ -19,6 +19,7 @@ import {
   Compass,
 } from 'lucide-react';
 import { Hotel, VenueGeoDetail } from '../../types';
+import { getTerritoryForCity } from '../../data/geoData';
 
 interface InteractiveRadiusMapProps {
   hotel: Hotel;
@@ -45,8 +46,11 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
   const [showOtherHotels, setShowOtherHotels] = useState(true);
 
   // Center coordinate
-  const centerLat = hotel.lat;
-  const centerLng = hotel.lng;
+  const cityCenter = getTerritoryForCity(hotel.city).center;
+  const centerLat = hotel.lat ?? cityCenter.lat;
+  const centerLng = hotel.lng ?? cityCenter.lng;
+  const mappableVenues = venues.filter((venue): venue is VenueGeoDetail & { lat: number; lng: number } => venue.lat !== null && venue.lng !== null);
+  const mappableOtherHotels = otherHotels.filter((other): other is Hotel & { lat: number; lng: number } => other.lat !== null && other.lng !== null);
 
   // 1 degree latitude ~ 111.2 km
   // 1 degree longitude at 48.8°N ~ 111.2 * cos(48.8°) ~ 73.2 km
@@ -101,7 +105,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
         <div className="hidden sm:flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 text-xs text-slate-300">
           <Navigation className="w-3.5 h-3.5 text-violet-400" />
           <span>
-            {hotel.lat.toFixed(4)}°N, {hotel.lng.toFixed(4)}°E
+            {hotel.lat !== null && hotel.lng !== null ? `${hotel.lat.toFixed(4)}°N, ${hotel.lng.toFixed(4)}°E` : `Centre de ${hotel.city} (approximatif)`}
           </span>
         </div>
       </div>
@@ -307,7 +311,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
           })}
 
           {/* Connection Lines from Center Hotel to Venues */}
-          {venues.map((venue) => {
+          {mappableVenues.map((venue) => {
             const pt = coordsToSvg(venue.lat, venue.lng);
             const isHovered = hoveredVenue?.id === venue.id;
             const isSelected = selectedVenue?.id === venue.id;
@@ -337,7 +341,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
 
           {/* Other Hotels Markers */}
           {showOtherHotels &&
-            otherHotels.map((oth) => {
+            mappableOtherHotels.map((oth) => {
               const pt = coordsToSvg(oth.lat, oth.lng);
               return (
                 <g key={`oth-${oth.id}`} className="cursor-pointer">
@@ -520,7 +524,7 @@ export const InteractiveRadiusMap: React.FC<InteractiveRadiusMapProps> = ({
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-400">
-                      Capacité : <strong>{activeV.capacity.toLocaleString('fr-FR')}</strong>
+                      Capacité : <strong>{activeV.capacity?.toLocaleString('fr-FR') || 'Non renseignée'}</strong>
                     </div>
                   </div>
                 </div>
