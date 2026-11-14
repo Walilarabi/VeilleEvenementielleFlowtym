@@ -35,6 +35,14 @@ const HEADER_ALIASES: Record<string, string[]> = {
   currency: ['currency', 'devise', 'currency_code'],
   competitor: ['competitor_name', 'competitor', 'hotel_name', 'hotel', 'concurrent', 'nom_concurrent'],
   rate: ['rate_amount', 'rate', 'price', 'prix', 'tarif', 'public_bar', 'bar'],
+  minStay: ['min_stay', 'minlos', 'minimum_stay', 'sejour_minimum'],
+  cta: ['cta', 'closed_to_arrival', 'ferme_arrivee'],
+  ctd: ['ctd', 'closed_to_departure', 'ferme_depart'],
+  newRooms: ['new_rooms_booked', 'new_bookings', 'nouvelles_reservations', 'pickup_rooms'],
+  movedIn: ['moved_in_rooms', 'transferts_entrants'],
+  movedOut: ['moved_out_rooms', 'transferts_sortants'],
+  periodStart: ['period_start', 'pickup_period_start', 'date_debut_periode'],
+  pickupWindow: ['pickup_window_hours', 'pickup_window', 'fenetre_pickup'],
   roomType: ['room_type', 'roomtype', 'typologie', 'type_chambre'],
   ratePlan: ['rate_plan', 'rateplan', 'plan_tarifaire', 'tarif'],
   channel: ['channel', 'canal', 'distribution_channel'],
@@ -123,6 +131,20 @@ function makeHistoricalRow(row: Row, tenant: { organizationId: string; hotelId: 
     cancellation_rate_pct: numberValue(readValue(row, 'cancellationRate')),
     lead_time_days: numberValue(readValue(row, 'leadTime')),
     public_bar: numberValue(readValue(row, 'rate')),
+    otb_j90: numberValue(row.otb_j90 ?? row.OTB_J90),
+    otb_j60: numberValue(row.otb_j60 ?? row.OTB_J60),
+    otb_j30: numberValue(row.otb_j30 ?? row.OTB_J30),
+    otb_j14: numberValue(row.otb_j14 ?? row.OTB_J14),
+    otb_j7: numberValue(row.otb_j7 ?? row.OTB_J7),
+    otb_j3: numberValue(row.otb_j3 ?? row.OTB_J3),
+    otb_j1: numberValue(row.otb_j1 ?? row.OTB_J1),
+    pickup_j90_j60: numberValue(row.pickup_j90_j60 ?? row.PICKUP_J90_J60),
+    pickup_j60_j30: numberValue(row.pickup_j60_j30 ?? row.PICKUP_J60_J30),
+    pickup_j30_j14: numberValue(row.pickup_j30_j14 ?? row.PICKUP_J30_J14),
+    pickup_j14_j7: numberValue(row.pickup_j14_j7 ?? row.PICKUP_J14_J7),
+    pickup_j7_j3: numberValue(row.pickup_j7_j3 ?? row.PICKUP_J7_J3),
+    pickup_j3_j1: numberValue(row.pickup_j3_j1 ?? row.PICKUP_J3_J1),
+    pickup_j1_arrival: numberValue(row.pickup_j1_arrival ?? row.PICKUP_J1_ARRIVAL),
     currency: String(readValue(row, 'currency') || 'EUR').slice(0, 3).toUpperCase(),
     source_status: 'imported',
     source_name: sourceName,
@@ -254,13 +276,13 @@ export async function importHoptymFile(args: {
         current.room_nights_otb += numberValue(readValue(row, 'roomsSold')) ?? 0;
         current.booked_revenue += numberValue(readValue(row, 'revenue')) ?? 0;
         current.cancellation_count += numberValue(readValue(row, 'cancellations')) ?? 0;
-        const lead = numberValue(readValue(row, 'leadTime'));
+        current.cancelled_rooms += numberValue(readValue(row, 'cancellations')) ?? 0;\n        const lead = numberValue(readValue(row, 'leadTime'));
         if (lead !== null) { current.leadTimeTotal += lead; current.leadTimeCount += 1; }
         grouped.set(key, current);
       }
       const mapped = Array.from(grouped.values()).map((row) => {
         const { leadTimeTotal, leadTimeCount, ...output } = row;
-        return { ...output, booked_adr: output.rooms_otb > 0 ? output.booked_revenue / output.rooms_otb : null, lead_time_days: leadTimeCount ? leadTimeTotal / leadTimeCount : null };
+        const pickupWindow = numberValue(readValue(args.records[0], 'pickupWindow'));\n        const periodStart = dateValue(readValue(args.records[0], 'periodStart'));\n        const allowedWindow = [24, 72, 168].includes(pickupWindow || 0) ? pickupWindow : null;\n        return { ...output, booked_adr: output.rooms_otb > 0 ? output.booked_revenue / output.rooms_otb : null, lead_time_days: leadTimeCount ? leadTimeTotal / leadTimeCount : null, net_pickup_rooms: output.new_rooms_booked - output.cancelled_rooms + output.moved_in_rooms - output.moved_out_rooms, pickup_window_hours: allowedWindow, period_start: periodStart ? periodStart + 'T00:00:00.000Z' : null };
       });
       if (!mapped.length) throw new Error('Aucune réservation avec date de séjour exploitable.');
       for (const batch of batches(mapped)) {
@@ -288,7 +310,7 @@ export async function importHoptymFile(args: {
         }];
       });
       if (!valid.length) throw new Error('Aucune observation concurrentielle avec date et nom du concurrent.');
-      const { data: extraction, error: extractionError } = await client.from('lighthouse_extractions').insert({
+      const { data: competitors } = await client.from('competitor_hotels').select('id,competitor_name').eq('hotel_id', hotelId).eq('organization_id', organizationId);\n      const competitorIds = new Map((competitors || []).map((item: any) => [String(item.competitor_name).trim().toLowerCase(), item.id]));\n      const { data: extraction, error: extractionError } = await client.from('lighthouse_extractions').insert({
         organization_id: organizationId, hotel_id: hotelId, file_name: args.fileName,
         provider: args.providerName || 'manual_file', extraction_type: 'manual_import', observed_at: observedAt,
         currency: String(readValue(args.records[0], 'currency') || tenant.hotel.currency || 'EUR').slice(0, 3).toUpperCase(),
@@ -296,7 +318,7 @@ export async function importHoptymFile(args: {
         metadata: { original_dataset: 'rate_shopper_import', provider_name: args.providerName || 'manual_file' },
       }).select('id').single();
       if (extractionError || !extraction) throw extractionError || new Error('Création de l’extraction impossible.');
-      const observations = valid.map((row) => ({ ...row, extraction_id: extraction.id }));
+      const observations = valid.map((row) => ({ ...row, competitor_id: competitorIds.get(String(row.competitor_name).trim().toLowerCase()) || null, extraction_id: extraction.id }));
       for (const batch of batches(observations)) {
         const { error } = await client.from('lighthouse_rate_observations').insert(batch);
         if (error) throw error;
