@@ -77,13 +77,13 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
 
   // Données de veille tarifaire Lighthouse Compset
   const compset = useMemo(
-    () => getCompsetForDate(hotel.id, dateStr, hotel.baseADR, dayEvents.length, maxScore, totalPax),
+    () => getCompsetForDate(hotel.id, dateStr, hotel.baseADR ?? 0, dayEvents.length, maxScore, totalPax),
     [hotel.id, dateStr, hotel.baseADR, dayEvents.length, maxScore, totalPax]
   );
 
   // Données internes de stock et de pickup CRS D-EDGE
   const dedge = useMemo(
-    () => getDEdgeInventoryForDate(hotel.id, dateStr, hotel.roomCount, hotel.baseADR),
+    () => getDEdgeInventoryForDate(hotel.id, dateStr, hotel.roomCount, hotel.baseADR ?? 0),
     [hotel.id, dateStr, hotel.roomCount, hotel.baseADR]
   );
 
@@ -142,18 +142,23 @@ export const DateDetailModal: React.FC<DateDetailModalProps> = ({
   const demandConfig = getDemandConfig(demandLevel);
 
   // Calcul du tarif recommandé
-  let baseRecommendedRate = hotel.baseADR;
-  if (demandLevel === 'exceptionnel') baseRecommendedRate = Math.round(hotel.baseADR * 1.42);
-  else if (demandLevel === 'eleve') baseRecommendedRate = Math.round(hotel.baseADR * 1.25);
-  else if (demandLevel === 'normal') baseRecommendedRate = Math.round(hotel.baseADR * 1.05);
+  const baseADR = hotel.baseADR ?? 0;
+  let baseRecommendedRate = baseADR;
+  if (demandLevel === 'exceptionnel') baseRecommendedRate = Math.round(baseADR * 1.42);
+  else if (demandLevel === 'eleve') baseRecommendedRate = Math.round(baseADR * 1.25);
+  else if (demandLevel === 'normal') baseRecommendedRate = Math.round(baseADR * 1.05);
 
   const [customRate, setCustomRate] = useState<number>(baseRecommendedRate);
   const [isEditingRate, setIsEditingRate] = useState(false);
   const [applied, setApplied] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'reco' | 'market_compset' | 'dedge_inventory' | 'events'>('reco');
 
-  const priceDeltaEur = customRate - hotel.baseADR;
-  const priceDeltaPercent = Math.round((priceDeltaEur / hotel.baseADR) * 100);
+  const priceDeltaEur = customRate - baseADR;
+  const priceDeltaPercent = baseADR > 0 ? Math.round((priceDeltaEur / baseADR) * 100) : 0;
+
+  if (hotel.baseADR === null) {
+    return <div className="p-6 text-sm text-amber-700 bg-amber-50 rounded-xl">ADR de référence non renseigné dans Supabase. Les recommandations tarifaires de cette date sont suspendues jusqu’à l’import d’un BAR et d’un historique réels.</div>;
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
