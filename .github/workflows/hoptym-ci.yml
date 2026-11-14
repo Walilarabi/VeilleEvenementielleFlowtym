@@ -1,6 +1,8 @@
 name: HOPTYM CI
 
 on:
+  push:
+    branches: [feat/hoptym-data-connectivity-foundation]
   pull_request:
     branches: [main]
 
