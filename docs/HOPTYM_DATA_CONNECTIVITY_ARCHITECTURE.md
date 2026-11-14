@@ -147,6 +147,8 @@ L'audit en lecture seule du projet Supabase `aliploqizujgovnlgjvg` confirme que 
 | `lighthouse_rate_observations` | Observations concurrentielles normalisées | Activé | 0 |
 | `daily_rate_intelligence` | Indicateurs et décisions tarifaires quotidiennes | Activé | 0 |
 
+Le même contrôle a relevé le référentiel de base suivant : `organizations=1`, `users=2`, `hotels=1`, `competitor_hotels=10`, mais `hotel_room_types=0`, `hotel_rate_plans=0`, `venues=0`, `event_sources=0` et `events=0`. Il faut donc compléter le mapping chambre/plan tarifaire et l'alimentation des sources événementielles avant de prétendre calculer des indicateurs RM par typologie ou des impacts d'événements.
+
 Les politiques lues dans `pg_policies` utilisent `flowtym_private.can_access_hotel(hotel_id, organization_id)` pour SELECT et `flowtym_private.can_manage_hotel(...)` pour INSERT/UPDATE/DELETE sur ces tables. Cela constitue une base tenant-aware ; il reste à tester les scénarios d'accès croisé avec deux organisations et deux hôtels avant d'autoriser le pipeline d'import.
 
 **Constat important :** les tables ci-dessus sont vides au moment de l'audit. Le schéma est préparé, mais il ne prouve pas qu'un historique de réservation, d'inventaire, de prix concurrents ou de décisions RM alimente déjà le moteur.
