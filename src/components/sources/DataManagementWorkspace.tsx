@@ -145,7 +145,7 @@ export const DataManagementWorkspace: React.FC<DataManagementWorkspaceProps> = (
       const normalizedHeaders = headers.map((header) => normalizeHeaderForImport(header));
       const records = dataRows.map((row) => Object.fromEntries(normalizedHeaders.map((header, index) => [header || ('column_' + (index + 1)), row[index] ?? null])));
       const headerText = normalizedHeaders.join(' ');
-      const suggestedDataset: HoptymImportDataset = detection.type === 'events' ? 'events' : detection.type === 'competitors' || headerText.includes('competitor') || headerText.includes('concurrent') ? 'rates' : detection.type === 'inventory' ? 'inventory' : detection.type === 'reservations' ? 'reservations' : 'historical';
+      const suggestedDataset: HoptymImportDataset = detection.type === 'events' ? 'events' : detection.type === 'competitors' || headerText.includes('competitor') || headerText.includes('concurrent') || headerText.includes('hotel_name') ? 'rates' : detection.type === 'inventory' ? 'inventory' : detection.type === 'reservations' ? 'reservations' : 'historical';
       setImportDataset(suggestedDataset);
       setImportMessage(null);
       setFileResult({
