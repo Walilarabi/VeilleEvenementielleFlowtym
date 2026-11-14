@@ -111,8 +111,8 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
   // State for manual GPS coordinates editing
   const [isEditingGPS, setIsEditingGPS] = useState(false);
-  const [tempLat, setTempLat] = useState(currentHotel.lat.toString());
-  const [tempLng, setTempLng] = useState(currentHotel.lng.toString());
+  const [tempLat, setTempLat] = useState(currentHotel.lat?.toString() ?? '');
+  const [tempLng, setTempLng] = useState(currentHotel.lng?.toString() ?? '');
 
   // Category state (7 Official Categories)
   const [categories, setCategories] = useState<OfficialCategorySpec[]>(OFFICIAL_7_CATEGORIES);
@@ -160,6 +160,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
   // Compute calculated venues for the current hotel, strictly filtered to the reference territory
   const calculatedVenues = useMemo(() => {
+    if (currentHotel.lat === null || currentHotel.lng === null) return [];
     const allComputed = computeVenuesForHotel(
       currentHotel.lat,
       currentHotel.lng,
@@ -168,7 +169,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
       currentSettings.extendedRadiusKm
     );
     // Filtrage territorial strict : exclut les infrastructures hors du bassin économique pertinent
-    return allComputed.filter((v) => isLocationInTerritory(v.lat, v.lng, v.region, currentTerritory));
+    return allComputed.filter((v) => v.lat !== null && v.lng !== null && isLocationInTerritory(v.lat, v.lng, v.region, currentTerritory));
   }, [currentHotel, currentSettings.mainRadiusKm, currentSettings.extendedRadiusKm, currentTerritory]);
 
   // Set of valid venue IDs within the hotel's economic territory
@@ -1027,7 +1028,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                         <td className="py-3.5 px-4 font-medium">
                           <div className="font-bold text-slate-900 dark:text-slate-100">{v.name}</div>
                           <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                            Capacité : {v.capacity.toLocaleString('fr-FR')} • {v.type}
+                            Capacité : {v.capacity?.toLocaleString('fr-FR') || 'Non renseignée'} • {v.type}
                           </div>
                         </td>
                         <td className="py-3.5 px-4 whitespace-nowrap">
