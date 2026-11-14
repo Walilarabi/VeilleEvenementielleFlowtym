@@ -27,6 +27,7 @@ import { EventSource, Venue, EventItem, Hotel } from '../../types';
 import { batchScrape2027Events, ScrapingVerificationResult } from '../../services/scraperService';
 import { getDiscoveredSources } from '../../services/eventIntelligenceAgent';
 import { HotelDataExcelUploadSection } from './HotelDataExcelUploadSection';
+import { DataManagementWorkspace } from './DataManagementWorkspace';
 
 interface SourcesCoverageViewProps {
   sources: EventSource[];
@@ -83,8 +84,8 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
   );
 
   const [activeSubTab, setActiveSubTab] = useState<
-    'excel_uploads' | 'crawler' | 'sources_list' | 'venues'
-  >('excel_uploads');
+    'data_hub' | 'excel_uploads' | 'crawler' | 'sources_list' | 'venues'
+  >('data_hub');
 
   const handleStartBatchScraping = async () => {
     if (paris2027Events.length === 0) {
@@ -202,6 +203,12 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
         <div className="flex items-center gap-2 border-t border-slate-100 dark:border-slate-800/80 pt-4 overflow-x-auto">
           {[
             {
+              id: 'data_hub',
+              label: 'Centre de données & connectivités',
+              icon: Database,
+              badge: 'Catalogue API + imports',
+            },
+            {
               id: 'excel_uploads',
               label: 'Upload Excel : Lighthouse, D-EDGE & PMS',
               icon: FileSpreadsheet,
@@ -252,6 +259,11 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
           })}
         </div>
       </div>
+
+      {/* CENTRE DE DONNÉES HOPTYM */}
+      {activeSubTab === 'data_hub' && (
+        <DataManagementWorkspace hotel={hotel} onShowToast={onShowToast} />
+      )}
 
       {/* EXCEL UPLOADS SECTION (LIGHTHOUSE, D-EDGE, PMS) */}
       {activeSubTab === 'excel_uploads' && (
