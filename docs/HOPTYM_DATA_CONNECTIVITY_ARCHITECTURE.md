@@ -131,6 +131,26 @@ Tables cibles à auditer avant toute migration (réutiliser les tables existante
 
 Toute migration commence par l'inspection du schéma réel, des clés étrangères, contraintes, index et RLS. Pas de création de tables redondantes à l'aveugle.
 
+### 4.1 État du schéma Supabase observé le 14/11/2026
+
+L'audit en lecture seule du projet Supabase `aliploqizujgovnlgjvg` confirme que les fondations de persistance existent déjà. Il faut les réutiliser et compléter leurs contrats plutôt que créer une deuxième famille de tables sans justification.
+
+| Table existante | Usage | RLS | Lignes observées |
+|---|---|---:|---:|
+| `integration_connections` | Registre des connexions par organisation/hôtel, référence de secret et statut | Activé | 0 |
+| `data_ingestion_jobs` | Historique des jobs d'ingestion, compteurs et idempotency key | Activé | 0 |
+| `hotel_historical_daily` | Faits historiques RM, OTB par horizons, pickup, lead time, ADR, RevPAR, compset et provenance | Activé | 0 |
+| `hotel_historical_import_logs` | Historique des imports, rejets, avertissements, colonnes détectées | Activé | 0 |
+| `hotel_inventory_snapshots` | Inventaire, chambres vendues/disponibles, BAR et restrictions par date | Activé | 0 |
+| `hotel_reservation_snapshots` | OTB, room nights, revenu, annulations, lead time et pickup net | Activé | 0 |
+| `lighthouse_extractions` | Enveloppe d'import/extraction rate shopper | Activé | 0 |
+| `lighthouse_rate_observations` | Observations concurrentielles normalisées | Activé | 0 |
+| `daily_rate_intelligence` | Indicateurs et décisions tarifaires quotidiennes | Activé | 0 |
+
+Les politiques lues dans `pg_policies` utilisent `flowtym_private.can_access_hotel(hotel_id, organization_id)` pour SELECT et `flowtym_private.can_manage_hotel(...)` pour INSERT/UPDATE/DELETE sur ces tables. Cela constitue une base tenant-aware ; il reste à tester les scénarios d'accès croisé avec deux organisations et deux hôtels avant d'autoriser le pipeline d'import.
+
+**Constat important :** les tables ci-dessus sont vides au moment de l'audit. Le schéma est préparé, mais il ne prouve pas qu'un historique de réservation, d'inventaire, de prix concurrents ou de décisions RM alimente déjà le moteur.
+
 ## 5. Moteur universel de fichiers
 
 Formats initiaux : XLSX, XLS, CSV UTF-8 et CSV avec séparateur détecté. Les fichiers PDF ne sont pas une source tabulaire de première intention ; leur extraction sera une phase distincte.
