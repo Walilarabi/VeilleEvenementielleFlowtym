@@ -100,7 +100,7 @@ export const VenueDetailDrawer: React.FC<VenueDetailDrawerProps> = ({
             <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800/80">
               <span className="text-slate-400 text-[10px]">Capacité maximale</span>
               <div className="font-bold text-slate-800 dark:text-slate-200 text-sm mt-0.5">
-                {venue.capacity.toLocaleString('fr-FR')} pers.
+                {venue.capacity?.toLocaleString('fr-FR') || 'Non renseignée'} pers.
               </div>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800/80">
