@@ -162,7 +162,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
           { featureType: 'administrative.locality', elementType: 'labels.text.stroke', stylers: [{ color: '#ffffff' }, { weight: 3 }] },
         ];
 
-        const initialBounds = getTerritoryBoundsForScope(territory, territoryScope, hotel.lat, hotel.lng);
+        const initialBounds = getTerritoryBoundsForScope(territory, territoryScope, hotelCenterLat, hotelCenterLng);
         const restrictionBounds = new google.maps.LatLngBounds(
           new google.maps.LatLng(initialBounds.south - 0.1, initialBounds.west - 0.15),
           new google.maps.LatLng(initialBounds.north + 0.1, initialBounds.east + 0.15)
@@ -215,7 +215,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
     const google = window.google;
     if (!map || !mapLoaded || !google || !google.maps) return;
 
-    const b = getTerritoryBoundsForScope(territory, territoryScope, hotel.lat, hotel.lng);
+    const b = getTerritoryBoundsForScope(territory, territoryScope, hotelCenterLat, hotelCenterLng);
     const restrictionBounds = new google.maps.LatLngBounds(
       new google.maps.LatLng(b.south - 0.15, b.west - 0.2),
       new google.maps.LatLng(b.north + 0.15, b.east + 0.2)
