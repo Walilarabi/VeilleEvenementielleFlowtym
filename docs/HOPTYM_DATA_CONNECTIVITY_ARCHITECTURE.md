@@ -197,6 +197,7 @@ Le nouveau service `src/services/hoptymImportService.ts` traite les fichiers nor
 - Disponibilités : `hotel_inventory_snapshots`, inventaire, chambres vendues/disponibles, occupation, BAR, MinStay, CTA et CTD.
 - Réservations : agrégation par date de séjour, canal, segment et devise dans `hotel_reservation_snapshots`, lead time moyen et pickup net lorsque les colonnes sont fournies.
 - Rate Shopper : extraction source et observations dans `lighthouse_extractions` / `lighthouse_rate_observations`, rapprochement du concurrent par nom.
+- Après import Rate Shopper : calcul et persistance par date de la médiane, du minimum et du maximum du compset dans `daily_rate_intelligence`, avec source, nombre d'observations et nombre de concurrents. Les données sont marquées `degraded` tant que la comparabilité n'est pas vérifiée ; aucune suggestion BAR n'est générée.
 - Événements : mise en attente dans `event_suggestions` avec statut `pending` ; aucune publication automatique dans le référentiel partagé.
 
 Chaque import vérifie l'utilisateur Auth et son profil, résout l'hôtel dans la même organisation, crée un job `data_ingestion_jobs`, utilise le client publishable sous RLS, écrit par lots et journalise les lignes rejetées. Aucun service_role n'est embarqué dans le navigateur. En cas d'erreur, le job passe à `failed` ou `partial`.
