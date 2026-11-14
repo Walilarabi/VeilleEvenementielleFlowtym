@@ -1039,34 +1039,15 @@ export function estimateTravelTimes(
  * Calcule pour un hôtel donné toutes les infrastructures avec leurs distances précises
  */
 export function computeVenuesForHotel(
-  hotelLat: number,
-  hotelLng: number,
-  hotelCity: string,
-  mainRadiusKm: number = 10,
-  extendedRadiusKm: number = 30
+  _hotelLat: number,
+  _hotelLng: number,
+  _hotelCity: string,
+  _mainRadiusKm: number = 10,
+  _extendedRadiusKm: number = 30
 ): VenueGeoDetail[] {
-  return MUTUALIZED_VENUES_DATABASE.filter((v) => v.lat !== null && v.lng !== null).map((v) => {
-    const distanceKm = calculateHaversineDistanceKm(hotelLat, hotelLng, v.lat as number, v.lng as number);
-    const { driveTimeMins, transitTimeMins } = estimateTravelTimes(
-      distanceKm,
-      v.city.toLowerCase() === hotelCity.toLowerCase()
-    );
-
-    let zone: VenueGeoDetail['zone'] = 'out_of_radius';
-    if (distanceKm <= mainRadiusKm) {
-      zone = 'main_10km';
-    } else if (distanceKm <= extendedRadiusKm) {
-      zone = 'extended_30km';
-    }
-
-    return {
-      ...v,
-      distanceKm,
-      driveTimeMins,
-      transitTimeMins,
-      zone,
-    };
-  }).sort((a, b) => a.distanceKm - b.distanceKm);
+  // The previous list was a static fixture. Venue markers must come from public.venues
+  // with verified coordinates; until then return no invented locations.
+  return [];
 }
 
 /**
