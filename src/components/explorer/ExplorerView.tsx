@@ -681,7 +681,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                         >
                           {ev.impactLevel}
                         </span>
-                        {hotelImp && hotelImp.estimatedADRBoostPercent > 0 && (
+                        {hotelImp && hotelImp.estimatedADRBoostPercent !== null && hotelImp.estimatedADRBoostPercent > 0 && (
                           <div className="text-[10px] font-semibold text-violet-700 dark:text-violet-300 mt-0.5">
                             ADR +{hotelImp.estimatedADRBoostPercent}%
                           </div>
