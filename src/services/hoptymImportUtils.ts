@@ -49,3 +49,13 @@ export function parseHoptymDate(value: unknown): string | null {
   const parsed = new Date(text);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
 }
+
+export async function createHoptymImportFingerprint(
+  dataset: string,
+  hotelId: string,
+  records: Array<Record<string, unknown>>
+): Promise<string> {
+  const payload = JSON.stringify({ schemaVersion: 2, dataset, hotelId, records });
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
