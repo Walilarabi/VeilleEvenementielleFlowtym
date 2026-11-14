@@ -40,7 +40,7 @@ Le catalogue déroulant doit être alimenté par des métadonnées versionnées.
 | SiteMinder | SiteConnect ; pmsXchange ; SiteMinder Exchange API ; Channels Plus | pmsXchange : PMS/RMS 2-Way, push ARI/restrictions et synchronisation des réservations ; Exchange : lecture réservations, disponibilités et tarifs selon scopes | Accès partenaire, certification et contrats selon produit |
 | Vertical Booking | API-XML ; Replicative Interface ; Transactional Interface ; API PMS | Flux ARI répliqués vers portails ; transaction Get Availability / Make Reservation ; intégration CRS-PMS et synchronisation temps réel selon interface | Spécifications techniques et mapping fournis dans le cadre du partenariat |
 | RateGain Channel Manager / Smart Distribution | À distinguer de Smart Distribution demand-side ; interfaces distribution à confirmer | ARI et réservations selon produit souscrit | À qualifier auprès du fournisseur |
-| Cloudbeds Distribution | APIs Distribution, rate plans, availability et restrictions ; webhooks/événements | Lecture et mise à jour selon scopes et produit ; événements de réservation | Developer Hub, sandbox et validation partenaire |
+| Cloudbeds Distribution | APIs Distribution, rate plans, availability et restrictions ; webhooks/événements | Lecture et mise à jour selon scopes et produit ; événements de réservation | Developer Hub, sandbox et validation partenaire |\n| STAAH ChannelConnect | APIs Property, Room Types, Rates/Availability/Restrictions, Reservations et Push Data | Pull ARI, push des deltas, réservations vers STAAH et vérification live avant confirmation selon doc | Accord de connectivité, IP whitelisting et certification ; push delta obligatoire selon la doc v1 |\n| eZee Centrix | Interface Channel Manager XML/API | Synchronisation ARI et réservations selon contrat et version | Documentation officielle détaillée et provisioning par établissement à obtenir |
 | Autres | Ajouter uniquement après validation de l'existence d'un produit/API pertinent | Capacités documentées individuellement | Jamais de connecteur fictif |
 
 ### 2.3 PMS
@@ -52,10 +52,10 @@ Le catalogue déroulant doit être alimenté par des métadonnées versionnées.
 | Oracle OPERA Cloud | OHIP, Reservation API, Rate API, Price Availability Rate API, Inventory API, Distribution APIs, Business Events, Data APIs | Réservations, tarifs, inventaire, sell limits, restrictions, profils, événements et analytics ; OAuth 2.0 + application keys |
 | Cloudbeds | PMS API, Data Insights API, Distribution APIs, Webhooks & Events, OAuth/API keys | Réservations, clients, chambres, folios, inventaire, tarifs, restrictions, événements temps réel ; sandbox |
 | Protel / Planet | Documentation d'intégration partenaire à obtenir | Réservations, ARI, profils et événements selon version/contrat |
-| Stayntouch | API / connectivité partenaire à obtenir | Réservations, rates, inventory et échanges avec systèmes RMS ; vérifier limites, scopes et webhooks |
-| Clock PMS+ | Documentation API officielle/partenaire à obtenir | Réservations, disponibilités, tarifs, profils et événements à qualifier |
+| Stayntouch | Connect API v2 ; documentation des endpoints et webhooks | Accès lecture/écriture, réservations, tarifs, restrictions et événements ; OAuth 2.0 | NDA, autorisation de l'hôtel, sandbox/UAT et certification |
+| Clock PMS+ | PMS API REST, Base API, Yield Management API, OTA Channel Connect et Message Channels | Réservations, chambres, tarifs, disponibilités, notifications PUSH/PULL | Compte API et accès partenaire/sandbox ; Digest authentication selon doc |
 | RoomRaccoon | Documentation API partenaire à obtenir | Réservations, inventaire, tarifs et webhooks à qualifier |
-| Guestline | Documentation API partenaire à obtenir | Réservations, ARI, profils et événements à qualifier |
+| Guestline / Rezlynx | Portail développeur officiel et onboarding API REST | Données PMS selon les endpoints activés ; opérations à inventorier dans le portail | Onboarding et credentials partenaire |
 
 Pour chaque PMS, la fiche de documentation doit contenir : propriétaire de l'API, lien/version, processus d'accès, environnements sandbox/production, authentification, scopes, pagination, rate limits, webhooks, opérations GET/POST/PATCH/DELETE réellement disponibles, champs, fuseaux horaires, devises, statuts, erreurs/retry, idempotence, certification, limites contractuelles et matrice de tests. Une capacité non documentée est notée « à confirmer », jamais supposée.
 
@@ -265,14 +265,14 @@ Chaque carte fournisseur doit afficher : type, nom, lien docs, accès requis, en
 ### Rate Shopper
 - Lighthouse API v3 : https://api.mylighthouse.com/
 - Lighthouse API documentation mirror / latest version : https://devapi.mylighthouse.com/
-- RateGain — Rate Intelligence APIs for RMS : https://rategain.com/solutions-for-rms-companies/
+- RateGain — Rate Intelligence APIs for RMS : https://rategain.com/solutions-for-rms-companies/\n- BEONx : https://www.beonx.com/\n- Duetto : https://www.duettocloud.com/
 
 ### Channel Managers
 - D-EDGE Partner & Developer Portal : https://developers.portal.d-edge.com/
 - D-EDGE documentation portal : https://docs.d-edge.com/
 - SiteMinder Developer Guide : https://www.siteminder.com/developer-guide/
 - SiteMinder Developer Docs : https://developer.siteminder.com/
-- Vertical Booking API-XML : https://online.verticalbooking.ovosodo.net/en/connectivity/api-xml/
+- Vertical Booking API-XML : https://online.verticalbooking.ovosodo.net/en/connectivity/api-xml/\n- STAAH ChannelConnect v1 : https://getapidoc.staah.net/v1/\n- eZee Centrix : https://www.ezeecentrix.com/ycdemo/faqs.php
 
 ### PMS
 - Mews Open API : https://docs.mews.com/
@@ -282,7 +282,7 @@ Chaque carte fournisseur doit afficher : type, nom, lien docs, accès requis, en
 - Oracle Hospitality Integration Platform : https://www.oracle.com/hospitality/integration-platform/
 - Oracle OPERA Cloud Distribution APIs : https://docs.oracle.com/en/industries/hospitality/integration-platform/ohipu/c_oracle_hospitality_distribution_apis.htm
 - Cloudbeds Developer Hub : https://developers.cloudbeds.com/
-- Cloudbeds PMS API : https://developers.cloudbeds.com/reference/about-pms-api
+- Cloudbeds PMS API : https://developers.cloudbeds.com/reference/about-pms-api\n- Stayntouch Connect API v2 : https://api-specs.stayntouch.com/v2/index.html\n- Clock PMS+ API : https://api-docs.clock-software.com/\n- Guestline Rezlynx API Portal : https://developers.guestline.com/
 
 ### Événements
 - OpenAgenda API : https://developers.openagenda.com/en/
