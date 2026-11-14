@@ -67,7 +67,7 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
     const normInternational = Math.min(100, Math.round((rawInternational / 20) * 100));
 
     // 4. Proximité Géographique & Accès (max 20)
-    const rawProximity = sb.proximityScore || (hotelImpact ? Math.max(5, 20 - Math.round(hotelImpact.distanceKm * 2)) : 14);
+    const rawProximity = sb.proximityScore || (hotelImpact?.distanceKm != null ? Math.max(5, 20 - Math.round(hotelImpact.distanceKm * 2)) : 0);
     const normProximity = Math.min(100, Math.round((rawProximity / 20) * 100));
 
     // 5. Dynamique Pickup & Vélocité (max 15)
@@ -75,7 +75,7 @@ export const D3RadarChart: React.FC<D3RadarChartProps> = ({
     const normCompression = Math.min(100, Math.round((rawCompression / 15) * 100));
 
     // 6. Pouvoir d'Achat & ADR Boost
-    const adrBoost = hotelImpact ? hotelImpact.estimatedADRBoostPercent : Math.round(sb.finalRMScore * 0.35);
+    const adrBoost = hotelImpact?.estimatedADRBoostPercent ?? 0;
     const normPricingPower = Math.min(100, Math.max(20, Math.round((adrBoost / 35) * 100)));
 
     return [
