@@ -274,6 +274,7 @@ function getCompsetCatalogKey(hotel: Pick<Hotel, 'id' | 'city'>): string {
 
 export function buildDefaultCompSetForHotel(_hotel: Pick<Hotel, 'id' | 'city' | 'baseADR'>): CompetitorProfileConfig[] {
   // Competitors must come from public.competitor_hotels and verified rate observations.
+  // Never seed fictional competitor names or BAR values into an authenticated tenant.
   return [];
 }
 
@@ -547,126 +548,20 @@ export function getHotelRMSConfig(hotel: Hotel): HotelRMSConfig {
   const all = safeReadJSON<Record<string, HotelRMSConfig>>(HOTEL_CONFIGS_KEY) || {};
   const existing = all[hotel.id];
   if (existing && existing.compSet && existing.eventWatch && existing.rmRules) {
-    // Remove deterministic fixture IDs created by older demo builds.
-    const fixtureCompetitorPattern = new RegExp('^comp-' + hotel.id + '-[0-9]+
-  const fresh = buildDefaultHotelRMSConfig(hotel);
-  all[hotel.id] = fresh;
-  safeWriteJSON(HOTEL_CONFIGS_KEY, all);
-  return fresh;
-}
-
-export function saveHotelRMSConfig(
-  hotelId: string,
-  config: HotelRMSConfig,
-  actor: string = 'Wali Larabi',
-  logCategory: SystemOperationLogEntry['category'] = 'H_SYSTEM',
-  logAction?: string,
-  logDetails?: string
-): HotelRMSConfig {
-  const all = safeReadJSON<Record<string, HotelRMSConfig>>(HOTEL_CONFIGS_KEY) || {};
-  const updated: HotelRMSConfig = {
-    ...config,
-    hotelId,
-    updatedAt: new Date().toISOString(),
-  };
-  all[hotelId] = updated;
-  safeWriteJSON(HOTEL_CONFIGS_KEY, all);
-  void syncHotelRMSConfigToSupabase(hotelId, updated);
-
-  if (logAction) {
-    appendSystemOperationLog({
-      id: `op-${Date.now()}`,
-      timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      actor,
-      hotelId,
-      category: logCategory,
-      action: logAction,
-      details: logDetails || 'Configuration sauvegardée.',
-      status: 'success',
-    });
-  }
-
-  return updated;
-}
-
-export function resetHotelRMSConfig(hotel: Hotel, actor: string = 'Wali Larabi'): HotelRMSConfig {
-  const fresh = buildDefaultHotelRMSConfig(hotel);
-  return saveHotelRMSConfig(
-    hotel.id,
-    fresh,
-    actor,
-    'H_SYSTEM',
-    'Réinitialisation configuration hôtel',
-    `Paramètres RM, CompSet 10 concurrents et Veille géo réinitialisés pour ${hotel.name}.`
-  );
-}
-
-export function getSystemAdminConfig(): SystemAdminConfig {
-  return safeReadJSON<SystemAdminConfig>(SYSTEM_CONFIG_KEY) || getDefaultSystemAdminConfig();
-}
-
-export function saveSystemAdminConfig(config: SystemAdminConfig, actor: string = 'Wali Larabi'): SystemAdminConfig {
-  safeWriteJSON(SYSTEM_CONFIG_KEY, config);
-  appendSystemOperationLog({
-    id: `op-${Date.now()}`,
-    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-    actor,
-    hotelId: 'all',
-    category: 'H_SYSTEM',
-    action: 'Mise à jour configuration système globale',
-    details: 'Options applicatives et paramètres système enregistrés.',
-    status: 'success',
-  });
-  return config;
-}
-
-export function getSystemUsers(): SystemUserAccount[] {
-  return safeReadJSON<SystemUserAccount[]>(USERS_KEY) || getDefaultUsers();
-}
-
-export function saveSystemUsers(users: SystemUserAccount[], actor: string = 'Wali Larabi', detail?: string): SystemUserAccount[] {
-  safeWriteJSON(USERS_KEY, users);
-  appendSystemOperationLog({
-    id: `op-${Date.now()}`,
-    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-    actor,
-    hotelId: 'all',
-    category: 'F_USERS',
-    action: 'Mise à jour utilisateurs & permissions RBAC',
-    details: detail || `${users.length} comptes utilisateurs enregistrés.`,
-    status: 'success',
-  });
-  return users;
-}
-
-export function getSystemOperationLogs(): SystemOperationLogEntry[] {
-  return safeReadJSON<SystemOperationLogEntry[]>(OP_LOGS_KEY) || getDefaultOperationLogs();
-}
-
-export function appendSystemOperationLog(entry: SystemOperationLogEntry): SystemOperationLogEntry[] {
-  const current = getSystemOperationLogs();
-  const next = [entry, ...current].slice(0, 100);
-  safeWriteJSON(OP_LOGS_KEY, next);
-  return next;
-}
-
-export function clearSystemOperationLogs(): SystemOperationLogEntry[] {
-  safeWriteJSON(OP_LOGS_KEY, []);
-  return [];
-}
-);
-    existing.compSet = existing.compSet.filter((item) => !fixtureCompetitorPattern.test(item.id));
-    existing.roomTypologies = (existing.roomTypologies || []).filter((item) => !/-cat-[0-9]+$/.test(item.id));
+    // Remove legacy deterministic fixture rows; real competitors must be configured from verified hotel data.
+    existing.compSet = existing.compSet.filter((item) => !item.id.startsWith(`comp-${hotel.id}-`));
+    existing.roomTypologies = (existing.roomTypologies || []).filter((item) => !item.id.endsWith('-cat-1') && !item.id.endsWith('-cat-2') && !item.id.endsWith('-cat-3'));
     if (hotel.baseADR === null) {
       existing.rmRules.targetAdrEur = 0;
       existing.rmRules.barFloorEur = 0;
       existing.rmRules.barCeilingEur = 0;
       existing.rmRules.annualRevenueTargetEur = 0;
     }
+    // Ensure 'periodes_saisonnieres_fetes' is enabled if migrating older saved config
     const hasSeasonal = existing.eventWatch.enabledCategories.includes('periodes_saisonnieres_fetes');
-    if (!hasSeasonal) existing.eventWatch.enabledCategories = [...existing.eventWatch.enabledCategories, 'periodes_saisonnieres_fetes'];
-    all[hotel.id] = existing;
-    safeWriteJSON(HOTEL_CONFIGS_KEY, all);
+    if (!hasSeasonal) {
+      existing.eventWatch.enabledCategories = [...existing.eventWatch.enabledCategories, 'periodes_saisonnieres_fetes'];
+    }
     return existing;
   }
   const fresh = buildDefaultHotelRMSConfig(hotel);
