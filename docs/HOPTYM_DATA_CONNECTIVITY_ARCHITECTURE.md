@@ -215,6 +215,8 @@ Le nouveau service `src/services/hoptymImportService.ts` traite les fichiers nor
 
 Chaque import vérifie l'utilisateur Auth et son profil, résout l'hôtel dans la même organisation, crée un job `data_ingestion_jobs`, utilise le client publishable sous RLS, écrit par lots et journalise les lignes rejetées. Aucun service_role n'est embarqué dans le navigateur. En cas d'erreur, le job passe à `failed` ou `partial`.
 
+Le parseur couvre les nombres français/anglais (séparateurs de milliers et décimales), les dates ISO/françaises et les numéros de série Excel, ainsi que les indicateurs booléens de restrictions. Une empreinte SHA-256 du dataset, de l'hôtel et du contenu empêche les doubles imports du même jeu de données. Les compteurs distinguent les lignes source valides des lignes agrégées (notamment pour les réservations) ; les échecs de clôture du job ou du journal d'audit sont remontés au lieu d'être ignorés.
+
 **Limites :** aucun fichier métier n'a encore été injecté en base, faute de compte de test autorisé et d'un fichier fourni pour validation. Le parcours de mapping doit être testé sur des exports réels avant d'activer les connecteurs automatiques.
 
 ## 5. Moteur universel de fichiers
