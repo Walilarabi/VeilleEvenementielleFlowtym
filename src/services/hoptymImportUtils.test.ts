@@ -15,7 +15,7 @@ test("number parser handles French and English decimal/group separators", () => 
 test("date parser handles ISO, French and Excel serial dates without timezone drift", () => {
   assert.equal(parseHoptymDate("2026-11-14T00:00:00+02:00"), "2026-11-14");
   assert.equal(parseHoptymDate("14/11/2026"), "2026-11-14");
-  assert.equal(parseHoptymDate(46340), "2026-11-18");
+  assert.equal(parseHoptymDate(46340), "2026-11-14");
   assert.equal(parseHoptymDate("2026-02-31"), null);
   assert.equal(parseHoptymDate("not-a-date"), null);
 });
