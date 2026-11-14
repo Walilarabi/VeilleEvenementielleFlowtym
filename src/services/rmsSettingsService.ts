@@ -272,44 +272,30 @@ function getCompsetCatalogKey(hotel: Pick<Hotel, 'id' | 'city'>): string {
   return 'paris_opera';
 }
 
-export function buildDefaultCompSetForHotel(hotel: Pick<Hotel, 'id' | 'city' | 'baseADR'>): CompetitorProfileConfig[] {
-  const key = getCompsetCatalogKey(hotel);
-  const template = DEFAULT_COMPSET_BY_CITY[key] || DEFAULT_COMPSET_BY_CITY.paris_opera;
-  return template.map((item, idx) => ({
-    ...item,
-    id: `comp-${hotel.id}-${idx + 1}`,
-    color: COMPSET_PALETTE[idx % COMPSET_PALETTE.length],
-    weight: 1.0,
-    isActive: true,
-  }));
+export function buildDefaultCompSetForHotel(_hotel: Pick<Hotel, 'id' | 'city' | 'baseADR'>): CompetitorProfileConfig[] {
+  // Competitors must come from public.competitor_hotels and verified rate observations.
+  // Never seed fictional competitor names or BAR values into an authenticated tenant.
+  return [];
 }
 
 export function buildDefaultHotelRMSConfig(hotel: Hotel): HotelRMSConfig {
   const isNice = hotel.city.toLowerCase().includes('nice');
   const isParis = hotel.city.toLowerCase().includes('paris');
-  const baseADR = hotel.baseADR || 240;
-  const totalRooms = hotel.roomCount || 45;
-
-  const classicCount = Math.round(totalRooms * 0.51);
-  const supCount = Math.round(totalRooms * 0.18);
-  const deluxeCount = Math.max(1, totalRooms - classicCount - supCount);
+  const baseADR = hotel.baseADR ?? 0;
+  const totalRooms = hotel.roomCount || 0;
 
   return {
     hotelId: hotel.id,
-    updatedAt: '2026-11-12T08:30:00Z',
-    roomTypologies: [
-      { id: `${hotel.id}-cat-1`, code: 'classique', name: 'Chambre Classique Double', totalRooms: classicCount, baseOffsetEur: 0, weightPercent: 51 },
-      { id: `${hotel.id}-cat-2`, code: 'superieure', name: 'Chambre Supérieure', totalRooms: supCount, baseOffsetEur: 35, weightPercent: 18 },
-      { id: `${hotel.id}-cat-3`, code: 'deluxe_famille', name: 'Chambre Deluxe / Familiale', totalRooms: deluxeCount, baseOffsetEur: 75, weightPercent: 31 },
-    ],
+    updatedAt: new Date().toISOString(),
+    roomTypologies: [],
     rmRules: {
-      annualRevenueTargetEur: Math.round(totalRooms * 365 * 0.78 * baseADR),
+      annualRevenueTargetEur: baseADR > 0 ? Math.round(totalRooms * 365 * 0.78 * baseADR) : 0,
       monthlyOccupancyTargetPct: isParis ? 82 : 76,
-      targetAdrEur: Math.round(baseADR * 1.06),
+      targetAdrEur: baseADR > 0 ? Math.round(baseADR * 1.06) : 0,
       pricingStrategy: 'equilibre',
-      barFloorEur: isNice ? 240 : isParis ? 180 : 130,
-      barCeilingEur: isNice ? 950 : isParis ? 550 : 420,
-      maxSingleAdjustmentEur: isNice ? 180 : 120,
+      barFloorEur: baseADR > 0 ? Math.round(baseADR * 0.7) : 0,
+      barCeilingEur: baseADR > 0 ? Math.round(baseADR * 2.5) : 0,
+      maxSingleAdjustmentEur: baseADR > 0 ? Math.round(baseADR * 0.3) : 0,
       maxSingleAdjustmentPct: 38,
       priorityScoreThreshold: 50,
       stopSellScoreThreshold: 85,
@@ -369,8 +355,8 @@ export function getDefaultIntegrations(): IntegrationConnectorState[] {
       category: 'rate_shopping',
       mode: 'local_file',
       status: 'active_local',
-      description: 'Import multi-onglets (Aperçu, Tarifs, vs Hier, vs 3j, vs 7j) jusqu’à 10 concurrents.',
-      lastSyncAt: '2026-11-12 08:30',
+      description: 'Import local de fichiers structurés Rate Shopper ; aucune connexion API live.',
+      lastSyncAt: null,
       lastError: null,
     },
     {
@@ -379,7 +365,7 @@ export function getDefaultIntegrations(): IntegrationConnectorState[] {
       category: 'pms_crs',
       mode: 'local_file',
       status: 'active_local',
-      description: 'Exploitation des disponibilités, Pickup J-1/J-7 et chiffre d’affaires hébergement net.',
+      description: 'Pré-analyse et import de fichiers PMS/Channel Manager ; aucune synchronisation API live.',
       lastSyncAt: '2026-11-12 08:30',
       lastError: null,
     },
