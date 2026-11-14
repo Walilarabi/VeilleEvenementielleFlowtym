@@ -27,8 +27,8 @@ export interface Venue {
   city: string;
   country: string;
   address: string;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   capacity: number;
   type: 'parc_expositions' | 'arena' | 'stade' | 'centre_congres' | 'theatre' | 'espace_public';
 }
@@ -42,10 +42,10 @@ export interface Hotel {
   address: string;
   lat: number;
   lng: number;
-  stars: number;
+  stars: number | null;
   roomCount: number;
-  segment: 'Luxe' | 'Boutique' | 'Affaires' | 'Économique' | 'Resort';
-  baseADR: number;
+  segment: 'Luxe' | 'Boutique' | 'Affaires' | 'Économique' | 'Resort' | 'Non renseigné';
+  baseADR: number | null;
 }
 
 export interface EventEvidence {
