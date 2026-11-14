@@ -75,7 +75,7 @@ export async function loadWorkspaceData(organizationId: string): Promise<Workspa
     address: row.address || '',
     lat: numberOrNull(row.latitude),
     lng: numberOrNull(row.longitude),
-    capacity: numberOrNull(row.capacity) ?? 0,
+    capacity: numberOrNull(row.capacity),
     type: row.venue_type === 'parc_expositions' || row.venue_type === 'arena' || row.venue_type === 'stade' || row.venue_type === 'centre_congres' || row.venue_type === 'theatre' ? row.venue_type : 'espace_public',
   }));
 
@@ -157,12 +157,12 @@ export async function loadWorkspaceData(organizationId: string): Promise<Workspa
     for (const [hotelId, item] of Object.entries(impacts)) {
       hotelImpacts[hotelId] = {
         hotelId,
-        distanceKm: numberOrNull(item.distance_km) ?? 0,
-        distanceMins: numberOrNull(item.drive_time_minutes ?? item.transit_time_minutes) ?? 0,
-        directDemandShare: numberOrNull(item.estimated_demand_lift_pct) ?? 0,
-        compressionIndex: Math.min(10, Math.max(1, Number(item.final_rm_score || 0) / 10)),
-        recommendedAction: item.recommended_action || 'Analyse à compléter',
-        estimatedADRBoostPercent: numberOrNull(item.estimated_adr_lift_pct) ?? 0,
+        distanceKm: numberOrNull(item.distance_km),
+        distanceMins: numberOrNull(item.drive_time_minutes ?? item.transit_time_minutes),
+        directDemandShare: numberOrNull(item.estimated_demand_lift_pct),
+        compressionIndex: null,
+        recommendedAction: item.recommended_action || null,
+        estimatedADRBoostPercent: numberOrNull(item.estimated_adr_lift_pct),
       };
     }
     return [{
