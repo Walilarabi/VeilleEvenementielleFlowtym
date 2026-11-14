@@ -1,5 +1,5 @@
 import { getSupabaseClient } from './supabaseClient';
-import { parseHoptymDate as dateValue, parseHoptymNumber as numberValue, parseHoptymBoolean as booleanValue } from './hoptymImportUtils';
+import { parseHoptymDate as dateValue, parseHoptymNumber as numberValue, parseHoptymBoolean as booleanValue, createHoptymImportFingerprint } from './hoptymImportUtils';
 import { summarizeCompetitorRates, calculateNetPickup, calculateMeanLeadTime, calculateOccupancyPercent } from './hoptymMetrics';
 
 export type HoptymImportDataset = 'historical' | 'inventory' | 'reservations' | 'rates' | 'events';
@@ -178,7 +178,31 @@ export async function importHoptymFile(args: {
   }
 
   const { client, organizationId, hotelId, userId } = tenant;
-  const jobIdempotency = crypto.randomUUID();
+  let jobIdempotency: string;
+  try {
+    jobIdempotency = await createHoptymImportFingerprint(args.dataset, hotelId, args.records);
+  } catch {
+    return { success: false, read, written: 0, rejected: read, message: 'Impossible de calculer l’empreinte du fichier dans ce navigateur. Aucun import effectué.', errors: [] };
+  }
+  const { data: existingJob, error: existingJobError } = await client.from('data_ingestion_jobs')
+    .select('id,status,records_written,records_rejected')
+    .eq('organization_id', organizationId)
+    .eq('idempotency_key', jobIdempotency)
+    .maybeSingle();
+  if (existingJobError) {
+    return { success: false, read, written: 0, rejected: read, message: 'Impossible de vérifier si ce fichier a déjà été importé. Aucun nouvel import effectué.', errors: [existingJobError.message] };
+  }
+  if (existingJob) {
+    const alreadyWritten = existingJob.records_written || 0;
+    const alreadyRejected = existingJob.records_rejected || 0;
+    return {
+      success: alreadyWritten > 0 && existingJob.status !== 'failed',
+      jobId: existingJob.id,
+      read, written: alreadyWritten, rejected: alreadyRejected,
+      message: `Fichier déjà traité (statut : ${existingJob.status}). Aucun doublon créé. Consultez le journal d’import avant toute nouvelle tentative.`,
+      errors: [],
+    };
+  }
   const { data: job, error: jobError } = await client.from('data_ingestion_jobs').insert({
     organization_id: organizationId,
     hotel_id: hotelId,
