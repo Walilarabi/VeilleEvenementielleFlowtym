@@ -329,7 +329,7 @@ export async function importHoptymFile(args: {
     await client.from('hotel_historical_import_logs').insert({
       organization_id: organizationId, hotel_id: hotelId, file_name: args.fileName,
       records_count: written, rejected_count: rejected,
-      import_status: rejected > 0 ? 'partial' : 'completed',
+      import_status: rejected > 0 ? 'warning' : 'completed',
       warnings: errors, errors: [], imported_by: userId,
     });
     return {
