@@ -73,7 +73,13 @@ function numberValue(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function booleanValue(value: unknown): boolean {\n  if (typeof value === 'boolean') return value;\n  const normalized = String(value ?? '').trim().toLowerCase();\n  return ['true', '1', 'yes', 'oui', 'x', 'closed', 'ferme', 'fermé'].includes(normalized);\n}\n\nfunction dateValue(value: unknown): string | null {
+function booleanValue(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'oui', 'x', 'closed', 'ferme', 'fermé'].includes(normalized);
+}
+
+function dateValue(value: unknown): string | null {
   if (value === null || value === undefined || String(value).trim() === '') return null;
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
   const text = String(value).trim();
@@ -245,7 +251,9 @@ export async function importHoptymFile(args: {
           complimentary_rooms: numberValue(readValue(row, 'complimentary')),
           occupancy_pct: occupancy, current_bar: numberValue(readValue(row, 'rate')),
           currency: String(readValue(row, 'currency') || tenant.hotel.currency || 'EUR').slice(0, 3).toUpperCase(),
-          min_stay: numberValue(readValue(row, 'minStay')),\n          closed_to_arrival: booleanValue(readValue(row, 'cta')),\n          closed_to_departure: booleanValue(readValue(row, 'ctd')),
+          min_stay: numberValue(readValue(row, 'minStay')),
+          closed_to_arrival: booleanValue(readValue(row, 'cta')),
+          closed_to_departure: booleanValue(readValue(row, 'ctd')),
           raw_payload: row,
         }];
       });
@@ -271,7 +279,10 @@ export async function importHoptymFile(args: {
           cancellation_count: 0, leadTimeTotal: 0, leadTimeCount: 0,
           new_rooms_booked: 0, cancelled_rooms: 0, moved_in_rooms: 0, moved_out_rooms: 0,
         };
-        const rooms = numberValue(readValue(row, 'roomsSold')) ?? 0;\n        current.new_rooms_booked += numberValue(readValue(row, 'newRooms')) ?? 0;\n        current.moved_in_rooms += numberValue(readValue(row, 'movedIn')) ?? 0;\n        current.moved_out_rooms += numberValue(readValue(row, 'movedOut')) ?? 0;
+        const rooms = numberValue(readValue(row, 'roomsSold')) ?? 0;
+        current.new_rooms_booked += numberValue(readValue(row, 'newRooms')) ?? 0;
+        current.moved_in_rooms += numberValue(readValue(row, 'movedIn')) ?? 0;
+        current.moved_out_rooms += numberValue(readValue(row, 'movedOut')) ?? 0;
         current.rooms_otb += rooms;
         current.room_nights_otb += numberValue(readValue(row, 'roomsSold')) ?? 0;
         current.booked_revenue += numberValue(readValue(row, 'revenue')) ?? 0;
