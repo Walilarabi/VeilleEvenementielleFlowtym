@@ -190,6 +190,19 @@ Limites restantes avant validation de bout en bout :
 - La protection contre les mots de passe compromis doit être activée dans Supabase Auth.
 - Le déploiement de production n'a pas été déclenché.
 
+### 4.4 Chargement applicatif réel et suppression des fixtures
+
+L'application authentifiée n'initialise plus les listes hôtels, événements, lieux, sources, suggestions ou propositions depuis `mockData`. Elle charge le référentiel de l'organisation depuis Supabase :
+- hôtels actifs filtrés par `organization_id` ;
+- lieux, sources et événements du référentiel ;
+- occurrences et preuves des événements ;
+- impacts calculés par hôtel ;
+- suggestions rattachées à l'organisation et aux hôtels accessibles.
+
+Les hôtels dont GPS ou ADR sont absents conservent des valeurs `NULL`. Les cartes utilisent, lorsqu'elles le permettent, le centre du territoire comme repère approximatif et n'affichent pas les lieux sans coordonnées. Si aucun hôtel actif n'existe, HOPTYM bloque l'accès aux modules au lieu d'afficher un hôtel fictif.
+
+Le crawler événementiel historique basé sur un pool de démonstration est neutralisé : il ne doit plus présenter ces fixtures comme des événements vérifiés. Le moteur épistémologique bloque les recommandations tarifaires si l'ADR réel de référence est absent.
+
 ### 4.3 Moteur d'import universel — première implémentation
 
 Le nouveau service `src/services/hoptymImportService.ts` traite les fichiers normalisés en cinq familles :
