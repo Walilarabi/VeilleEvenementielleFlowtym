@@ -24,5 +24,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: TypeScript validation
         run: bun run lint
+      - name: Revenue metrics tests
+        run: bun run test
       - name: Vite production build
         run: bun run build
