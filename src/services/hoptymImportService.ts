@@ -67,9 +67,26 @@ function readValue(row: Row, key: keyof typeof HEADER_ALIASES): unknown {
 
 function numberValue(value: unknown): number | null {
   if (value === null || value === undefined || String(value).trim() === '') return null;
-  let normalized = String(value).replace(/\s/g, '').replace(/[€$£%]/g, '');
-  if (normalized.includes(',') && normalized.includes('.')) normalized = normalized.replace(/\./g, '').replace(',', '.');
-  else normalized = normalized.replace(',', '.');
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  let normalized = String(value).trim().replace(/[€$£%]/g, '').replace(/[\s\u00a0\u202f]/g, '');
+  const comma = normalized.lastIndexOf(',');
+  const dot = normalized.lastIndexOf('.');
+  if (comma >= 0 && dot >= 0) {
+    const decimal = comma > dot ? ',' : '.';
+    normalized = decimal === ','
+      ? normalized.replace(/\./g, '').replace(',', '.')
+      : normalized.replace(/,/g, '');
+  } else if (comma >= 0 || dot >= 0) {
+    const separator = comma >= 0 ? ',' : '.';
+    const parts = normalized.split(separator);
+    if (parts.length > 2) {
+      const last = parts.pop() || '';
+      normalized = parts.join('') + (last.length > 0 && last.length <= 2 ? '.' + last : last);
+    } else {
+      const fraction = parts[1] || '';
+      normalized = fraction.length > 0 && fraction.length <= 2 ? parts[0] + '.' + fraction : parts.join('');
+    }
+  }
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -83,9 +100,17 @@ function booleanValue(value: unknown): boolean {
 function dateValue(value: unknown): string | null {
   if (value === null || value === undefined || String(value).trim() === '') return null;
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 1 && value <= 100000) {
+    return new Date(Date.UTC(1899, 11, 30) + Math.floor(value) * 86400000).toISOString().slice(0, 10);
+  }
   const text = String(value).trim();
+  const iso = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
   const fr = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
-  if (fr) return `${fr[3]}-${fr[2].padStart(2, '0')}-${fr[1].padStart(2, '0')}`;
+  if (fr) {
+    const candidate = `${fr[3]}-${fr[2].padStart(2, '0')}-${fr[1].padStart(2, '0')}`;
+    return Number.isNaN(new Date(candidate + 'T00:00:00.000Z').getTime()) ? null : candidate;
+  }
   const parsed = new Date(text);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
 }
@@ -221,12 +246,14 @@ export async function importHoptymFile(args: {
   }
 
   let written = 0;
+  let acceptedInputRecords = 0;
   const sourceName = `file:${args.fileName.slice(0, 180)}`;
 
   try {
     if (args.dataset === 'historical') {
       const mapped = args.records.map((row) => makeHistoricalRow(row, { organizationId, hotelId }, job.id, sourceName));
       const valid = mapped.filter((row): row is NonNullable<typeof row> => Boolean(row));
+      acceptedInputRecords = valid.length;
       const invalid = read - valid.length;
       for (const batch of batches(valid)) {
         const { error } = await client.from('hotel_historical_daily').upsert(batch, { onConflict: 'hotel_id,stay_date,source_name' });
@@ -258,6 +285,7 @@ export async function importHoptymFile(args: {
           raw_payload: row,
         }];
       });
+      acceptedInputRecords = mapped.length;
       if (!mapped.length) throw new Error('Aucune ligne de disponibilité avec date de séjour exploitable.');
       for (const batch of batches(mapped)) {
         const { error } = await client.from('hotel_inventory_snapshots').insert(batch);
@@ -293,6 +321,7 @@ export async function importHoptymFile(args: {
         if (lead !== null) { current.leadTimeTotal += lead; current.leadTimeCount += 1; }
         grouped.set(key, current);
       }
+      acceptedInputRecords = args.records.filter((row) => Boolean(dateValue(readValue(row, 'stayDate')))).length;
       const mapped = Array.from(grouped.values()).map((row) => {
         const { leadTimeTotal, leadTimeCount, ...output } = row;
         const pickupWindow = numberValue(readValue(args.records[0], 'pickupWindow'));
@@ -321,12 +350,14 @@ export async function importHoptymFile(args: {
           rate_plan: String(readValue(row, 'ratePlan') || '').slice(0, 120) || null,
           channel: String(readValue(row, 'channel') || 'unknown').slice(0, 100),
           currency: String(readValue(row, 'currency') || tenant.hotel.currency || 'EUR').slice(0, 3).toUpperCase(),
-          rate_amount: rate, availability_status: soldOut ? 'sold_out' : 'unknown',
-          observed_at: observedAt, source_status: 'imported', comparability: 'unverified', los: 1,
+          rate_amount: rate, availability_status: soldOut ? 'sold_out' : (numberValue(availability) > 0 || /available|disponible/i.test(String(availability || '')) ? 'available' : 'unknown'),
+          observed_at: observedAt, source_status: 'imported', comparability: { status: 'unverified', reason: 'Import fichier sans validation de typologie, occupation, plan tarifaire, conditions et LOS.' }, los: 1,
         }];
       });
       if (!valid.length) throw new Error('Aucune observation concurrentielle avec date et nom du concurrent.');
-      const { data: competitors } = await client.from('competitor_hotels').select('id,competitor_name').eq('hotel_id', hotelId).eq('organization_id', organizationId);
+      acceptedInputRecords = valid.length;
+      const { data: competitors, error: competitorsError } = await client.from('competitor_hotels').select('id,competitor_name').eq('hotel_id', hotelId).eq('organization_id', organizationId);
+      if (competitorsError) throw competitorsError;
       const competitorIds = new Map((competitors || []).map((item: any) => [String(item.competitor_name).trim().toLowerCase(), item.id]));
       const { data: extraction, error: extractionError } = await client.from('lighthouse_extractions').insert({
         organization_id: organizationId, hotel_id: hotelId, file_name: args.fileName,
@@ -404,6 +435,7 @@ export async function importHoptymFile(args: {
           confidence_score: 50, review_status: 'pending',
         }];
       });
+      acceptedInputRecords = mapped.length;
       if (!mapped.length) throw new Error('Aucun événement avec titre et date de début exploitables.');
       for (const batch of batches(mapped)) {
         const { error } = await client.from('event_suggestions').insert(batch);
@@ -412,20 +444,24 @@ export async function importHoptymFile(args: {
       }
     }
 
-    const rejected = read - written;
-    await client.from('data_ingestion_jobs').update({
-      status: rejected > 0 ? 'partial' : 'completed',
+    const rejected = Math.max(0, read - acceptedInputRecords);
+    const finalStatus = rejected > 0 || errors.length > 0 ? 'partial' : 'completed';
+    const { error: finalizeError } = await client.from('data_ingestion_jobs').update({
+      status: finalStatus,
       finished_at: new Date().toISOString(),
       records_written: written,
       records_rejected: rejected,
-      error_summary: errors.length ? errors.join(' ') : null,
+      error_summary: errors.length ? errors.join(' ').slice(0, 2000) : null,
     }).eq('id', job.id);
-    await client.from('hotel_historical_import_logs').insert({
+    if (finalizeError) throw finalizeError;
+    const { error: auditError } = await client.from('hotel_historical_import_logs').insert({
       organization_id: organizationId, hotel_id: hotelId, file_name: args.fileName,
       records_count: written, rejected_count: rejected,
-      import_status: rejected > 0 ? 'warning' : 'completed',
+      file_size_bytes: null,
+      import_status: finalStatus === 'completed' ? 'completed' : 'warning',
       warnings: errors, errors: [], detected_columns: Object.keys(args.records[0] || {}), imported_by: userId,
     });
+    if (auditError) throw auditError;
     return {
       success: written > 0,
       jobId: job.id,
