@@ -420,7 +420,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       breakfastIncluded: newCompBreakfast,
       isFullyComparable: newCompComparable,
       nonComparableReason: newCompComparable ? undefined : 'Offre ou catégorie non strictement comparable',
-      baseRateEur: Number(newCompBaseRate) || activeHotel.baseADR,
+      baseRateEur: Number(newCompBaseRate) || activeHotel.baseADR || 0,
       color: COMPSET_COLORS[hotelConfig.compSet.length % COMPSET_COLORS.length],
       weight: 1.0,
       isActive: shouldActivate,
@@ -1036,7 +1036,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Classification</label>
                   <select
-                    value={hotelDraft.stars}
+                    value={hotelDraft.stars ?? ''}
                     onChange={(e) => setHotelDraft({ ...hotelDraft, stars: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200"
                   >
@@ -1084,7 +1084,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <input
                     type="number"
                     step="0.0001"
-                    value={hotelDraft.lat}
+                    value={hotelDraft.lat ?? ''}
                     onChange={(e) => setHotelDraft({ ...hotelDraft, lat: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl tabular-nums font-mono text-slate-800 dark:text-slate-200"
                   />
@@ -1094,7 +1094,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <input
                     type="number"
                     step="0.0001"
-                    value={hotelDraft.lng}
+                    value={hotelDraft.lng ?? ''}
                     onChange={(e) => setHotelDraft({ ...hotelDraft, lng: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl tabular-nums font-mono text-slate-800 dark:text-slate-200"
                   />
@@ -1114,7 +1114,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <input
                     type="number"
                     min={40}
-                    value={hotelDraft.baseADR}
+                    value={hotelDraft.baseADR ?? ''}
                     onChange={(e) => setHotelDraft({ ...hotelDraft, baseADR: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl tabular-nums font-bold text-violet-700 dark:text-violet-300"
                   />
