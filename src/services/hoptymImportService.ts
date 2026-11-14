@@ -1,4 +1,5 @@
 import { getSupabaseClient } from './supabaseClient';
+import { summarizeCompetitorRates, calculateNetPickup, calculateMeanLeadTime, calculateOccupancyPercent } from './hoptymMetrics';
 
 export type HoptymImportDataset = 'historical' | 'inventory' | 'reservations' | 'rates' | 'events';
 export interface HoptymImportResult {
@@ -96,13 +97,6 @@ function isoWeek(date: Date): number {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
-function median(values: number[]): number | null {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
-}
-
 function batches<T>(items: T[], size = 200): T[][] {
   const result: T[][] = [];
   for (let i = 0; i < items.length; i += size) result.push(items.slice(i, i + size));
@@ -119,7 +113,7 @@ function makeHistoricalRow(row: Row, tenant: { organizationId: string; hotelId: 
   const occupancyInput = numberValue(readValue(row, 'occupancy'));
   const adrInput = numberValue(readValue(row, 'adr'));
   const revparInput = numberValue(readValue(row, 'revpar'));
-  const occupancy = occupancyInput ?? (roomsSold !== null && totalRooms ? (roomsSold / totalRooms) * 100 : null);
+  const occupancy = occupancyInput ?? calculateOccupancyPercent(roomsSold, totalRooms);
   const adr = adrInput ?? (revenue !== null && roomsSold ? revenue / roomsSold : null);
   const revpar = revparInput ?? (revenue !== null && totalRooms ? revenue / totalRooms : null);
   return {
@@ -249,7 +243,7 @@ export async function importHoptymFile(args: {
         const available = numberValue(readValue(row, 'roomsAvailable'));
         const sellable = numberValue(readValue(row, 'sellableRooms')) ?? (total !== null && total !== undefined ? total - (numberValue(readValue(row, 'outOfOrder')) ?? 0) : null);
         const occupancyInput = numberValue(readValue(row, 'occupancy'));
-        const occupancy = occupancyInput ?? (sold !== null && sellable ? (sold / sellable) * 100 : null);
+        const occupancy = occupancyInput ?? calculateOccupancyPercent(sold, sellable);
         return [{
           organization_id: organizationId, hotel_id: hotelId, stay_date: stayDate,
           snapshot_at: new Date().toISOString(), source_system: 'manual_file', source_status: 'imported',
@@ -304,7 +298,7 @@ export async function importHoptymFile(args: {
         const pickupWindow = numberValue(readValue(args.records[0], 'pickupWindow'));
         const periodStart = dateValue(readValue(args.records[0], 'periodStart'));
         const allowedWindow = [24, 72, 168].includes(pickupWindow || 0) ? pickupWindow : null;
-        return { ...output, booked_adr: output.rooms_otb > 0 ? output.booked_revenue / output.rooms_otb : null, lead_time_days: leadTimeCount ? leadTimeTotal / leadTimeCount : null, net_pickup_rooms: output.new_rooms_booked - output.cancelled_rooms + output.moved_in_rooms - output.moved_out_rooms, pickup_window_hours: allowedWindow, period_start: periodStart ? periodStart + 'T00:00:00.000Z' : null };
+        return { ...output, booked_adr: output.rooms_otb > 0 ? output.booked_revenue / output.rooms_otb : null, lead_time_days: leadTimeCount ? calculateMeanLeadTime([leadTimeTotal / leadTimeCount]) : null, net_pickup_rooms: calculateNetPickup({ newRoomsBooked: output.new_rooms_booked, cancelledRooms: output.cancelled_rooms, movedInRooms: output.moved_in_rooms, movedOutRooms: output.moved_out_rooms }), pickup_window_hours: allowedWindow, period_start: periodStart ? periodStart + 'T00:00:00.000Z' : null };
       });
       if (!mapped.length) throw new Error('Aucune réservation avec date de séjour exploitable.');
       for (const batch of batches(mapped)) {
@@ -359,9 +353,10 @@ export async function importHoptymFile(args: {
             errors.push(`${stayDate}: statistiques marché non calculées, devises concurrentes mélangées.`);
             continue;
           }
-          const amounts = dayRows.map((item) => item.rate_amount).filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0);
+          const summary = summarizeCompetitorRates(dayRows);
+          const amounts = summary.prices;
           if (!amounts.length) continue;
-          const marketMedian = median(amounts);
+          const marketMedian = summary.median;
           const existing = await client.from('daily_rate_intelligence')
             .select('id')
             .eq('organization_id', organizationId)
@@ -379,13 +374,13 @@ export async function importHoptymFile(args: {
             currency: currencies[0],
             lighthouse_median: /lighthouse|ota insight/i.test(args.providerName || '') ? marketMedian : null,
             flowtym_compset_median: marketMedian,
-            compset_min: Math.min(...amounts),
-            compset_max: Math.max(...amounts),
+            compset_min: summary.minimum,
+            compset_max: summary.maximum,
             data_quality_status: 'degraded',
             recommendation_status: 'pending',
             engine_version: 'market-baseline-0.1',
             explanation: 'Statistiques concurrentielles importées. Comparabilité, BAR hôtel et demande non encore validés : aucune suggestion tarifaire n’est calculée.',
-            evidence: { provider: args.providerName || 'manual_file', observation_count: amounts.length, competitor_count: new Set(dayRows.map((item) => item.competitor_name.toLowerCase())).size },
+            evidence: { provider: args.providerName || 'manual_file', observation_count: summary.observationCount, competitor_count: summary.competitorCount },
             input_snapshot: { source_file: args.fileName, observations: dayRows },
           };
           const write = existing.data?.id
