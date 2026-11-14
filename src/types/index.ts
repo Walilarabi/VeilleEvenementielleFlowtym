@@ -29,7 +29,7 @@ export interface Venue {
   address: string;
   lat: number | null;
   lng: number | null;
-  capacity: number;
+  capacity: number | null;
   type: 'parc_expositions' | 'arena' | 'stade' | 'centre_congres' | 'theatre' | 'espace_public';
 }
 
@@ -40,8 +40,8 @@ export interface Hotel {
   city: string;
   country: string;
   address: string;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   stars: number | null;
   roomCount: number;
   segment: 'Luxe' | 'Boutique' | 'Affaires' | 'Économique' | 'Resort' | 'Non renseigné';
@@ -60,12 +60,12 @@ export interface EventEvidence {
 
 export interface EventHotelImpact {
   hotelId: string;
-  distanceKm: number;
-  distanceMins: number;
-  directDemandShare: number; // % estimated demand
-  compressionIndex: number; // 1-10
-  recommendedAction: string;
-  estimatedADRBoostPercent: number;
+  distanceKm: number | null;
+  distanceMins: number | null;
+  directDemandShare: number | null;
+  compressionIndex: number | null;
+  recommendedAction: string | null;
+  estimatedADRBoostPercent: number | null;
   minStayRecommended?: number;
   stopSellSuggested?: boolean;
 }
@@ -100,7 +100,7 @@ export interface EventItem {
   evidences: EventEvidence[];
   hotelImpacts: Record<string, EventHotelImpact>;
   isRecurring: boolean;
-  recurrenceFrequency?: 'annual' | 'biennial' | 'one_time';
+  recurrenceFrequency?: 'annual' | 'biennial' | 'triennial' | 'one_time';
   historicalGrowth?: string;
   isFavorite?: boolean;
   isWatchlist?: boolean; // À surveiller
