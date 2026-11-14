@@ -79,10 +79,10 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Sources d&apos;Information & Couverture Événementielle
+                Données & Inventaire HOPTYM
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Audit de l&apos;ingestion des données, gestionnaires de sites officiels et protocoles de vérification
+                Connectivités, imports, qualité des données et référentiels événementiels
               </p>
             </div>
           </div>
@@ -90,7 +90,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/70">
               <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Couverture certifiée 99.4%</span>
+              <span>Catalogue & imports</span>
             </span>
           </div>
         </div>
