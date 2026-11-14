@@ -366,7 +366,7 @@ export function getDefaultIntegrations(): IntegrationConnectorState[] {
       mode: 'local_file',
       status: 'active_local',
       description: 'Pré-analyse et import de fichiers PMS/Channel Manager ; aucune synchronisation API live.',
-      lastSyncAt: '2026-11-12 08:30',
+      lastSyncAt: null,
       lastError: null,
     },
     {
