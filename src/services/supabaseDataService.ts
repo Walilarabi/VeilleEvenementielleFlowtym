@@ -109,7 +109,7 @@ export async function loadWorkspaceData(organizationId: string): Promise<Workspa
   const [occurrencesResult, evidenceResult, impactResult] = eventIds.length ? await Promise.all([
     client.from('event_occurrences').select('id,event_id,start_date,end_date,date_status,attendance_estimate').in('event_id', eventIds).order('start_date'),
     client.from('event_evidence').select('id,event_id,source_name,source_url,evidence_type,verified_at,excerpt,trust_score').in('event_id', eventIds),
-    hotels.length ? client.from('event_hotel_impacts').select('hotel_id,event_id,distance_km,drive_time_minutes,transit_time_minutes,estimated_demand_lift_pct,estimated_adr_lift_pct,recommended_action,final_rm_score,confidence_score,score_components,impact_status').eq('organization_id', organizationId).in('hotel_id', hotels.map((hotel) => hotel.id)).in('event_id', eventIds) : Promise.resolve({ data: [], error: null }),
+    hotels.length ? client.from('event_hotel_impacts').select('hotel_id,event_id,distance_km,drive_time_minutes,transit_time_minutes,attendance_score,international_score,proximity_score,capacity_score,estimated_demand_lift_pct,estimated_adr_lift_pct,recommended_action,final_rm_score,confidence_score,score_components,impact_status').eq('organization_id', organizationId).in('hotel_id', hotels.map((hotel) => hotel.id)).in('event_id', eventIds) : Promise.resolve({ data: [], error: null }),
   ]) : [
     { data: [], error: null }, { data: [], error: null }, { data: [], error: null },
   ];
