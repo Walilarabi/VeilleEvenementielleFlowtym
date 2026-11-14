@@ -58,7 +58,10 @@ function readValue(row: Row, key: keyof typeof HEADER_ALIASES): unknown {
 
 function numberValue(value: unknown): number | null {
   if (value === null || value === undefined || String(value).trim() === '') return null;
-  const parsed = Number(String(value).replace(/\s/g, '').replace(',', '.').replace(/[€$£]/g, ''));
+  let normalized = String(value).replace(/\s/g, '').replace(/[€$£%]/g, '');
+  if (normalized.includes(',') && normalized.includes('.')) normalized = normalized.replace(/\./g, '').replace(',', '.');
+  else normalized = normalized.replace(',', '.');
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -271,7 +274,8 @@ export async function importHoptymFile(args: {
         const competitorName = String(readValue(row, 'competitor') || '').trim();
         if (!stayDate || !competitorName) return [];
         const rate = numberValue(readValue(row, 'rate'));
-        const soldOut = /sold.?out|complet|indisponible/i.test(String(readValue(row, 'roomsAvailable') || ''));
+        const availability = readValue(row, 'roomsAvailable');
+        const soldOut = numberValue(availability) === 0 || /sold.?out|complet|indisponible/i.test(String(availability || ''));
         return [{
           organization_id: organizationId, hotel_id: hotelId, stay_date: stayDate,
           competitor_name: competitorName, room_type: String(readValue(row, 'roomType') || '').slice(0, 120) || null,
@@ -285,10 +289,10 @@ export async function importHoptymFile(args: {
       if (!valid.length) throw new Error('Aucune observation concurrentielle avec date et nom du concurrent.');
       const { data: extraction, error: extractionError } = await client.from('lighthouse_extractions').insert({
         organization_id: organizationId, hotel_id: hotelId, file_name: args.fileName,
-        provider: 'manual_file', extraction_type: 'manual_import', observed_at: observedAt,
+        provider: args.providerName || 'manual_file', extraction_type: 'manual_import', observed_at: observedAt,
         currency: String(readValue(args.records[0], 'currency') || tenant.hotel.currency || 'EUR').slice(0, 3).toUpperCase(),
         source_status: 'imported', records_count: valid.length, imported_by: userId,
-        metadata: { original_dataset: 'rate_shopper_import' },
+        metadata: { original_dataset: 'rate_shopper_import', provider_name: args.providerName || 'manual_file' },
       }).select('id').single();
       if (extractionError || !extraction) throw extractionError || new Error('Création de l’extraction impossible.');
       const observations = valid.map((row) => ({ ...row, extraction_id: extraction.id }));
@@ -330,7 +334,7 @@ export async function importHoptymFile(args: {
       organization_id: organizationId, hotel_id: hotelId, file_name: args.fileName,
       records_count: written, rejected_count: rejected,
       import_status: rejected > 0 ? 'warning' : 'completed',
-      warnings: errors, errors: [], imported_by: userId,
+      warnings: errors, errors: [], detected_columns: Object.keys(args.records[0] || {}), imported_by: userId,
     });
     return {
       success: written > 0,
