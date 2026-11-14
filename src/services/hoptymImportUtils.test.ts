@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseHoptymBoolean, parseHoptymDate, parseHoptymNumber } from "./hoptymImportUtils";
+import { createHoptymImportFingerprint, parseHoptymBoolean, parseHoptymDate, parseHoptymNumber } from "./hoptymImportUtils";
 
 test("number parser handles French and English decimal/group separators", () => {
   assert.equal(parseHoptymNumber("1 234,56 €"), 1234.56);
@@ -25,4 +25,13 @@ test("boolean parser recognizes localized restriction flags", () => {
   assert.equal(parseHoptymBoolean("fermé"), true);
   assert.equal(parseHoptymBoolean("false"), false);
   assert.equal(parseHoptymBoolean("non"), false);
+});
+
+test("import fingerprint is stable and changes when business data changes", async () => {
+  const rows = [{ stay_date: "2026-11-14", rate: 145 }];
+  const first = await createHoptymImportFingerprint("rates", "hotel-1", rows);
+  const repeated = await createHoptymImportFingerprint("rates", "hotel-1", rows);
+  const changed = await createHoptymImportFingerprint("rates", "hotel-1", [{ stay_date: "2026-11-14", rate: 150 }]);
+  assert.equal(first, repeated);
+  assert.notEqual(first, changed);
 });
