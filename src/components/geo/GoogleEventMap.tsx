@@ -68,6 +68,8 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
   onSelectVenue,
   hoveredEventId,
 }) => {
+  const hotelCenterLat = hotel.lat ?? territory.center.lat;
+  const hotelCenterLng = hotel.lng ?? territory.center.lng;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -92,12 +94,12 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
 
   // Filter venues to only those belonging to the hotel's economic territory
   const territorialVenues = useMemo(() => {
-    return venues.filter((v) => isLocationInTerritory(v.lat, v.lng, v.region, territory));
+    return venues.filter((v): v is VenueGeoDetail & { lat: number; lng: number } => v.lat !== null && v.lng !== null && isLocationInTerritory(v.lat, v.lng, v.region, territory));
   }, [venues, territory]);
 
   // Filter hotels belonging to this territory
   const territorialOtherHotels = useMemo(() => {
-    return otherHotels.filter((oth) => isLocationInTerritory(oth.lat, oth.lng, territory.territoryName, territory));
+    return otherHotels.filter((oth) => oth.lat !== null && oth.lng !== null && isLocationInTerritory(oth.lat, oth.lng, territory.territoryName, territory));
   }, [otherHotels, territory]);
 
   // Determine highest impact level for a list of events
@@ -118,14 +120,14 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
     const google = window.google;
     if (!map || !google || !google.maps) return;
 
-    const b = getTerritoryBoundsForScope(territory, territoryScope, hotel.lat, hotel.lng);
+    const b = getTerritoryBoundsForScope(territory, territoryScope, hotelCenterLat, hotelCenterLng);
     const googleBounds = new google.maps.LatLngBounds(
       new google.maps.LatLng(b.south, b.west),
       new google.maps.LatLng(b.north, b.east)
     );
 
     // Also include active hotel position
-    googleBounds.extend(new google.maps.LatLng(hotel.lat, hotel.lng));
+    googleBounds.extend(new google.maps.LatLng(hotelCenterLat, hotelCenterLng));
 
     map.fitBounds(googleBounds, {
       top: 50,
@@ -133,7 +135,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
       bottom: 50,
       left: 50,
     });
-  }, [hotel.lat, hotel.lng, territory, territoryScope]);
+  }, [hotelCenterLat, hotelCenterLng, territory, territoryScope]);
 
   // Initialize Map instance once
   useEffect(() => {
@@ -167,7 +169,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
         );
 
         const mapOptions: any = {
-          center: { lat: hotel.lat, lng: hotel.lng },
+          center: { lat: hotelCenterLat, lng: hotelCenterLng },
           zoom: territory.defaultZoom || 11,
           minZoom: territory.minZoom || 9.5, // EMPRISE GÉOGRAPHIQUE : empêche le dézoom au niveau national
           maxZoom: 18,
@@ -228,7 +230,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
     });
 
     fitToTerritoryBounds();
-  }, [territory, territoryScope, hotel.lat, hotel.lng, mapLoaded, fitToTerritoryBounds]);
+  }, [territory, territoryScope, hotelCenterLat, hotelCenterLng, mapLoaded, fitToTerritoryBounds]);
 
   // Highlight marker when an event is hovered in the side list
   useEffect(() => {
@@ -263,7 +265,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
     const bounds = new google.maps.LatLngBounds();
 
     // 1. HOTEL REFERENT MARKER (Target hotel)
-    const hotelPos = new google.maps.LatLng(hotel.lat, hotel.lng);
+    const hotelPos = new google.maps.LatLng(hotelCenterLat, hotelCenterLng);
     bounds.extend(hotelPos);
 
     const hotelMarkerSvg = `
@@ -496,7 +498,7 @@ export const GoogleEventMap: React.FC<GoogleEventMapProps> = ({
               ${venue.name}
             </div>
             <div style="font-size: 11px; color: #475569; margin-top: 2px;">
-              ${venue.commune || venue.city} (Capacité : ${venue.capacity.toLocaleString('fr-FR')})
+              ${venue.commune || venue.city} (Capacité : ${venue.capacity?.toLocaleString('fr-FR') || 'Non renseignée'})
             </div>
 
             <div style="display: flex; gap: 10px; margin-top: 6px; font-size: 10.5px; color: #475569; background: #f8fafc; padding: 4px 8px; border-radius: 6px;">
