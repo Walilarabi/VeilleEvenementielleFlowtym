@@ -56,13 +56,6 @@ import { exportCompleteHistoricalExcel } from './services/excelHistoricalExportS
 import { convertSchoolHolidaysToEventItems } from './services/schoolHolidayEventConverter';
 import { generateSchoolHolidaysForYear } from './data/schoolHolidaysData';
 
-import {
-  INITIAL_HOTELS,
-  INITIAL_VENUES,
-  INITIAL_SUGGESTIONS,
-  INITIAL_SOURCES,
-  generateFullMockEvents,
-} from './data/mockData';
 import { EventItem, FilterState, Hotel, EventProposal } from './types';
 import { exportEventsToCSV } from './utils/helpers';
 import { exportEventsToPDF } from './utils/pdfExport';
@@ -238,46 +231,15 @@ export default function App() {
   });
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [hotels, setHotels] = useState<Hotel[]>(INITIAL_HOTELS);
-  const [venues, setVenues] = useState(INITIAL_VENUES);
-  const [sources, setSources] = useState(INITIAL_SOURCES);
-  const [suggestions, setSuggestions] = useState(INITIAL_SUGGESTIONS);
-  const [events, setEvents] = useState<EventItem[]>(() => generateFullMockEvents());
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [venues, setVenues] = useState([]);
+  const [sources, setSources] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [configVersion, setConfigVersion] = useState(0);
 
-  // Proposals State (Score RM 30 à 59)
-  const [proposals, setProposals] = useState<EventProposal[]>([
-    {
-      id: 'prop-init-1',
-      title: 'Salon du Vélo Urbain & Mobilités Douces',
-      subtitle: 'Écomobilité & transition urbaine',
-      category: 'salons_foires',
-      city: 'Paris',
-      venueName: 'Porte de Versailles',
-      startDate: '2026-11-27',
-      endDate: '2026-11-29',
-      expectedAttendance: 19000,
-      score: 48,
-      status: 'pending',
-      detectedSource: 'Fédération des Usagers de la Bicyclette (FUB)',
-      impactLevel: 'modere',
-    },
-    {
-      id: 'prop-init-2',
-      title: 'Championnat d’Europe d’Escrime Junior',
-      subtitle: 'Escrime épée & fleuret',
-      category: 'sport',
-      city: 'Paris',
-      venueName: 'Halle Carpentier',
-      startDate: '2026-12-04',
-      endDate: '2026-12-06',
-      expectedAttendance: 8500,
-      score: 36,
-      status: 'pending',
-      detectedSource: 'Fédération Française d’Escrime',
-      impactLevel: 'modere',
-    },
-  ]);
+  // No fabricated proposals: this list is populated only from persisted data.
+  const [proposals, setProposals] = useState<EventProposal[]>([]);
 
   // View switch: 'calendar' vs 'table' (default to 'table' so Table View is immediately active)
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
@@ -297,7 +259,7 @@ export default function App() {
     anomaliesOnly: false,
     watchlistOnly: false,
     showSchoolHolidays: true,
-    selectedHotelId: 'hotel-opera',
+    selectedHotelId: '',
     currentYear: 2026,
     currentMonth: 10, // Novembre 2026 (0-indexed 10)
   });
