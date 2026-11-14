@@ -200,7 +200,11 @@ export const SchoolHolidaysImpactDashboard: React.FC<SchoolHolidaysImpactDashboa
               const originalHoliday = holidays.find((h) => h.id === item.periodId);
               const badgeCls = getBadgeStyle(item.classification);
 
-              return (
+              if (hotel.baseADR === null) {
+    return <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 p-5 text-sm text-amber-800 dark:text-amber-200">Analyse des vacances suspendue : aucun ADR hôtelier réel ni historique vérifié n’est encore renseigné dans Supabase.</div>;
+  }
+
+  return (
                 <div
                   key={item.periodId}
                   onClick={() => originalHoliday && onSelectHoliday(originalHoliday)}
