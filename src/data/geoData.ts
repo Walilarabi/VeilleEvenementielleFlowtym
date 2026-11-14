@@ -225,7 +225,7 @@ export function getTerritoryForCity(city: string): GeographicTerritory {
 export function getTerritoryForHotel(hotel: Hotel): GeographicTerritory {
   const terr = getTerritoryForCity(hotel.city);
   // Si c'est un fallback généré, on ajuste le centre et le bounding box d'environ 30 km autour de l'hôtel
-  if (terr.id === `terr-${hotel.city.trim().toLowerCase()}`) {
+  if (terr.id === `terr-${hotel.city.trim().toLowerCase()}` && hotel.lat !== null && hotel.lng !== null) {
     const latDelta = 0.25; // ~28 km
     const lngDelta = 0.35; // ~28 km
     return {
@@ -961,7 +961,7 @@ export function resolveEventCoordinates(event: {
     const venueMatch = MUTUALIZED_VENUES_DATABASE.find((v) => v.id === event.venueId);
     if (venueMatch) {
       const terr = getTerritoryForCity(venueMatch.city);
-      return { lat: venueMatch.lat, lng: venueMatch.lng, territoryKey: terr.cityKey };
+      if (venueMatch.lat !== null && venueMatch.lng !== null) return { lat: venueMatch.lat, lng: venueMatch.lng, territoryKey: terr.cityKey };
     }
   }
 
@@ -974,7 +974,7 @@ export function resolveEventCoordinates(event: {
     );
     if (venueByName) {
       const terr = getTerritoryForCity(venueByName.city);
-      return { lat: venueByName.lat, lng: venueByName.lng, territoryKey: terr.cityKey };
+      if (venueByName.lat !== null && venueByName.lng !== null) return { lat: venueByName.lat, lng: venueByName.lng, territoryKey: terr.cityKey };
     }
   }
 
@@ -1045,8 +1045,8 @@ export function computeVenuesForHotel(
   mainRadiusKm: number = 10,
   extendedRadiusKm: number = 30
 ): VenueGeoDetail[] {
-  return MUTUALIZED_VENUES_DATABASE.map((v) => {
-    const distanceKm = calculateHaversineDistanceKm(hotelLat, hotelLng, v.lat, v.lng);
+  return MUTUALIZED_VENUES_DATABASE.filter((v) => v.lat !== null && v.lng !== null).map((v) => {
+    const distanceKm = calculateHaversineDistanceKm(hotelLat, hotelLng, v.lat as number, v.lng as number);
     const { driveTimeMins, transitTimeMins } = estimateTravelTimes(
       distanceKm,
       v.city.toLowerCase() === hotelCity.toLowerCase()
