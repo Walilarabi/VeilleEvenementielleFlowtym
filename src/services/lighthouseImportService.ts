@@ -166,8 +166,50 @@ export async function persistLighthouseExtraction(
     })),
   );
 
-  if (observationRows.length === 0 || observationRows.length > 5000) {
-    throw new Error("L'export doit contenir entre 1 et 5000 observations concurrentielles.");
+  const marketObservationRows = normalizedDataset.records.map((record) => ({
+    organization_id: hotel.organization_id,
+    hotel_id: hotel.id,
+    stay_date: record.dateStr,
+    observed_at: observedAt,
+    source_system: "lighthouse",
+    source_channel: normalizedDataset.metadata.sourceChannel,
+    los_nights: positiveIntegerFromLabel(normalizedDataset.metadata.los),
+    guests_count: positiveIntegerFromLabel(normalizedDataset.metadata.occupancy),
+    currency: hotel.currency.slice(0, 3),
+    hotel_lowest_rate: record.folkestone.rate,
+    hotel_availability_status: record.folkestone.status,
+    market_median_rate: record.lighthouseMedianEur > 0 ? record.lighthouseMedianEur : null,
+    demand_index: record.demandIndex,
+    demand_index_raw: record.demandIndexRaw,
+    demand_index_scale: record.demandIndexScale,
+    market_rank: record.folkestone.rank,
+    market_rank_total: record.folkestone.totalAvailable,
+    compset_average: record.compsetAverage,
+    compset_min: record.minCompRate,
+    compset_max: record.maxCompRate,
+    total_available_hotels: record.totalAvailableHotels,
+    total_sold_out_hotels: record.totalSoldOutHotels,
+    source_hash: normalizedDataset.metadata.sourceHash ?? null,
+    file_name: normalizedDataset.metadata.fileName,
+    source_status: "imported",
+    raw_payload: {
+      demandLevel: record.demandLevel,
+      demandEvolution1d: record.demandEvolution1d,
+      demandEvolution3d: record.demandEvolution3d,
+      demandEvolution7d: record.demandEvolution7d,
+      folkestone: record.folkestone,
+      lighthouseMedianEur: record.lighthouseMedianEur,
+      flowtymMedianEur: record.flowtymMedianEur,
+      compsetAverage: record.compsetAverage,
+      minCompRate: record.minCompRate,
+      maxCompRate: record.maxCompRate,
+      totalAvailableHotels: record.totalAvailableHotels,
+      totalSoldOutHotels: record.totalSoldOutHotels,
+    },
+  }));
+
+  if (observationRows.length === 0 || observationRows.length + marketObservationRows.length > 10000) {
+    throw new Error("L'export dépasse le plafond de 10 000 observations par extraction.");
   }
 
   const sourceHash = await sha256Hex(JSON.stringify({
@@ -192,7 +234,9 @@ export async function persistLighthouseExtraction(
     stayEnd: stayDates[stayDates.length - 1],
     sourceUpdatedAt: normalizedDataset.metadata.sourceUpdatedAt ?? null,
     observedAtSource: normalizedDataset.metadata.sourceUpdatedAt ? "source_updated_at" : "import_time_fallback",
-    observationsExpected: observationRows.length,
+    observationsExpected: observationRows.length + marketObservationRows.length,
+    competitorObservationsExpected: observationRows.length,
+    marketObservationsExpected: marketObservationRows.length,
     unmatchedCompetitors,
   };
 
@@ -243,7 +287,7 @@ export async function persistLighthouseExtraction(
         status: "running",
         started_at: importTime,
         finished_at: null,
-        records_read: observationRows.length,
+        records_read: observationRows.length + marketObservationRows.length,
         records_written: 0,
         records_rejected: 0,
         error_summary: null,
@@ -299,7 +343,7 @@ export async function persistLighthouseExtraction(
         los_nights: positiveIntegerFromLabel(normalizedDataset.metadata.los),
         guests_count: positiveIntegerFromLabel(normalizedDataset.metadata.occupancy),
         source_status: "imported",
-        records_count: observationRows.length,
+        records_count: observationRows.length + marketObservationRows.length,
         imported_by: importedBy,
         metadata: {
           ...jobMetadata,
@@ -319,10 +363,19 @@ export async function persistLighthouseExtraction(
     dataset.metadata.id = extraction.id;
 
     const rowsWithExtraction = observationRows.map((row) => ({ ...row, extraction_id: extraction.id }));
-    const batchSize = 500;
-    for (let offset = 0; offset < rowsWithExtraction.length; offset += batchSize) {
-      const batch = rowsWithExtraction.slice(offset, offset + batchSize);
+    const competitorBatchSize = 500;
+    for (let offset = 0; offset < rowsWithExtraction.length; offset += competitorBatchSize) {
+      const batch = rowsWithExtraction.slice(offset, offset + competitorBatchSize);
       const { data, error } = await supabase.from("lighthouse_rate_observations").insert(batch).select("id");
+      if (error) throw new Error(error.message);
+      inserted += data?.length ?? 0;
+    }
+
+    const marketRowsWithExtraction = marketObservationRows.map((row) => ({ ...row, extraction_id: extraction.id, ingestion_job_id: jobId }));
+    const marketBatchSize = 500;
+    for (let offset = 0; offset < marketRowsWithExtraction.length; offset += marketBatchSize) {
+      const batch = marketRowsWithExtraction.slice(offset, offset + marketBatchSize);
+      const { data, error } = await supabase.from("lighthouse_market_observations").insert(batch).select("id");
       if (error) throw new Error(error.message);
       inserted += data?.length ?? 0;
     }
@@ -339,9 +392,10 @@ export async function persistLighthouseExtraction(
   } catch (error) {
     let cleanupError: string | null = null;
     if (extractionId) {
+      const { error: marketCleanupError } = await supabase.from("lighthouse_market_observations").delete().eq("extraction_id", extractionId);
       const { error: observationCleanupError } = await supabase.from("lighthouse_rate_observations").delete().eq("extraction_id", extractionId);
       const { error: extractionCleanupError } = await supabase.from("lighthouse_extractions").delete().eq("id", extractionId);
-      cleanupError = observationCleanupError?.message ?? extractionCleanupError?.message ?? null;
+      cleanupError = marketCleanupError?.message ?? observationCleanupError?.message ?? extractionCleanupError?.message ?? null;
     }
     const errorMessage = error instanceof Error ? error.message : "erreur inconnue";
     await supabase.from("data_ingestion_jobs").update({
