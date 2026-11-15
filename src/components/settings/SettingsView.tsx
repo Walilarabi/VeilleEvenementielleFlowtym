@@ -41,6 +41,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [integrations, setIntegrations] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
+  const [ratePlans, setRatePlans] = useState<DbRatePlan[]>([]);
+  const [roomCountEdits, setRoomCountEdits] = useState<Record<string, string>>({});
   const [memberships, setMemberships] = useState<any[]>([]);
   const [ingestionJobs, setIngestionJobs] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -186,6 +188,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       await load(hotelId);
     } catch (e: any) { setError(e?.message || "Impossible d'enregistrer la fiche établissement."); }
     finally { setSaving(false); }
+  };
+
+  const saveRoomTypeCount = async (roomType: any) => {
+    if (!supabase || !activeHotel) return;
+    const raw = roomCountEdits[roomType.id] ?? '';
+    const count = raw === '' ? null : Number(raw);
+    if (count !== null && (!Number.isInteger(count) || count < 1 || count > 10000)) {
+      setError('Le nombre de chambres par typologie doit être un entier compris entre 1 et 10 000.');
+      return;
+    }
+    const { error: updateError } = await supabase.from('hotel_room_types')
+      .update({ rooms_count: count }).eq('id', roomType.id).eq('hotel_id', hotelId);
+    if (updateError) { setError(updateError.message); return; }
+    await logSettingsChange('room_type_inventory_count_updated', 'room_type', { rooms_count: roomType.rooms_count }, { rooms_count: count }, roomType.id);
+    onShowToast?.('Capacité de la typologie enregistrée.');
+    await load(hotelId);
+  };
+
+  const toggleRatePlan = async (plan: DbRatePlan) => {
+    if (!supabase) return;
+    const next = !plan.is_active;
+    const { error: updateError } = await supabase.from('hotel_rate_plans').update({ is_active: next }).eq('id', plan.id).eq('hotel_id', hotelId);
+    if (updateError) { setError(updateError.message); return; }
+    await logSettingsChange('rate_plan_active_updated', 'rate_plan', { is_active: plan.is_active }, { is_active: next }, plan.id);
+    await load(hotelId);
+  };
+
+  const toggleRatePlanPublic = async (plan: DbRatePlan) => {
+    if (!supabase) return;
+    const next = !plan.is_public;
+    const { error: updateError } = await supabase.from('hotel_rate_plans').update({ is_public: next }).eq('id', plan.id).eq('hotel_id', hotelId);
+    if (updateError) { setError(updateError.message); return; }
+    await logSettingsChange('rate_plan_public_updated', 'rate_plan', { is_public: plan.is_public }, { is_public: next }, plan.id);
+    await load(hotelId);
   };
 
   const toggleRoomType = async (roomType: any) => {
