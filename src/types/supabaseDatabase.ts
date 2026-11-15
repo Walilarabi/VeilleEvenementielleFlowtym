@@ -2814,6 +2814,134 @@ export type Database = {
           },
         ]
       }
+      lighthouse_market_observations: {
+        Row: {
+          compset_average: number | null
+          compset_max: number | null
+          compset_min: number | null
+          created_at: string
+          currency: string
+          demand_index: number | null
+          demand_index_raw: number | null
+          demand_index_scale: string
+          extraction_id: string
+          file_name: string | null
+          guests_count: number | null
+          hotel_availability_status: string | null
+          hotel_id: string
+          hotel_lowest_rate: number | null
+          id: string
+          ingestion_job_id: string | null
+          los_nights: number | null
+          market_median_rate: number | null
+          market_rank: number | null
+          market_rank_total: number | null
+          observed_at: string
+          organization_id: string
+          raw_payload: Json
+          source_channel: string
+          source_hash: string | null
+          source_status: string
+          source_system: string
+          stay_date: string
+          total_available_hotels: number | null
+          total_sold_out_hotels: number | null
+        }
+        Insert: {
+          compset_average?: number | null
+          compset_max?: number | null
+          compset_min?: number | null
+          created_at?: string
+          currency?: string
+          demand_index?: number | null
+          demand_index_raw?: number | null
+          demand_index_scale?: string
+          extraction_id: string
+          file_name?: string | null
+          guests_count?: number | null
+          hotel_availability_status?: string | null
+          hotel_id: string
+          hotel_lowest_rate?: number | null
+          id?: string
+          ingestion_job_id?: string | null
+          los_nights?: number | null
+          market_median_rate?: number | null
+          market_rank?: number | null
+          market_rank_total?: number | null
+          observed_at: string
+          organization_id: string
+          raw_payload?: Json
+          source_channel: string
+          source_hash?: string | null
+          source_status?: string
+          source_system?: string
+          stay_date: string
+          total_available_hotels?: number | null
+          total_sold_out_hotels?: number | null
+        }
+        Update: {
+          compset_average?: number | null
+          compset_max?: number | null
+          compset_min?: number | null
+          created_at?: string
+          currency?: string
+          demand_index?: number | null
+          demand_index_raw?: number | null
+          demand_index_scale?: string
+          extraction_id?: string
+          file_name?: string | null
+          guests_count?: number | null
+          hotel_availability_status?: string | null
+          hotel_id?: string
+          hotel_lowest_rate?: number | null
+          id?: string
+          ingestion_job_id?: string | null
+          los_nights?: number | null
+          market_median_rate?: number | null
+          market_rank?: number | null
+          market_rank_total?: number | null
+          observed_at?: string
+          organization_id?: string
+          raw_payload?: Json
+          source_channel?: string
+          source_hash?: string | null
+          source_status?: string
+          source_system?: string
+          stay_date?: string
+          total_available_hotels?: number | null
+          total_sold_out_hotels?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighthouse_market_observations_extraction_fk"
+            columns: ["extraction_id", "hotel_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "lighthouse_extractions"
+            referencedColumns: ["id", "hotel_id", "organization_id"]
+          },
+          {
+            foreignKeyName: "lighthouse_market_observations_hotel_org_fk"
+            columns: ["hotel_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "hotels"
+            referencedColumns: ["id", "organization_id"]
+          },
+          {
+            foreignKeyName: "lighthouse_market_observations_ingestion_job_fk"
+            columns: ["ingestion_job_id", "hotel_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "data_ingestion_jobs"
+            referencedColumns: ["id", "hotel_id", "organization_id"]
+          },
+          {
+            foreignKeyName: "lighthouse_market_observations_organization_fk"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lighthouse_rate_observations: {
         Row: {
           availability_status: string
