@@ -5,6 +5,7 @@ on:
     branches:
       - feat/hoptym-revenue-backend
       - feat/google-ai-studio-recovery
+      - feat/rms-integral-cto-rebuild
   pull_request:
     branches:
       - main
