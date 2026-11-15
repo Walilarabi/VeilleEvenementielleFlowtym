@@ -212,7 +212,7 @@ export const TableView: React.FC<TableViewProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
       {/* Table Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-slate-200/80 bg-slate-50/70">
         <div className="flex items-center gap-2.5">
@@ -221,8 +221,8 @@ export const TableView: React.FC<TableViewProps> = ({
             Tableau des événements
           </span>
           <span className="text-slate-300">·</span>
-          <span className="text-xs text-slate-600 font-medium">
-            <strong className="text-slate-900 font-bold">{sortedEvents.length}</strong> événement{sortedEvents.length > 1 ? 's' : ''} affiché{sortedEvents.length > 1 ? 's' : ''}
+          <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+            <strong className="text-slate-900 dark:text-slate-100 font-bold">{sortedEvents.length}</strong> événement{sortedEvents.length > 1 ? 's' : ''} affiché{sortedEvents.length > 1 ? 's' : ''}
           </span>
         </div>
 
@@ -230,7 +230,7 @@ export const TableView: React.FC<TableViewProps> = ({
           {onExportPDF && (
             <button
               onClick={onExportPDF}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 bg-white hover:bg-violet-50 border border-violet-200 hover:border-violet-300 rounded-xl transition-all shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300 bg-white dark:bg-slate-900 hover:bg-violet-50 dark:hover:bg-violet-950/50 border border-violet-200 dark:border-violet-800/70 hover:border-violet-300 dark:hover:border-violet-600/70 rounded-xl transition-all shadow-2xs cursor-pointer"
               title="Exporter les événements du tableau au format PDF"
             >
               <FileText className="w-3.5 h-3.5 text-violet-600" />
@@ -243,11 +243,11 @@ export const TableView: React.FC<TableViewProps> = ({
       {/* Empty State */}
       {events.length === 0 ? (
         <div className="py-16 px-6 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mx-auto">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mx-auto">
             <Search className="w-6 h-6" />
           </div>
           <h4 className="text-sm font-bold text-slate-800">Aucun événement ne correspond aux filtres sélectionnés</h4>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
             Modifiez la période, réinitialisez les critères d&apos;impact ou effacez la recherche textuelle pour afficher les événements.
           </p>
         </div>
@@ -276,7 +276,7 @@ export const TableView: React.FC<TableViewProps> = ({
                   <tr
                     key={ev.id}
                     onClick={() => onSelectEvent(ev)}
-                    className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
+                    className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors cursor-pointer group"
                   >
                     {/* Nom de l’événement Column with left vertical color bar, title, subtitle & tags */}
                     <td className="py-4 px-6 max-w-sm">
@@ -286,7 +286,7 @@ export const TableView: React.FC<TableViewProps> = ({
 
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-slate-900 group-hover:text-violet-700 transition-colors text-sm">
+                            <span className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-violet-700 transition-colors text-sm">
                               {ev.title}
                             </span>
                             {/* Repeat icon if recurrent */}
@@ -299,7 +299,7 @@ export const TableView: React.FC<TableViewProps> = ({
 
                           {/* Subtitle / Theme */}
                           {ev.subtitle && (
-                            <div className="text-xs text-slate-500 leading-snug">
+                            <div className="text-xs text-slate-500 dark:text-slate-400 leading-snug">
                               {ev.subtitle}
                             </div>
                           )}
@@ -329,14 +329,14 @@ export const TableView: React.FC<TableViewProps> = ({
                     </td>
 
                     {/* Dates (début/fin) Column */}
-                    <td className="py-4 px-4 whitespace-nowrap font-medium text-slate-700 text-xs tabular-nums">
+                    <td className="py-4 px-4 whitespace-nowrap font-medium text-slate-700 dark:text-slate-300 text-xs tabular-nums">
                       {formatDateArrow(ev.startDate, ev.endDate)}
                     </td>
 
                     {/* Ville / Lieu Column */}
                     <td className="py-4 px-4 whitespace-nowrap">
-                      <div className="font-bold text-slate-900 text-xs">{ev.city}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{ev.venueName}</div>
+                      <div className="font-bold text-slate-900 dark:text-slate-100 text-xs">{ev.city}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{ev.venueName}</div>
                     </td>
 
                     {/* Impact RM Column */}
@@ -347,7 +347,7 @@ export const TableView: React.FC<TableViewProps> = ({
                     {/* Score RM Column with horizontal progress gauge + pastel colored badge */}
                     <td className="py-4 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-12 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div className="w-12 bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                           <div
                             className={`h-1.5 rounded-full ${scoreStyles.barColor}`}
                             style={{ width: `${Math.min(100, Math.max(10, score))}%` }}
