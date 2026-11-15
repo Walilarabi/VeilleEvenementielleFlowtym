@@ -29,7 +29,7 @@ const ALLOWED_STATUSES = new Set<ConfirmationStatus>(['confirmed','probable','es
 const EVIDENCE_TYPES = new Set(['official_organizer','venue_calendar','press','ticketing','city_agenda']);
 const todayISO = () => new Date().toISOString().slice(0,10);
 const addDays = (date: string, days: number) => { const d = new Date(date+'T12:00:00'); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); };
-const scoreLevel = (score: number): RMImpactLevel => score >= 85 ? 'hyper' : score >= 70 ? 'critique' : score >= 45 ? 'modere' : 'faible';
+const scoreLevel = (score: number): RMImpactLevel => score >= 80 ? 'hyper' : score >= 60 ? 'critique' : score >= 30 ? 'modere' : 'faible';
 const fmtDate = (date: string) => new Date(date+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
 const fmtNumber = (value: number | null | undefined, suffix = '') => value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('fr-FR',{maximumFractionDigits:1}) + suffix;
 
