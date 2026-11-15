@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, CheckCircle2, Clock, Database, Edit3, Filter, History,
-  RefreshCw, Search, ShieldCheck, XCircle, Eye, CalendarDays,
+  CheckCircle2, Database, Edit3, History, RefreshCw, Search, XCircle,
 } from 'lucide-react';
 import { Hotel, EventItem } from '../../types';
 import { useAuth } from '../../auth/AuthProvider';
