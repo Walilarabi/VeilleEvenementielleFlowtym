@@ -413,7 +413,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   return <div className="space-y-5">
     <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
       <div><div className="flex items-center gap-2 text-violet-700 dark:text-violet-300"><Settings2 size={20} /><span className="text-xs font-bold uppercase tracking-wider">Configuration Flowtym RMS</span></div><h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Paramètres</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Paramètres persistés et relus depuis la base de données de l’établissement.</p></div>
-      <div className="flex items-center gap-2"><span className="text-xs text-slate-500 dark:text-slate-400">{user?.email ?? 'Session non identifiée'}</span><button onClick={() => void load()} className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Actualiser"><RefreshCw size={16} /></button></div>
+      <div className="flex flex-wrap items-center gap-2">
+         <label className="min-w-56"><span className="sr-only">Établissement actif</span><select value={hotelId} onChange={e => { onSelectHotel?.(e.target.value); void load(e.target.value); }} className={inputClass} disabled={loading || hotels.length <= 1}>
+           {hotels.map(hotel => <option key={hotel.id} value={hotel.id}>{hotel.name} · {hotel.city}</option>)}
+         </select></label>
+         <span className="text-xs text-slate-500 dark:text-slate-400">{user?.email ?? 'Session non identifiée'}</span>
+         <button onClick={() => void load(hotelId || undefined)} className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Actualiser"><RefreshCw size={16} /></button>
+       </div>
     </div>
     <div className="flex flex-wrap gap-2">{tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} className={`inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${tab === t.id ? 'bg-violet-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'}`}>{t.icon}{t.label}</button>)}</div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200"><CircleAlert size={17} className="mt-0.5 shrink-0" />{error}</div>}
@@ -422,7 +428,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       
       {tab === 'hotel' && <section className={cardClass}>
         <h2 className="text-base font-bold text-slate-900 dark:text-white">Configuration de l’établissement</h2>
-        <p className="mb-5 mt-1 text-sm text-slate-500 dark:text-slate-400">Fiche de l’hôtel issue de Supabase. Les informations affichées sont les données enregistrées, pas des valeurs de démonstration.</p>
+        <p className="mb-5 mt-1 text-sm text-slate-500 dark:text-slate-400">Fiche de l’hôtel issue de Supabase. Les modifications sont enregistrées sur l’établissement sélectionné et tracées dans le journal des paramètres.</p>
+         <form onSubmit={saveHotelDetails} className="mb-6 grid gap-3 rounded-xl bg-slate-50 p-4 dark:bg-slate-950 sm:grid-cols-2 lg:grid-cols-3">
+           <label><span className={labelClass}>Nom de l’établissement *</span><input required className={inputClass} value={hotelProfileForm.name} onChange={e=>setHotelProfileForm(p=>({...p,name:e.target.value}))}/></label>
+           <label><span className={labelClass}>Ville *</span><input required className={inputClass} value={hotelProfileForm.city} onChange={e=>setHotelProfileForm(p=>({...p,city:e.target.value}))}/></label>
+           <label><span className={labelClass}>Pays *</span><input required className={inputClass} value={hotelProfileForm.country} onChange={e=>setHotelProfileForm(p=>({...p,country:e.target.value}))}/></label>
+           <label className="sm:col-span-2"><span className={labelClass}>Adresse</span><input className={inputClass} value={hotelProfileForm.address} onChange={e=>setHotelProfileForm(p=>({...p,address:e.target.value}))}/></label>
+           <label><span className={labelClass}>Catégorie (étoiles)</span><select className={inputClass} value={hotelProfileForm.stars} onChange={e=>setHotelProfileForm(p=>({...p,stars:e.target.value}))}><option value="">Non renseignée</option>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n} étoiles</option>)}</select></label>
+           <label><span className={labelClass}>Nombre de chambres</span><input type="number" min="1" max="10000" step="1" className={inputClass} value={hotelProfileForm.roomCount} onChange={e=>setHotelProfileForm(p=>({...p,roomCount:e.target.value}))}/></label>
+           <div className="flex items-end justify-end sm:col-span-2 lg:col-span-3"><button disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"><Save size={15}/>{saving ? 'Enregistrement…' : 'Enregistrer la fiche hôtel'}</button></div>
+         </form>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
             ['Nom', activeHotel.name], ['Ville', activeHotel.city], ['Pays', activeHotel.country],
