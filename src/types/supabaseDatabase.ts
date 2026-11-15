@@ -3365,6 +3365,40 @@ export type Database = {
           recommendation_status: string
         }[]
       }
+      persist_rm_recommendation_v2: {
+        Args: {
+          p_confidence_score: number
+          p_currency: string
+          p_current_bar: number
+          p_data_quality_status: string
+          p_delta_amount: number
+          p_delta_pct: number
+          p_demand_index: number
+          p_demand_level: string
+          p_engine_version: string
+          p_evidence: Json
+          p_explanation: string
+          p_flowtym_compset_median: number
+          p_hotel_id: string
+          p_input_snapshot: Json
+          p_lighthouse_median: number
+          p_occupancy_pct: number
+          p_organization_id: string
+          p_pickup_24h: number
+          p_pickup_3d: number
+          p_pickup_7d: number
+          p_rate_plan_id: string
+          p_room_type_id: string
+          p_rooms_remaining: number
+          p_stay_date: string
+          p_strategy_code: string
+          p_suggested_bar: number
+        }
+        Returns: {
+          id: string
+          recommendation_status: string
+        }[]
+      }
       record_event_impact_decision: {
         Args: {
           p_action: string
