@@ -203,7 +203,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
         setSelectedFile({
           name: file.name, size: formatFileSize(file.size), rows, headers, sourceType: selectedChannel,
           rowCount: parsed.summary.inventoryCells + parsed.summary.rateCells,
-          previewSummary: parsed.summary.dates + ' dates · ' + parsed.summary.roomTypes + ' typologies · ' + parsed.summary.ratePlans + ' plans tarifaires · ' + parsed.summary.rateCells + ' cellules tarifaires',
+          previewSummary: parsed.summary.dates + ' dates · ' + parsed.summary.roomTypes + ' typologies · ' + parsed.summary.ratePlans + ' plans tarifaires · ' + parsed.summary.inventoryCells + ' cellules de stock · ' + parsed.summary.rateCells + ' cellules tarifaires',
           canImport: true,
           parsedPms: parsed,
         });
