@@ -1016,7 +1016,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const marketByDate = new Map<string,any>();
     for (const row of marketResult.data ?? []) {
       const ageHours = (Date.now()-Date.parse(row.observed_at))/3600000;
-      if (ageHours >= 0 && ageHours <= maxObservationAge && row.demand_index !== null && !marketByDate.has(row.stay_date)) {
+      if (ageHours >= 0 && ageHours <= maxObservationAge && !marketByDate.has(row.stay_date)) {
         marketByDate.set(row.stay_date,row);
       }
     }
@@ -1102,7 +1102,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         if (compsetMedian !== null) signals.compset = clamp(50+50*((compsetMedian-current)/current)/compsetGapScale,0,100);
 
         const marketObservation = marketByDate.get(stayDate) ?? null;
-        if (marketObservation) signals.market_demand = clamp(Number(marketObservation.demand_index),0,100);
+        if (marketObservation && numberOrNull(marketObservation.demand_index) !== null) signals.market_demand = clamp(Number(marketObservation.demand_index),0,100);
 
         const decision = buildRoomTypeRecommendation({
           currentBar: current,
