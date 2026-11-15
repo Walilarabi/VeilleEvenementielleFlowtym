@@ -226,6 +226,7 @@ export function getTerritoryForHotel(hotel: Hotel): GeographicTerritory {
   const terr = getTerritoryForCity(hotel.city);
   // Si c'est un fallback généré, on ajuste le centre et le bounding box d'environ 30 km autour de l'hôtel
   if (terr.id === `terr-${hotel.city.trim().toLowerCase()}`) {
+    if (hotel.lat === null || hotel.lng === null) return terr;
     const latDelta = 0.25; // ~28 km
     const lngDelta = 0.35; // ~28 km
     return {

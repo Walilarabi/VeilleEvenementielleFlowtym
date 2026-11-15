@@ -104,12 +104,60 @@ import {
   exportRateGridToCSV,
 } from '../../services/rateIntelligenceService';
 import { exportCompleteHistoricalExcel } from '../../services/excelHistoricalExportService';
+import { useAuth } from '../../auth/AuthProvider';
+import { resolveAccessibleRmsHotel } from '../../services/lighthouseImportService';
+import { getHotelRecommendations, getRecommendationsV2Status, generatePricingRecommendations, submitRevenueDecision } from '../../services/revenueApiClient';
 import { LighthouseCompetitiveIntelligenceView } from './LighthouseCompetitiveIntelligenceView';
 import { HistoricalDataImportView } from './HistoricalDataImportView';
 import { BacktestingValidationDashboard } from './BacktestingValidationDashboard';
 import { PredictiveRecommendationDetailDrawer } from './PredictiveRecommendationDetailDrawer';
 import { computeFullPredictivePricingRecommendation } from '../../services/predictiveRevenueEngine';
 import { FullPredictivePricingRecommendation } from '../../types/historicalData';
+
+type PersistedRMRecommendation = {
+  id: string;
+  room_type_id: string | null;
+  rate_plan_id: string | null;
+  room_type_code?: string | null;
+  room_type_name?: string | null;
+  rate_plan_code?: string | null;
+  rate_plan_name?: string | null;
+  stay_date: string;
+  currency: string;
+  current_bar: number;
+  suggested_bar: number;
+  delta_amount: number;
+  delta_pct: number;
+  demand_index: number | null;
+  demand_level: string | null;
+  occupancy_pct: number | null;
+  rooms_remaining: number | null;
+  pickup_24h: number | null;
+  pickup_3d: number | null;
+  pickup_7d: number | null;
+  lighthouse_median: number | null;
+  flowtym_compset_median: number | null;
+  strategy_code: string;
+  explanation: string;
+  confidence_score: number;
+  data_quality_status: string;
+  recommendation_status: string;
+  evidence?: Record<string, any> | null;
+  input_snapshot?: Record<string, any> | null;
+};
+
+function getParisDateRange(days: number) {
+  const start = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+  const endDate = new Date(`${start}T00:00:00Z`);
+  endDate.setUTCDate(endDate.getUTCDate() + days);
+  return { start, end: endDate.toISOString().slice(0, 10) };
+}
+
+function formatRevenueValue(value: unknown, digits = 0): string {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? new Intl.NumberFormat('fr-FR', { maximumFractionDigits: digits }).format(value)
+    : '—';
+}
 
 export type ColumnId =
   | 'date_day'
@@ -229,7 +277,7 @@ export function detectSafetyAlert(r: DailyRateIntelligence): SafetyAlertResult {
       badgeLabel: `🚨 Plafond Sécurité (${RATE_CEILING_EUR}€)`,
       shortBadge: `Plafond ${RATE_CEILING_EUR}€`,
       description: `Tarif suggéré bridé à la borne maximale de sécurité (${RATE_CEILING_EUR}€) pour l'hôtel afin de prévenir tout risque de rupture de parité ou de rejet de clientèle.`,
-      badgeStyle: 'bg-rose-100 text-rose-800 border-rose-300 ring-1 ring-rose-400/30',
+      badgeStyle: 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700/70 ring-1 ring-rose-400/30',
     };
   }
 
@@ -242,7 +290,7 @@ export function detectSafetyAlert(r: DailyRateIntelligence): SafetyAlertResult {
       badgeLabel: `🛡️ Plancher Sécurité (${RATE_FLOOR_EUR}€)`,
       shortBadge: `Plancher ${RATE_FLOOR_EUR}€`,
       description: `Tarif suggéré aligné sur le plancher absolu (${RATE_FLOOR_EUR}€) configuré pour l'hôtel. Interdiction de descendre sous ce seuil de rentabilité unitaire.`,
-      badgeStyle: 'bg-amber-100 text-amber-900 border-amber-300 ring-1 ring-amber-400/30',
+      badgeStyle: 'bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700/70 ring-1 ring-amber-400/30',
     };
   }
 
@@ -413,11 +461,137 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const [records, setRecords] = useState<DailyRateIntelligence[]>(() =>
     getRateIntelligenceRecords(hotel.id)
   );
+  const { supabase } = useAuth();
+  const [realHotelId, setRealHotelId] = useState<string | null>(null);
+  const [recommendationsApiReady, setRecommendationsApiReady] = useState(false);
+  const [apiRecommendations, setApiRecommendations] = useState<PersistedRMRecommendation[]>([]);
+  const [isLoadingApiRecommendations, setIsLoadingApiRecommendations] = useState(true);
+  const [isGeneratingApiRecommendations, setIsGeneratingApiRecommendations] = useState(false);
+  const [savingDecisionId, setSavingDecisionId] = useState<string | null>(null);
+  const [apiRecommendationError, setApiRecommendationError] = useState<string | null>(null);
 
-  // Synchronisation lors du changement d'hôtel
+  const enrichApiRecommendations = async (client: any, hotelId: string, rows: PersistedRMRecommendation[]) => {
+    const [roomTypesResult, ratePlansResult] = await Promise.all([
+      client.from('hotel_room_types').select('id,code,name').eq('hotel_id', hotelId),
+      client.from('hotel_rate_plans').select('id,code,name').eq('hotel_id', hotelId),
+    ]);
+    if (roomTypesResult.error) throw roomTypesResult.error;
+    if (ratePlansResult.error) throw ratePlansResult.error;
+    const roomTypesById = new Map<string, any>((roomTypesResult.data ?? []).map((row: any) => [row.id, row]));
+    const ratePlansById = new Map<string, any>((ratePlansResult.data ?? []).map((row: any) => [row.id, row]));
+    return rows.map((row) => {
+      const room = row.room_type_id ? roomTypesById.get(row.room_type_id) : null;
+      const plan = row.rate_plan_id ? ratePlansById.get(row.rate_plan_id) : null;
+      return {
+        ...row,
+        room_type_code: room?.code ?? null,
+        room_type_name: room?.name ?? null,
+        rate_plan_code: plan?.code ?? null,
+        rate_plan_name: plan?.name ?? null,
+      };
+    });
+  };
+
+  const refreshApiRecommendations = async (hotelId: string, client = supabase) => {
+    if (!client) throw new Error('Session Supabase absente.');
+    const range = getParisDateRange(90);
+    const result = await getHotelRecommendations(client, hotelId, range.start, range.end);
+    const enriched = await enrichApiRecommendations(client, hotelId, result.data as PersistedRMRecommendation[]);
+    setApiRecommendations(enriched);
+  };
+
   useEffect(() => {
-    setRecords(getRateIntelligenceRecords(hotel.id));
-  }, [hotel.id]);
+    let cancelled = false;
+    const loadApiRecommendations = async () => {
+      setIsLoadingApiRecommendations(true);
+      setRecommendationsApiReady(false);
+      setRealHotelId(null);
+      if (!supabase) {
+        if (!cancelled) {
+          setApiRecommendationError('Session Supabase absente. Aucune donnée RM locale ou simulée ne sera affichée.');
+          setIsLoadingApiRecommendations(false);
+        }
+        return;
+      }
+      try {
+        const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+          name: hotel.name,
+          city: hotel.city,
+          country: hotel.country,
+        });
+        await getRecommendationsV2Status(supabase, dbHotel.id);
+        const range = getParisDateRange(90);
+        const result = await getHotelRecommendations(supabase, dbHotel.id, range.start, range.end);
+        const enriched = await enrichApiRecommendations(supabase, dbHotel.id, result.data as PersistedRMRecommendation[]);
+        if (cancelled) return;
+        setRealHotelId(dbHotel.id);
+        setRecommendationsApiReady(true);
+        setApiRecommendations(enriched);
+        setApiRecommendationError(null);
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof Error ? error.message : "L'API Revenue v2 n'est pas disponible.";
+          setApiRecommendationError(
+            message.toLowerCase().includes('route inconnue') || message.includes('404')
+              ? "L'Edge Function Revenue v2 n'est pas encore déployée sur Supabase. Lecture et génération restent désactivées pour éviter d'appeler une ancienne version."
+              : message,
+          );
+          setRecommendationsApiReady(false);
+          setApiRecommendations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingApiRecommendations(false);
+      }
+    };
+    void loadApiRecommendations();
+    return () => { cancelled = true; };
+  }, [supabase, hotel.name, hotel.city, hotel.country]);
+
+  const handleGenerateApiRecommendations = async () => {
+    if (!supabase || !realHotelId || !recommendationsApiReady) return;
+    setIsGeneratingApiRecommendations(true);
+    try {
+      const range = getParisDateRange(30);
+      const generated = await generatePricingRecommendations(supabase, realHotelId, range.start, range.end);
+      await refreshApiRecommendations(realHotelId);
+      onShowToast(
+        generated.generated > 0
+          ? `✓ ${generated.generated} recommandations calculées et enregistrées ; validation humaine obligatoire.`
+          : 'Aucune recommandation créée : vérifiez la configuration pricing_v1 et les snapshots D-EDGE/Lighthouse requis.',
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Échec du calcul des recommandations.';
+      setApiRecommendationError(message);
+      onShowToast(`Calcul Revenue impossible : ${message}`);
+    } finally {
+      setIsGeneratingApiRecommendations(false);
+    }
+  };
+
+  const handlePersistedRecommendationDecision = async (
+    recommendation: PersistedRMRecommendation,
+    action: 'accept' | 'reject',
+  ) => {
+    if (!supabase || !realHotelId || !recommendationsApiReady) return;
+    setSavingDecisionId(recommendation.id);
+    try {
+      await submitRevenueDecision(supabase, realHotelId, {
+        rateIntelligenceId: recommendation.id,
+        action,
+        ...(action === 'accept' ? { appliedRate: Number(recommendation.suggested_bar) } : {}),
+        reasonCode: action === 'accept' ? 'RM_ACCEPTED' : 'RM_REJECTED',
+        reasonText: action === 'accept'
+          ? 'Recommandation acceptée par le Revenue Manager ; aucune publication automatique.'
+          : 'Recommandation refusée par le Revenue Manager.',
+      });
+      await refreshApiRecommendations(realHotelId);
+      onShowToast(action === 'accept' ? 'Décision d’acceptation enregistrée.' : 'Décision de refus enregistrée.');
+    } catch (error) {
+      onShowToast(`Décision non enregistrée : ${error instanceof Error ? error.message : 'erreur inconnue'}`);
+    } finally {
+      setSavingDecisionId(null);
+    }
+  };
 
   // Mode d'affichage de la grille : 'both' (Graph + Grille), 'table', 'chart'
   const [viewMode, setViewMode] = useState<'both' | 'table' | 'chart'>('both');
@@ -435,13 +609,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const [showPastDates, setShowPastDates] = useState<boolean>(false);
 
   // Visibilité des courbes concurrentes dans le graphique Recharts
-  const [visibleCompetitors, setVisibleCompetitors] = useState<Record<string, boolean>>({
-    'Hôtel Saint-Pétersbourg Opéra': false,
-    'Hôtel Charing Cross': false,
-    'Hôtel Astra Opéra': false,
-    'Hotel Indigo Paris-Opéra': false,
-    'Hôtel Saint-Augustin Elysées': false,
-  });
+  const [visibleCompetitors, setVisibleCompetitors] = useState<Record<string, boolean>>({});
 
   // Configuration des colonnes affichées (Roue de Configuration RM)
   const [visibleColumns, setVisibleColumns] = useState<Record<ColumnId, boolean>>(() =>
@@ -632,8 +800,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const summaryKpis = useMemo(() => {
     if (!synchronizedRecords.length) {
       return {
-        avgRank: '1.0',
-        avgTotalAvailable: 6,
+        avgRank: '—',
+        avgTotalAvailable: 0,
         avgCurrentBar: 0,
         avgCompsetMedian: 0,
         avgAdrNet: 0,
@@ -741,13 +909,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
     const acceptedCount = auditLogs.filter((l) => l.action === 'accept').length;
     const modifiedCount = auditLogs.filter((l) => l.action === 'modify').length;
     const rejectedCount = auditLogs.filter((l) => l.action === 'reject').length;
-    const agreementRate = totalDecisions > 0 ? Math.round((acceptedCount / totalDecisions) * 100) : 85;
+    const agreementRate = totalDecisions > 0 ? Math.round((acceptedCount / totalDecisions) * 100) : null;
 
     // Écart moyen lors des modifications
     const deltas = auditLogs
       .filter((l) => l.action === 'modify')
       .map((l) => l.finalRateEur - l.suggestedRateEur);
-    const avgDelta = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : 12;
+    const avgDelta = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : null;
 
     return {
       totalDecisions,
@@ -842,30 +1010,30 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   return (
     <div className="space-y-6 w-full px-2 sm:px-4 lg:px-6 pb-16">
       {/* 1. Header Exécutif Revenue Management */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-2 rounded-xl bg-violet-100 text-violet-700">
                 <TrendingUp className="w-5 h-5" />
               </span>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                 Pricing Intelligence & Décision Revenue Management
               </h1>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Moteur d’optimisation tarifaire hôtelière multi-facteurs • Croisement D-EDGE CRS, Planning, Réservations & Lighthouse.
             </p>
           </div>
 
           {/* Sub-Navigation & Actions */}
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
               <button
                 onClick={() => setActiveSubTab('grid')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'grid'
-                    ? 'bg-white text-slate-900 shadow-2xs'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -876,13 +1044,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 onClick={() => setActiveSubTab('lighthouse')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'lighthouse'
-                    ? 'bg-white text-slate-900 shadow-2xs font-black'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-black'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5 text-violet-600" />
                 <span>Veille Lighthouse (5 onglets)</span>
-                <span className="px-1.5 py-0.2 rounded text-[9px] bg-violet-100 text-violet-800 font-extrabold uppercase">
+                <span className="px-1.5 py-0.2 rounded text-[9px] bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 font-extrabold uppercase">
                   Nouveau
                 </span>
               </button>
@@ -890,7 +1058,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 onClick={() => setActiveSubTab('historical')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'historical'
-                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -901,7 +1069,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 onClick={() => setActiveSubTab('backtest')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'backtest'
-                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -912,7 +1080,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 onClick={() => setActiveSubTab('learning')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeSubTab === 'learning'
-                    ? 'bg-white text-slate-900 shadow-2xs'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -924,16 +1092,16 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             {/* Roue de configuration dans le header */}
             <button
               onClick={() => setShowColumnConfigModal(true)}
-              className="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-800 border border-violet-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+              className="px-3 py-1.5 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
               title="Configurer les colonnes et indicateurs affichés (Roue de Configuration)"
             >
-              <Settings className="w-3.5 h-3.5 text-violet-600 animate-[spin_8s_linear_infinite]" />
+              <Settings className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 animate-[spin_8s_linear_infinite]" />
               <span>Colonnes ({activeColumnsCount}/21)</span>
             </button>
 
             <button
               onClick={handleExportCSV}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
               title="Exporter les 21 colonnes au format CSV conforme RM"
             >
               <Download className="w-3.5 h-3.5" />
@@ -945,7 +1113,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 const res = exportCompleteHistoricalExcel({ hotelName: hotel.name });
                 onShowToast?.(`✓ Historique complet des prix et de l'occupation exporté au format Excel (${res.totalRows} dates)`);
               }}
-              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/70 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
               title="Télécharger l'historique complet des prix et taux d'occupation au format Excel pour travail hors ligne"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -955,7 +1123,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             {onGoToExcelUpload && (
               <button
                 onClick={onGoToExcelUpload}
-                className="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <Upload className="w-3.5 h-3.5" />
                 <span>Importer Fichiers Excel</span>
@@ -965,7 +1133,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         </div>
 
         {/* Hôtel Pilote & Bannière Connecteurs */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 font-bold text-slate-900">
               <Building className="w-3.5 h-3.5 text-violet-600" />
@@ -1022,40 +1190,158 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         />
       ) : activeSubTab === 'grid' ? (
         <>
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
+            <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Recommandations persistées — API Revenue</h2>
+                <p className="mt-1 text-xs text-slate-500">Source : daily_rate_intelligence • calcul backend • approbation humaine obligatoire • aucune publication D-EDGE automatique</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateApiRecommendations}
+                disabled={!recommendationsApiReady || isGeneratingApiRecommendations || isLoadingApiRecommendations}
+                className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isGeneratingApiRecommendations ? 'Calcul en cours…' : 'Calculer les 30 prochains jours'}
+              </button>
+            </div>
+            {apiRecommendationError && (
+              <div role="alert" className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                <strong>API Revenue :</strong> {apiRecommendationError}
+              </div>
+            )}
+            {isLoadingApiRecommendations ? (
+              <div role="status" className="p-6 text-center text-xs text-slate-500">Chargement des recommandations persistées…</div>
+            ) : apiRecommendations.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">
+                Aucune recommandation persistée pour les 90 prochains jours. Le calcul restera bloqué tant que les paramètres pricing_v1 et les sources réelles nécessaires ne sont pas disponibles.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1450px] text-left text-xs">
+                  <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-3">Séjour</th>
+                      <th className="px-3 py-3">Typologie</th>
+                      <th className="px-3 py-3">Plan tarifaire</th>
+                      <th className="px-3 py-3 text-right">BAR actuel</th>
+                      <th className="px-3 py-3 text-right">BAR proposé</th>
+                      <th className="px-3 py-3 text-right">Écart</th>
+                      <th className="px-3 py-3 text-right">Demande</th>
+                      <th className="px-3 py-3 text-right">Occupation</th>
+                      <th className="px-3 py-3 text-right">Pickup 24h / 3j / 7j</th>
+                      <th className="px-3 py-3 text-right">Médiane marché LH</th>
+                      <th className="px-3 py-3 text-right">Médiane CompSet</th>
+                      <th className="px-3 py-3 text-right">Confiance</th>
+                      <th className="px-3 py-3">Qualité / statut</th>
+                      <th className="px-3 py-3 text-right">Décision</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {apiRecommendations.map((recommendation) => {
+                      const pending = recommendation.recommendation_status === 'pending';
+                      const valid = recommendation.data_quality_status === 'valid';
+                      return (
+                        <tr key={recommendation.id} className="align-top">
+                          <td className="px-3 py-3 font-semibold text-slate-800">{recommendation.stay_date}</td>
+                          <td className="px-3 py-3"><div className="font-semibold">{recommendation.room_type_name ?? 'Typologie inconnue'}</div><div className="text-[10px] text-slate-500">{recommendation.room_type_code ?? recommendation.room_type_id ?? '—'}</div></td>
+                          <td className="px-3 py-3"><div className="font-semibold">{recommendation.rate_plan_name ?? 'Plan inconnu'}</div><div className="text-[10px] text-slate-500">{recommendation.rate_plan_code ?? recommendation.rate_plan_id ?? '—'}</div></td>
+                          <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.current_bar)} {recommendation.currency}</td>
+                          <td className="px-3 py-3 text-right font-bold tabular-nums text-violet-700">{formatRevenueValue(recommendation.suggested_bar)} {recommendation.currency}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.delta_amount)} ({formatRevenueValue(recommendation.delta_pct, 1)}%)</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{recommendation.demand_index == null ? '—' : `${recommendation.demand_index}/100`}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{recommendation.occupancy_pct == null ? '—' : `${formatRevenueValue(recommendation.occupancy_pct, 1)}%`}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.pickup_24h)} / {formatRevenueValue(recommendation.pickup_3d)} / {formatRevenueValue(recommendation.pickup_7d)}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{recommendation.lighthouse_median == null ? '—' : `${formatRevenueValue(recommendation.lighthouse_median)} ${recommendation.currency}`}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{recommendation.flowtym_compset_median == null ? '—' : `${formatRevenueValue(recommendation.flowtym_compset_median)} ${recommendation.currency}`}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.confidence_score)}%</td>
+                          <td className="px-3 py-3">
+                            <div className="font-semibold">{valid ? 'Valide' : recommendation.data_quality_status === 'conflicted' ? 'Conflit de données' : recommendation.data_quality_status === 'degraded' ? 'Données partielles' : recommendation.data_quality_status === 'stale' ? 'Sources périmées' : 'Données insuffisantes'}</div>
+                            <div className="text-[10px] text-slate-500">{recommendation.recommendation_status} · {recommendation.strategy_code}</div>
+                            <p className="mt-1 max-w-xs whitespace-normal text-[10px] text-slate-500">{recommendation.explanation}</p>
+                            <details className="mt-2 text-left">
+                              <summary className="cursor-pointer text-[10px] font-semibold text-violet-700">Voir les preuves et les facteurs</summary>
+                              <div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2 text-[10px] text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                                {recommendation.evidence?.marketDemand && <><p>Demande marché : {recommendation.evidence.marketDemand.index ?? '—'}/100 · {recommendation.evidence.marketDemand.sourceChannel} · LOS {recommendation.evidence.marketDemand.los ?? '—'} · {recommendation.evidence.marketDemand.guests ?? '—'} personne(s)</p><p>Évolution de la demande Lighthouse (valeurs source) : J-1 {recommendation.evidence.marketDemand.evolution1d ?? '—'} · J-3 {recommendation.evidence.marketDemand.evolution3d ?? '—'} · J-7 {recommendation.evidence.marketDemand.evolution7d ?? '—'}</p><p>Prix le plus bas Folkestone relevé sur ce canal : {recommendation.evidence.marketDemand.hotelLowestRate ?? '—'} · Statut : {recommendation.evidence.marketDemand.hotelAvailabilityStatus ?? '—'}</p><p>Rang marché : {recommendation.evidence.marketDemand.hotelMarketRank ?? '—'}/{recommendation.evidence.marketDemand.hotelMarketRankTotal ?? '—'} · Disponibles : {recommendation.evidence.marketDemand.totalAvailableHotels ?? '—'} · Épuisés : {recommendation.evidence.marketDemand.totalSoldOutHotels ?? '—'}</p><p>Plage de prix du panel Lighthouse : {recommendation.evidence.marketDemand.lighthouseCompsetMin ?? '—'} – {recommendation.evidence.marketDemand.lighthouseCompsetMax ?? '—'} · Moyenne : {recommendation.evidence.marketDemand.lighthouseCompsetAverage ?? '—'}</p></>}
+                                <p>Chambres OTB : {recommendation.evidence?.roomsOtb ?? '—'} · Stock PMS : {recommendation.evidence?.roomsAvailablePms ?? '—'} · Capacité typologie : {recommendation.evidence?.roomType?.roomsCount ?? '—'}</p><p>Capacité totale hôtel : {recommendation.evidence?.hotelRoomCount ?? '—'} · Somme des typologies : {recommendation.evidence?.totalRoomTypeCapacity ?? '—'} · Toutes renseignées : {recommendation.evidence?.allRoomTypeCountsConfigured ? 'oui' : 'non'}</p>
+                                <p>Lead time : {recommendation.evidence?.leadTimeDays ?? '—'} jours · ADR réservé : {recommendation.evidence?.bookedAdr ?? '—'} · CA réservé : {recommendation.evidence?.bookedRevenue ?? '—'}</p>
+                                <p>Nouvelles réservations : {recommendation.evidence?.newRoomsBooked ?? '—'} · Annulations : {recommendation.evidence?.cancelledRooms ?? '—'} · Annulations cumulées : {recommendation.evidence?.cancellationCount ?? '—'}</p>
+                                <p>CompSet : {recommendation.evidence?.compsetCompetitorCount ?? 0} concurrents · médiane {recommendation.evidence?.compsetMedian ?? '—'} · Événement : {recommendation.evidence?.eventScore ?? '—'}</p>
+                                <p>Snapshot tarif : {recommendation.evidence?.currentRateObservationAt ?? '—'} · Snapshot inventaire : {recommendation.evidence?.inventorySnapshotAt ?? '—'}</p>
+                                {recommendation.evidence?.inventoryReservationConflict && <p className="font-semibold text-rose-700">Conflit entre inventaire PMS et chambres OTB : recommandation bloquée.</p>}
+                              </div>
+                            </details>
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            {pending ? (
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  disabled={!valid || savingDecisionId === recommendation.id}
+                                  onClick={() => void handlePersistedRecommendationDecision(recommendation, 'accept')}
+                                  className="rounded-lg bg-emerald-600 px-2 py-1.5 text-[10px] font-bold text-white disabled:opacity-30"
+                                >Accepter</button>
+                                <button
+                                  type="button"
+                                  disabled={savingDecisionId === recommendation.id}
+                                  onClick={() => void handlePersistedRecommendationDecision(recommendation, 'reject')}
+                                  className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[10px] font-bold text-rose-700 disabled:opacity-30"
+                                >Refuser</button>
+                              </div>
+                            ) : <span className="text-[10px] text-slate-500">Décision enregistrée</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+          {synchronizedRecords.length === 0 && (
+            <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+              <strong>La grille 21 colonnes historique n'est plus alimentée par les anciennes données locales.</strong>
+              <p className="mt-1 text-xs text-amber-900">
+                Les recommandations persistées par le backend sont affichées dans le tableau API ci-dessus. Cette grille détaillée restera vide jusqu'à sa migration complète vers le contrat de données Revenue.
+              </p>
+            </div>
+          )}
           {/* 2. Cartes Synthétiques de Performance RM & Positionnement */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* KPI 1 : Position Compset & Rang */}
-            <div className="bg-gradient-to-br from-violet-50 to-indigo-50/60 rounded-2xl border border-violet-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-violet-800 text-xs font-semibold">
+            <div className="bg-gradient-to-br from-violet-50 dark:from-violet-950/50 to-indigo-50/60 dark:to-indigo-950/40 rounded-2xl border border-violet-200/90 dark:border-violet-800/70 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-violet-800 dark:text-violet-300 text-xs font-semibold">
                 <span className="flex items-center gap-1.5">
                   <Trophy className="w-3.5 h-3.5 text-violet-600" />
                   <span>Position Compset</span>
                 </span>
-                <span className="text-[10px] font-bold text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 rounded-full">
                   Rang {summaryKpis.avgRank} / {summaryKpis.avgTotalAvailable}
                 </span>
               </div>
               <div className="text-xl font-black text-violet-950 tracking-tight">
-                {Number(summaryKpis.avgRank) <= 1.8
+                {summaryKpis.avgTotalAvailable === 0
+                  ? 'Données insuffisantes'
+                  : Number(summaryKpis.avgRank) <= 1.8
                   ? '1er moins cher du quartier'
                   : Number(summaryKpis.avgRank) <= 2.8
                   ? '2e moins cher'
                   : 'Position Médiane'}
               </div>
-              <p className="text-[11px] text-violet-700 leading-tight">
-                BAR Moyen : <strong>{summaryKpis.avgCurrentBar} €</strong> vs Méd. <strong>{summaryKpis.avgCompsetMedian} €</strong>
+              <p className="text-[11px] text-violet-700 dark:text-violet-300 leading-tight">
+                BAR Moyen : <strong>{synchronizedRecords.length ? `${summaryKpis.avgCurrentBar} €` : '—'}</strong> vs Méd. <strong>{synchronizedRecords.length ? `${summaryKpis.avgCompsetMedian} €` : '—'}</strong>
               </p>
             </div>
 
             {/* KPI 2 : ADR Net & RevPAR Réel */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
                 <span>ADR Net & RevPAR</span>
-                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                   D-EDGE Résas
                 </span>
               </div>
-              <div className="text-2xl font-bold text-slate-900 tabular-nums flex items-baseline gap-2">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums flex items-baseline gap-2">
                 <span>{summaryKpis.avgAdrNet} €</span>
                 <span className="text-xs font-semibold text-emerald-600">
                   (RevPAR {summaryKpis.avgRevpar} €)
@@ -1067,14 +1353,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             </div>
 
             {/* KPI 3 : Chiffre d'Affaires Net Hébergement */}
-            <div className="bg-emerald-50/60 rounded-2xl border border-emerald-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-emerald-800 text-xs font-semibold">
+            <div className="bg-emerald-50/60 dark:bg-slate-900 rounded-2xl border border-emerald-200/90 dark:border-emerald-800/60 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
                 <span>CA Hébergement Net</span>
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
                   Par Nuitée
                 </span>
               </div>
-              <div className="text-2xl font-bold text-emerald-700 tabular-nums">
+              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
                 {summaryKpis.totalNetRevenue.toLocaleString('fr-FR')} €
               </div>
               <p className="text-[11px] text-emerald-700/80">
@@ -1083,8 +1369,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             </div>
 
             {/* KPI 4 : Répartition des Statuts de Marché */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
                 <span>Statuts de Positionnement</span>
                 <span className="text-[10px] font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200/60">
                   Lighthouse
@@ -1119,18 +1405,18 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             </div>
 
             {/* KPI 5 : Décisions RM en Attente & Gain Détecté */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-medium">
                 <span>Décisions en Attente</span>
                 <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200/60">
                   Validation Humaine
                 </span>
               </div>
-              <div className="text-2xl font-bold text-rose-600 tabular-nums flex items-baseline gap-2">
+              <div className="text-2xl font-bold text-rose-600 dark:text-rose-400 tabular-nums flex items-baseline gap-2">
                 <span>{summaryKpis.pendingDecisionsCount}</span>
                 <span className="text-xs font-normal text-slate-500">à valider</span>
               </div>
-              <p className="text-[11px] text-emerald-700 font-semibold">
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">
                 Gain potentiel : +{summaryKpis.totalGainPotential.toLocaleString('fr-FR')} €
               </p>
             </div>
@@ -1138,7 +1424,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
           {/* Bannière Interactive d'Alertes Bornes de Sécurité (Planchers / Plafonds) */}
           {summaryKpis.safetyAlertsCount > 0 && (
-            <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3.5 px-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+            <div className="bg-amber-50/90 dark:bg-slate-900 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl p-3.5 px-4 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-center gap-3">
                 <span className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
                   <ShieldAlert className="w-4 h-4 animate-bounce" />
@@ -1174,16 +1460,16 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           )}
 
           {/* 3. Barre d'Outils Complète & Sélecteur d'Horizon Temporel */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs space-y-3">
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
               {/* Sélecteur de Durée (7j, 14j, 30j défaut, 60j, 90j, Tout) + Steppers */}
               <div className="flex flex-wrap items-center gap-2.5">
-                <div className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <div className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-violet-600" />
                   <span>Horizon :</span>
                 </div>
 
-                <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold shadow-2xs">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold shadow-2xs">
                   {(
                     [
                       { id: '7d', label: '7 jours' },
@@ -1212,24 +1498,24 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 </div>
 
                 {periodDuration !== 'all' && (
-                  <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-1.5 py-1 text-xs">
+                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-1.5 py-1 text-xs">
                     <button
                       onClick={() => handleStepPeriod('prev')}
-                      className="p-1 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors cursor-pointer"
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-400 transition-colors cursor-pointer"
                       title="Reculer dans la période"
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={handleResetToToday}
-                      className="px-2 py-0.5 text-[11px] font-bold text-slate-700 hover:text-violet-700 transition-colors cursor-pointer"
+                      className="px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:text-violet-700 dark:hover:text-violet-300 transition-colors cursor-pointer"
                       title="Revenir à partir d'aujourd'hui"
                     >
                       Aujourd&apos;hui
                     </button>
                     <button
                       onClick={() => handleStepPeriod('next')}
-                      className="p-1 hover:bg-slate-200 rounded-lg text-slate-600 transition-colors cursor-pointer"
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-400 transition-colors cursor-pointer"
                       title="Avancer dans la période"
                     >
                       <ChevronRightIcon className="w-3.5 h-3.5" />
@@ -1238,15 +1524,15 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 )}
 
                 {/* Badge d'indication de dates synchronisées */}
-                <div className="hidden xl:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl">
+                <div className="hidden xl:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 px-2.5 py-1 rounded-xl">
                   <span>📅 {new Date(activeDateRange.startStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                   <span>→</span>
                   <span>{new Date(activeDateRange.endStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                  <span className="text-violet-700 font-bold ml-1">({activeDateRange.numDays}j synchronisés)</span>
+                  <span className="text-violet-700 dark:text-violet-300 font-bold ml-1">({activeDateRange.numDays}j synchronisés)</span>
                 </div>
 
                 {/* Case à cocher dates passées */}
-                <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer ml-1 select-none bg-slate-50 border border-slate-200/70 px-2 py-1 rounded-xl hover:bg-slate-100 transition-colors">
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 cursor-pointer ml-1 select-none bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 px-2 py-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                   <input
                     type="checkbox"
                     checked={showPastDates}
@@ -1269,7 +1555,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   </button>
                 )}
 
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl text-xs font-semibold">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl text-xs font-semibold">
                   <button
                     onClick={() => setViewMode('both')}
                     className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
@@ -1299,10 +1585,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 {/* Roue de Configuration des Colonnes RM */}
                 <button
                   onClick={() => setShowColumnConfigModal(true)}
-                  className="px-3 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-800 border border-violet-200 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-800 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
                   title="Sélectionner les indicateurs à afficher dans le tableau (Roue de Configuration)"
                 >
-                  <Settings className="w-3.5 h-3.5 text-violet-600 animate-[spin_8s_linear_infinite]" />
+                  <Settings className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 animate-[spin_8s_linear_infinite]" />
                   <span>Colonnes ({activeColumnsCount}/21)</span>
                 </button>
               </div>
@@ -1312,12 +1598,12 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
               <div className="flex flex-wrap items-center gap-2">
                 {/* Catégorie de Chambre */}
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
                   <BedDouble className="w-3.5 h-3.5 text-slate-400" />
                   <select
                     value={selectedRoomCategory}
                     onChange={(e) => setSelectedRoomCategory(e.target.value as RoomCategory)}
-                    className="bg-transparent text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                    className="bg-transparent text-slate-700 dark:text-slate-300 font-semibold focus:outline-hidden cursor-pointer"
                   >
                     <option value="all">Toutes chambres (45 ch.)</option>
                     <option value="classique">Classique Double (23 ch.)</option>
@@ -1327,12 +1613,12 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 </div>
 
                 {/* Niveau de Demande */}
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
                   <Activity className="w-3.5 h-3.5 text-slate-400" />
                   <select
                     value={demandFilter}
                     onChange={(e) => setDemandFilter(e.target.value)}
-                    className="bg-transparent text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                    className="bg-transparent text-slate-700 dark:text-slate-300 font-semibold focus:outline-hidden cursor-pointer"
                   >
                     <option value="all">Toutes demandes</option>
                     <option value="exceptionnel">🔥 Exceptionnel (96%)</option>
@@ -1344,12 +1630,12 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 </div>
 
                 {/* Niveau de Risque & Bornes de Sécurité */}
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
                   <ShieldAlert className="w-3.5 h-3.5 text-slate-400" />
                   <select
                     value={riskFilter}
                     onChange={(e) => setRiskFilter(e.target.value)}
-                    className="bg-transparent text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                    className="bg-transparent text-slate-700 dark:text-slate-300 font-semibold focus:outline-hidden cursor-pointer"
                   >
                     <option value="all">Tous niveaux de risque</option>
                     <option value="safety_guardrail">🚨 Bornes Sécurité (Planchers / Plafonds / Sauts)</option>
@@ -1364,12 +1650,12 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 </div>
 
                 {/* Statut Décisionnel */}
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs">
                   <Filter className="w-3.5 h-3.5 text-slate-400" />
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="bg-transparent text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                    className="bg-transparent text-slate-700 dark:text-slate-300 font-semibold focus:outline-hidden cursor-pointer"
                   >
                     <option value="all">Tous statuts décisionnels</option>
                     <option value="pending">⏳ À valider par RM</option>
@@ -1396,10 +1682,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
           {/* 4. Graphique d'Évolution Tarifaire & Concurrentielle */}
           {(viewMode === 'chart' || viewMode === 'both') && (
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <BarChart3 className="w-4 h-4 text-violet-600" />
                     <span>Courbes Tarifaires Synchronisées & Taux d’Occupation OTB</span>
                   </h2>
@@ -1424,7 +1710,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                         }
                         className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
                           isVisible
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                            ? 'bg-slate-900 dark:bg-slate-800 text-white border-slate-900 shadow-2xs'
                             : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
@@ -1449,7 +1735,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
                           return (
-                            <div className="bg-slate-900 text-white p-3.5 rounded-xl shadow-xl text-xs space-y-2 border border-slate-800 max-w-xs">
+                            <div className="bg-slate-900 dark:bg-slate-800 text-white p-3.5 rounded-xl shadow-xl text-xs space-y-2 border border-slate-800 max-w-xs">
                               <div className="font-bold text-slate-100 flex items-center justify-between border-b border-slate-800 pb-1.5">
                                 <span>{data.fullDate}</span>
                                 <span className="text-violet-400 font-semibold truncate max-w-[140px]">
@@ -1545,10 +1831,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
           {/* 5. Grille de Recommandation Tarifaire Professionnelle (Les 21 Colonnes Obligatoires - Section 5) */}
           {(viewMode === 'table' || viewMode === 'both') && (
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
-              <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Layers className="w-4 h-4 text-violet-600" />
                     <span>Tableau de Recommandation Tarifaire Professionnel ({synchronizedRecords.length} dates)</span>
                   </h2>
@@ -1560,7 +1846,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setShowColumnConfigModal(true)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs"
+                    className="flex items-center gap-1.5 text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800/70 px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs"
                     title="Personnaliser les colonnes affichées dans la grille (Roue de Configuration)"
                   >
                     <Settings className="w-3.5 h-3.5 text-violet-600 animate-[spin_8s_linear_infinite]" />
@@ -1577,8 +1863,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
               {/* Table avec défilement horizontal fluide et colonnes dynamiques */}
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600 border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400 border-collapse">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
                     <tr>
                       {visibleColumns.date_day && <th className="py-3 px-3">1. Date & Jour</th>}
                       {visibleColumns.event && <th className="py-3 px-3">3. Événement</th>}
@@ -1660,7 +1946,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                       });
                                       setSelectedPredictiveRec(pred);
                                     }}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-violet-700 hover:bg-violet-50 transition-colors"
+                                    className="p-1 rounded-lg text-slate-400 hover:text-violet-700 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/50 transition-colors"
                                     title="Ouvrir le panneau d'analyse prédictive multi-années et scénarios"
                                   >
                                     <Sparkles className="w-3.5 h-3.5 text-violet-500" />
@@ -1674,7 +1960,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                               <td className="py-3 px-3 max-w-[160px]">
                                 {r.eventTitle ? (
                                   <div className="space-y-0.5">
-                                    <div className="text-[11px] font-bold text-violet-700 truncate" title={r.eventTitle}>
+                                    <div className="text-[11px] font-bold text-violet-700 dark:text-violet-300 truncate" title={r.eventTitle}>
                                       {r.eventTitle}
                                     </div>
                                     <div className="flex items-center gap-1">
@@ -1720,7 +2006,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             {/* 5. Tarif Actuel commercialisé */}
                             {visibleColumns.current_bar && (
                               <td className="py-3 px-2 text-right whitespace-nowrap">
-                                <span className="font-black text-slate-900 text-xs tabular-nums">
+                                <span className="font-black text-slate-900 dark:text-slate-100 text-xs tabular-nums">
                                   {r.currentBarEur} €
                                 </span>
                                 <div className="text-[9px] text-slate-400">Min {r.currentMinStay}n</div>
@@ -1734,7 +2020,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   <span
                                     className={`inline-flex items-center gap-1 font-black text-[11px] px-2 py-0.5 rounded-md border tabular-nums shadow-2xs ${
                                       ranking.isCheapest
-                                        ? 'bg-violet-100 text-violet-900 border-violet-300 ring-1 ring-violet-400/30'
+                                        ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-900 dark:text-violet-200 border-violet-300 dark:border-violet-700/70 ring-1 ring-violet-400/30'
                                         : ranking.isMostExpensive
                                         ? 'bg-amber-100 text-amber-900 border-amber-300'
                                         : 'bg-slate-100 text-slate-800 border-slate-300'
@@ -1761,14 +2047,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
                             {/* 6. Tarif Médian Lighthouse */}
                             {visibleColumns.lh_median && (
-                              <td className="py-3 px-2 text-right whitespace-nowrap font-bold text-slate-800 tabular-nums">
+                              <td className="py-3 px-2 text-right whitespace-nowrap font-bold text-slate-800 dark:text-slate-200 tabular-nums">
                                 {r.lighthouse.compsetMedianEur} €
                               </td>
                             )}
 
                             {/* 7. Tarif Moyen Lighthouse */}
                             {visibleColumns.lh_avg && (
-                              <td className="py-3 px-2 text-right whitespace-nowrap text-slate-600 tabular-nums">
+                              <td className="py-3 px-2 text-right whitespace-nowrap text-slate-600 dark:text-slate-400 tabular-nums">
                                 {r.lighthouse.compsetAvgEur} €
                               </td>
                             )}
@@ -1786,7 +2072,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                 <span
                                   className={`font-bold tabular-nums text-xs px-1.5 py-0.5 rounded ${
                                     r.dedgePickup.pickup1d >= 5
-                                      ? 'bg-rose-100 text-rose-800 font-black'
+                                      ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 font-black'
                                       : r.dedgePickup.pickup1d >= 2
                                       ? 'bg-emerald-100 text-emerald-800'
                                       : 'text-slate-600'
@@ -1829,7 +2115,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
                             {/* 15. Lead Time Majoritaire */}
                             {visibleColumns.lead_time && (
-                              <td className="py-3 px-2 text-center whitespace-nowrap text-[10px] text-slate-600 font-medium">
+                              <td className="py-3 px-2 text-center whitespace-nowrap text-[10px] text-slate-600 dark:text-slate-400 font-medium">
                                 {r.dedgeReservations.leadTimeMajorityBucket}
                               </td>
                             )}
@@ -1853,7 +2139,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                         <ShieldAlert className="w-3.5 h-3.5 animate-pulse" />
                                       </span>
                                     )}
-                                    <span className="font-black text-violet-700 text-sm tabular-nums">
+                                    <span className="font-black text-violet-700 dark:text-violet-300 text-sm tabular-nums">
                                       {r.suggestedBarEur} €
                                     </span>
                                   </div>
@@ -1884,7 +2170,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                       <ShieldAlert className="w-3 h-3 shrink-0" />
                                       <span>{safetyAlert.shortBadge}</span>
                                     </span>
-                                    <span className="text-[8px] text-slate-500 font-semibold truncate max-w-[110px]" title={safetyAlert.description}>
+                                    <span className="text-[8px] text-slate-500 dark:text-slate-400 font-semibold truncate max-w-[110px]" title={safetyAlert.description}>
                                       {safetyAlert.type === 'ceiling'
                                         ? `Plafond ${RATE_CEILING_EUR}€`
                                         : safetyAlert.type === 'floor'
@@ -1905,11 +2191,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             {visibleColumns.delta && (
                               <td className="py-3 px-2 text-center whitespace-nowrap">
                                 {r.deltaVsCurrentEur > 0 ? (
-                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded bg-violet-100 text-violet-800 tabular-nums">
+                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded bg-violet-100 dark:bg-violet-900/40 text-violet-800 dark:text-violet-300 tabular-nums">
                                     +{r.deltaVsCurrentEur} € (+{r.deltaVsCurrentPercent}%)
                                   </span>
                                 ) : r.deltaVsCurrentEur < 0 ? (
-                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 tabular-nums">
+                                  <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 tabular-nums">
                                     {r.deltaVsCurrentEur} € ({r.deltaVsCurrentPercent}%)
                                   </span>
                                 ) : (
@@ -1972,10 +2258,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                         epistemologicalExplanation: r.rmRecommendation.epistemologicalExplanation,
                                       });
                                     }}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-700 hover:text-violet-700 bg-slate-100 hover:bg-violet-50 hover:border-violet-200 border border-slate-200/80 transition-all cursor-pointer shadow-2xs group/btn"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-violet-700 dark:hover:text-violet-300 bg-slate-100 dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-violet-950/50 hover:border-violet-200 dark:hover:border-violet-700/70 border border-slate-200/80 dark:border-slate-800/80 transition-all cursor-pointer shadow-2xs group/btn"
                                     title="Cliquer pour afficher la justification complète"
                                   >
-                                    <Info className="w-3.5 h-3.5 text-violet-600 group-hover/btn:text-violet-800 shrink-0" />
+                                    <Info className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400 group-hover/btn:text-violet-800 shrink-0" />
                                     <span className="whitespace-nowrap">Justification RM</span>
                                   </button>
 
@@ -2050,14 +2336,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                       <button
                                         onClick={() => handleOpenModifyModal(r)}
                                         title="Modifier le tarif avec motif RM"
-                                        className="p-1 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg transition-colors cursor-pointer"
                                       >
                                         <Sliders className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         onClick={() => handleOpenRejectModal(r)}
                                         title="Refuser la recommandation"
-                                        className="p-1 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 rounded-lg transition-colors cursor-pointer"
                                       >
                                         <X className="w-3.5 h-3.5" />
                                       </button>
@@ -2066,7 +2352,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
                                   <button
                                     onClick={() => setExpandedRowId(isExpanded ? null : r.id)}
-                                    className="p-1 hover:bg-slate-200 text-slate-500 rounded-lg cursor-pointer ml-1"
+                                    className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg cursor-pointer ml-1"
                                     title="Ouvrir le détail complet"
                                   >
                                     {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -2081,9 +2367,9 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             <tr className="bg-slate-50/95 border-b border-slate-200">
                               <td colSpan={activeColumnsCount} className="p-5 space-y-5">
                                 {/* Entête du Tiroir */}
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
                                   <div className="flex flex-wrap items-center gap-2.5">
-                                    <span className="font-black text-sm text-slate-900 flex items-center gap-1.5">
+                                    <span className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                                       <Sparkles className="w-4 h-4 text-violet-600" />
                                       <span>Justification Épistémologique & Décision RM pour le {r.dateStr}</span>
                                     </span>
@@ -2091,14 +2377,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                       Position Compset : {ranking.rankingFraction}
                                     </span>
                                     {r.lighthouse.comparabilityWarning && (
-                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center gap-1">
+                                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 flex items-center gap-1">
                                         <AlertTriangle className="w-3 h-3" />
                                         <span>Avertissement de Comparabilité</span>
                                       </span>
                                     )}
                                   </div>
 
-                                  <div className="text-xs text-slate-500 font-mono">
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                                     Sources : D-EDGE CRS + Lighthouse API ({TODAY_DATE_STR})
                                   </div>
                                 </div>
@@ -2106,11 +2392,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                 {/* Les 5 Niveaux Épistémologiques */}
                                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                                   {/* 1. FAITS OBSERVÉS */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1.5">
+                                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
                                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
                                       1. Faits Observés
                                     </div>
-                                    <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
+                                    <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
                                       {r.rmRecommendation.epistemologicalExplanation.faitsObserves.map((f, i) => (
                                         <li key={i} className="leading-tight">{f}</li>
                                       ))}
@@ -2118,11 +2404,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   </div>
 
                                   {/* 2. ANALYSE DU MARCHÉ */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1.5">
+                                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
                                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
                                       2. Analyse de Marché
                                     </div>
-                                    <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
+                                    <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
                                       {r.rmRecommendation.epistemologicalExplanation.analyseMarche.map((a, i) => (
                                         <li key={i} className="leading-tight">{a}</li>
                                       ))}
@@ -2130,11 +2416,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   </div>
 
                                   {/* 3. PRÉVISION */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1.5">
+                                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
                                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
                                       3. Prévision Demande
                                     </div>
-                                    <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
+                                    <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
                                       {r.rmRecommendation.epistemologicalExplanation.previsionDemande.map((p, i) => (
                                         <li key={i} className="leading-tight">{p}</li>
                                       ))}
@@ -2142,28 +2428,28 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   </div>
 
                                   {/* 4. RECOMMANDATION RM */}
-                                  <div className="bg-violet-50/70 rounded-xl border border-violet-200 p-3 space-y-1.5">
-                                    <div className="text-[10px] font-black uppercase text-violet-700 tracking-wider">
+                                  <div className="bg-violet-50/70 dark:bg-violet-950/40 rounded-xl border border-violet-200 dark:border-violet-800/70 p-3 space-y-1.5">
+                                    <div className="text-[10px] font-black uppercase text-violet-700 dark:text-violet-300 tracking-wider">
                                       4. Recommandation RM
                                     </div>
-                                    <p className="text-xs font-bold text-violet-950 leading-tight">
+                                    <p className="text-xs font-bold text-violet-950 dark:text-violet-100 leading-tight">
                                       {r.rmRecommendation.epistemologicalExplanation.recommandationAction}
                                     </p>
-                                    <div className="text-[10px] text-violet-700 font-semibold pt-1 border-t border-violet-200/60">
+                                    <div className="text-[10px] text-violet-700 dark:text-violet-300 font-semibold pt-1 border-t border-violet-200/60">
                                       Stratégie : {r.rmRecommendation.strategyLabel}
                                     </div>
                                   </div>
 
                                   {/* 5. HYPOTHÈSES & LIMITES */}
-                                  <div className="bg-white rounded-xl border border-slate-200 p-3 space-y-1.5">
+                                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
                                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
                                       5. Limites & Risques
                                     </div>
-                                    <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
+                                    <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
                                       {r.rmRecommendation.epistemologicalExplanation.risquesIdentifies.map((risk, i) => (
-                                        <li key={i} className="text-rose-700 font-medium leading-tight">{risk}</li>
+                                        <li key={i} className="text-rose-700 dark:text-rose-300 font-medium leading-tight">{risk}</li>
                                       ))}
-                                      <li className="text-slate-500 text-[11px]">{r.rmRecommendation.confidenceLabel}</li>
+                                      <li className="text-slate-500 dark:text-slate-400 text-[11px]">{r.rmRecommendation.confidenceLabel}</li>
                                     </ul>
                                   </div>
                                 </div>
@@ -2289,25 +2575,25 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         <div className="space-y-6">
           {/* Cartes d'indicateurs d'apprentissage */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-2xs space-y-1">
               <div className="text-xs font-semibold text-slate-500">Décisions Humaines Tracées</div>
               <div className="text-2xl font-black text-slate-900">{learningStats.totalDecisions}</div>
               <p className="text-[11px] text-slate-500">Validation systématique requise</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-2xs space-y-1">
               <div className="text-xs font-semibold text-emerald-700">Taux de Concordance RM / IA</div>
-              <div className="text-2xl font-black text-emerald-700">{learningStats.agreementRate}%</div>
+              <div className="text-2xl font-black text-emerald-700">{learningStats.agreementRate == null ? '—' : `${learningStats.agreementRate}%`}</div>
               <p className="text-[11px] text-emerald-700/80">Recommandations acceptées sans retouche</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-2xs space-y-1">
               <div className="text-xs font-semibold text-indigo-700">Écart Moyen lors des Modifications</div>
-              <div className="text-2xl font-black text-indigo-700">+{learningStats.avgDelta} €</div>
+              <div className="text-2xl font-black text-indigo-700">{learningStats.avgDelta == null ? '—' : `+${learningStats.avgDelta} €`}</div>
               <p className="text-[11px] text-indigo-700/80">Biais positif du RM sur les dates à fort potentiel</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-1">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-2xs space-y-1">
               <div className="text-xs font-semibold text-amber-700">Règles Actives Calibrées</div>
               <div className="text-2xl font-black text-amber-700">
                 {calibrationRules.filter((r) => r.isActive).length} / {calibrationRules.length}
@@ -2317,10 +2603,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           </div>
 
           {/* Règles d'apprentissage calibrées (Section 9) */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <BookOpen className="w-4 h-4 text-violet-600" />
                   <span>Règles d’Apprentissage Contrôlé & Ajustements Calibrés</span>
                 </h3>
@@ -2337,14 +2623,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   className={`p-4 rounded-xl border transition-all ${
                     rule.isActive
                       ? 'bg-violet-50/50 border-violet-200'
-                      : 'bg-slate-50 border-slate-200 opacity-60'
+                      : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 opacity-60'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="font-bold text-xs text-slate-900">{rule.title}</span>
                     <button
                       onClick={() => handleToggleRule(rule.id)}
-                      className="cursor-pointer text-violet-600 hover:text-violet-800 transition-colors"
+                      className="cursor-pointer text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-200 transition-colors"
                       title={rule.isActive ? 'Désactiver cette règle' : 'Activer cette règle'}
                     >
                       {rule.isActive ? (
@@ -2354,7 +2640,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       )}
                     </button>
                   </div>
-                  <p className="text-xs text-slate-600 mb-3">{rule.description}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">{rule.description}</p>
                   <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-200/60">
                     <span>{rule.sampleDecisionsCount} décisions analysées</span>
                     <span className="font-bold text-emerald-700">{rule.agreementRatePct}% concordance</span>
@@ -2365,10 +2651,10 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           </div>
 
           {/* Journal chronologique d'audit des décisions RM (Section 9) */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <History className="w-4 h-4 text-violet-600" />
                   <span>Journal d’Audit et Traçabilité Complète des Arbitrages RM</span>
                 </h3>
@@ -2417,7 +2703,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       <td className="py-2.5 px-4 max-w-sm truncate text-slate-700" title={log.reasonText}>
                         {log.reasonText}
                       </td>
-                      <td className="py-2.5 px-3 text-[11px] text-slate-500 font-mono">{log.userEmail}</td>
+                      <td className="py-2.5 px-3 text-[11px] text-slate-500 dark:text-slate-400 font-mono">{log.userEmail}</td>
                       <td className="py-2.5 px-3 text-right text-[11px] text-slate-400">
                         {new Date(log.timestamp).toLocaleString('fr-FR')}
                       </td>
@@ -2433,8 +2719,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       {/* MODAL 1 : Modification Manuelle Tarif & Saisie du Motif RM (Section 9) */}
       {modifyingRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <div className="flex items-center gap-2">
                 <span className="p-2 rounded-xl bg-violet-100 text-violet-700">
                   <Sliders className="w-5 h-5" />
@@ -2446,7 +2732,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
               </div>
               <button
                 onClick={() => setModifyingRecord(null)}
-                className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2503,7 +2789,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
             {/* Choix Obligatoire du Motif de Décision (Section 9) */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                 <span>Motif de modification de la recommandation (Obligatoire) :</span>
               </label>
               <select
@@ -2517,7 +2803,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-slate-500 italic">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
                 {RM_MODIFICATION_REASONS.find((r) => r.code === selectedReasonCode)?.description}
               </p>
             </div>
@@ -2538,7 +2824,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setModifyingRecord(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Annuler
               </button>
@@ -2557,8 +2843,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       {/* MODAL 2 : Refus de la Recommandation (Section 9) */}
       {rejectingRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <div className="flex items-center gap-2">
                 <span className="p-2 rounded-xl bg-rose-100 text-rose-700">
                   <X className="w-5 h-5" />
@@ -2570,7 +2856,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
               </div>
               <button
                 onClick={() => setRejectingRecord(null)}
-                className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2594,7 +2880,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 onClick={() => setRejectingRecord(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 Annuler
               </button>
@@ -2613,28 +2899,28 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
       {/* MODAL 3 : Roue de Configuration des Colonnes RM (Sélection Personnalisée) */}
       {showColumnConfigModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] flex flex-col">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4">
               <div className="flex items-center gap-3">
                 <span className="p-2.5 rounded-2xl bg-violet-100 text-violet-700">
                   <Settings className="w-5 h-5 animate-[spin_10s_linear_infinite]" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base flex items-center gap-2">
                     <span>Roue de Configuration des Colonnes RM</span>
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800">
                       {activeColumnsCount} / {RM_COLUMN_DEFINITIONS.length} actives
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Personnalisez les indicateurs affichés dans le tableau de recommandation tarifaire.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowColumnConfigModal(false)}
-                className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-xl cursor-pointer"
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 rounded-xl cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2653,7 +2939,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                     className="p-2 rounded-xl border text-left transition-all cursor-pointer bg-slate-50/70 hover:bg-violet-50 hover:border-violet-300 border-slate-200"
                   >
                     <div className="text-xs font-bold text-slate-900">{p.name}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{p.description}</div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{p.description}</div>
                   </button>
                 ))}
               </div>
@@ -2683,13 +2969,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       localStorage.setItem(STORAGE_COLUMN_KEY, JSON.stringify(allTrue));
                     } catch (e) {}
                   }}
-                  className="text-xs font-bold text-violet-700 hover:text-violet-900 bg-violet-50 px-2.5 py-1.5 rounded-lg cursor-pointer"
+                  className="text-xs font-bold text-violet-700 dark:text-violet-300 hover:text-violet-900 bg-violet-50 dark:bg-violet-950/40 px-2.5 py-1.5 rounded-lg cursor-pointer"
                 >
                   Tout cocher
                 </button>
                 <button
                   onClick={handleResetColumns}
-                  className="text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
+                  className="text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Réinitialiser</span>
@@ -2721,9 +3007,9 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
                 return (
                   <div key={grp} className="space-y-2">
-                    <div className="text-xs font-black text-slate-800 bg-slate-100/80 px-3 py-1.5 rounded-lg flex items-center justify-between">
+                    <div className="text-xs font-black text-slate-800 dark:text-slate-200 bg-slate-100/80 dark:bg-slate-800/80 px-3 py-1.5 rounded-lg flex items-center justify-between">
                       <span>{grpLabel}</span>
-                      <span className="text-[10px] text-slate-500 font-normal">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
                         {groupCols.filter((c) => visibleColumns[c.id]).length} / {groupCols.length} visibles
                       </span>
                     </div>
@@ -2738,9 +3024,9 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                             onClick={() => !isRequired && handleToggleColumn(col.id)}
                             className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer select-none transition-all ${
                               isRequired
-                                ? 'bg-slate-50 border-slate-200 opacity-90 cursor-not-allowed'
+                                ? 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800 opacity-90 cursor-not-allowed'
                                 : isChecked
-                                ? 'bg-violet-50/50 border-violet-200 text-violet-950 shadow-2xs'
+                                ? 'bg-violet-50/50 dark:bg-violet-950/35 border-violet-200 dark:border-violet-800/70 text-violet-950 dark:text-violet-100 shadow-2xs'
                                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                             }`}
                           >
@@ -2749,13 +3035,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                               checked={isChecked}
                               disabled={isRequired}
                               onChange={() => {}}
-                              className="mt-0.5 rounded text-violet-600 focus:ring-violet-500 cursor-pointer"
+                              className="mt-0.5 rounded text-violet-600 dark:text-violet-400 focus:ring-violet-500 cursor-pointer"
                             />
                             <div className="space-y-0.5 flex-1 min-w-0">
                               <div className="flex items-center justify-between">
                                 <span className="font-bold truncate">{col.name}</span>
                                 {isRequired ? (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 flex items-center gap-0.5">
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-0.5">
                                     <Lock className="w-2.5 h-2.5" />
                                     <span>Requis</span>
                                   </span>
@@ -2765,7 +3051,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-slate-500 leading-tight line-clamp-1">
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight line-clamp-1">
                                 {col.description}
                               </p>
                             </div>
@@ -2804,7 +3090,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           />
 
           {/* Popover Card */}
-          <div className="relative bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 z-10 space-y-4 animate-scaleUp text-left">
+          <div className="relative bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 z-10 space-y-4 animate-scaleUp text-left">
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
@@ -2828,7 +3114,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
               <button
                 onClick={() => setActiveExplanationPopover(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
                 title="Fermer la fenêtre"
               >
                 <X className="w-5 h-5" />
@@ -2836,24 +3122,24 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             </div>
 
             {/* Recap Tarifaire & Stratégie */}
-            <div className="grid grid-cols-3 gap-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 text-xs">
+            <div className="grid grid-cols-3 gap-2.5 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 text-xs">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Tarif Actuel</span>
-                <span className="text-base font-bold text-slate-800 tabular-nums block mt-0.5">
+                <span className="text-base font-bold text-slate-800 dark:text-slate-200 tabular-nums block mt-0.5">
                   {activeExplanationPopover.currentBarEur} €
                 </span>
                 <span className="text-[9px] text-slate-400">CRS D-EDGE</span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-violet-600 uppercase block">Tarif Conseillé</span>
-                <span className="text-base font-black text-violet-700 tabular-nums block mt-0.5">
+                <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase block">Tarif Conseillé</span>
+                <span className="text-base font-black text-violet-700 dark:text-violet-300 tabular-nums block mt-0.5">
                   {activeExplanationPopover.suggestedBarEur} €
                 </span>
                 <span className="text-[9px] text-violet-500 font-semibold">Yield optimal</span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-emerald-600 uppercase block">Écart (€ / %)</span>
-                <span className="text-base font-black text-emerald-600 tabular-nums block mt-0.5">
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block">Écart (€ / %)</span>
+                <span className="text-base font-black text-emerald-600 dark:text-emerald-400 tabular-nums block mt-0.5">
                   {activeExplanationPopover.deltaVsCurrentEur > 0
                     ? `+${activeExplanationPopover.deltaVsCurrentEur}€`
                     : `${activeExplanationPopover.deltaVsCurrentEur}€`}
@@ -2863,7 +3149,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       : `${activeExplanationPopover.deltaVsCurrentPercent}%`})
                   </span>
                 </span>
-                <span className="text-[9px] text-emerald-600 font-semibold">
+                <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold">
                   {activeExplanationPopover.deltaVsCurrentEur >= 0 ? 'Sous-coté' : 'Sur-coté'}
                 </span>
               </div>
@@ -2872,7 +3158,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
             {/* Badge Stratégie avec explication détaillée */}
             <div className="space-y-1 bg-violet-50/70 p-3.5 rounded-2xl border border-violet-100">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black text-violet-900 uppercase tracking-wider">
+                <span className="text-[10px] font-black text-violet-900 dark:text-violet-200 uppercase tracking-wider">
                   Stratégie Yield Retenue :
                 </span>
                 <span
@@ -2881,7 +3167,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   {activeExplanationPopover.strategyLabel}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600 leading-snug">
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
                 {activeExplanationPopover.strategyDescription}
               </p>
             </div>
@@ -2917,7 +3203,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
 
             {/* Footer */}
             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 <span>
                   Indice de confiance statistique :{' '}

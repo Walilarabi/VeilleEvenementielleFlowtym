@@ -5,7 +5,7 @@
  * FLOWTYM REVENUE — Service Centralisé de Chronologie & Filtrage Événementiel
  * 
  * Règles Fondamentales :
- * 1. Date de référence système : 2026-11-12 (ou date courante).
+ * 1. Date de référence dynamique dans le fuseau de l'hôtel (Europe/Paris par défaut).
  * 2. Comportement par défaut (sur le mois en cours) :
  *    - Affichage STRICTEMENT restreint aux événements EN COURS et À VENIR.
  *    - Les événements terminés (endDate < refDate) sont EXCLUS de l'affichage par défaut.
@@ -22,11 +22,20 @@
 
 import { EventItem } from '../types';
 
-export const SYSTEM_REFERENCE_DATE = '2026-11-12';
-
-export function getSystemReferenceDate(): string {
-  return SYSTEM_REFERENCE_DATE;
+export function getSystemReferenceDate(timeZone = 'Europe/Paris', now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
+
+// Snapshot de référence pour les composants qui ne peuvent pas encore recevoir
+// explicitement le fuseau de l'hôtel. Préférer getSystemReferenceDate(timeZone).
+export const SYSTEM_REFERENCE_DATE = getSystemReferenceDate();
 
 export type EventChronologicalStatus = 'ongoing' | 'upcoming' | 'past';
 
@@ -43,7 +52,7 @@ export function getEffectiveEndDate(ev: { startDate: string; endDate?: string | 
  */
 export function isEventOngoing(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): boolean {
   const effectiveEnd = getEffectiveEndDate(ev);
   return ev.startDate <= refDate && effectiveEnd >= refDate;
@@ -55,7 +64,7 @@ export function isEventOngoing(
  */
 export function isEventUpcoming(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): boolean {
   return ev.startDate > refDate;
 }
@@ -66,7 +75,7 @@ export function isEventUpcoming(
  */
 export function isEventPast(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): boolean {
   const effectiveEnd = getEffectiveEndDate(ev);
   return effectiveEnd < refDate;
@@ -77,7 +86,7 @@ export function isEventPast(
  */
 export function getEventChronologicalStatus(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): EventChronologicalStatus {
   if (isEventOngoing(ev, refDate)) return 'ongoing';
   if (isEventUpcoming(ev, refDate)) return 'upcoming';
@@ -107,7 +116,7 @@ export function doesEventOverlapMonth(
 export function getMonthTemporalRelation(
   selectedYear: number,
   selectedMonth: number,
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): 'past' | 'current' | 'future' {
   const refYear = parseInt(refDate.slice(0, 4), 10);
   const refMonth = parseInt(refDate.slice(5, 7), 10) - 1; // 0-indexed
@@ -130,7 +139,7 @@ export function getMonthTemporalRelation(
  */
 export function sortEventsChronologically<T extends { startDate: string; endDate?: string | null; scoreBreakdown?: { finalRMScore?: number } }>(
   eventsList: T[],
-  refDate: string = SYSTEM_REFERENCE_DATE,
+  refDate: string = getSystemReferenceDate(),
   forceChronologicalByStartOnly: boolean = false
 ): T[] {
   return [...eventsList].sort((a, b) => {
@@ -193,7 +202,7 @@ export function filterAndSortEventsByPeriod<T extends { startDate: string; endDa
   events: T[],
   options: ChronologyFilterOptions
 ): T[] {
-  const refDate = options.refDate || SYSTEM_REFERENCE_DATE;
+  const refDate = options.refDate || getSystemReferenceDate();
   const temporal = getMonthTemporalRelation(options.selectedYear, options.selectedMonth, refDate);
 
   // 1. Événements intersectant le mois sélectionné
@@ -251,7 +260,7 @@ export function filterAndSortEventsByPeriod<T extends { startDate: string; endDa
  */
 export function getEventStatusBadgeConfig(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): {
   status: EventChronologicalStatus;
   label: string;

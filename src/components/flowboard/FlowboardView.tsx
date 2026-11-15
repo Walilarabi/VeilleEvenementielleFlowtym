@@ -1,496 +1,93 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import {
-  TrendingUp,
-  AlertTriangle,
-  Zap,
-  CheckCircle2,
-  XCircle,
-  MapPin,
-  Calendar,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  Building2,
-  Clock,
-  Eye,
-  GraduationCap,
-  Radar,
-  SlidersHorizontal,
+  CalendarDays, Compass, MapPin, ArrowUpRight, ShieldCheck, Clock3, Building2, TrendingUp, Database,
 } from 'lucide-react';
-import { EventItem, EventSuggestion, Hotel } from '../../types';
-import { formatEventDateRange, getCategoryLabel, getImpactColorClasses } from '../../utils/helpers';
-import { getHotelRoomTypology } from '../../data/hotelRoomTypologies';
-import { D3RadarChart } from './D3RadarChart';
+import { EventItem, EventSource, Hotel, Venue } from '../../types';
 
 interface FlowboardViewProps {
   events: EventItem[];
-  suggestions: EventSuggestion[];
+  sources: EventSource[];
+  venues: Venue[];
   hotels: Hotel[];
   selectedHotelId: string;
   onSelectEvent: (event: EventItem) => void;
-  onApproveSuggestion: (id: string) => void;
-  onDismissSuggestion: (id: string) => void;
   onGoToExplorer: () => void;
   onGoToCalendar: () => void;
   onGoToSchoolHolidays?: () => void;
   onGoToOpportunities?: () => void;
 }
 
+const dateISO = () => new Date().toISOString().slice(0,10);
+const formatDate = (date:string) => new Date(date+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+const scoreOf = (event:EventItem) => Number(event.scoreBreakdown?.finalRMScore ?? 0);
+
 export const FlowboardView: React.FC<FlowboardViewProps> = ({
-  events,
-  suggestions,
-  hotels,
-  selectedHotelId,
-  onSelectEvent,
-  onApproveSuggestion,
-  onDismissSuggestion,
-  onGoToExplorer,
-  onGoToCalendar,
-  onGoToSchoolHolidays,
-  onGoToOpportunities,
+  events,sources,venues,hotels,selectedHotelId,onSelectEvent,onGoToExplorer,onGoToCalendar,onGoToSchoolHolidays,onGoToOpportunities,
 }) => {
-  const currentHotel = hotels.find((h) => h.id === selectedHotelId) || hotels[0];
-  const typology = getHotelRoomTypology(currentHotel.id);
+  const hotel = hotels.find((item)=>item.id===selectedHotelId) ?? hotels[0];
+  const today = dateISO();
+  const operationalEvents = events.filter((event)=>event.category!=='vacances_scolaires');
+  const currentEvents = operationalEvents.filter((event)=>event.startDate<=today && event.endDate>=today).sort((a,b)=>scoreOf(b)-scoreOf(a));
+  const upcomingEvents = operationalEvents.filter((event)=>event.startDate>today).sort((a,b)=>a.startDate.localeCompare(b.startDate));
+  const highImpactEvents = operationalEvents.filter((event)=>event.endDate>=today && scoreOf(event)>=60).sort((a,b)=>scoreOf(b)-scoreOf(a));
+  const healthySources = sources.filter((source)=>source.status==='healthy').length;
+  const warningSources = sources.filter((source)=>source.status==='warning').length;
+  const errorSources = sources.filter((source)=>source.status==='error').length;
+  const officialSources = sources.filter((source)=>source.isOfficial).length;
+  const nextEvents = [...currentEvents,...upcomingEvents].slice(0,8);
+  const coverageRatio = sources.length ? Math.round(healthySources/sources.length*100) : null;
 
-  // Top priorities: score >= 75
-  const priorityEvents = [...events]
-    .filter((e) => e.scoreBreakdown.finalRMScore >= 70)
-    .sort((a, b) => b.scoreBreakdown.finalRMScore - a.scoreBreakdown.finalRMScore)
-    .slice(0, 5);
-
-  const [selectedRadarEventId, setSelectedRadarEventId] = useState<string>(
-    priorityEvents[0]?.id || events[0]?.id || ''
-  );
-
-  const selectedRadarEvent =
-    events.find((e) => e.id === selectedRadarEventId) || priorityEvents[0] || events[0];
-
-  // Pending suggestions
-  const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
+  const summary = useMemo(()=>({
+    ongoing:currentEvents.length,
+    upcoming:upcomingEvents.length,
+    highImpact:highImpactEvents.length,
+    sourceTotal:sources.length,
+  }),[currentEvents.length,upcomingEvents.length,highImpactEvents.length,sources.length]);
 
   return (
-    <div className="space-y-6">
-      {/* Executive Welcome & Yield Advisory Banner */}
-      <div className="bg-gradient-to-r from-violet-900 to-indigo-900 rounded-2xl p-6 text-white shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full text-xs font-semibold text-violet-200">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>Synthèse Revenue Management · Octobre — Décembre 2026</span>
+    <section className="space-y-5">
+      <header className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div><p className="text-xs font-semibold uppercase tracking-wider text-violet-600">Flowtym · Revenue Management</p><h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{hotel?.name ?? 'Flowboard hôtelier'}</h1><p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400"><MapPin size={14}/>{hotel?.city ?? 'Ville non renseignée'} · {hotel?.roomCount ?? '—'} chambres · {hotel?.stars ? hotel.stars + ' étoiles' : 'Catégorie non renseignée'}</p></div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={onGoToCalendar} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white"><CalendarDays size={16}/>Calendrier</button>
+            <button type="button" onClick={onGoToExplorer} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"><Compass size={16}/>Explorer</button>
+            {onGoToSchoolHolidays && <button type="button" onClick={onGoToSchoolHolidays} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">Vacances scolaires</button>}
+            {onGoToOpportunities && <button type="button" onClick={onGoToOpportunities} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">Opportunités</button>}
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Forte compression identifiée sur le marché parisien & lyonnais
-          </h2>
-          <p className="text-xs sm:text-sm text-violet-200/90 max-w-2xl leading-relaxed">
-            Le chevauchement du <strong>Mondial de l&apos;Automobile</strong> (490k pax) et du <strong>SIAL Paris</strong> (285k pax) en semaine 42 requiert un verrouillage immédiat des tarifs de groupe et l&apos;application d&apos;un minimum stay de 3 nuits sur votre portefeuille.
-          </p>
         </div>
+      </header>
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <button
-            onClick={onGoToCalendar}
-            className="px-4 py-2 text-xs font-bold bg-white text-violet-950 hover:bg-violet-50 rounded-xl transition-all shadow-xs"
-          >
-            Ouvrir le calendrier d&apos;impact
-          </button>
-          <button
-            onClick={onGoToExplorer}
-            className="px-4 py-2 text-xs font-bold bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/20 transition-all"
-          >
-            Lancer une recherche ciblée
-          </button>
-        </div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between"><p className="text-xs text-slate-500">Événements en cours</p><Clock3 size={16} className="text-violet-600"/></div><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{summary.ongoing}</p><p className="mt-1 text-[10px] text-slate-500">Impacts hôtel validés</p></div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between"><p className="text-xs text-slate-500">Événements à venir</p><CalendarDays size={16} className="text-violet-600"/></div><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{summary.upcoming}</p><p className="mt-1 text-[10px] text-slate-500">Dans le périmètre hôtelier</p></div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between"><p className="text-xs text-slate-500">Fort impact RM</p><TrendingUp size={16} className="text-emerald-600"/></div><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{summary.highImpact}</p><p className="mt-1 text-[10px] text-slate-500">Score hôtel ≥ 60/100</p></div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between"><p className="text-xs text-slate-500">Sources vérifiées</p><ShieldCheck size={16} className="text-violet-600"/></div><p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{summary.sourceTotal}</p><p className="mt-1 text-[10px] text-slate-500">{officialSources} officielles · {healthySources} saines</p></div>
       </div>
 
-      {/* School Holidays Executive Alert & Room Typology Insight */}
-      <div className="bg-gradient-to-r from-indigo-50 via-purple-50/60 to-white rounded-2xl border border-indigo-200/80 p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-indigo-950">
-                Veille Vacances Scolaires & Overlaps Multi-Pays 2026
-              </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                Score Impact: 82/100 · Fort
-              </span>
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-100/80 text-indigo-800 border border-indigo-200">
-                {typology.familyCapacityPercentage}% capacité famille ({typology.familyCapacityRooms} ch. sur {typology.totalRooms})
-              </span>
-            </div>
-            <p className="text-xs text-slate-700 leading-relaxed">
-              <strong>Grand Hôtel Folkestone Opéra :</strong> Conjonction exceptionnelle <strong>Pâques / Printemps</strong> du 06 au 26 avril 2026 (France Zones A/B/C, Royaume-Uni, Belgique et Pays-Bas simultanés). Protection recommandée des 8 Triples et 4 Quadruples avec un minimum stay de 2 nuits.
-            </p>
-          </div>
-        </div>
+      <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800"><div><h2 className="font-bold text-slate-900 dark:text-white">Agenda opérationnel</h2><p className="mt-1 text-xs text-slate-500">Événements en cours en premier, puis prochaines dates</p></div><button type="button" onClick={onGoToCalendar} className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 dark:text-violet-300">Tout voir <ArrowUpRight size={13}/></button></div>
+          {nextEvents.length===0 ? <div className="p-8 text-center"><Database className="mx-auto h-7 w-7 text-slate-400"/><h3 className="mt-3 text-sm font-bold text-slate-900 dark:text-white">Aucun impact événementiel validé</h3><p className="mx-auto mt-1 max-w-md text-xs text-slate-500 dark:text-slate-400">Le calendrier ne présente pas de données de démonstration. Les événements apparaîtront après vérification des sources, calcul et validation de leur impact hôtelier.</p><button type="button" onClick={onGoToExplorer} className="mt-4 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white">Explorer les événements</button></div> : <div className="divide-y divide-slate-100 dark:divide-slate-800">{nextEvents.map((event)=>{const ongoing=event.startDate<=today&&event.endDate>=today;return <button key={event.id} type="button" onClick={()=>onSelectEvent(event)} className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800/60"><span className="min-w-0"><span className="flex flex-wrap items-center gap-2"><span className="truncate text-sm font-semibold text-slate-900 dark:text-white">{event.title}</span>{ongoing&&<span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">EN COURS</span>}</span><span className="mt-1 block text-xs text-slate-500">{formatDate(event.startDate)} – {formatDate(event.endDate)} · {event.city}</span></span><span className="shrink-0 text-right"><span className="block text-sm font-bold tabular-nums text-slate-900 dark:text-white">{scoreOf(event)}/100</span><span className="text-[10px] text-slate-500">Score RM</span></span></button>;})}</div>}
+        </section>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {onGoToSchoolHolidays && (
-            <button
-              onClick={onGoToSchoolHolidays}
-              className="px-3.5 py-2 text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50 border border-indigo-300 rounded-xl transition-all shadow-2xs flex items-center gap-1.5"
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span>Module Vacances (12 pays)</span>
-            </button>
-          )}
-          {onGoToOpportunities && (
-            <button
-              onClick={onGoToOpportunities}
-              className="px-3.5 py-2 text-xs font-bold text-violet-700 hover:text-violet-900 bg-violet-100/60 hover:bg-violet-200/70 border border-violet-200 rounded-xl transition-all shadow-2xs flex items-center gap-1.5"
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-600" />
-              <span>Centre de Décision RM</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Real-time Market Signals: D-EDGE Pickup Acceleration & Lighthouse Compset Tension */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* D-EDGE Pickup Alert */}
-        <div className="bg-white border border-indigo-200/90 rounded-2xl p-4.5 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center">
-                <Clock className="w-4 h-4" />
-              </span>
-              <div>
-                <h4 className="text-xs font-bold text-slate-900">Alertes Pickup & Stock D-EDGE</h4>
-                <p className="text-[10px] text-slate-500">Flux de réservations en direct (dernières 24h)</p>
-              </div>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-              3 dates en vélocité rapide
-            </span>
-          </div>
-
-          <div className="space-y-2 text-xs">
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-slate-900">18 nov. 2026 (Semaine Salon des Maires)</span>
-                <div className="text-[10px] text-slate-500">Stock restant : 9 ch. (OTB 80%)</div>
-              </div>
-              <div className="text-right">
-                <span className="text-emerald-700 font-bold">+5 ch. en 24h</span>
-                <div className="text-[10px] text-rose-600 font-semibold">Risque de sous-tarif</div>
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-slate-900">03 déc. 2026 (Congrès Médical)</span>
-                <div className="text-[10px] text-slate-500">Stock restant : 11 ch. (OTB 76%)</div>
-              </div>
-              <div className="text-right">
-                <span className="text-emerald-700 font-bold">+4 ch. en 24h</span>
-                <div className="text-[10px] text-amber-600 font-semibold">Hausse BAR préconisée</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Lighthouse Compset Price Movements */}
-        <div className="bg-white border border-violet-200/90 rounded-2xl p-4.5 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl bg-violet-50 text-violet-700 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4" />
-              </span>
-              <div>
-                <h4 className="text-xs font-bold text-slate-900">Veille Tarifaire Lighthouse Rate Insight</h4>
-                <p className="text-[10px] text-slate-500">Mouvements compset direct (Rayon 400m)</p>
-              </div>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-              Compression détectée
-            </span>
-          </div>
-
-          <div className="space-y-2 text-xs">
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-slate-900">Hôtel Saint-Pétersbourg Opéra</span>
-                <div className="text-[10px] text-slate-500">18-20 nov. : Relevé à 345€ (+25%)</div>
-              </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
-                SOLD-OUT J-2
-              </span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-slate-900">Hôtel Charing Cross & Astra</span>
-                <div className="text-[10px] text-slate-500">Hausse tarifaire coordonnée de +22€ sur la semaine 47</div>
-              </div>
-              <span className="text-xs font-bold text-slate-900">Moy. 315€</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* D3 Radar Chart: Répartition des scores d'impact par catégorie */}
-      <div className="bg-gradient-to-br from-slate-50 via-white to-violet-50/30 rounded-2xl border border-violet-200/90 p-5 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-violet-600 text-white flex items-center justify-center shrink-0 shadow-xs shadow-violet-200">
-              <Radar className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
-                  Cartographie Radar D3 — Répartition des Scores d'Impact RM
-                </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200">
-                  D3.js Interactif
-                </span>
-              </div>
-              <p className="text-xs text-slate-500">
-                Visualisation multi-axes des composantes d'impact (Attractivité, Saturation, International, Proximité, Pickup, ADR)
-              </p>
-            </div>
-          </div>
-
-          {/* Event Quick Dropdown Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-600 font-semibold hidden sm:inline">Événement :</span>
-            <select
-              value={selectedRadarEventId}
-              onChange={(e) => setSelectedRadarEventId(e.target.value)}
-              className="bg-white border border-slate-300 text-slate-900 text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 shadow-2xs max-w-[280px] sm:max-w-xs truncate cursor-pointer"
-            >
-              <optgroup label="Top Priorités RM">
-                {priorityEvents.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.title} (Score: {ev.scoreBreakdown.finalRMScore})
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Tous les événements">
-                {events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.title} · {ev.startDate}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-          </div>
-        </div>
-
-        {/* Quick pills for instant switching between Top Priorities */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
-            <SlidersHorizontal className="w-3 h-3 text-slate-400" />
-            <span>Sélection rapide :</span>
-          </span>
-          {priorityEvents.slice(0, 5).map((ev) => {
-            const isSelected = ev.id === selectedRadarEventId;
-            return (
-              <button
-                key={ev.id}
-                onClick={() => setSelectedRadarEventId(ev.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
-                  isSelected
-                    ? 'bg-violet-600 text-white shadow-xs ring-2 ring-violet-400'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                <span>{ev.title.split('—')[0].split('-')[0].trim()}</span>
-                <span className={`px-1.5 py-0.2 rounded text-[10px] font-black ${
-                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {ev.scoreBreakdown.finalRMScore}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* D3 Radar Chart Component */}
-        <D3RadarChart
-          event={selectedRadarEvent}
-          hotel={currentHotel}
-        />
-      </div>
-
-      {/* Grid: 2 Columns (Top RM Priorities & Suggestions to Validate) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Top RM Priorities (2/3 width on desktop) */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-violet-600" />
-              <h3 className="text-sm font-bold text-slate-900">
-                Top Priorités Revenue Management (Scores RM &ge; 70)
-              </h3>
-            </div>
-            <span className="text-xs text-slate-500 font-medium">
-              Calculé pour: <strong className="text-slate-800">{currentHotel.name}</strong>
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {priorityEvents.map((ev) => {
-              const impact = getImpactColorClasses(ev.impactLevel);
-              const hotelImp = ev.hotelImpacts[currentHotel.id];
-              const isSelectedForRadar = ev.id === selectedRadarEventId;
-
-              return (
-                <div
-                  key={ev.id}
-                  onClick={() => {
-                    setSelectedRadarEventId(ev.id);
-                    onSelectEvent(ev);
-                  }}
-                  className={`bg-white rounded-2xl border p-4 transition-all cursor-pointer space-y-3 ${
-                    isSelectedForRadar
-                      ? 'border-violet-500 ring-2 ring-violet-400/40 shadow-xs bg-violet-50/10'
-                      : 'border-slate-200/90 hover:border-slate-300 hover:shadow-xs'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${impact.badgeBg}`}
-                        >
-                          {ev.impactLevel}
-                        </span>
-                        <span className="text-xs text-slate-400 font-medium">
-                          {getCategoryLabel(ev.category)}
-                        </span>
-                        <span className="text-slate-300">·</span>
-                        <span className="text-xs text-slate-500 font-medium tabular-nums">
-                          {formatEventDateRange(ev.startDate, ev.endDate)}
-                        </span>
-                        {isSelectedForRadar && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 flex items-center gap-1">
-                            <Radar className="w-3 h-3" />
-                            <span>Affiché sur le Radar D3</span>
-                          </span>
-                        )}
-                      </div>
-                      <h4 className="text-sm font-bold text-slate-900 mt-1">
-                        {ev.title}
-                      </h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {ev.venueName} · {ev.city} ({ev.expectedAttendance.toLocaleString('fr-FR')} pax attendus)
-                      </p>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <div className="text-2xl font-black text-slate-900 tabular-nums">
-                        {ev.scoreBreakdown.finalRMScore}
-                      </div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">
-                        Score RM
-                      </div>
-                    </div>
-                  </div>
-
-                  {hotelImp && (
-                    <div className="bg-slate-50 rounded-xl p-2.5 text-xs text-slate-700 flex items-center justify-between border border-slate-200/60">
-                      <div className="flex items-center gap-2 truncate pr-2">
-                        <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span className="truncate font-medium">{hotelImp.recommendedAction}</span>
-                      </div>
-                      <span className="text-emerald-700 font-bold shrink-0 tabular-nums">
-                        ADR +{hotelImp.estimatedADRBoostPercent}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Column: Suggestions Queue & Validation (1/3 width) */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-violet-600" />
-              <h3 className="text-sm font-bold text-slate-900">
-                Suggestions à Valider ({pendingSuggestions.length})
-              </h3>
-            </div>
-            <span className="text-[11px] text-slate-400">Détection auto</span>
-          </div>
-
-          <div className="space-y-3">
-            {pendingSuggestions.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200/90 p-6 text-center text-xs text-slate-500">
-                Toutes les suggestions ont été traitées.
-              </div>
-            ) : (
-              pendingSuggestions.map((sug) => (
-                <div
-                  key={sug.id}
-                  className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3"
-                >
-                  <div>
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-violet-600 mb-1">
-                      <span>{getCategoryLabel(sug.category)}</span>
-                      <span className="text-emerald-600 font-bold tabular-nums">
-                        Confiance: {sug.confidence}%
-                      </span>
-                    </div>
-                    <h5 className="text-xs font-bold text-slate-900 leading-snug">
-                      {sug.eventTitle}
-                    </h5>
-                    <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5">
-                      <Calendar className="w-3 h-3 text-slate-400" />
-                      <span>{sug.suggestedDates.start} au {sug.suggestedDates.end}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 mt-2 bg-slate-50 p-2 rounded-lg border border-slate-200/60 leading-relaxed">
-                      {sug.reason}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                    <button
-                      onClick={() => onApproveSuggestion(sug.id)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Valider</span>
-                    </button>
-                    <button
-                      onClick={() => onDismissSuggestion(sug.id)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-                    >
-                      <XCircle className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Ignorer</span>
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Quick Geographic Presence Card */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 space-y-3">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Couverture Événementielle par Ville
-            </h4>
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-700 font-medium">Paris (Île-de-France)</span>
-                <span className="font-bold text-slate-900 tabular-nums">78 événements</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-700 font-medium">Lyon (Rhône-Alpes)</span>
-                <span className="font-bold text-slate-900 tabular-nums">18 événements</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-700 font-medium">Nice (Côte d&apos;Azur)</span>
-                <span className="font-bold text-slate-900 tabular-nums">10 événements</span>
-              </div>
-            </div>
-          </div>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between"><h2 className="font-bold text-slate-900 dark:text-white">Couverture des sources</h2><Database size={16} className="text-slate-400"/></div>
+            {sources.length===0 ? <p className="mt-3 text-xs text-slate-500">Aucune source associée aux événements validés pour cet hôtel. Cela ne signifie pas qu'aucun fournisseur n'est configuré.</p> : <>
+              <div className="mt-3 flex items-end justify-between"><p className="text-2xl font-bold text-slate-900 dark:text-white">{coverageRatio}%</p><p className="text-[10px] text-slate-500">{healthySources}/{sources.length} sources saines</p></div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-full rounded-full bg-emerald-500" style={{width:coverageRatio+'%'}}/></div>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[10px]"><div><p className="font-bold text-emerald-700 dark:text-emerald-300">{healthySources}</p><p className="text-slate-500">Saines</p></div><div><p className="font-bold text-amber-700 dark:text-amber-300">{warningSources}</p><p className="text-slate-500">Alertes</p></div><div><p className="font-bold text-rose-700 dark:text-rose-300">{errorSources}</p><p className="text-slate-500">Erreurs</p></div></div>
+            </>}
+          </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between"><h2 className="font-bold text-slate-900 dark:text-white">Opportunités prioritaires</h2><TrendingUp size={16} className="text-emerald-600"/></div>
+            {highImpactEvents.length===0 ? <p className="mt-3 text-xs text-slate-500">Aucun événement validé avec un score RM supérieur ou égal à 60 pour la période à venir.</p> : <div className="mt-3 space-y-2">{highImpactEvents.slice(0,4).map((event)=><button key={event.id} type="button" onClick={()=>onSelectEvent(event)} className="flex w-full items-center justify-between gap-3 rounded-lg bg-slate-50 p-2.5 text-left dark:bg-slate-800"><span className="min-w-0"><span className="block truncate text-xs font-semibold text-slate-900 dark:text-white">{event.title}</span><span className="text-[10px] text-slate-500">{formatDate(event.startDate)} · {event.city}</span></span><span className="shrink-0 text-sm font-bold text-emerald-700 dark:text-emerald-300">{scoreOf(event)}</span></button>)}</div>}
+          </section>
         </div>
       </div>
-    </div>
+
+      <footer className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900"><span className="inline-flex items-center gap-2"><Building2 size={14}/> {venues.length} lieux associés aux événements validés · {operationalEvents.length} événements opérationnels</span><span>Les indicateurs reflètent uniquement les données chargées et validées pour l’hôtel sélectionné.</span></footer>
+    </section>
   );
 };

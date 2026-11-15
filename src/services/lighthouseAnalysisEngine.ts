@@ -45,7 +45,7 @@ export type HotelAvailabilityStatus = 'disponible' | 'epuise' | 'los2' | '1pax' 
 export interface CompetitorRateRecord {
   id: string;
   name: string;
-  stars: number;
+  stars: number | null;
   rate: number | null; // null if sold-out or unavailable (NEVER 0)
   status: HotelAvailabilityStatus;
   statusLabel: string;
@@ -92,17 +92,19 @@ export interface LighthouseDailyItem {
   isWeekend: boolean;
 
   // A. Demande du marché (Aperçu + Tarifs)
-  demandIndex: number; // 0-100 (Indice Lighthouse de demande, PAS un taux d'occupation)
-  demandLevel: MarketDemandLevelCategory;
+  demandIndex: number | null; // indice normalisé 0-100, null si absent à la source
+  demandIndexRaw: number | null; // valeur brute exportée par Lighthouse
+  demandIndexScale: '0_1' | '0_100' | 'missing';
+  demandLevel: MarketDemandLevelCategory | 'non_renseigne';
   demandEvolution1d: number | null; // vs hier
   demandEvolution3d: number | null; // vs J-3
   demandEvolution7d: number | null; // vs J-7
 
   // B. Médianes du marché
   lighthouseMedianEur: number; // Médiane officielle fournie par Lighthouse (Aperçu)
-  flowtymMedianEur: number;    // Médiane recalculée Flowtym (exclut Folkestone, indispos et non-numériques)
-  medianGapEur: number;        // flowtymMedianEur - lighthouseMedianEur
-  medianGapPct: number;
+  flowtymMedianEur: number | null; // Médiane recalculée Flowtym (exclut Folkestone, indispos et non-numériques)
+  medianGapEur: number | null;  // flowtymMedianEur - lighthouseMedianEur
+  medianGapPct: number | null;
 
   // C. Mon Hôtel : Folkestone Opéra (Hôtel de référence)
   folkestone: FolkestoneRateRecord;
@@ -111,7 +113,7 @@ export interface LighthouseDailyItem {
   competitors: CompetitorRateRecord[];
 
   // Indicateurs synthétiques du compset pour cette date
-  compsetAverage: number;
+  compsetAverage: number | null;
   minCompRate: number | null;
   minCompHotelName: string | null;
   maxCompRate: number | null;
@@ -145,7 +147,11 @@ export interface LighthouseExtractionMetadata {
   dateRange: string;
   totalDatesCount: number;
   isCustomUpload: boolean;
-  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation';
+  sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation' | 'empty';
+  sourceUpdatedAt?: string | null;
+  sourceHash?: string;
+  ingestionJobId?: string;
+  observedAtSource?: 'source_updated_at' | 'import_time_fallback';
 }
 
 export interface LighthouseExtractionDataset {
@@ -153,21 +159,28 @@ export interface LighthouseExtractionDataset {
   records: LighthouseDailyItem[];
 }
 
+// Candidats de compset configurables : noms uniquement, jamais utilisés comme tarifs réels.
 export const FOLKESTONE_PRIMARY_COMPSET_NAMES = [
   'Hôtel Saint-Pétersbourg Opéra & Spa',
   'Hôtel Charing Cross',
   'Hôtel Astra Opéra (Astotel)',
-  'Hôtel Indigo Paris - Opéra (IHG)',
+  'Hotel Indigo Paris-Opéra (IHG)',
+  'Hôtel Saint-Augustin Elysées',
   'Hôtel Pulitzer Paris',
+  'Hôtel Bedford Opéra Madeleine',
+  'Hôtel Le Marquis Faubourg Saint-Honoré',
+  'Hôtel Caumartin Opéra Astotel',
+  'Maison Albar Hotels Le Vendôme',
 ];
 
 /**
  * Calcul qualitatif du niveau de demande selon les seuils configurables Flowtym
  */
 export function getDemandLevelFromIndex(
-  index: number,
+  index: number | null,
   thresholds: MarketDemandThresholds = DEFAULT_DEMAND_THRESHOLDS
-): MarketDemandLevelCategory {
+): MarketDemandLevelCategory | 'non_renseigne' {
+  if (index === null || !Number.isFinite(index)) return 'non_renseigne';
   if (index >= thresholds.tresForteMin) return 'tres_forte';
   if (index >= thresholds.forteMax - 14) return 'forte';
   if (index >= thresholds.modereeMax - 29) return 'moderee';
@@ -177,13 +190,20 @@ export function getDemandLevelFromIndex(
 /**
  * Couleurs associées aux niveaux de demande Flowtym
  */
-export function getDemandColor(level: MarketDemandLevelCategory): {
+export function getDemandColor(level: MarketDemandLevelCategory | 'non_renseigne'): {
   bg: string;
   text: string;
   border: string;
   dot: string;
 } {
   switch (level) {
+    case 'non_renseigne':
+      return {
+        bg: 'bg-slate-50',
+        text: 'text-slate-500',
+        border: 'border-slate-200',
+        dot: 'bg-slate-400',
+      };
     case 'faible':
       return {
         bg: 'bg-emerald-50',
@@ -351,6 +371,27 @@ export function generateLighthouseAIAlerts(
  * Création du jeu de données déterministe et réaliste pour Grand Hôtel Folkestone Opéra
  * Couvre 60 dates consécutives (du 10 novembre 2026 au 8 janvier 2027)
  */
+export function createEmptyLighthouseDataset(): LighthouseExtractionDataset {
+  return {
+    metadata: {
+      id: 'empty-live-data',
+      fileName: '',
+      extractedAt: '',
+      sourceChannel: 'Lighthouse',
+      currency: 'EUR',
+      los: '1 nuit',
+      occupancy: '2 personnes',
+      compsetName: 'CompSet à configurer',
+      referenceHotel: 'Folkestone Opéra',
+      dateRange: '',
+      totalDatesCount: 0,
+      isCustomUpload: false,
+      sourceStatus: 'empty',
+    },
+    records: [],
+  };
+}
+
 export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
   const records: LighthouseDailyItem[] = [];
   const baseDate = new Date('2026-11-10T12:00:00Z');
@@ -565,7 +606,7 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
     const aiAlerts = generateLighthouseAIAlerts(
       dateStr,
       demandIndex,
-      demandLevel,
+      demandLevel as MarketDemandLevelCategory,
       folkestoneRateVal,
       folkestoneStatus,
       lighthouseMedianEur,
@@ -582,6 +623,8 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
       dayOfWeek,
       isWeekend,
       demandIndex,
+      demandIndexRaw: demandIndex,
+      demandIndexScale: '0_100',
       demandLevel,
       demandEvolution1d,
       demandEvolution3d,
@@ -615,12 +658,12 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
       id: 'ext-default-lh',
       fileName: 'folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx',
       extractedAt: '06/11/2026 à 08:30 (Heure de Paris)',
-      sourceChannel: 'Booking.com',
-      currency: 'EUR',
-      los: '1 nuit',
-      occupancy: '2 personnes',
-      compsetName: 'Primary Compset',
-      referenceHotel: 'Folkestone Opéra',
+      sourceChannel: 'Canal non renseigné',
+      currency: 'À confirmer',
+      los: 'À confirmer',
+      occupancy: 'À confirmer',
+      compsetName: 'Compset à confirmer',
+      referenceHotel: 'Hôtel de référence à confirmer',
       dateRange: '10/11/2026 — 08/01/2027',
       totalDatesCount: records.length,
       isCustomUpload: false,
@@ -761,9 +804,36 @@ export function exportLighthouseWorkbookToXLSX(
 /**
  * Analyseur robuste d'un fichier Excel Lighthouse (.xlsx) réel déposé par l'utilisateur
  */
+function parseLighthouseUpdatedAt(rows: any[][], headerIndex: number, referenceDate: string, timezone: string): string | null {
+  for (let rowIndex = 0; rowIndex < headerIndex; rowIndex++) {
+    const row = rows[rowIndex] ?? [];
+    for (let columnIndex = 0; columnIndex < row.length; columnIndex++) {
+      const label = String(row[columnIndex] ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      if (!label.includes('mis a jour')) continue;
+      const value = row[columnIndex + 1];
+      if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString();
+      const match = String(value ?? '').trim().match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(\d{1,2}):(\d{2})$/);
+      if (!match) continue;
+      const day = Number(match[1]);
+      const month = Number(match[2]);
+      const year = match[3] ? Number(match[3].length === 2 ? '20' + match[3] : match[3]) : Number(referenceDate.slice(0, 4));
+      const hour = Number(match[4]);
+      const minute = Number(match[5]);
+      const noon = new Date(Date.UTC(year, month - 1, day, 12));
+      const zoneName = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'shortOffset' })
+        .formatToParts(noon).find((part) => part.type === 'timeZoneName')?.value ?? 'GMT';
+      const offset = zoneName.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+      const offsetMinutes = offset ? (offset[1] === '-' ? -1 : 1) * (Number(offset[2]) * 60 + Number(offset[3] ?? 0)) : 0;
+      return new Date(Date.UTC(year, month - 1, day, hour, minute) - offsetMinutes * 60_000).toISOString();
+    }
+  }
+  return null;
+}
+
 export function parseLighthouseExcelFile(
   buffer: ArrayBuffer,
-  fileName: string
+  fileName: string,
+  timezone = 'Europe/Paris'
 ): LighthouseExtractionDataset {
   const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
 
@@ -782,8 +852,11 @@ export function parseLighthouseExcelFile(
     });
   };
 
-  const apercuName = findSheet(['apercu', 'overview']) || sheets[0];
-  const tarifsName = findSheet(['tarifs', 'rates', 'prices']) || sheets[1] || sheets[0];
+  const apercuName = findSheet(['apercu', 'overview']);
+  const tarifsName = findSheet(['tarifs', 'rates', 'prices']);
+  if (!apercuName || !tarifsName) {
+    throw new Error("Export Lighthouse incomplet : les onglets « Aperçu » et « Tarifs » sont obligatoires.");
+  }
   const vsHierName = findSheet(['vshier', 'hier', 'yesterday', '1d', 'j1']);
   const vs3jName = findSheet(['vs3jours', 'vs3j', '3jours', '3j', '3days']);
   const vs7jName = findSheet(['vs7jours', 'vs7j', '7jours', '7j', '7days']);
@@ -800,51 +873,84 @@ export function parseLighthouseExcelFile(
   const rawVs3j: any[][] = wsVs3j ? XLSX.utils.sheet_to_json(wsVs3j, { header: 1, defval: '' }) : [];
   const rawVs7j: any[][] = wsVs7j ? XLSX.utils.sheet_to_json(wsVs7j, { header: 1, defval: '' }) : [];
 
+  const findHeaderRowIndex = (rows: any[][], required: RegExp[]): number =>
+    rows.findIndex((row, index) => index < 20 && required.every((pattern) =>
+      row.some((cell) => pattern.test(String(cell ?? '').trim()))
+    ));
+
   if (rawTarifs.length < 2) {
     throw new Error("Le fichier ne contient pas de données dans l'onglet des tarifs.");
   }
+  if (rawApercu.length < 2) {
+    throw new Error("L'onglet Aperçu ne contient aucune donnée exploitable.");
+  }
 
-  // Identifier les en-têtes
-  const headerRow = rawTarifs[0].map((h: any) => String(h).trim());
-  const dateColIdx = headerRow.findIndex((h) => /date/i.test(h));
+  // Lighthouse ajoute des lignes de titre/métadonnées avant les en-têtes.
+  const tarifsHeaderIndex = findHeaderRowIndex(rawTarifs, [/date/i, /folkestone/i]);
+  const apercuHeaderIndex = findHeaderRowIndex(rawApercu, [/date/i, /m[ée]diane/i]);
+  if (tarifsHeaderIndex < 0) throw new Error("En-tête Date/Folkestone introuvable dans l'onglet Tarifs.");
+  if (apercuHeaderIndex < 0) throw new Error("En-tête Date/Médiane introuvable dans l'onglet Aperçu.");
+
+  const headerRow = rawTarifs[tarifsHeaderIndex].map((h: any) => String(h).trim());
+  const dateColIdx = headerRow.findIndex((h) => /^date$/i.test(h));
   const demandColIdx = headerRow.findIndex((h) => /demande/i.test(h));
   const folkestoneColIdx = headerRow.findIndex((h) => /folkestone/i.test(h));
+  if (dateColIdx < 0 || folkestoneColIdx < 0) {
+    throw new Error("Les colonnes Date et Folkestone Opéra sont obligatoires dans l'onglet Tarifs.");
+  }
 
-  // Les autres colonnes sont les concurrents
+  // Exclure les colonnes de contrôle (Jour/Date/Demande/Hôtel de référence).
   const competitorCols: { name: string; idx: number }[] = [];
   headerRow.forEach((colName, idx) => {
-    if (idx !== dateColIdx && idx !== demandColIdx && idx !== folkestoneColIdx && colName.length > 0) {
+    if (idx !== dateColIdx && idx !== demandColIdx && idx !== folkestoneColIdx &&
+        colName.length > 0 && !/^(jour|day)$/i.test(colName)) {
       competitorCols.push({ name: colName, idx });
     }
   });
-
-  // Mapper Aperçu par Date
-  const apercuMap = new Map<string, { demand: number; medianLh: number }>();
-  if (rawApercu.length > 1) {
-    const apHeaders = rawApercu[0].map((h: any) => String(h).trim());
-    const apDateIdx = apHeaders.findIndex((h) => /date/i.test(h));
-    const apDemandIdx = apHeaders.findIndex((h) => /demande/i.test(h));
-    const apMedianIdx = apHeaders.findIndex((h) => /m[ée]diane/i.test(h));
-
-    for (let r = 1; r < rawApercu.length; r++) {
-      const row = rawApercu[r];
-      const d = parseExcelDate(row[apDateIdx]);
-      if (d) {
-        const dem = parseFloat(row[apDemandIdx]) || 50;
-        const med = parseFloat(row[apMedianIdx]) || 280;
-        apercuMap.set(d, { demand: dem, medianLh: med });
-      }
-    }
+  if (competitorCols.length === 0) {
+    throw new Error("Aucune colonne concurrent n'a été reconnue dans l'onglet Tarifs.");
   }
 
-  // Mapper les évolutions vs Hier, vs 3j, vs 7j par (date + nom d'hôtel)
+  // Demande source facultative : conserver le brut et détecter l'échelle sans assimiler
+  // une valeur absente à zéro. Les valeurs 0..1 sont normalisées en 0..100.
+  const apercuMap = new Map<string, { demand: number | null; demandRaw: number | null; demandScale: '0_1' | '0_100' | 'missing'; medianLh: number }>();
+  const apHeaders = rawApercu[apercuHeaderIndex].map((h: any) => String(h).trim());
+  const apDateIdx = apHeaders.findIndex((h) => /^date$/i.test(h));
+  const apDemandIdx = apHeaders.findIndex((h) => /demande/i.test(h));
+  const apMedianIdx = apHeaders.findIndex((h) => /m[ée]diane/i.test(h));
+  if (apDateIdx < 0 || apMedianIdx < 0) {
+    throw new Error("L'onglet Aperçu doit contenir les colonnes Date et Médiane Lighthouse.");
+  }
+
+  for (let r = apercuHeaderIndex + 1; r < rawApercu.length; r++) {
+    const row = rawApercu[r];
+    const d = parseExcelDate(row[apDateIdx]);
+    if (!d) continue;
+    const rawDemandValue = apDemandIdx < 0 ? Number.NaN : Number.parseFloat(String(row[apDemandIdx]).replace("%", "").replace(",", "."));
+    const demandRaw = Number.isFinite(rawDemandValue) ? rawDemandValue : null;
+    const demandScale: '0_1' | '0_100' | 'missing' = demandRaw === null ? 'missing' : (demandRaw >= 0 && demandRaw <= 1 ? '0_1' : '0_100');
+    const dem = demandRaw === null ? null : (demandScale === '0_1' ? Math.round(demandRaw * 1000) / 10 : demandRaw);
+    if (dem !== null && (dem < 0 || dem > 100)) {
+      throw new Error(`Indice de demande Lighthouse hors échelle pour le ${d} : ${demandRaw}.`);
+    }
+    const med = Number.parseFloat(String(row[apMedianIdx]).replace(/[€\s]/g, "").replace(",", "."));
+    if (!Number.isFinite(med) || med <= 0) {
+      throw new Error(`Médiane Lighthouse invalide pour le ${d} : aucune valeur de remplacement ne sera inventée.`);
+    }
+    apercuMap.set(d, { demand: dem, demandRaw, demandScale, medianLh: med });
+  }
+
+  // Mapper les évolutions vs Hier, vs 3j, vs 7j par (date + nom d'hôtel).
   const mapEvoSheet = (rows: any[][]) => {
     const m = new Map<string, number | null>();
     if (rows.length < 2) return m;
-    const hd = rows[0].map((h: any) => String(h).trim());
-    const dIdx = hd.findIndex((h) => /date/i.test(h));
+    const headerIndex = findHeaderRowIndex(rows, [/date/i]);
+    if (headerIndex < 0) return m;
+    const hd = rows[headerIndex].map((h: any) => String(h).trim());
+    const dIdx = hd.findIndex((h) => /^date$/i.test(h));
+    if (dIdx < 0) return m;
 
-    for (let r = 1; r < rows.length; r++) {
+    for (let r = headerIndex + 1; r < rows.length; r++) {
       const row = rows[r];
       const d = parseExcelDate(row[dIdx]);
       if (!d) continue;
@@ -867,7 +973,7 @@ export function parseLighthouseExcelFile(
   const frenchDays = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const records: LighthouseDailyItem[] = [];
 
-  for (let r = 1; r < rawTarifs.length; r++) {
+  for (let r = tarifsHeaderIndex + 1; r < rawTarifs.length; r++) {
     const row = rawTarifs[r];
     const dateStr = parseExcelDate(row[dateColIdx >= 0 ? dateColIdx : 0]);
     if (!dateStr) continue;
@@ -878,7 +984,12 @@ export function parseLighthouseExcelFile(
 
     // Demande
     const apInfo = apercuMap.get(dateStr);
-    const demandIndex = apInfo ? apInfo.demand : demandColIdx >= 0 ? parseFloat(row[demandColIdx]) || 55 : 55;
+    if (!apInfo) {
+      throw new Error(`Aucune donnée Aperçu (demande/médiane) ne correspond à la date ${dateStr} de l'onglet Tarifs.`);
+    }
+    const demandIndex = apInfo.demand;
+    const demandIndexRaw = apInfo.demandRaw;
+    const demandIndexScale = apInfo.demandScale;
     const demandLevel = getDemandLevelFromIndex(demandIndex);
 
     // Évolution demande
@@ -908,7 +1019,7 @@ export function parseLighthouseExcelFile(
       return {
         id: `comp-upload-${idx}`,
         name: cCol.name,
-        stars: 4,
+        stars: null,
         rate,
         status,
         statusLabel: label,
@@ -919,21 +1030,24 @@ export function parseLighthouseExcelFile(
       };
     });
 
-    // Médianes
-    const flowtymMedianEur = calculateFlowtymMedian(competitors);
-    const lighthouseMedianEur = apInfo ? apInfo.medianLh : flowtymMedianEur;
-    const medianGapEur = flowtymMedianEur - lighthouseMedianEur;
-    const medianGapPct = lighthouseMedianEur > 0 ? Math.round((medianGapEur / lighthouseMedianEur) * 1000) / 10 : 0;
-
-    // Stats
     const availableCompRates = competitors
       .filter((c) => c.status === 'disponible' && c.rate !== null && c.rate > 0)
       .map((c) => c.rate as number);
 
+    // Médianes
+    const flowtymMedianCalculated = calculateFlowtymMedian(competitors);
+    const flowtymMedianEur = availableCompRates.length > 0 ? flowtymMedianCalculated : null;
+    const lighthouseMedianEur = apInfo.medianLh;
+    const medianGapEur = flowtymMedianEur === null ? null : flowtymMedianEur - lighthouseMedianEur;
+    const medianGapPct = flowtymMedianEur !== null && lighthouseMedianEur > 0
+      ? Math.round((medianGapEur! / lighthouseMedianEur) * 1000) / 10
+      : null;
+
+    // Stats
     const compsetAverage =
       availableCompRates.length > 0
         ? Math.round(availableCompRates.reduce((a, b) => a + b, 0) / availableCompRates.length)
-        : folkRate ?? 250;
+        : null;
 
     const minCompRate = availableCompRates.length > 0 ? Math.min(...availableCompRates) : null;
     const minCompHotel = competitors.find((c) => c.rate === minCompRate);
@@ -974,8 +1088,8 @@ export function parseLighthouseExcelFile(
       evolution7d: folkEvo7d,
       gapVsLighthouseMedianEur: folkRate !== null ? folkRate - lighthouseMedianEur : null,
       gapVsLighthouseMedianPct: folkRate !== null && lighthouseMedianEur > 0 ? Math.round(((folkRate - lighthouseMedianEur) / lighthouseMedianEur) * 1000) / 10 : null,
-      gapVsFlowtymMedianEur: folkRate !== null ? folkRate - flowtymMedianEur : null,
-      gapVsFlowtymMedianPct: folkRate !== null && flowtymMedianEur > 0 ? Math.round(((folkRate - flowtymMedianEur) / flowtymMedianEur) * 1000) / 10 : null,
+      gapVsFlowtymMedianEur: folkRate !== null && flowtymMedianEur !== null ? folkRate - flowtymMedianEur : null,
+      gapVsFlowtymMedianPct: folkRate !== null && flowtymMedianEur !== null && flowtymMedianEur > 0 ? Math.round(((folkRate - flowtymMedianEur) / flowtymMedianEur) * 1000) / 10 : null,
       rank: folkRank,
       totalAvailable: totalAvailableHotels,
       positioning: folkPositioning,
@@ -1005,10 +1119,10 @@ export function parseLighthouseExcelFile(
 
     const soldOutCount = competitors.filter((c) => c.status === 'epuise').length;
 
-    const aiAlerts = generateLighthouseAIAlerts(
+    const aiAlerts = demandIndex === null || flowtymMedianEur === null ? [] : generateLighthouseAIAlerts(
       dateStr,
       demandIndex,
-      demandLevel,
+      demandLevel as MarketDemandLevelCategory,
       folkRate,
       folkStatus,
       lighthouseMedianEur,
@@ -1025,6 +1139,8 @@ export function parseLighthouseExcelFile(
       dayOfWeek,
       isWeekend,
       demandIndex,
+      demandIndexRaw,
+      demandIndexScale,
       demandLevel,
       demandEvolution1d,
       demandEvolution3d,
@@ -1055,6 +1171,11 @@ export function parseLighthouseExcelFile(
 
   records.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
+  const stayDates = records.map((record) => record.dateStr).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+  const sourceUpdatedAt = stayDates.length > 0
+    ? parseLighthouseUpdatedAt(rawTarifs, tarifsHeaderIndex, stayDates[0], timezone)
+    : null;
+
   return {
     metadata: {
       id: `ext-upload-${Date.now()}`,
@@ -1070,6 +1191,7 @@ export function parseLighthouseExcelFile(
       totalDatesCount: records.length,
       isCustomUpload: true,
       sourceStatus: 'imported',
+      sourceUpdatedAt,
     },
     records,
   };
@@ -1080,7 +1202,7 @@ function parseRateCell(val: any): { rate: number | null; status: HotelAvailabili
     return { rate: null, status: 'non_disponible', label: 'N/D' };
   }
 
-  const str = String(val).trim().toLowerCase();
+  const str = String(val).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   if (str.includes('epuis') || str.includes('complet') || str.includes('sold')) {
     return { rate: null, status: 'epuise', label: 'Épuisé' };

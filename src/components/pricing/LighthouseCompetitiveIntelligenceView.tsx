@@ -12,7 +12,9 @@
  * 5. vs. 7 jours
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useAuth } from '../../auth/AuthProvider';
+import { loadRecentLighthouseExtractions, persistLighthouseExtraction, resolveAccessibleRmsHotel } from '../../services/lighthouseImportService';
 import {
   TrendingUp,
   Download,
@@ -64,7 +66,7 @@ import {
   LighthouseExtractionDataset,
   MarketDemandThresholds,
   DEFAULT_DEMAND_THRESHOLDS,
-  createDefaultLighthouseDataset,
+  createEmptyLighthouseDataset,
   exportLighthouseWorkbookToXLSX,
   parseLighthouseExcelFile,
   getDemandColor,
@@ -94,10 +96,10 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
   onShowToast,
   onApplyRecommendationToRMS,
 }) => {
-  // Extraction Dataset State (demo fixture, explicitly labelled as simulation until a real export is imported)
-  const [dataset, setDataset] = useState<LighthouseExtractionDataset>(() => createDefaultLighthouseDataset());
-  const [extractionsHistory, setExtractionsHistory] = useState<LighthouseExtractionDataset[]>([dataset]);
-  const [selectedExtractionId, setSelectedExtractionId] = useState<string>(dataset.metadata.id);
+  // Aucune donnée synthétique au démarrage : seules les extractions réellement importées sont affichées.
+  const [dataset, setDataset] = useState<LighthouseExtractionDataset>(() => createEmptyLighthouseDataset());
+  const [extractionsHistory, setExtractionsHistory] = useState<LighthouseExtractionDataset[]>([]);
+  const [selectedExtractionId, setSelectedExtractionId] = useState<string>('');
 
   // Flowtym Configurable Demand Thresholds
   const [thresholds, setThresholds] = useState<MarketDemandThresholds>(DEFAULT_DEMAND_THRESHOLDS);
@@ -121,6 +123,63 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
   // Selected date for deep drilldown modal
   const [inspectedRecord, setInspectedRecord] = useState<LighthouseDailyItem | null>(null);
+  const { supabase, user } = useAuth();
+  const [databaseHotelId, setDatabaseHotelId] = useState<string | null>(null);
+  const [isLoadingPersisted, setIsLoadingPersisted] = useState(true);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
+
+  // The surrounding application still supplies legacy/mock hotel identifiers.
+  // Resolve the selected hotel through authenticated RLS before reading or writing.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPersistedExtractions = async () => {
+      setIsLoadingPersisted(true);
+      setDatabaseHotelId(null);
+
+      if (!supabase || !hotel) {
+        if (!cancelled) {
+          setPersistenceError('Session Supabase ou hôtel sélectionné indisponible. Import désactivé.');
+          setIsLoadingPersisted(false);
+        }
+        return;
+      }
+
+      try {
+        const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+          name: hotel.name,
+          city: hotel.city,
+          country: hotel.country,
+        });
+        const recent = await loadRecentLighthouseExtractions(supabase, dbHotel.id, 20);
+        if (cancelled) return;
+
+        const restored = recent
+          .map((item) => item.dataset)
+          .filter((item): item is LighthouseExtractionDataset => Boolean(item));
+
+        setDatabaseHotelId(dbHotel.id);
+        setExtractionsHistory(restored);
+        if (restored.length > 0) {
+          setDataset(restored[0]);
+          setSelectedExtractionId(restored[0].metadata.id);
+        } else {
+          setDataset(createEmptyLighthouseDataset());
+          setSelectedExtractionId('');
+        }
+        setPersistenceError(null);
+      } catch (error) {
+        if (!cancelled) {
+          setPersistenceError(error instanceof Error ? error.message : 'Impossible de charger les extractions Lighthouse.');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingPersisted(false);
+      }
+    };
+
+    void loadPersistedExtractions();
+    return () => { cancelled = true; };
+  }, [supabase, hotel?.name, hotel?.city, hotel?.country]);
 
   // Export current dataset to real 5-sheets XLSX
   const handleDownloadXLSX = () => {
@@ -147,24 +206,44 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
   // Upload handler for real Lighthouse Excel file
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
     setIsUploading(true);
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
-        const buffer = event.target?.result as ArrayBuffer;
-        const parsed = parseLighthouseExcelFile(buffer, file.name);
+        if (!supabase || !user?.id || !hotel || !databaseHotelId) {
+          throw new Error('Aucun hôtel Supabase vérifié ou session Revenue Manager active. Import bloqué.');
+        }
 
+        const buffer = event.target?.result as ArrayBuffer;
+        const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+          name: hotel.name,
+          city: hotel.city,
+          country: hotel.country,
+        });
+        const parsed = parseLighthouseExcelFile(buffer, file.name, dbHotel.timezone || 'Europe/Paris');
+        if (dbHotel.id !== databaseHotelId) {
+          throw new Error('L’hôtel sélectionné a changé depuis le chargement. Rechargez l’écran avant import.');
+        }
+        parsed.metadata.currency = dbHotel.currency;
+        parsed.metadata.referenceHotel = dbHotel.name;
+
+        const persisted = await persistLighthouseExtraction(supabase, dbHotel, parsed, user.id);
         setDataset(parsed);
         setExtractionsHistory((prev) => [parsed, ...prev]);
         setSelectedExtractionId(parsed.metadata.id);
-        setIsUploading(false);
-        onShowToast(`✓ Fichier "${file.name}" importé avec succès (${parsed.records.length} dates extraites des 5 onglets)`);
+        setPersistenceError(null);
+        const mappingNote = persisted.unmatchedCompetitors.length > 0
+          ? ` ${persisted.unmatchedCompetitors.length} concurrent(s) non rapproché(s), conservé(s) hors calcul CompSet : ${persisted.unmatchedCompetitors.join(', ')}.`
+          : ' Tous les concurrents ont été rapprochés par nom exact.';
+        onShowToast(`✓ ${file.name} enregistré dans Supabase : ${parsed.records.length} dates et ${persisted.observationsInserted} relevés concurrents.${mappingNote}`);
       } catch (err: any) {
-        setIsUploading(false);
         console.error(err);
-        onShowToast(`Erreur d'import : ${err.message || 'Structure de fichier non reconnue'}`);
+        onShowToast(`Échec de l'import Lighthouse : ${err?.message || 'Structure de fichier non reconnue'}`);
+      } finally {
+        setIsUploading(false);
       }
     };
     reader.onerror = () => {
@@ -222,6 +301,8 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         case 'highest_evo_7d':
           return (b.folkestone.evolution7d ?? 0) - (a.folkestone.evolution7d ?? 0);
         case 'demand_desc':
+          if (a.demandIndex === null) return b.demandIndex === null ? 0 : 1;
+          if (b.demandIndex === null) return -1;
           return b.demandIndex - a.demandIndex;
         default:
           return 0;
@@ -231,55 +312,66 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
     return list;
   }, [dataset.records, searchQuery, demandFilter, sortBy]);
 
-  // Overall Market Summary (Section 6)
+  // Synthèse calculée uniquement à partir des observations réellement importées.
   const marketSummary = useMemo(() => {
     if (dataset.records.length === 0) return null;
-
-    const avgDemand = Math.round(
-      dataset.records.reduce((acc, r) => acc + r.demandIndex, 0) / dataset.records.length
-    );
-
-    const availableFolkestone = dataset.records.filter((r) => r.folkestone.rate !== null);
-    const avgFolkestone =
-      availableFolkestone.length > 0
-        ? Math.round(
-            availableFolkestone.reduce((acc, r) => acc + (r.folkestone.rate as number), 0) /
-              availableFolkestone.length
-          )
-        : 240;
-
-    const avgLhMedian = Math.round(
-      dataset.records.reduce((acc, r) => acc + r.lighthouseMedianEur, 0) / dataset.records.length
-    );
-
-    const avgFtMedian = Math.round(
-      dataset.records.reduce((acc, r) => acc + r.flowtymMedianEur, 0) / dataset.records.length
-    );
-
-    const totalSoldOutEvents = dataset.records.reduce((acc, r) => acc + r.totalSoldOutHotels, 0);
-
+    const mean = (values: Array<number | null | undefined>): number | null => {
+      const valid = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value));
+      return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
+    };
+    const min = (values: Array<number | null>): number | null => {
+      const valid = values.filter((value): value is number => value !== null && Number.isFinite(value));
+      return valid.length ? Math.min(...valid) : null;
+    };
+    const max = (values: Array<number | null>): number | null => {
+      const valid = values.filter((value): value is number => value !== null && Number.isFinite(value));
+      return valid.length ? Math.max(...valid) : null;
+    };
+    const avgDemandRaw = mean(dataset.records.map(r => r.demandIndex));
+    const avgFolkestoneRaw = mean(dataset.records.map(r => r.folkestone.rate));
+    const avgLhMedianRaw = mean(dataset.records.map(r => r.lighthouseMedianEur));
+    const avgFtMedianRaw = mean(dataset.records.map(r => r.flowtymMedianEur));
+    const avgGapBetweenMedians = mean(dataset.records.map(r => r.medianGapEur));
+    const avgGapFolkestoneVsMedian = mean(dataset.records.map(r => r.folkestone.gapVsFlowtymMedianEur));
+    const avgGapFolkestoneVsMedianPct = mean(dataset.records.map(r => r.folkestone.gapVsFlowtymMedianPct));
+    const avgDemandEvolution1d = mean(dataset.records.map(r => r.demandEvolution1d));
+    const avgDemandEvolution7d = mean(dataset.records.map(r => r.demandEvolution7d));
+    const avgRank = mean(dataset.records.map(r => r.folkestone.rank));
+    const avgAvailableHotels = mean(dataset.records.map(r => r.totalAvailableHotels));
+    const avgPositioningGapPct = avgFolkestoneRaw !== null && avgFtMedianRaw !== null && avgFtMedianRaw > 0
+      ? ((avgFolkestoneRaw - avgFtMedianRaw) / avgFtMedianRaw) * 100
+      : null;
+    const positioningLabel = avgPositioningGapPct === null ? 'Non disponible'
+      : avgPositioningGapPct <= -8 ? 'Sous la médiane'
+      : avgPositioningGapPct >= 8 ? 'Au-dessus de la médiane'
+      : 'Aligné sur la médiane';
+    const maxIncrease7d = dataset.records
+      .flatMap(r => r.maxIncrease7d ? [r.maxIncrease7d] : [])
+      .sort((a, b) => b.amount - a.amount)[0] ?? null;
     const allAiAlerts: LighthouseAIRecoveryAlert[] = [];
-    dataset.records.forEach((r) => {
-      allAiAlerts.push(...r.aiAlerts);
-    });
-
-    // Count velocity 24h & 7d
-    const totalHikes1d = dataset.records.reduce((acc, r) => acc + r.increasedCount1d, 0);
-    const totalDrops1d = dataset.records.reduce((acc, r) => acc + r.decreasedCount1d, 0);
-    const totalStables1d = dataset.records.reduce((acc, r) => acc + r.stableCount1d, 0);
-
+    dataset.records.forEach((r) => allAiAlerts.push(...r.aiAlerts));
     return {
-      avgDemand,
-      avgFolkestone,
-      avgLhMedian,
-      avgFtMedian,
-      gapBetweenMedians: avgFtMedian - avgLhMedian,
-      gapFolkestoneVsMedian: avgFolkestone - avgFtMedian,
-      totalSoldOutEvents,
+      avgDemand: avgDemandRaw === null ? null : Math.round(avgDemandRaw),
+      demandObservations: dataset.records.filter(r => r.demandIndex !== null).length,
+      avgFolkestone: avgFolkestoneRaw === null ? null : Math.round(avgFolkestoneRaw),
+      avgLhMedian: avgLhMedianRaw === null ? null : Math.round(avgLhMedianRaw),
+      avgFtMedian: avgFtMedianRaw === null ? null : Math.round(avgFtMedianRaw),
+      gapBetweenMedians: avgGapBetweenMedians === null ? null : Math.round(avgGapBetweenMedians * 10) / 10,
+      gapFolkestoneVsMedian: avgGapFolkestoneVsMedian === null ? null : Math.round(avgGapFolkestoneVsMedian * 10) / 10,
+      gapFolkestoneVsMedianPct: avgGapFolkestoneVsMedianPct === null ? null : Math.round(avgGapFolkestoneVsMedianPct * 10) / 10,
+      avgDemandEvolution1d,
+      avgDemandEvolution7d,
+      avgRank,
+      avgAvailableHotels,
+      positioningLabel,
+      compsetMinObserved: min(dataset.records.map(r => r.minCompRate)),
+      compsetMaxObserved: max(dataset.records.map(r => r.maxCompRate)),
+      maxIncrease7d,
+      totalSoldOutEvents: dataset.records.reduce((acc, r) => acc + r.totalSoldOutHotels, 0),
       allAiAlerts,
-      totalHikes1d,
-      totalDrops1d,
-      totalStables1d,
+      totalHikes1d: dataset.records.reduce((acc, r) => acc + r.increasedCount1d, 0),
+      totalDrops1d: dataset.records.reduce((acc, r) => acc + r.decreasedCount1d, 0),
+      totalStables1d: dataset.records.reduce((acc, r) => acc + r.stableCount1d, 0),
     };
   }, [dataset.records]);
 
@@ -321,9 +413,19 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         </div>
       )}
     <div className="space-y-6 animate-in fade-in duration-200">
+      {isLoadingPersisted && (
+        <div role="status" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+          Chargement de l’historique Lighthouse depuis Supabase…
+        </div>
+      )}
+      {persistenceError && (
+        <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <strong>Import désactivé :</strong> {persistenceError}
+        </div>
+      )}
       {/* Top Banner: Parameters, File Metadata & Actions */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <span className="w-9 h-9 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-2xs">
@@ -352,7 +454,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               <select
                 value={selectedExtractionId}
                 onChange={(e) => handleSelectExtraction(e.target.value)}
-                className="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 pr-7 focus:outline-hidden cursor-pointer"
+                className="bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 pr-7 focus:outline-hidden cursor-pointer"
                 title="Basculer entre les extractions Lighthouse importées"
               >
                 {extractionsHistory.map((ext) => (
@@ -367,7 +469,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             <button
               type="button"
               onClick={() => setIsThresholdModalOpen(true)}
-              className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Configurer les seuils d'analyse de la demande Flowtym (Faible, Modérée, Forte, Très forte)"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-violet-600" />
@@ -378,7 +480,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             <button
               type="button"
               onClick={handleDownloadXLSX}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+              className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
               title="Télécharger l'export Excel original complet à 5 onglets"
             >
               <Download className="w-3.5 h-3.5 text-slate-600" />
@@ -394,7 +496,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={handleFileUpload}
-                disabled={isUploading}
+                disabled={isUploading || isLoadingPersisted || !databaseHotelId}
                 className="hidden"
               />
             </label>
@@ -403,27 +505,27 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
         {/* Search Parameters Strip matching Lighthouse export */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Hôtel Référence</span>
-            <strong className="text-violet-700 font-bold truncate block">{dataset.metadata.referenceHotel}</strong>
+            <strong className="text-violet-700 dark:text-violet-300 font-bold truncate block">{dataset.metadata.referenceHotel}</strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Source de Veille</span>
-            <strong className="text-slate-800 font-bold block">{dataset.metadata.sourceChannel}</strong>
+            <strong className="text-slate-800 dark:text-slate-200 font-bold block">{dataset.metadata.sourceChannel}</strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Devise / Séjour</span>
-            <strong className="text-slate-800 font-bold block">{dataset.metadata.currency} · {dataset.metadata.los}</strong>
+            <strong className="text-slate-800 dark:text-slate-200 font-bold block">{dataset.metadata.currency} · {dataset.metadata.los}</strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Occupation</span>
-            <strong className="text-slate-800 font-bold block">{dataset.metadata.occupancy}</strong>
+            <strong className="text-slate-800 dark:text-slate-200 font-bold block">{dataset.metadata.occupancy}</strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Compset de Référence</span>
             <strong className="text-slate-800 font-bold block">{dataset.metadata.compsetName} (5 hôtels)</strong>
           </div>
-          <div className="bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Horizon Analysé</span>
             <strong className="text-slate-800 font-bold block">{dataset.metadata.totalDatesCount} dates</strong>
           </div>
@@ -431,7 +533,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
       </div>
 
       {/* Sub-Tabs: Navigation between Views */}
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
         <div className="flex items-center gap-1.5 overflow-x-auto">
           <button
             type="button"
@@ -498,7 +600,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
       {activeSubTab === 'table_compset' && (
         <div className="space-y-4">
           {/* Controls & Filter Bar */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-[280px]">
               <div className="relative flex-1 max-w-md">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -507,7 +609,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   placeholder="Filtrer par date (ex: 2026-11-25) ou concurrent..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-violet-400"
+                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-hidden focus:border-violet-400"
                 />
               </div>
 
@@ -515,7 +617,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               <select
                 value={demandFilter}
                 onChange={(e) => setDemandFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 cursor-pointer"
+                className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer"
               >
                 <option value="all">Toutes demandes</option>
                 <option value="faible">Faible (Vert)</option>
@@ -531,7 +633,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as LighthouseSortOption)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 cursor-pointer"
+                className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
               >
                 <option value="date_asc">Date chronologique</option>
                 <option value="price_asc">Du moins cher au plus cher</option>
@@ -548,19 +650,19 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
           <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 bg-slate-50/80 px-4 py-2 rounded-xl border border-slate-200/60">
             <div className="flex items-center gap-4">
               <span className="font-bold text-slate-700">Code Couleur Évolutions :</span>
-              <span className="flex items-center gap-1 text-emerald-700 font-semibold">
+              <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 Hausse des prix (+X€)
               </span>
-              <span className="flex items-center gap-1 text-rose-700 font-semibold">
+              <span className="flex items-center gap-1 text-rose-700 dark:text-rose-300 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-rose-500" />
                 Baisse des prix (-X€)
               </span>
-              <span className="flex items-center gap-1 text-slate-500 font-semibold">
+              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-slate-400" />
                 Stabilité (0€)
               </span>
-              <span className="flex items-center gap-1 text-amber-700 font-semibold">
+              <span className="flex items-center gap-1 text-amber-700 dark:text-amber-300 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
                 Statut spécifique (Épuisé / LOS2 / 1 pax)
               </span>
@@ -572,13 +674,13 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
           </div>
 
           {/* Table Container */}
-          <div className="overflow-x-auto bg-white rounded-3xl border border-slate-200/90 shadow-2xs">
+          <div className="overflow-x-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
-                  <th className="py-3 px-3.5 sticky left-0 bg-slate-50 z-10 w-32">Date & Jour</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-3.5 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10 w-32">Date & Jour</th>
                   <th className="py-3 px-3 text-center w-28">Demande Marché</th>
-                  <th className="py-3 px-3.5 bg-violet-50/90 text-violet-900 border-x border-violet-200 text-center w-48">
+                  <th className="py-3 px-3.5 bg-violet-50/90 dark:bg-violet-950/45 text-violet-900 dark:text-violet-200 border-x border-violet-200 dark:border-violet-800/70 text-center w-48">
                     Folkestone Opéra ★ (Réf)
                   </th>
                   {dataset.records[0]?.competitors.map((comp) => (
@@ -593,7 +695,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                 {filteredRecords.map((record) => {
                   const demColor = getDemandColor(record.demandLevel);
                   return (
-                    <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={record.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/70 transition-colors">
                       {/* Date & Jour */}
                       <td className="py-3 px-3.5 font-medium text-slate-800 sticky left-0 bg-white hover:bg-slate-50 z-10 whitespace-nowrap border-r border-slate-100">
                         <div className="font-bold text-slate-900">{record.dateStr}</div>
@@ -605,10 +707,10 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                         <div className={`inline-flex flex-col items-center px-2.5 py-1 rounded-xl border ${demColor.bg} ${demColor.border}`}>
                           <div className="flex items-center gap-1.5">
                             <span className={`w-2 h-2 rounded-full ${demColor.dot}`} />
-                            <span className={`font-black text-xs ${demColor.text}`}>{record.demandIndex}</span>
+                            <span className={`font-black text-xs ${demColor.text}`}>{record.demandIndex === null ? '—' : Math.round(record.demandIndex)}</span>
                           </div>
                           <span className={`text-[9px] font-bold uppercase tracking-wide ${demColor.text}`}>
-                            {record.demandLevel.replace('_', ' ')}
+                            {record.demandLevel === 'non_renseigne' ? 'Non renseignée' : record.demandLevel.replace('_', ' ')}
                           </span>
                         </div>
                         {record.demandEvolution1d !== null && record.demandEvolution1d !== 0 && (
@@ -619,7 +721,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                       </td>
 
                       {/* Folkestone Opéra (Hôtel de référence avec surbrillance) */}
-                      <td className="py-3 px-3.5 bg-violet-50/40 border-x border-violet-200 text-center whitespace-nowrap">
+                      <td className="py-3 px-3.5 bg-violet-50/40 dark:bg-violet-950/30 border-x border-violet-200 dark:border-violet-800/70 text-center whitespace-nowrap">
                         <div className="space-y-1">
                           <div className="font-black text-sm text-violet-950">
                             {record.folkestone.rate !== null ? `${record.folkestone.rate} €` : record.folkestone.statusLabel}
@@ -680,7 +782,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                         <button
                           type="button"
                           onClick={() => setInspectedRecord(record)}
-                          className="px-2.5 py-1 text-slate-600 hover:text-violet-700 hover:bg-violet-50 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                          className="px-2.5 py-1 text-slate-600 dark:text-slate-400 hover:text-violet-700 dark:hover:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/50 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                         >
                           Détails →
                         </button>
@@ -698,7 +800,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
       {activeSubTab === 'positioning' && (
         <div className="space-y-4">
           <div className="bg-amber-50/60 border border-amber-200 p-4 rounded-2xl flex items-start gap-3 text-xs text-amber-900">
-            <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
               <strong>Distinction Essentielle entre les Deux Médianes :</strong>
               <p className="text-[11px] leading-relaxed text-amber-800">
@@ -709,11 +811,11 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
           </div>
 
           {/* Table Container */}
-          <div className="overflow-x-auto bg-white rounded-3xl border border-slate-200/90 shadow-2xs">
+          <div className="overflow-x-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
-                  <th className="py-3 px-3.5 sticky left-0 bg-slate-50 z-10">Date & Jour</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-3.5 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">Date & Jour</th>
                   <th className="py-3 px-3 text-center">Demande</th>
                   <th className="py-3 px-3 text-center bg-violet-50 text-violet-900">Folkestone Opéra</th>
                   <th className="py-3 px-3 text-center">Médiane Lighthouse (Off.)</th>
@@ -732,7 +834,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                 {filteredRecords.map((record) => {
                   const demColor = getDemandColor(record.demandLevel);
                   return (
-                    <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={record.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/70 transition-colors">
                       <td className="py-3 px-3.5 font-bold text-slate-900 sticky left-0 bg-white hover:bg-slate-50 z-10 whitespace-nowrap border-r border-slate-100">
                         <div>{record.dateStr}</div>
                         <span className="text-[10px] font-normal text-slate-500">{record.dayOfWeek}</span>
@@ -741,37 +843,37 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                       {/* Demande */}
                       <td className="py-3 px-3 text-center whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${demColor.bg} ${demColor.text}`}>
-                          {record.demandIndex} ({record.demandLevel.replace('_', ' ')})
+                          {record.demandIndex === null ? '—' : Math.round(record.demandIndex)} ({record.demandLevel === 'non_renseigne' ? 'Non renseignée' : record.demandLevel.replace('_', ' ')})
                         </span>
                       </td>
 
                       {/* Folkestone */}
-                      <td className="py-3 px-3 text-center bg-violet-50/50 font-black text-violet-950 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center bg-violet-50/50 dark:bg-violet-950/35 font-black text-violet-950 dark:text-violet-100 whitespace-nowrap">
                         {record.folkestone.rate !== null ? `${record.folkestone.rate} €` : record.folkestone.statusLabel}
                       </td>
 
                       {/* Médiane Lighthouse */}
-                      <td className="py-3 px-3 text-center font-bold text-slate-700 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {record.lighthouseMedianEur} €
                       </td>
 
                       {/* Médiane Recalculée Flowtym */}
-                      <td className="py-3 px-3 text-center font-black text-indigo-900 bg-indigo-50/40 whitespace-nowrap">
-                        {record.flowtymMedianEur} €
+                      <td className="py-3 px-3 text-center font-black text-indigo-900 dark:text-indigo-200 bg-indigo-50/40 dark:bg-indigo-950/30 whitespace-nowrap">
+                        {record.flowtymMedianEur === null ? '—' : `${record.flowtymMedianEur} €`}
                       </td>
 
                       {/* Écart entre les 2 médianes */}
                       <td className="py-3 px-3 text-center whitespace-nowrap">
                         <span
                           className={`text-xs font-bold ${
-                            record.medianGapEur === 0
+                            record.medianGapEur === null || record.medianGapEur === 0
                               ? 'text-slate-400'
                               : record.medianGapEur > 0
                               ? 'text-indigo-600'
                               : 'text-amber-600'
                           }`}
                         >
-                          {record.medianGapEur > 0 ? `+${record.medianGapEur}` : record.medianGapEur} € ({record.medianGapPct}%)
+                          {record.medianGapEur === null ? '—' : `${record.medianGapEur > 0 ? '+' : ''}${record.medianGapEur} € (${record.medianGapPct === null ? '—' : `${record.medianGapPct}%`})`}
                         </span>
                       </td>
 
@@ -798,7 +900,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                       </td>
 
                       {/* Fourchette Min — Max */}
-                      <td className="py-3 px-3 text-center text-slate-600 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center text-slate-600 dark:text-slate-400 whitespace-nowrap">
                         <span className="font-semibold">{record.minCompRate ?? 'N/D'} €</span>
                         <span className="text-slate-300 mx-1">—</span>
                         <span className="font-semibold">{record.maxCompRate ?? 'N/D'} €</span>
@@ -806,7 +908,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
                       {/* Disponibilités */}
                       <td className="py-3 px-3 text-center whitespace-nowrap">
-                        <span className="text-slate-700 font-semibold">{record.totalAvailableHotels} dispo</span>
+                        <span className="text-slate-700 dark:text-slate-300 font-semibold">{record.totalAvailableHotels} dispo</span>
                         {record.totalSoldOutHotels > 0 && (
                           <span className="ml-1 text-[10px] font-bold text-rose-600">
                             ({record.totalSoldOutHotels} épuisé)
@@ -815,7 +917,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                       </td>
 
                       {/* Rang */}
-                      <td className="py-3 px-3 text-center font-bold text-slate-900 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {record.folkestone.rank !== null ? `${record.folkestone.rank}/${record.totalAvailableHotels}` : '—'}
                       </td>
 
@@ -848,54 +950,54 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
           {/* 4 KPI Blocks (A. Demande, B. Marché, C. Mon Hôtel, D. Dynamique) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* A. DEMANDE DU MARCHÉ */}
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">A. Demande du Marché</span>
                 <Flame className="w-4 h-4 text-orange-500" />
               </div>
               <div>
-                <div className="text-2xl font-black text-slate-900">{marketSummary.avgDemand} / 100</div>
-                <div className="text-xs text-orange-700 font-bold mt-0.5">Niveau Moyen : Forte Pression</div>
+                <div className="text-2xl font-black text-slate-900">{marketSummary.avgDemand === null ? '—' : `${marketSummary.avgDemand} / 100`}</div>
+                <div className="text-xs text-slate-600 font-bold mt-0.5">{marketSummary.avgDemand === null ? 'Demande non renseignée' : `Niveau moyen : ${getDemandLevelFromIndex(marketSummary.avgDemand).replace('_', ' ')}`}</div>
               </div>
-              <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <div className="flex justify-between">
                   <span>Évolution J-1 :</span>
-                  <strong className="text-emerald-600 font-bold">+2.4 pts</strong>
+                  <strong className="text-slate-700 font-bold">{marketSummary.avgDemandEvolution1d === null ? '—' : `${marketSummary.avgDemandEvolution1d > 0 ? '+' : ''}${marketSummary.avgDemandEvolution1d.toFixed(1)} pts`}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Évolution J-7 :</span>
-                  <strong className="text-emerald-600 font-bold">+6.8 pts</strong>
+                  <strong className="text-slate-700 font-bold">{marketSummary.avgDemandEvolution7d === null ? '—' : `${marketSummary.avgDemandEvolution7d > 0 ? '+' : ''}${marketSummary.avgDemandEvolution7d.toFixed(1)} pts`}</strong>
                 </div>
                 <p className="text-[9px] text-slate-400 pt-1 leading-tight">
-                  Indice de tension Lighthouse (non assimilable à un taux d&apos;occupation).
+                  Indice de tension Lighthouse (non assimilable à un taux d&apos;occupation). Observations : {marketSummary.demandObservations}/{dataset.records.length} dates.
                 </p>
               </div>
             </div>
 
             {/* B. MARCHÉ & COMPSET */}
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">B. Marché Compset</span>
                 <DollarSign className="w-4 h-4 text-indigo-500" />
               </div>
               <div>
-                <div className="text-2xl font-black text-indigo-950">{marketSummary.avgFtMedian} €</div>
-                <div className="text-xs text-indigo-700 font-bold mt-0.5">Médiane Recalculée Flowtym</div>
+                <div className="text-2xl font-black text-indigo-950">{marketSummary.avgFtMedian === null ? '—' : `${marketSummary.avgFtMedian} €`}</div>
+                <div className="text-xs text-indigo-700 dark:text-indigo-300 font-bold mt-0.5">Médiane Recalculée Flowtym</div>
               </div>
-              <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
                 <div className="flex justify-between">
                   <span>Médiane Lighthouse (Off.) :</span>
-                  <strong className="text-slate-800">{marketSummary.avgLhMedian} €</strong>
+                  <strong className="text-slate-800">{marketSummary.avgLhMedian === null ? '—' : `${marketSummary.avgLhMedian} €`}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Écart entre médianes :</span>
                   <strong className="text-indigo-600">
-                    {marketSummary.gapBetweenMedians >= 0 ? `+${marketSummary.gapBetweenMedians}` : marketSummary.gapBetweenMedians} €
+                    {marketSummary.gapBetweenMedians === null ? '—' : `${marketSummary.gapBetweenMedians >= 0 ? '+' : ''}${marketSummary.gapBetweenMedians} €`}
                   </strong>
                 </div>
                 <div className="flex justify-between">
-                  <span>Fourchette compset moyenne :</span>
-                  <span className="font-semibold text-slate-700">260€ — 360€</span>
+                  <span>Fourchette compset observée :</span>
+                  <span className="font-semibold text-slate-700">{marketSummary.compsetMinObserved === null || marketSummary.compsetMaxObserved === null ? '—' : `${marketSummary.compsetMinObserved}€ — ${marketSummary.compsetMaxObserved}€`}</span>
                 </div>
               </div>
             </div>
@@ -907,82 +1009,81 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                 <Building2 className="w-4 h-4 text-violet-600" />
               </div>
               <div>
-                <div className="text-2xl font-black text-violet-950">{marketSummary.avgFolkestone} €</div>
-                <div className="text-xs text-emerald-700 font-bold mt-0.5">Positionnement : Compétitif / Attractif</div>
+                <div className="text-2xl font-black text-violet-950">{marketSummary.avgFolkestone === null ? '—' : `${marketSummary.avgFolkestone} €`}</div>
+                <div className="text-xs text-slate-600 font-bold mt-0.5">Positionnement : {marketSummary.positioningLabel}</div>
               </div>
               <div className="pt-2 border-t border-violet-100 text-[11px] text-slate-600 space-y-1">
                 <div className="flex justify-between">
                   <span>Écart vs. Médiane Compset :</span>
                   <strong className="text-emerald-700 font-bold">
-                    {marketSummary.gapFolkestoneVsMedian} € (
-                    {Math.round((marketSummary.gapFolkestoneVsMedian / marketSummary.avgFtMedian) * 100)}%)
+                    {marketSummary.gapFolkestoneVsMedian === null ? '—' : `${marketSummary.gapFolkestoneVsMedian} € (${marketSummary.gapFolkestoneVsMedianPct === null ? '—' : `${marketSummary.gapFolkestoneVsMedianPct}%`})`}
                   </strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Rang moyen de prix :</span>
-                  <strong className="text-slate-800">2.1 sur 6</strong>
+                  <strong className="text-slate-800">{marketSummary.avgRank === null ? '—' : `${marketSummary.avgRank.toFixed(1)} sur ${marketSummary.avgAvailableHotels === null ? '—' : marketSummary.avgAvailableHotels.toFixed(0)}`}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Opportunité de rehausse :</span>
-                  <span className="text-violet-700 font-bold">+15€ à +35€</span>
+                  <span className="text-slate-500 font-semibold">Non calculée par le benchmark seul</span>
                 </div>
               </div>
             </div>
 
             {/* D. DYNAMIQUE CONCURRENTIELLE */}
-            <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">D. Dynamique Concurrentielle</span>
                 <Activity className="w-4 h-4 text-rose-500" />
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-1.5 bg-emerald-50 rounded-xl">
-                  <span className="text-[10px] text-emerald-700 font-bold block">En Hausse</span>
+                <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl">
+                  <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold block">En Hausse</span>
                   <strong className="text-base font-black text-emerald-800">{marketSummary.totalHikes1d}</strong>
                 </div>
-                <div className="p-1.5 bg-rose-50 rounded-xl">
-                  <span className="text-[10px] text-rose-700 font-bold block">En Baisse</span>
+                <div className="p-1.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl">
+                  <span className="text-[10px] text-rose-700 dark:text-rose-300 font-bold block">En Baisse</span>
                   <strong className="text-base font-black text-rose-800">{marketSummary.totalDrops1d}</strong>
                 </div>
-                <div className="p-1.5 bg-slate-100 rounded-xl">
-                  <span className="text-[10px] text-slate-600 font-bold block">Stables</span>
+                <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                  <span className="text-[10px] text-slate-600 dark:text-slate-400 font-bold block">Stables</span>
                   <strong className="text-base font-black text-slate-800">{marketSummary.totalStables1d}</strong>
                 </div>
               </div>
               <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-600 space-y-1">
                 <div className="flex justify-between">
-                  <span>Occurrences Sold-out :</span>
-                  <strong className="text-rose-600 font-bold">{marketSummary.totalSoldOutEvents} dates complètes</strong>
+                  <span>Relevés concurrents sold-out :</span>
+                  <strong className="text-rose-600 font-bold">{marketSummary.totalSoldOutEvents} observations</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Plus forte hausse 7j :</span>
-                  <strong className="text-emerald-700">+60 € (St-Pétersbourg)</strong>
+                  <strong className="text-emerald-700">{marketSummary.maxIncrease7d ? `+${marketSummary.maxIncrease7d.amount} € (${marketSummary.maxIncrease7d.hotelName})` : '—'}</strong>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Graphiques Interactifs */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <LineChartIcon className="w-4 h-4 text-violet-600" />
                   <span>Visualisation Graphique du Marché & Positionnement Tarifaire</span>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Évolution temporelle sur les 30 prochaines dates de séjour
+                  Évolution temporelle sur les 30 dates affichées
                 </p>
               </div>
 
               {/* Chart Mode Switcher */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs">
                 <button
                   type="button"
                   onClick={() => setActiveChartType('medians_compare')}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     activeChartType === 'medians_compare'
-                      ? 'bg-white text-slate-900 shadow-2xs'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -993,7 +1094,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   onClick={() => setActiveChartType('demand')}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     activeChartType === 'demand'
-                      ? 'bg-white text-slate-900 shadow-2xs'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -1004,7 +1105,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   onClick={() => setActiveChartType('all_competitors')}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     activeChartType === 'all_competitors'
-                      ? 'bg-white text-slate-900 shadow-2xs'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -1015,7 +1116,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   onClick={() => setActiveChartType('evolutions')}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
                     activeChartType === 'evolutions'
-                      ? 'bg-white text-slate-900 shadow-2xs'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -1144,14 +1245,14 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
       {/* VIEW 4: RECOMMANDATIONS IA (SECTION 7 - CAS 1 À 5) */}
       {activeSubTab === 'ai_recommendations' && (
         <div className="space-y-4">
-          <div className="bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-transparent border border-amber-200/80 p-5 rounded-3xl space-y-2">
+          <div className="bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-transparent dark:bg-none dark:bg-slate-900 border border-amber-200/80 dark:border-amber-800/60 p-5 rounded-3xl space-y-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-600" />
-              <h3 className="font-bold text-slate-900 text-sm">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
                 Moteur de Recommandations Tarifaires IA (Règles de Revenue Management Déterministes)
               </h3>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed max-w-4xl">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-4xl">
               Analyse automatique continue des tensions de marché et détection des 5 situations critiques (CAS 1 à 5). Conformément aux principes de Flowtym RMS, aucune modification n&apos;est appliquée automatiquement dans D-EDGE CRS : chaque recommandation reste soumise à la validation expresse du Revenue Manager.
             </p>
           </div>
@@ -1161,7 +1262,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             {marketSummary?.allAiAlerts.map((alert) => (
               <div
                 key={alert.id}
-                className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-3 hover:border-violet-300 transition-all"
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-3 hover:border-violet-300 dark:hover:border-violet-600/70 transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-0.5">
@@ -1176,32 +1277,32 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                     >
                       {alert.caseType.replace('_', ' ')} · Priorité {alert.priority}
                     </span>
-                    <h4 className="font-bold text-slate-900 text-sm">{alert.title}</h4>
-                    <span className="text-[11px] text-violet-700 font-semibold block">
+                    <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{alert.title}</h4>
+                    <span className="text-[11px] text-violet-700 dark:text-violet-300 font-semibold block">
                       Date ciblée : {alert.dateStr}
                     </span>
                   </div>
 
                   {alert.suggestedActionRate && (
-                    <div className="text-right shrink-0 bg-violet-50 border border-violet-200/80 px-2.5 py-1.5 rounded-xl">
-                      <span className="text-[9px] uppercase font-bold text-violet-600 block">Tarif Conseillé</span>
+                    <div className="text-right shrink-0 bg-violet-50 dark:bg-violet-950/40 border border-violet-200/80 dark:border-violet-800/70 px-2.5 py-1.5 rounded-xl">
+                      <span className="text-[9px] uppercase font-bold text-violet-600 dark:text-violet-400 block">Tarif Conseillé</span>
                       <strong className="text-sm font-black text-violet-950">{alert.suggestedActionRate} €</strong>
                     </div>
                   )}
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl text-xs space-y-1.5">
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs space-y-1.5">
                   <div>
                     <span className="text-slate-400 font-bold text-[10px] uppercase block">Données Déclencheuses :</span>
-                    <span className="text-slate-700 font-medium">{alert.triggerData}</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">{alert.triggerData}</span>
                   </div>
                   <div>
                     <span className="text-slate-400 font-bold text-[10px] uppercase block">Constat :</span>
-                    <p className="text-slate-600 leading-snug">{alert.constat}</p>
+                    <p className="text-slate-600 dark:text-slate-400 leading-snug">{alert.constat}</p>
                   </div>
                   <div>
-                    <span className="text-violet-700 font-bold text-[10px] uppercase block">Recommandation RM :</span>
-                    <p className="text-violet-900 font-semibold leading-snug">{alert.recommandation}</p>
+                    <span className="text-violet-700 dark:text-violet-300 font-bold text-[10px] uppercase block">Recommandation RM :</span>
+                    <p className="text-violet-900 dark:text-violet-200 font-semibold leading-snug">{alert.recommandation}</p>
                   </div>
                 </div>
 
@@ -1235,7 +1336,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full overflow-hidden flex flex-col animate-in zoom-in-95"
+            className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full overflow-hidden flex flex-col animate-in zoom-in-95"
           >
             <div className="px-6 py-4 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between">
               <div>
@@ -1256,9 +1357,9 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Demande Marché</span>
-                  <strong className="text-lg font-black text-slate-900">{inspectedRecord.demandIndex}/100</strong>
-                  <span className="text-[10px] text-orange-600 font-bold block uppercase">
-                    {inspectedRecord.demandLevel.replace('_', ' ')}
+                  <strong className="text-lg font-black text-slate-900">{inspectedRecord.demandIndex === null ? '—' : Math.round(inspectedRecord.demandIndex)}/100</strong>
+                  <span className="text-[10px] text-orange-600 dark:text-orange-400 font-bold block uppercase">
+                    {inspectedRecord.demandLevel === 'non_renseigne' ? 'Non renseignée' : inspectedRecord.demandLevel.replace('_', ' ')}
                   </span>
                 </div>
                 <div className="p-3 bg-violet-50 rounded-2xl border border-violet-200">
@@ -1271,7 +1372,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   </span>
                 </div>
                 <div className="p-3 bg-indigo-50 rounded-2xl border border-indigo-200">
-                  <span className="text-[10px] text-indigo-600 font-bold block uppercase">Médiane Flowtym</span>
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold block uppercase">Médiane Flowtym</span>
                   <strong className="text-lg font-black text-indigo-950">{inspectedRecord.flowtymMedianEur} €</strong>
                   <span className="text-[10px] text-slate-500 block">Off. LH: {inspectedRecord.lighthouseMedianEur} €</span>
                 </div>
@@ -1298,7 +1399,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
               {/* Tarifs Compset */}
               <div className="space-y-2">
-                <h4 className="font-bold text-slate-800 text-xs">Tarifs de chaque hôtel concurrent ({inspectedRecord.competitors.length})</h4>
+                <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs">Tarifs de chaque hôtel concurrent ({inspectedRecord.competitors.length})</h4>
                 <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-white">
                   {inspectedRecord.competitors.map((c) => (
                     <div key={c.id} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50">
@@ -1328,11 +1429,11 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               </div>
             </div>
 
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+            <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex justify-end">
               <button
                 type="button"
                 onClick={() => setInspectedRecord(null)}
-                className="px-4 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer"
+                className="px-4 py-1.5 bg-slate-900 dark:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer"
               >
                 Fermer
               </button>
@@ -1349,9 +1450,9 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95"
+            className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95"
           >
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base">Configuration des Seuils Flowtym</h3>
                 <p className="text-xs text-slate-300">Analyse qualitative de la demande marché</p>
@@ -1366,7 +1467,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
             </div>
 
             <div className="p-6 space-y-4 text-xs">
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-900 text-[11px] leading-relaxed">
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 p-3 rounded-xl text-amber-900 dark:text-amber-200 text-[11px] leading-relaxed">
                 <strong>Précision méthodologique :</strong> Ces seuils sont des règles d&apos;analyse propres à Flowtym RMS et non des seuils officiels Lighthouse. L&apos;indice Lighthouse mesure la tension de la demande (0 à 100) et ne doit jamais être présenté comme un taux d&apos;occupation.
               </div>
 
@@ -1390,7 +1491,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               </div>
             </div>
 
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+            <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex justify-end">
               <button
                 type="button"
                 onClick={() => {

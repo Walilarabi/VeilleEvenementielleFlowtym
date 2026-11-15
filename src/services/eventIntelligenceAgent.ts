@@ -591,6 +591,9 @@ export async function runEventIntelligenceCampaign(
   existingProposals: EventProposal[],
   onProgress?: AgentProgressCallback
 ): Promise<AgentCampaignResult> {
+  if (hotel.lat === null || hotel.lng === null) {
+    throw new Error("Veille géographique bloquée : les coordonnées de l'hôtel ne sont pas renseignées dans Supabase.");
+  }
   const startTime = Date.now();
   const campaignId = `camp-${Date.now()}`;
   const logs: string[] = [];

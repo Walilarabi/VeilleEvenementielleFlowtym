@@ -81,20 +81,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 }) => {
   // Active sub-tab in Analyse de marché: 'calendar' | 'school_holidays' | 'lighthouse'
   const [activeMarketSubTab, setActiveMarketSubTab] = useState<'calendar' | 'school_holidays' | 'lighthouse'>(initialSubTab);
-  // Date du jour pour Flowtym (11 novembre 2026)
-  const todayDateObj = new Date();
-  const todayStr = useMemo(() => {
-    const y = todayDateObj.getFullYear();
-    const m = String(todayDateObj.getMonth() + 1).padStart(2, '0');
-    const d = String(todayDateObj.getDate()).padStart(2, '0');
-    const s = `${y}-${m}-${d}`;
-    return s.startsWith('2026') ? s : '2026-11-11';
-  }, []);
+  // Date locale de l'établissement : aucune date de démonstration codée en dur.
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 
   // Navigation state: start month index (0-indexed) & year
-  // Par défaut, initialisé automatiquement sur le mois en cours (Novembre 2026 = mois 10)
-  const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [currentMonth, setCurrentMonth] = useState<number>(10); // 10 = Novembre
+  // Par défaut, initialisé automatiquement sur le mois en cours
+  const [currentYear, setCurrentYear] = useState<number>(() => Number(todayStr.slice(0, 4)));
+  const [currentMonth, setCurrentMonth] = useState<number>(() => Number(todayStr.slice(5, 7)) - 1);
 
   // Filter by demand level: 'all' | 'forte' | 'moyenne' | 'faible'
   const [demandFilter, setDemandFilter] = useState<'all' | MarketDemandLevel>('all');
@@ -155,12 +148,12 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
   const m2 = useMemo(() => getMonthYearOffset(currentYear, currentMonth, 1), [currentYear, currentMonth]);
   const m3 = useMemo(() => getMonthYearOffset(currentYear, currentMonth, 2), [currentYear, currentMonth]);
 
-  // Mois 1 : Mois en cours (ex: Novembre 2026)
+  // Mois 1 : mois courant
   const monthData1 = useMemo(() => {
     return getMonthMarketGrid(m1.year, m1.month, relevantEvents, currentHotel);
   }, [m1.year, m1.month, relevantEvents, currentHotel]);
 
-  // Mois 2 : Mois suivant (ex: Décembre 2026)
+  // Mois 2 : mois suivant
   const monthData2 = useMemo(() => {
     return getMonthMarketGrid(m2.year, m2.month, relevantEvents, currentHotel);
   }, [m2.year, m2.month, relevantEvents, currentHotel]);
@@ -172,7 +165,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
   // Animation state for smooth month transitions (fade-in + horizontal slide)
   const [animationClass, setAnimationClass] = useState<string>('animate-calendar-fade');
-  const [calendarKey, setCalendarKey] = useState<string>('cal-2026-10');
+  const [calendarKey, setCalendarKey] = useState<string>(() => `cal-${currentYear}-${currentMonth}`);
 
   const triggerCalendarTransition = (direction: 'next' | 'prev') => {
     setAnimationClass(direction === 'next' ? 'animate-calendar-next' : 'animate-calendar-prev');
@@ -216,9 +209,10 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
   const handleResetToToday = () => {
     triggerCalendarTransition('prev');
-    setCurrentYear(2026);
-    setCurrentMonth(10); // Novembre 2026
-    onShowToast("Calendrier repositionné sur aujourd'hui (Novembre 2026 - Janvier 2027)");
+    const today = new Date(`${todayStr}T12:00:00`);
+    setCurrentYear(today.getFullYear());
+    setCurrentMonth(today.getMonth());
+    onShowToast("Calendrier repositionné sur le mois courant.");
   };
 
   // Quick year switch
@@ -449,7 +443,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     monthData: typeof monthData1,
     colIndex: number
   ) => {
-    const isCurrentActiveMonth = monthData.year === 2026 && monthData.month === 10;
+    const isCurrentActiveMonth = monthData.year === currentYear && monthData.month === currentMonth;
 
     return (
       <div
@@ -774,17 +768,17 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             {/* Year Switcher (2026 / 2027) */}
             <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
               <button
-                onClick={() => handleSetYear(2026)}
+                onClick={() => handleSetYear(currentYear)}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   currentYear === 2026
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                2026
+                {currentYear}
               </button>
               <button
-                onClick={() => handleSetYear(2027)}
+                onClick={() => handleSetYear(currentYear + 1)}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   currentYear === 2027
                     ? 'bg-white text-slate-900 shadow-xs'
@@ -1594,7 +1588,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             <button
               onClick={handleResetToToday}
               className="px-3 py-1.5 rounded-xl bg-violet-50 hover:bg-violet-100 text-violet-700 hover:text-violet-900 border border-violet-200 text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-              title="Revenir instantanément à la date du jour (Novembre 2026)"
+              title="Revenir instantanément au mois courant"
             >
               <Clock className="w-3.5 h-3.5" />
               <span>Aujourd'hui</span>
@@ -1872,22 +1866,21 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
                     <span>Établissement : <strong>{currentHotel.name}</strong> ({currentHotel.city})</span>
                     <span className="text-slate-300">·</span>
-                    <span>Capacité {currentHotel.roomCount} ch.</span>
+                    <span>Capacité {currentHotel.roomCount ?? '—'} ch.</span>
                     <span className="text-slate-300">·</span>
-                    <span>Base ADR {currentHotel.baseADR}€</span>
+                    <span>Base ADR {currentHotel.baseADR === null ? 'Non renseigné' : `${currentHotel.baseADR}€`}</span>
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                 <button
-                  onClick={() => {
-                    onShowToast(`Règle Yield enregistrée pour le ${selectedDateInfo.dateStr}`);
-                  }}
+                  disabled
+                  title="Action non disponible : le flux de validation et de publication Yield n'est pas raccordé."
                   className="px-3.5 py-2 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  Appliquer Règle Yield
+                  Règle Yield non connectée
                 </button>
 
                 <button
@@ -1952,7 +1945,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-600">Taux d'occupation estimé :</span>
                       <span className="font-extrabold text-slate-900 tabular-nums">
-                        {selectedDateInfo.projectedOccupancy}% ({Math.round((selectedDateInfo.projectedOccupancy / 100) * currentHotel.roomCount)} ch.)
+                        {selectedDateInfo.projectedOccupancy}% ({currentHotel.roomCount === null ? '—' : `${Math.round((selectedDateInfo.projectedOccupancy / 100) * currentHotel.roomCount)} ch.`})
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">

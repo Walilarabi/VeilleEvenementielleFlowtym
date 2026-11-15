@@ -130,88 +130,8 @@ export function generateOfficialFlowtymHistoricalWorkbook(): Uint8Array {
   // 1. ONGLET 1 : HISTORIQUE QUOTIDIEN
   const headersRow = OFFICIAL_DAILY_COLUMNS.map((c) => c.name);
 
-  // Génération d'un jeu d'exemples réalistes (sur 3 années passées pour le Grand Hôtel Folkestone Opéra)
-  const sampleDays = generateRealisticHistoricalRecords('hotel-folkestone-opera', 365 * 3); // 3 ans d'historique réaliste
-  const dailyRows = sampleDays.slice(0, 45).map((r) => [
-    r.dateStr,
-    r.dayOfWeek,
-    r.weekOfYear,
-    r.month,
-    r.year,
-    r.isHoliday ? 'Oui' : 'Non',
-    r.isSchoolHoliday ? 'Oui' : 'Non',
-    r.schoolHolidayZone,
-    r.isHolidayEve ? 'Oui' : 'Non',
-    r.season,
-    r.dayType,
-    r.eventName || '',
-    r.eventCategory || '',
-    r.eventStartDate || '',
-    r.eventEndDate || '',
-    r.eventDurationDays ?? '',
-    r.eventImportance ?? '',
-    r.eventEstimatedVisitors ?? '',
-    r.eventVenueCapacity ?? '',
-    r.eventDistanceKm ?? '',
-    r.eventIsInternational ? 'Oui' : 'Non',
-    r.hasMultipleEvents ? 'Oui' : 'Non',
-    r.totalMarketableRooms,
-    r.availableRoomsForSale,
-    r.roomsSold,
-    r.complimentaryRooms,
-    r.outOfOrderRooms,
-    r.occupancyPercent,
-    r.turnawaysCount,
-    r.reservationsCount,
-    r.guestsCount,
-    r.adrNetEur,
-    r.revparEur,
-    r.accommodationRevenueEur,
-    r.avgSoldRoomPrice,
-    r.totalHotelRevenueEur ?? '',
-    r.trevparEur ?? '',
-    r.avgDistributionCostEur ?? '',
-    r.avgCommissionPercent ?? '',
-    r.avgNetRateAfterCommissionsEur,
-    r.otbJ90 ?? '',
-    r.otbJ60 ?? '',
-    r.otbJ30 ?? '',
-    r.otbJ14 ?? '',
-    r.otbJ7 ?? '',
-    r.otbJ3 ?? '',
-    r.otbJ1 ?? '',
-    r.pickupJ90toJ60 ?? '',
-    r.pickupJ60toJ30 ?? '',
-    r.pickupJ30toJ14 ?? '',
-    r.pickupJ14toJ7 ?? '',
-    r.pickupJ7toJ3 ?? '',
-    r.pickupJ3toJ1 ?? '',
-    r.pickupJ1toArrival ?? '',
-    r.avgLeadTimeDays ?? '',
-    r.cancellationsCount ?? '',
-    r.cancellationRatePercent ?? '',
-    r.noShowCount ?? '',
-    r.directReservations ?? '',
-    r.bookingReservations ?? '',
-    r.expediaReservations ?? '',
-    r.gdsReservations ?? '',
-    r.groupReservations ?? '',
-    r.corporateReservations ?? '',
-    r.otherOtaReservations ?? '',
-    r.directSharePercent ?? '',
-    r.otaSharePercent ?? '',
-    r.restrictionsApplied ?? '',
-    r.appliedMinStay ?? '',
-    r.isClosedToArrival ? 'Oui' : 'Non',
-    r.isClosedToDeparture ? 'Oui' : 'Non',
-    r.publicBarEur ?? '',
-    r.compsetAvgEur ?? '',
-    r.compsetMinEur ?? '',
-    r.compsetMaxEur ?? '',
-    r.ratePositionIndex ?? '',
-    r.compsetAvailabilityAvg ?? '',
-    r.compsetAvailableHotelsCount ?? '',
-  ]);
+  // Modèle vierge : aucune ligne de démonstration n'est incluse.
+  const dailyRows: any[][] = [];
 
   const wsDaily = XLSX.utils.aoa_to_sheet([headersRow, ...dailyRows]);
   XLSX.utils.book_append_sheet(wb, wsDaily, 'Historique Quotidien');
@@ -234,48 +154,33 @@ export function generateOfficialFlowtymHistoricalWorkbook(): Uint8Array {
     'Source des données',
   ];
 
-  const sampleSnapshots = generateSampleDemandSnapshots();
-  const snapshotRows = sampleSnapshots.map((s) => [
-    s.observationDate,
-    s.arrivalDate,
-    s.roomsBookedOtb,
-    s.roomsAvailable,
-    s.projectedOccupancyPercent,
-    s.bookedAdrEur,
-    s.bookedRevenueEur,
-    s.pickupSincePrevSnapshot,
-    s.cancellationsSincePrevSnapshot,
-    s.daysBeforeArrival,
-    s.publicRateAtSnapshotEur ?? '',
-    s.compsetRateAtSnapshotEur ?? '',
-    s.turnawaysAtSnapshot ?? '',
-    s.dataSource,
-  ]);
+  // Modèle vierge : les snapshots sont fournis par l'export PMS réel.
+  const snapshotRows: any[][] = [];
 
   const wsSnapshots = XLSX.utils.aoa_to_sheet([snapshotHeaders, ...snapshotRows]);
   XLSX.utils.book_append_sheet(wb, wsSnapshots, 'Snapshots de Demande');
 
   // 3. ONGLET 3 : PARAMÈTRES DE L'ÉTABLISSEMENT
   const paramsData = [
-    ['Paramètre', 'Valeur', 'Description / Unité'],
-    ['Nom de l\'établissement', 'Grand Hôtel Folkestone Opéra', 'Raison sociale officielle'],
-    ['Ville', 'Paris', 'Commune d\'implantation'],
-    ['Catégorie', '4 étoiles', 'Classement Atout France'],
-    ['Nombre de chambres physiques', 45, 'Capacité hôtelière brute'],
-    ['Chambres habituellement commercialisables', 45, 'Stock actif de vente'],
-    ['Jours habituels de fermeture', 'Aucun (ouvert 365j/365)', 'Politique d\'ouverture'],
-    ['Positionnement hôtelier', 'Boutique Hôtel de Charme', 'Segment marketing'],
-    ['Segment principal de clientèle', 'Loisirs Individuels & Affaires', 'Mix prédominant'],
-    ['Marché principal', 'France, USA, UK, Europe', 'Origine des flux'],
-    ['Devise', 'EUR (€)', 'Monnaie de référence'],
-    ['Fuseau horaire', 'Europe/Paris', 'Zone horaire'],
-    ['ADR cible', 285.00, 'Tarif moyen visé (€ HT)'],
-    ['Taux d\'occupation cible', 85.0, 'Objectif de remplissage (%)'],
-    ['RevPAR cible', 242.25, 'Objectif de rentabilité (€ HT)'],
-    ['Tarif minimum acceptable (Floor)', 180.00, 'Garde-fou plancher absolu'],
-    ['Tarif maximum autorisé (Ceiling)', 550.00, 'Garde-fou plafond'],
-    ['Coût moyen de distribution', 32.50, 'Coût moyen par résa (€)'],
-    ['Compset de référence', 'St-Pétersbourg Opéra, Charing Cross, Astra Opéra, Indigo Opéra, St-Augustin', '5 concurrents primaires'],
+    ['Paramètre', 'Valeur à renseigner', 'Description / Unité'],
+    ['Nom de l\'établissement', '', 'Raison sociale officielle'],
+    ['Ville', '', 'Commune d\'implantation'],
+    ['Catégorie', '', 'Classement officiel'],
+    ['Nombre de chambres physiques', '', 'Capacité hôtelière brute'],
+    ['Chambres habituellement commercialisables', '', 'Stock actif de vente'],
+    ['Jours habituels de fermeture', '', 'Politique d\'ouverture'],
+    ['Positionnement hôtelier', '', 'Segment marketing'],
+    ['Segment principal de clientèle', '', 'Mix prédominant'],
+    ['Marché principal', '', 'Origine des flux'],
+    ['Devise', '', 'Monnaie de référence'],
+    ['Fuseau horaire', '', 'Zone horaire IANA'],
+    ['ADR cible', '', 'Tarif moyen visé (€ HT)'],
+    ['Taux d\'occupation cible', '', 'Objectif de remplissage (%)'],
+    ['RevPAR cible', '', 'Objectif de rentabilité (€ HT)'],
+    ['Tarif minimum acceptable (Floor)', '', 'Garde-fou plancher absolu'],
+    ['Tarif maximum autorisé (Ceiling)', '', 'Garde-fou plafond'],
+    ['Coût moyen de distribution', '', 'Coût moyen par réservation (€)'],
+    ['Compset de référence', '', 'Concurrents validés par le Revenue Manager'],
   ];
 
   const wsParams = XLSX.utils.aoa_to_sheet(paramsData);
@@ -288,6 +193,34 @@ export function generateOfficialFlowtymHistoricalWorkbook(): Uint8Array {
 /**
  * Analyse et valide le fichier Excel déposé par le Revenue Manager
  */
+function parseOptionalBoolean(value: any): boolean | undefined {
+  if (value === null || value === undefined || String(value).trim() === '') return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  if (['oui', 'yes', 'true', '1'].includes(normalized)) return true;
+  if (['non', 'no', 'false', '0'].includes(normalized)) return false;
+  return undefined;
+}
+
+function parseHistoricalDateCell(value: any): string | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed) return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d)).toISOString().slice(0, 10);
+  }
+  if (typeof value === 'string') {
+    const raw = value.trim();
+    const iso = raw.slice(0, 10);
+    if (iso.length === 10 && iso[4] === '-' && iso[7] === '-') return iso;
+    const parts = raw.split('/');
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  }
+  return null;
+}
+
 export function parseAndValidateHistoricalExcel(
   buffer: ArrayBuffer,
   fileName: string,
@@ -370,45 +303,94 @@ export function parseAndValidateHistoricalExcel(
         continue;
       }
 
-      // Capacité et chambres vendues
-      const totalRooms = Number(getVal('totalMarketableRooms', 45)) || 45;
-      const roomsSold = Number(getVal('roomsSold', 0));
-      const compRooms = Number(getVal('complimentaryRooms', 0));
-      const oooRooms = Number(getVal('outOfOrderRooms', 0));
-
-      if (roomsSold < 0 || roomsSold > totalRooms + 10) {
-        warningsCount++;
+      // Les métriques absentes restent inconnues : aucune capacité, ADR ou recette fictive.
+      const totalRoomsRaw = getVal('totalMarketableRooms');
+      const roomsSoldRaw = getVal('roomsSold');
+      const totalRooms = Number(totalRoomsRaw);
+      const roomsSold = Number(roomsSoldRaw);
+      if (totalRoomsRaw == null || !Number.isFinite(totalRooms) || totalRooms <= 0 ||
+          roomsSoldRaw == null || !Number.isInteger(roomsSold) || roomsSold < 0) {
         errorsList.push({
           rowNumber,
-          column: 'Chambres vendues (Y)',
-          value: roomsSold,
-          message: `Incohérence : chambres vendues (${roomsSold}) supérieures au stock commercialisable (${totalRooms}).`,
+          column: 'Capacité / chambres vendues',
+          value: { totalRooms: totalRoomsRaw, roomsSold: roomsSoldRaw },
+          message: 'Données de capacité ou de chambres vendues invalides ou absentes ; ligne non importée.',
         });
+        continue;
       }
 
-      // Performance financière et recalcul rigoureux du RevPAR
-      const adrNet = Number(getVal('adrNetEur', getVal('avgSoldRoomPrice', 250))) || 250;
-      let caHeberg = Number(getVal('accommodationRevenueEur', roomsSold * adrNet));
-      if (caHeberg === 0 && roomsSold > 0) {
-        caHeberg = Math.round(roomsSold * adrNet);
+      const compRoomsRaw = getVal('complimentaryRooms');
+      const oooRoomsRaw = getVal('outOfOrderRooms');
+      const compRooms = compRoomsRaw == null ? undefined : Number(compRoomsRaw);
+      const oooRooms = oooRoomsRaw == null ? undefined : Number(oooRoomsRaw);
+      if ((compRooms !== undefined && (!Number.isInteger(compRooms) || compRooms < 0)) ||
+          (oooRooms !== undefined && (!Number.isInteger(oooRooms) || oooRooms < 0))) {
+        errorsList.push({
+          rowNumber,
+          column: 'Chambres offertes / hors service',
+          value: { complimentaryRooms: compRoomsRaw, outOfOrderRooms: oooRoomsRaw },
+          message: 'Valeur de chambres offertes ou hors service invalide.',
+        });
+        continue;
       }
 
-      // RevPAR STRICT = CA Hébergement HT / Total chambres commercialisables (45)
+      const revenueRaw = getVal('accommodationRevenueEur');
+      const adrRaw = getVal('adrNetEur');
+      let caHeberg = revenueRaw == null ? null : Number(revenueRaw);
+      let adrNet = adrRaw == null ? null : Number(adrRaw);
+      if (caHeberg !== null && (!Number.isFinite(caHeberg) || caHeberg < 0)) caHeberg = null;
+      if (adrNet !== null && (!Number.isFinite(adrNet) || adrNet < 0)) adrNet = null;
+
+      if (caHeberg === null && adrNet !== null) caHeberg = roomsSold * adrNet;
+      if (adrNet === null && caHeberg !== null && roomsSold > 0) adrNet = caHeberg / roomsSold;
+      if (caHeberg === null && roomsSold === 0) caHeberg = 0;
+      if (adrNet === null && roomsSold === 0 && caHeberg === 0) adrNet = 0;
+      if (caHeberg === null || adrNet === null) {
+        errorsList.push({
+          rowNumber,
+          column: 'ADR net / CA hébergement',
+          value: { adrNet: adrRaw, accommodationRevenue: revenueRaw },
+          message: 'ADR net et CA hébergement absents ou invalides ; ligne non importée.',
+        });
+        continue;
+      }
+
+      if (roomsSold + (compRooms ?? 0) > totalRooms) {
+        errorsList.push({
+          rowNumber,
+          column: 'Occupation / capacité',
+          value: { roomsSold, complimentaryRooms: compRooms, totalRooms },
+          message: 'Occupation supérieure à la capacité commercialisable : ligne invalide.',
+        });
+        continue;
+      }
+
       const calculatedRevpar = Math.round((caHeberg / totalRooms) * 100) / 100;
-      const declaredRevpar = Number(getVal('revparEur', calculatedRevpar));
-
-      if (Math.abs(calculatedRevpar - declaredRevpar) > 2.5) {
+      const declaredRevparRaw = getVal('revparEur');
+      const declaredRevpar = declaredRevparRaw == null ? null : Number(declaredRevparRaw);
+      if (declaredRevpar !== null && Number.isFinite(declaredRevpar) && Math.abs(calculatedRevpar - declaredRevpar) > 2.5) {
         warningsCount++;
-        // Recalcul automatique et signalement
         errorsList.push({
           rowNumber,
           column: 'RevPAR HT (AG)',
           value: declaredRevpar,
-          message: `RevPAR déclaré (${declaredRevpar}€) corrigé vers ${calculatedRevpar}€ (CA Hébergement ${caHeberg}€ / ${totalRooms} chambres commercialisables).`,
+          message: `RevPAR déclaré (${declaredRevpar}€) différent du RevPAR recalculé (${calculatedRevpar}€) à partir du CA et du stock fournis.`,
         });
       }
 
-      const occPercent = Number(getVal('occupancyPercent', (roomsSold / totalRooms) * 100)) || 0;
+      const occupancyRaw = getVal('occupancyPercent');
+      const occPercent = occupancyRaw == null
+        ? compRooms !== undefined ? ((roomsSold + compRooms) / totalRooms) * 100 : null
+        : Number(occupancyRaw);
+      if (occPercent === null || !Number.isFinite(occPercent) || occPercent < 0 || occPercent > 100) {
+        errorsList.push({
+          rowNumber,
+          column: 'Taux d’occupation',
+          value: occupancyRaw,
+          message: 'Taux d’occupation absent ou invalide ; impossible de le calculer sans chambres offertes renseignées.',
+        });
+        continue;
+      }
 
       const record: HistoricalDailyRecord = {
         id: `hist-${hotelId}-${dateStr}`,
@@ -418,12 +400,12 @@ export function parseAndValidateHistoricalExcel(
         weekOfYear: Number(getVal('weekOfYear', getWeekNumber(dateStr))),
         month: Number(getVal('month', Number(dateStr.slice(5, 7)))),
         year: Number(getVal('year', Number(dateStr.slice(0, 4)))),
-        isHoliday: String(getVal('isHoliday', 'non')).toLowerCase().includes('oui'),
-        isSchoolHoliday: String(getVal('isSchoolHoliday', 'non')).toLowerCase().includes('oui'),
-        schoolHolidayZone: String(getVal('schoolHolidayZone', 'Zone C')),
-        isHolidayEve: String(getVal('isHolidayEve', 'non')).toLowerCase().includes('oui'),
-        season: (getVal('season', 'Moyenne') as any),
-        dayType: (getVal('dayType', 'Semaine') as any),
+        isHoliday: parseOptionalBoolean(getVal('isHoliday')),
+        isSchoolHoliday: parseOptionalBoolean(getVal('isSchoolHoliday')),
+        schoolHolidayZone: getVal('schoolHolidayZone') == null ? undefined : String(getVal('schoolHolidayZone')),
+        isHolidayEve: parseOptionalBoolean(getVal('isHolidayEve')),
+        season: getVal('season') == null ? undefined : (getVal('season') as any),
+        dayType: (getVal('dayType') ?? (['Samedi', 'Dimanche'].includes(getDayOfWeekFr(dateStr)) ? 'Weekend' : 'Semaine')) as any,
 
         eventName: getVal('eventName') ? String(getVal('eventName')) : undefined,
         eventCategory: getVal('eventCategory') ? String(getVal('eventCategory')) : undefined,
@@ -434,28 +416,28 @@ export function parseAndValidateHistoricalExcel(
         eventEstimatedVisitors: getVal('eventEstimatedVisitors') ? Number(getVal('eventEstimatedVisitors')) : undefined,
         eventVenueCapacity: getVal('eventVenueCapacity') ? Number(getVal('eventVenueCapacity')) : undefined,
         eventDistanceKm: getVal('eventDistanceKm') ? Number(getVal('eventDistanceKm')) : undefined,
-        eventIsInternational: String(getVal('eventIsInternational', 'non')).toLowerCase().includes('oui'),
-        hasMultipleEvents: String(getVal('hasMultipleEvents', 'non')).toLowerCase().includes('oui'),
+        eventIsInternational: parseOptionalBoolean(getVal('eventIsInternational')),
+        hasMultipleEvents: parseOptionalBoolean(getVal('hasMultipleEvents')),
 
         totalMarketableRooms: totalRooms,
-        availableRoomsForSale: Number(getVal('availableRoomsForSale', totalRooms - oooRooms)),
+        availableRoomsForSale: getVal('availableRoomsForSale') != null ? Number(getVal('availableRoomsForSale')) : oooRooms !== undefined ? totalRooms - oooRooms : undefined,
         roomsSold,
         complimentaryRooms: compRooms,
         outOfOrderRooms: oooRooms,
         occupancyPercent: Math.round(occPercent * 10) / 10,
-        turnawaysCount: Number(getVal('turnawaysCount', 0)),
-        reservationsCount: Number(getVal('reservationsCount', roomsSold)),
-        guestsCount: Number(getVal('guestsCount', roomsSold * 1.8)),
+        turnawaysCount: getVal('turnawaysCount') == null ? undefined : Number(getVal('turnawaysCount')),
+        reservationsCount: getVal('reservationsCount') == null ? undefined : Number(getVal('reservationsCount')),
+        guestsCount: getVal('guestsCount') == null ? undefined : Number(getVal('guestsCount')),
 
-        adrNetEur: adrNet,
+        adrNetEur: adrNet ?? undefined,
         revparEur: calculatedRevpar,
         accommodationRevenueEur: caHeberg,
-        avgSoldRoomPrice: Number(getVal('avgSoldRoomPrice', adrNet)),
+        avgSoldRoomPrice: getVal('avgSoldRoomPrice') == null ? undefined : Number(getVal('avgSoldRoomPrice')),
         totalHotelRevenueEur: getVal('totalHotelRevenueEur') ? Number(getVal('totalHotelRevenueEur')) : undefined,
         trevparEur: getVal('trevparEur') ? Number(getVal('trevparEur')) : undefined,
         avgDistributionCostEur: getVal('avgDistributionCostEur') ? Number(getVal('avgDistributionCostEur')) : undefined,
         avgCommissionPercent: getVal('avgCommissionPercent') ? Number(getVal('avgCommissionPercent')) : undefined,
-        avgNetRateAfterCommissionsEur: Number(getVal('avgNetRateAfterCommissionsEur', Math.round(adrNet * 0.88))),
+        avgNetRateAfterCommissionsEur: getVal('avgNetRateAfterCommissionsEur') == null ? undefined : Number(getVal('avgNetRateAfterCommissionsEur')),
 
         otbJ90: getVal('otbJ90') ? Number(getVal('otbJ90')) : undefined,
         otbJ60: getVal('otbJ60') ? Number(getVal('otbJ60')) : undefined,
@@ -513,31 +495,98 @@ export function parseAndValidateHistoricalExcel(
     const snapRows: any[][] = XLSX.utils.sheet_to_json(wsSnap, { header: 1 });
     for (let i = 1; i < snapRows.length; i++) {
       const row = snapRows[i];
-      if (!row || !row[0] || !row[1]) continue;
-      const obsDate = String(row[0]).slice(0, 10);
-      const arrDate = String(row[1]).slice(0, 10);
-      const bookedRooms = Number(row[2]) || 0;
-      const availRooms = Number(row[3]) || 45 - bookedRooms;
-      const occ = Number(row[4]) || Math.round((bookedRooms / 45) * 100);
-      const bookedAdr = Number(row[5]) || 250;
-      const bookedRev = Number(row[6]) || bookedRooms * bookedAdr;
+      if (!row || row[0] == null || row[1] == null) continue;
+      const rowNumber = i + 1;
+      const obsDate = parseHistoricalDateCell(row[0]);
+      const arrDate = parseHistoricalDateCell(row[1]);
+      const bookedRooms = row[2] == null || row[2] === '' ? null : Number(row[2]);
+      const availRooms = row[3] == null || row[3] === '' ? null : Number(row[3]);
+      const occRaw = row[4] == null || row[4] === '' ? null : Number(row[4]);
+      let bookedAdr = row[5] == null || row[5] === '' ? null : Number(row[5]);
+      let bookedRev = row[6] == null || row[6] === '' ? null : Number(row[6]);
+
+      if (!obsDate || !arrDate || bookedRooms === null || availRooms === null ||
+          !Number.isInteger(bookedRooms) || bookedRooms < 0 ||
+          !Number.isInteger(availRooms) || availRooms < 0) {
+        errorsList.push({
+          rowNumber,
+          column: 'Snapshots OTB',
+          value: row.slice(0, 7),
+          message: 'Snapshot invalide : dates, chambres réservées ou chambres disponibles absentes/incorrectes.',
+        });
+        continue;
+      }
+
+      const totalRoomsAtSnapshot = bookedRooms + availRooms;
+      const occ = occRaw === null
+        ? totalRoomsAtSnapshot > 0 ? Math.round((bookedRooms / totalRoomsAtSnapshot) * 1000) / 10 : null
+        : occRaw;
+      if (occ === null || !Number.isFinite(occ) || occ < 0 || occ > 100) {
+        errorsList.push({
+          rowNumber,
+          column: 'Occupation projetée snapshot',
+          value: occRaw,
+          message: 'Taux d’occupation snapshot absent ou invalide.',
+        });
+        continue;
+      }
+
+      if (bookedAdr !== null && (!Number.isFinite(bookedAdr) || bookedAdr < 0)) bookedAdr = null;
+      if (bookedRev !== null && (!Number.isFinite(bookedRev) || bookedRev < 0)) bookedRev = null;
+      if (bookedRev === null && bookedAdr !== null) bookedRev = bookedRooms * bookedAdr;
+      if (bookedAdr === null && bookedRev !== null && bookedRooms > 0) bookedAdr = bookedRev / bookedRooms;
+      if (bookedRev === null && bookedRooms === 0) bookedRev = 0;
+      if (bookedRooms > 0 && bookedAdr === null && bookedRev === null) {
+        errorsList.push({
+          rowNumber,
+          column: 'ADR / CA acquis snapshot',
+          value: { bookedAdr: row[5], bookedRevenue: row[6] },
+          message: 'ADR et CA acquis absents ou invalides dans le snapshot.',
+        });
+        continue;
+      }
+
+      const expectedLeadDays = Math.round((Date.parse(arrDate + 'T00:00:00Z') - Date.parse(obsDate + 'T00:00:00Z')) / 86400000);
+      const leadDaysRaw = row[9] == null || row[9] === '' ? expectedLeadDays : Number(row[9]);
+      if (!Number.isInteger(leadDaysRaw) || leadDaysRaw < 0 || leadDaysRaw !== expectedLeadDays) {
+        errorsList.push({
+          rowNumber,
+          column: 'Jours avant arrivée',
+          value: row[9],
+          message: 'Lead time snapshot invalide ou incohérent avec les dates.',
+        });
+        continue;
+      }
+
+      const pickup = row[7] == null || row[7] === '' ? undefined : Number(row[7]);
+      const cancellations = row[8] == null || row[8] === '' ? undefined : Number(row[8]);
+      if ((pickup !== undefined && !Number.isInteger(pickup)) ||
+          (cancellations !== undefined && (!Number.isInteger(cancellations) || cancellations < 0))) {
+        errorsList.push({
+          rowNumber,
+          column: 'Pickup / annulations snapshot',
+          value: { pickup: row[7], cancellations: row[8] },
+          message: 'Pickup ou annulations snapshot invalide.',
+        });
+        continue;
+      }
 
       snapshots.push({
         id: `snap-${hotelId}-${obsDate}-${arrDate}`,
         hotelId,
         observationDate: obsDate,
         arrivalDate: arrDate,
-        daysBeforeArrival: Number(row[9]) || Math.max(0, Math.round((new Date(arrDate).getTime() - new Date(obsDate).getTime()) / (1000 * 3600 * 24))),
+        daysBeforeArrival: leadDaysRaw,
         roomsBookedOtb: bookedRooms,
         roomsAvailable: availRooms,
         projectedOccupancyPercent: occ,
-        bookedAdrEur: bookedAdr,
-        bookedRevenueEur: bookedRev,
-        pickupSincePrevSnapshot: Number(row[7]) || 0,
-        cancellationsSincePrevSnapshot: Number(row[8]) || 0,
-        publicRateAtSnapshotEur: row[10] ? Number(row[10]) : undefined,
-        compsetRateAtSnapshotEur: row[11] ? Number(row[11]) : undefined,
-        turnawaysAtSnapshot: row[12] ? Number(row[12]) : 0,
+        bookedAdrEur: bookedAdr ?? undefined,
+        bookedRevenueEur: bookedRev ?? undefined,
+        pickupSincePrevSnapshot: pickup,
+        cancellationsSincePrevSnapshot: cancellations,
+        publicRateAtSnapshotEur: row[10] == null || row[10] === '' ? undefined : Number(row[10]),
+        compsetRateAtSnapshotEur: row[11] == null || row[11] === '' ? undefined : Number(row[11]),
+        turnawaysAtSnapshot: row[12] == null || row[12] === '' ? undefined : Number(row[12]),
         dataSource: (row[13] as any) || 'Import Excel',
       });
     }
@@ -577,234 +626,15 @@ export function parseAndValidateHistoricalExcel(
 /**
  * Persiste les données historiques en localStorage (ou Supabase)
  */
-export function saveHistoricalRecords(hotelId: string, newRecords: HistoricalDailyRecord[]): void {
-  try {
-    const existingRaw = localStorage.getItem(HISTORICAL_STORAGE_KEY);
-    let allRecords: HistoricalDailyRecord[] = existingRaw ? JSON.parse(existingRaw) : [];
-
-    // Remplacement ou insertion sans doublon (clé composite hotelId + dateStr)
-    const map = new Map<string, HistoricalDailyRecord>();
-    allRecords.forEach((r) => map.set(`${r.hotelId}_${r.dateStr}`, r));
-    newRecords.forEach((r) => map.set(`${r.hotelId}_${r.dateStr}`, r));
-
-    const merged = Array.from(map.values()).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-    localStorage.setItem(HISTORICAL_STORAGE_KEY, JSON.stringify(merged));
-  } catch (err) {
-    console.error('Erreur lors de la sauvegarde des historiques', err);
-  }
-}
-
-/**
- * Récupère les données historiques stockées pour un hôtel (avec fallback sur un jeu N-1, N-2, N-3 complet)
- */
-export function getHistoricalDailyRecords(hotelId: string): HistoricalDailyRecord[] {
-  try {
-    const raw = localStorage.getItem(HISTORICAL_STORAGE_KEY);
-    if (raw) {
-      const parsed: HistoricalDailyRecord[] = JSON.parse(raw);
-      const filtered = parsed.filter((r) => r.hotelId === hotelId);
-      if (filtered.length > 0) return filtered;
-    }
-  } catch (err) {
-    console.error('Erreur lecture localStorage historiques', err);
-  }
-
-  // Fallback de référence : 3 années générées pour le Grand Hôtel Folkestone Opéra (2023, 2024, 2025)
-  const defaultHistory = generateRealisticHistoricalRecords(hotelId, 365 * 3);
-  saveHistoricalRecords(hotelId, defaultHistory);
-  return defaultHistory;
+export function getHistoricalDailyRecords(_hotelId: string): HistoricalDailyRecord[] {
+  // Historical data must come from the authenticated Supabase source.
+  // No generated N-1/N-2/N-3 fixture is returned when the database is empty.
+  return [];
 }
 
 /**
  * Générateur d'historique réaliste et calibré pour 3 années (N-1, N-2, N-3)
  */
-function generateRealisticHistoricalRecords(hotelId: string, daysCount: number): HistoricalDailyRecord[] {
-  const records: HistoricalDailyRecord[] = [];
-  const totalRooms = 45;
-
-  // Départ : 1er Janvier 2023
-  const startDate = new Date('2023-01-01');
-
-  for (let i = 0; i < daysCount; i++) {
-    const curDate = new Date(startDate.getTime() + i * 24 * 3600 * 1000);
-    const dateStr = curDate.toISOString().slice(0, 10);
-    const dayOfWeekIdx = curDate.getDay();
-    const dayOfWeek = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][dayOfWeekIdx];
-    const month = curDate.getMonth() + 1;
-    const year = curDate.getFullYear();
-    const isWeekend = dayOfWeekIdx === 5 || dayOfWeekIdx === 6;
-
-    // Saisons parisiennes
-    const isHighSeason = month >= 4 && month <= 10;
-    const season: 'Haute' | 'Moyenne' | 'Basse' = isHighSeason ? 'Haute' : month === 12 ? 'Moyenne' : 'Basse';
-
-    // Remplissage de base selon la saison et le jour
-    let baseOcc = isHighSeason ? (isWeekend ? 94 : 88) : isWeekend ? 82 : 72;
-    let baseAdr = isHighSeason ? (isWeekend ? 340 : 310) : isWeekend ? 260 : 230;
-
-    // Simulation d'événements majeurs (Fashion Week, Roland Garros, SIAL, Salons Le Bourget)
-    let eventName: string | undefined = undefined;
-    let eventCategory: string | undefined = undefined;
-    let eventImportance: HistoricalDailyRecord['eventImportance'] = undefined;
-    let turnaways = 0;
-
-    if (month === 6 && curDate.getDate() >= 10 && curDate.getDate() <= 16) {
-      eventName = 'Salon International de l\'Aéronautique - Le Bourget';
-      eventCategory = 'Salon Professionnel';
-      eventImportance = 'Critique';
-      baseOcc = 98;
-      baseAdr += 95;
-      turnaways = 18;
-    } else if (month === 9 && curDate.getDate() >= 22 && curDate.getDate() <= 29) {
-      eventName = 'Paris Fashion Week Prêt-à-Porter';
-      eventCategory = 'Mode & Luxe';
-      eventImportance = 'Majeur';
-      baseOcc = 97;
-      baseAdr += 80;
-      turnaways = 12;
-    }
-
-    const roomsSold = Math.min(totalRooms, Math.round((baseOcc / 100) * totalRooms));
-    const complimentaryRooms = Math.random() < 0.2 ? 1 : 0;
-    const outOfOrderRooms = Math.random() < 0.1 ? 1 : 0;
-    const occPercent = Math.round(((roomsSold + complimentaryRooms) / totalRooms) * 1000) / 10;
-
-    const adrNetEur = Math.round(baseAdr);
-    const caHebergement = roomsSold * adrNetEur;
-    const revparEur = Math.round((caHebergement / totalRooms) * 100) / 100;
-
-    // Simulation des snapshots OTB passés (J-90 à J-1)
-    const otbJ90 = Math.round(roomsSold * 0.22);
-    const otbJ60 = Math.round(roomsSold * 0.45);
-    const otbJ30 = Math.round(roomsSold * 0.72);
-    const otbJ14 = Math.round(roomsSold * 0.88);
-    const otbJ7 = Math.round(roomsSold * 0.94);
-    const otbJ3 = Math.round(roomsSold * 0.97);
-    const otbJ1 = roomsSold;
-
-    records.push({
-      id: `hist-${hotelId}-${dateStr}`,
-      hotelId,
-      dateStr,
-      dayOfWeek,
-      weekOfYear: getWeekNumber(dateStr),
-      month,
-      year,
-      isHoliday: isFrenchHoliday(dateStr),
-      isSchoolHoliday: isFrenchSchoolHoliday(dateStr),
-      schoolHolidayZone: 'Zone C',
-      isHolidayEve: false,
-      season,
-      dayType: isWeekend ? 'Weekend' : 'Semaine',
-
-      eventName,
-      eventCategory,
-      eventImportance,
-      eventDistanceKm: eventName ? 4.5 : undefined,
-      eventIsInternational: !!eventName,
-      hasMultipleEvents: false,
-
-      totalMarketableRooms: totalRooms,
-      availableRoomsForSale: totalRooms - outOfOrderRooms,
-      roomsSold,
-      complimentaryRooms,
-      outOfOrderRooms,
-      occupancyPercent: occPercent,
-      turnawaysCount: turnaways,
-      reservationsCount: Math.round(roomsSold * 0.9),
-      guestsCount: Math.round(roomsSold * 1.8),
-
-      adrNetEur,
-      revparEur,
-      accommodationRevenueEur: caHebergement,
-      avgSoldRoomPrice: adrNetEur,
-      totalHotelRevenueEur: Math.round(caHebergement * 1.08),
-      trevparEur: Math.round((caHebergement * 1.08) / totalRooms),
-      avgDistributionCostEur: 32.5,
-      avgCommissionPercent: 12.0,
-      avgNetRateAfterCommissionsEur: Math.round(adrNetEur * 0.88),
-
-      otbJ90,
-      otbJ60,
-      otbJ30,
-      otbJ14,
-      otbJ7,
-      otbJ3,
-      otbJ1,
-      pickupJ90toJ60: otbJ60 - otbJ90,
-      pickupJ60toJ30: otbJ30 - otbJ60,
-      pickupJ30toJ14: otbJ14 - otbJ30,
-      pickupJ14toJ7: otbJ7 - otbJ14,
-      pickupJ7toJ3: otbJ3 - otbJ7,
-      pickupJ3toJ1: otbJ1 - otbJ3,
-      pickupJ1toArrival: 0,
-      avgLeadTimeDays: isWeekend ? 32 : 18,
-      cancellationsCount: Math.round(roomsSold * 0.08),
-      cancellationRatePercent: 8.0,
-      noShowCount: 0,
-
-      directReservations: Math.round(roomsSold * 0.42),
-      bookingReservations: Math.round(roomsSold * 0.38),
-      expediaReservations: Math.round(roomsSold * 0.12),
-      gdsReservations: Math.round(roomsSold * 0.08),
-      directSharePercent: 42.0,
-      otaSharePercent: 50.0,
-      appliedMinStay: isWeekend && occPercent > 90 ? 2 : 1,
-      isClosedToArrival: false,
-      isClosedToDeparture: false,
-
-      publicBarEur: adrNetEur + 15,
-      compsetAvgEur: adrNetEur + 18,
-      compsetMinEur: adrNetEur - 25,
-      compsetMaxEur: adrNetEur + 55,
-      ratePositionIndex: 96.5,
-      compsetAvailabilityAvg: 100 - occPercent,
-      compsetAvailableHotelsCount: occPercent > 92 ? 1 : 5,
-    });
-  }
-
-  return records;
-}
-
-function generateSampleDemandSnapshots(): HistoricalDemandSnapshot[] {
-  const snaps: HistoricalDemandSnapshot[] = [];
-  const baseArrival = '2025-10-15';
-  const obsPoints = [
-    { days: 90, obs: '2025-07-17', booked: 8, adr: 295 },
-    { days: 60, obs: '2025-08-16', booked: 18, adr: 320 },
-    { days: 30, obs: '2025-09-15', booked: 31, adr: 350 },
-    { days: 14, obs: '2025-10-01', booked: 38, adr: 365 },
-    { days: 7, obs: '2025-10-08', booked: 41, adr: 375 },
-    { days: 3, obs: '2025-10-12', booked: 43, adr: 385 },
-    { days: 1, obs: '2025-10-14', booked: 44, adr: 395 },
-  ];
-
-  for (let i = 0; i < obsPoints.length; i++) {
-    const p = obsPoints[i];
-    const prevBooked = i > 0 ? obsPoints[i - 1].booked : 0;
-    snaps.push({
-      id: `snap-sample-${i}`,
-      hotelId: 'hotel-folkestone-opera',
-      observationDate: p.obs,
-      arrivalDate: baseArrival,
-      daysBeforeArrival: p.days,
-      roomsBookedOtb: p.booked,
-      roomsAvailable: 45 - p.booked,
-      projectedOccupancyPercent: Math.round((p.booked / 45) * 100),
-      bookedAdrEur: p.adr,
-      bookedRevenueEur: p.booked * p.adr,
-      pickupSincePrevSnapshot: p.booked - prevBooked,
-      cancellationsSincePrevSnapshot: Math.round(p.booked * 0.05),
-      publicRateAtSnapshotEur: p.adr + 20,
-      compsetRateAtSnapshotEur: p.adr + 25,
-      turnawaysAtSnapshot: p.days <= 7 ? 6 : 0,
-      dataSource: 'D-EDGE CRS',
-    });
-  }
-
-  return snaps;
-}
-
 function getDayOfWeekFr(dateStr: string): string {
   const d = new Date(dateStr);
   return ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][d.getDay()];
@@ -818,13 +648,3 @@ function getWeekNumber(dateStr: string): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
-function isFrenchHoliday(dateStr: string): boolean {
-  const md = dateStr.slice(5);
-  return ['01-01', '05-01', '05-08', '07-14', '08-15', '11-01', '11-11', '12-25'].includes(md);
-}
-
-function isFrenchSchoolHoliday(dateStr: string): boolean {
-  const m = Number(dateStr.slice(5, 7));
-  const d = Number(dateStr.slice(8, 10));
-  return (m === 2 && d >= 10 && d <= 25) || (m === 4 && d >= 12 && d <= 28) || m === 7 || m === 8 || (m === 10 && d >= 20);
-}

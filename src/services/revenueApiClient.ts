@@ -55,15 +55,39 @@ export const submitRevenueDecision = (
   supabase, `/hotels/${encodeURIComponent(hotelId)}/decisions`, { method: "POST", body: decision },
 );
 
+export type BaselineForecastRunResult = {
+  modelName: string;
+  modelVersion: string;
+  forecastRunId: string;
+  datesRequested: number;
+  datesForecast: number;
+  skippedForInsufficientHistory: number;
+};
+
 export const generateBaselineForecast = (supabase: SupabaseClient, hotelId: string, startDate: string, endDate: string) =>
-  revenueApiRequest<{ ok: true; forecastRunId: string; datesForecast: number; skippedForInsufficientHistory: number }>(
+  revenueApiRequest<{ ok: true; hotelId: string; asOf: string; models: BaselineForecastRunResult[]; forecastingIsBaselineOnly: true }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/forecasts/baseline`,
     { method: "POST", body: { startDate, endDate } },
   );
 
+export const getHotelForecasts = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; hotelId: string; from: string; to: string; data: Record<string, unknown>[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/forecasts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  );
+
+export const getRecommendationsV2Status = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; version: 2 }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/recommendations-v2-status`,
+  );
+
+export const getHotelRecommendations = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; data: Record<string, unknown>[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/recommendations-v2?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  );
+
 export const generatePricingRecommendations = (supabase: SupabaseClient, hotelId: string, startDate: string, endDate: string) =>
   revenueApiRequest<{ ok: true; generated: number; requiresHumanApproval: true; automaticPublication: false; data: unknown[] }>(
-    supabase, `/hotels/${encodeURIComponent(hotelId)}/recommendations/generate`,
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/recommendations-v2-generate`,
     { method: "POST", body: { startDate, endDate } },
   );
 
@@ -72,12 +96,25 @@ export const saveHotelRevenueParameters = (supabase: SupabaseClient, hotelId: st
     supabase, `/hotels/${encodeURIComponent(hotelId)}/parameters`, { method: "POST", body: parameters },
   );
 
+export const updateHotelCoordinates = (
+  supabase: SupabaseClient,
+  hotelId: string,
+  payload: { lat: number | null; lng: number | null },
+) => revenueApiRequest<{ ok: true; data: { hotel_id: string; lat: number | null; lng: number | null } }>(
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/location`, { method: "POST", body: payload },
+);
+
+export const getHistoricalImportV2Status = (supabase: SupabaseClient, hotelId: string) =>
+  revenueApiRequest<{ ok: true; version: 2 }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/historical-import-v2-status`,
+  );
+
 export const importHotelHistoricalRows = (
   supabase: SupabaseClient,
   hotelId: string,
-  payload: { fileName?: string; sourceName: string; detectedColumns?: string[]; rows: Record<string, unknown>[] },
-) => revenueApiRequest<{ ok: true; importId: string; imported: number }>(
-  supabase, `/hotels/${encodeURIComponent(hotelId)}/historical-import`, { method: "POST", body: payload },
+  payload: { fileName?: string; fileSizeBytes?: number; sourceName: string; detectedColumns?: string[]; rows: Record<string, unknown>[]; snapshots?: Record<string, unknown>[] },
+) => revenueApiRequest<{ ok: true; importId: string; imported: number; snapshotsImported: number }>(
+  supabase, `/hotels/${encodeURIComponent(hotelId)}/historical-import-v2`, { method: "POST", body: payload },
 );
 
 export const getHotelBacktests = (supabase: SupabaseClient, hotelId: string) =>

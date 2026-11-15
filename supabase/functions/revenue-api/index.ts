@@ -1,6 +1,7 @@
 import { withSupabase } from "npm:@supabase/server@1";
 import { calculateForecastMetrics, calculateHaversineKm, selectForecastTrainingRows, summarizeForecastSamples } from "./_shared/forecast.ts";
 import { estimatePairedPriceElasticity } from "./_shared/priceElasticity.ts";
+import { buildRoomTypeRecommendation, type RoomTypeSignalKey } from "./_shared/roomTypeRecommendationEngine.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -158,6 +159,24 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return fail("Corps JSON invalide"); }
 
+  if (actionPath === "location") {
+    const rawLat = body.lat;
+    const rawLng = body.lng;
+    const lat = rawLat === null ? null : numberOrNull(rawLat);
+    const lng = rawLng === null ? null : numberOrNull(rawLng);
+    if ((rawLat !== null && lat === null) || (rawLng !== null && lng === null)) return fail("Latitude ou longitude invalide");
+    if ((lat === null) !== (lng === null)) return fail("Latitude et longitude doivent être renseignées ensemble");
+    if (lat !== null && (lat < -90 || lat > 90)) return fail("Latitude hors limites");
+    if (lng !== null && (lng < -180 || lng > 180)) return fail("Longitude hors limites");
+    const { data, error } = await supabase.rpc("update_hotel_coordinates", {
+      p_hotel_id: hotelId,
+      p_lat: lat,
+      p_lng: lng,
+    });
+    if (error) return fail("Coordonnées non enregistrées. Vérifiez que la migration hotel_coordinates_rpc est appliquée.", 409, error.message);
+    return json({ ok: true, data });
+  }
+
   if (actionPath === "decisions") {
     const { rateIntelligenceId, action, appliedRate, appliedMinStay, reasonCode, reasonText } = body;
     if (typeof rateIntelligenceId !== "string" || !["accept", "modify", "reject"].includes(String(action))) {
@@ -180,8 +199,14 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const floor = numberOrNull(body.floorRate);
     const ceiling = numberOrNull(body.ceilingRate);
     const maxChange = numberOrNull(body.maxDailyRateChangePct);
-    if (floor === null || ceiling === null || maxChange === null || floor <= 0 || ceiling < floor || maxChange <= 0 || maxChange > 100) {
-      return fail("Plancher, plafond et variation quotidienne maximale doivent être renseignés et cohérents");
+    if (
+      (floor !== null && floor <= 0) ||
+      (ceiling !== null && ceiling <= 0) ||
+      ((floor === null) !== (ceiling === null)) ||
+      (floor !== null && ceiling !== null && ceiling < floor) ||
+      (maxChange !== null && (maxChange <= 0 || maxChange > 100))
+    ) {
+      return fail("Le plancher et le plafond doivent être renseignés ensemble et cohérents ; la variation maximale, si renseignée, doit être comprise entre 0 et 100 %");
     }
     const profileRow = {
       organization_id: hotel.organization_id,
@@ -236,7 +261,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const experimentCode=body.experimentCode,experimentName=body.experimentName,assignmentUnit=body.assignmentUnit;
     const startDate=body.startDate,endDate=body.endDate;
     if (typeof experimentCode!=="string"||!experimentCode.trim()||typeof experimentName!=="string"||!experimentName.trim()||
-        !["stay_date","room_type","rate_plan","channel","stay_date_room_type_rate_plan_channel"].includes(assignmentUnit)||
+        typeof assignmentUnit!=="string"||!["stay_date","room_type","rate_plan","channel","stay_date_room_type_rate_plan_channel"].includes(assignmentUnit)||
         !isDate(startDate)||!isDate(endDate)||endDate<startDate) return fail("Définition d'expérience invalide");
     const {data,error}=await supabase.from("hotel_price_experiments").insert({
       organization_id:hotel.organization_id,hotel_id:hotelId,experiment_code:experimentCode.trim(),
@@ -298,7 +323,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
 
   if (actionPath === "price-experiments/review") {
     const experimentId=body.experimentId,action=body.action,reasonCode=body.reasonCode;
-    if (typeof experimentId!=="string"||!["verify_randomization","complete"].includes(action)||
+    if (typeof experimentId!=="string"||typeof action!=="string"||!["verify_randomization","complete"].includes(action)||
         typeof reasonCode!=="string"||!reasonCode.trim()) return fail("experimentId, action et reasonCode obligatoires");
     const evidence=body.evidence&&typeof body.evidence==="object"?body.evidence:null;
     if (action==="verify_randomization"&&!evidence) return fail("Les preuves de randomisation sont obligatoires");
@@ -389,41 +414,117 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ok:true,inserted:data?.length??0,data},201);
   }
 
-  if (actionPath === "historical-import") {
+  if (actionPath === "historical-import-v2-status") {
+    return json({ ok: true, version: 2 });
+  }
+
+  if (actionPath === "historical-import-v2") {
     if (!Array.isArray(body.rows) || body.rows.length < 1 || body.rows.length > 5000) {
       return fail("Fournir entre 1 et 5000 lignes historiques");
     }
+    const snapshots = Array.isArray(body.snapshots) ? body.snapshots : [];
+    if (snapshots.length > 10000) return fail("Maximum 10000 snapshots historiques par import");
     const sourceName = typeof body.sourceName === "string" && body.sourceName.trim() ? body.sourceName.trim().slice(0,120) : null;
     if (!sourceName) return fail("sourceName est obligatoire pour garantir la déduplication");
-    const invalid = body.rows.filter((r: any) => !isDate(r.stay_date));
-    if (invalid.length) return fail("Une ou plusieurs lignes ont une stay_date invalide", 422, { invalidRows: invalid.length });
+    const invalid = body.rows.filter((r: any) => {
+      if (!isDate(r.stay_date)) return true;
+      if (!Number.isInteger(r.day_of_week) || r.day_of_week < 0 || r.day_of_week > 6) return true;
+      if (!Number.isInteger(r.week_of_year) || r.week_of_year < 1 || r.week_of_year > 53) return true;
+      if (!Number.isInteger(r.month_of_year) || r.month_of_year < 1 || r.month_of_year > 12) return true;
+      if (!Number.isInteger(r.year_of_stay) || r.year_of_stay < 2000 || r.year_of_stay > 2100) return true;
+      if (!Number.isInteger(r.total_marketable_rooms) || r.total_marketable_rooms < 1) return true;
+      if (!Number.isInteger(r.rooms_sold) || r.rooms_sold < 0) return true;
+      for (const field of ["available_rooms", "complimentary_rooms", "out_of_order_rooms", "reservations_count", "guests_count"]) {
+        if (r[field] != null && (!Number.isInteger(r[field]) || r[field] < 0)) return true;
+      }
+      const occupancy = numberOrNull(r.occupancy_pct);
+      if (occupancy === null || occupancy < 0 || occupancy > 100) return true;
+      for (const field of ["adr_net", "revpar", "accommodation_revenue", "net_adr"]) {
+        if (r[field] != null && (!Number.isFinite(Number(r[field])) || Number(r[field]) < 0)) return true;
+      }
+      return false;
+    });
+    if (invalid.length) {
+      return fail("Une ou plusieurs lignes historiques contiennent des dates, capacités ou indicateurs invalides", 422, { invalidRows: invalid.length });
+    }
+
+    const invalidSnapshots = snapshots.filter((s: any) => {
+      if (!isDate(s.observation_date) || !isDate(s.arrival_date)) return true;
+      const expectedDays = Math.round((Date.parse(s.arrival_date + "T00:00:00Z") - Date.parse(s.observation_date + "T00:00:00Z")) / 86400000);
+      return !Number.isInteger(s.days_before_arrival) || s.days_before_arrival < 0 ||
+        s.days_before_arrival !== expectedDays ||
+        !Number.isInteger(s.rooms_booked_otb) || s.rooms_booked_otb < 0 ||
+        !Number.isInteger(s.rooms_available) || s.rooms_available < 0 ||
+        numberOrNull(s.projected_occupancy_pct) === null || Number(s.projected_occupancy_pct) < 0 || Number(s.projected_occupancy_pct) > 100 ||
+        (s.booked_adr != null && (!Number.isFinite(Number(s.booked_adr)) || Number(s.booked_adr) < 0)) ||
+        (s.booked_revenue != null && (!Number.isFinite(Number(s.booked_revenue)) || Number(s.booked_revenue) < 0)) ||
+        (s.rooms_booked_otb > 0 && s.booked_adr == null && s.booked_revenue == null) ||
+        (s.pickup_since_previous != null && !Number.isInteger(s.pickup_since_previous)) ||
+        (s.cancellations_since_previous != null && (!Number.isInteger(s.cancellations_since_previous) || s.cancellations_since_previous < 0));
+    });
+    if (invalidSnapshots.length) {
+      return fail("Un ou plusieurs snapshots sont invalides : dates, lead time ou métriques OTB incohérentes", 422, { invalidSnapshots: invalidSnapshots.length });
+    }
+
     const dates = body.rows.map((r: any) => r.stay_date).sort();
     const { data: log, error: logError } = await supabase.from("hotel_historical_import_logs").insert({
       organization_id: hotel.organization_id, hotel_id: hotelId,
       file_name: typeof body.fileName === "string" ? body.fileName.slice(0,255) : "historical-import",
+      file_size_bytes: Number.isFinite(Number(body.fileSizeBytes)) && Number(body.fileSizeBytes) > 0 ? Math.round(Number(body.fileSizeBytes)) : null,
       records_count: body.rows.length, rejected_count: 0, date_start: dates[0], date_end: dates[dates.length-1],
       import_status: "pending", warnings: [], errors: [], detected_columns: Array.isArray(body.detectedColumns) ? body.detectedColumns : [],
       imported_by: profile.id,
     }).select("id").single();
     if (logError || !log) return fail("Création du journal d'import impossible", 400, logError?.message);
+
     const rows = body.rows.map((r: any) => ({
       ...r, id: undefined, organization_id: hotel.organization_id, hotel_id: hotelId,
       source_name: sourceName, source_status: "imported", import_batch_id: log.id,
       raw_record: r.raw_record && typeof r.raw_record === "object" ? r.raw_record : r,
-      currency: typeof r.currency === "string" ? r.currency : hotel.currency,
+      currency: hotel.currency,
     }));
     const { data, error } = await supabase.from("hotel_historical_daily")
       .upsert(rows, { onConflict: "hotel_id,stay_date,source_name" }).select("id");
     if (error) {
       await supabase.from("hotel_historical_import_logs").update({
-        import_status: "failed", rejected_count: body.rows.length, errors: [{ message: error.message }],
+        import_status: "failed", rejected_count: body.rows.length, errors: [{ phase: "daily", message: error.message }],
       }).eq("id", log.id);
-      return fail("Import historique échoué", 400, error.message);
+      return fail("Import historique quotidien échoué", 400, error.message);
     }
+
+    let snapshotsImported = 0;
+    if (snapshots.length > 0) {
+      const snapshotRows = snapshots.map((s: any) => ({
+        organization_id: hotel.organization_id, hotel_id: hotelId,
+        observation_date: s.observation_date, arrival_date: s.arrival_date,
+        days_before_arrival: s.days_before_arrival, rooms_booked_otb: s.rooms_booked_otb,
+        rooms_available: s.rooms_available, projected_occupancy_pct: s.projected_occupancy_pct,
+        booked_adr: s.booked_adr, booked_revenue: s.booked_revenue,
+        pickup_since_previous: s.pickup_since_previous,
+        cancellations_since_previous: s.cancellations_since_previous,
+        public_rate: numberOrNull(s.public_rate), compset_rate: numberOrNull(s.compset_rate),
+        source_status: "imported", source_name: sourceName, import_batch_id: log.id,
+      }));
+      const { data: snapshotData, error: snapshotError } = await supabase.from("hotel_historical_demand_snapshots")
+        .upsert(snapshotRows, { onConflict: "hotel_id,observation_date,arrival_date,source_name" }).select("id");
+      if (snapshotError) {
+        await supabase.from("hotel_historical_import_logs").update({
+          import_status: "failed",
+          records_count: data?.length ?? 0,
+          errors: [{ phase: "snapshots", message: snapshotError.message }],
+        }).eq("id", log.id);
+        return fail("Historique quotidien enregistré, mais import des snapshots OTB échoué", 400, {
+          importId: log.id, dailyImported: data?.length ?? 0, snapshotError: snapshotError.message,
+        });
+      }
+      snapshotsImported = snapshotData?.length ?? 0;
+    }
+
     await supabase.from("hotel_historical_import_logs").update({
       import_status: "completed", records_count: data?.length ?? 0,
+      warnings: snapshots.length === 0 ? [{ message: "Aucun snapshot OTB fourni dans le fichier." }] : [],
     }).eq("id", log.id);
-    return json({ ok: true, importId: log.id, imported: data?.length ?? 0 }, 201);
+    return json({ ok: true, importId: log.id, imported: data?.length ?? 0, snapshotsImported }, 201);
   }
 
   if (actionPath === "forecasts/baseline") {
@@ -487,7 +588,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
 
   if (actionPath === "events/decisions") {
     const occurrenceId=body.occurrenceId,action=body.action,reasonCode=body.reasonCode,reasonText=body.reasonText;
-    if (typeof occurrenceId!=="string" || !["validate","dismiss"].includes(action) || typeof reasonCode!=="string" || !reasonCode.trim()) {
+    if (typeof occurrenceId!=="string" || typeof action!=="string" || !["validate","dismiss"].includes(action) || typeof reasonCode!=="string" || !reasonCode.trim()) {
       return fail("occurrenceId, action validate/dismiss et reasonCode sont obligatoires");
     }
     const {data:impact,error:impactError}=await supabase.from("event_hotel_impacts")
@@ -718,28 +819,58 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     return json({ok:true,data:evaluation},201);
   }
 
-  if (actionPath === "recommendations/generate") {
+  if (actionPath === "recommendations-v2-status") {
+    return json({ ok: true, version: 2 });
+  }
+
+  if (actionPath === "recommendations-v2") {
+    const requestUrl = new URL(req.url);
+    const start = requestUrl.searchParams.get("from");
+    const end = requestUrl.searchParams.get("to");
+    if (!start || !end || !isDate(start) || !isDate(end) || start > end || eachDate(start, end).length > 120) {
+      return fail("Période de recommandations invalide (maximum 120 jours)");
+    }
+    const { data, error } = await supabase.from("daily_rate_intelligence")
+      .select("id,stay_date,currency,current_bar,suggested_bar,delta_amount,delta_pct,demand_index,demand_level,occupancy_pct,rooms_remaining,pickup_24h,pickup_3d,pickup_7d,lighthouse_median,strategy_code,explanation,confidence_score,data_quality_status,recommendation_status")
+      .eq("hotel_id", hotelId)
+      .gte("stay_date", start)
+      .lte("stay_date", end)
+      .order("stay_date", { ascending: true })
+      .limit(1000);
+    if (error) return fail("Lecture des recommandations Revenue impossible", 400, error.message);
+    return json({ ok: true, data: data ?? [] });
+  }
+
+  if (actionPath === "recommendations-v2-generate") {
     const start = body.startDate, end = body.endDate;
     if (!isDate(start) || !isDate(end) || start > end || eachDate(start,end).length > 90) {
       return fail("startDate/endDate invalides (maximum 90 jours)");
     }
     const [{ data: params }, { data: hotelSettings }] = await Promise.all([
       supabase.from("hotel_parameters_profiles").select("*").eq("hotel_id",hotelId).maybeSingle(),
-      supabase.from("hotels").select("rate_floor,rate_ceiling,max_rate_change_pct").eq("id",hotelId).single(),
+      supabase.from("hotels").select("rate_floor,rate_ceiling,max_rate_change_pct,room_count").eq("id",hotelId).single(),
     ]);
     const cfg: any = params?.demand_thresholds?.pricing_v1;
     if (!params || !cfg || !cfg.weights || !cfg.thresholds || !cfg.rate_adjustments_pct) {
       return fail("Le modèle pricing_v1 doit être configuré dans les paramètres de l'hôtel avant de générer des recommandations", 422);
     }
+
     const floor = numberOrNull(params.floor_rate) ?? numberOrNull(hotelSettings?.rate_floor);
     const ceiling = numberOrNull(params.ceiling_rate) ?? numberOrNull(hotelSettings?.rate_ceiling);
     const maxChange = numberOrNull(params.max_daily_rate_change_pct) ?? numberOrNull(hotelSettings?.max_rate_change_pct);
-    if (floor === null || ceiling === null || maxChange === null || floor <= 0 || ceiling < floor || maxChange <= 0) {
+    if (floor === null || ceiling === null || maxChange === null || floor <= 0 || ceiling < floor || maxChange <= 0 || maxChange > 100) {
       return fail("Plancher, plafond et variation maximale doivent être configurés", 422);
     }
+
     const weights = cfg.weights as Record<string,number>;
-    const keys = ["occupancy","pickup","event","compset"];
-    const totalWeight = keys.reduce((s,k)=>s+(Number(weights[k])||0),0);
+    const keys: RoomTypeSignalKey[] = ["occupancy","pickup","event","compset","market_demand"];
+    const normalizedWeights: Record<RoomTypeSignalKey,number> = { occupancy: 0, pickup: 0, event: 0, compset: 0, market_demand: 0 };
+    for (const key of keys) {
+      const raw = weights[key] == null ? 0 : Number(weights[key]);
+      if (!Number.isFinite(raw) || raw < 0) return fail("Poids pricing_v1 invalide pour " + key, 422);
+      normalizedWeights[key] = raw;
+    }
+    const totalWeight = keys.reduce((sum,key)=>sum+normalizedWeights[key],0);
     const thresholds = cfg.thresholds as Record<string,number>;
     const adjustments = cfg.rate_adjustments_pct as Record<string,number>;
     const normalThreshold = Number(thresholds.normal);
@@ -751,160 +882,409 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const pickupWindowWeights = cfg.pickup_window_weights as Record<string,number> | undefined;
     const pickupWindowScales = cfg.pickup_scale_rooms as Record<string,number> | undefined;
     const pickupWindows = ["24h","3d","7d"];
-    const minimumSources=Number(cfg.minimum_sources);
-    const minimumCoverage=Number(cfg.minimum_weight_coverage_pct);
-    const compsetLos=Number(cfg.compset_los);
-    const compsetPos=Number(cfg.compset_pos);
-    const minimumCompsetHotels=Number(cfg.minimum_compset_hotels);
-    const compsetGapScale=Number(cfg.compset_gap_scale_pct);
-    const compsetConfigValid=Number(weights.compset)===0 || (
-      Number.isInteger(compsetLos)&&compsetLos>0&&Number.isInteger(compsetPos)&&compsetPos>0&&
-      Number.isInteger(minimumCompsetHotels)&&minimumCompsetHotels>0&&
-      Number.isFinite(compsetGapScale)&&compsetGapScale>0
+    const pickupWindowHours: Record<string,number> = {"24h":24,"3d":72,"7d":168};
+    const minimumSources = Number(cfg.minimum_sources);
+    const minimumCoverage = Number(cfg.minimum_weight_coverage_pct);
+    const minimumCompsetHotels = Number(cfg.minimum_compset_hotels);
+    const compsetLos = Number(cfg.compset_los);
+    const compsetPos = Number(cfg.compset_pos);
+    const compsetGapScale = Number(cfg.compset_gap_scale_pct);
+    const compsetConfigValid = normalizedWeights.compset === 0 || (
+      Number.isInteger(compsetLos) && compsetLos > 0 &&
+      Number.isInteger(compsetPos) && compsetPos > 0 &&
+      Number.isInteger(minimumCompsetHotels) && minimumCompsetHotels > 0 &&
+      Number.isFinite(compsetGapScale) && compsetGapScale > 0 &&
+      ["compset_room_type","compset_rate_plan","compset_channel"].every((key) =>
+        typeof cfg[key] === "string" && cfg[key].trim().length > 0
+      )
     );
-    const pickupConfigValid = Number(weights.pickup) === 0 || (
+    const pickupConfigValid = normalizedWeights.pickup === 0 || (
       !!pickupWindowWeights && !!pickupWindowScales &&
-      pickupWindows.every(w => Number.isFinite(Number(pickupWindowWeights[w])) && Number(pickupWindowWeights[w]) >= 0 &&
-        Number.isFinite(Number(pickupWindowScales[w])) && Number(pickupWindowScales[w]) > 0) &&
-      pickupWindows.reduce((s,w)=>s+Number(pickupWindowWeights[w]),0) > 0
+      pickupWindows.every(window =>
+        Number.isFinite(Number(pickupWindowWeights[window])) && Number(pickupWindowWeights[window]) >= 0 &&
+        Number.isFinite(Number(pickupWindowScales[window])) && Number(pickupWindowScales[window]) > 0
+      ) && pickupWindows.reduce((sum,window)=>sum+Number(pickupWindowWeights[window]),0) > 0
     );
-    if (totalWeight <= 0 || keys.some(k => !Number.isFinite(Number(weights[k])) || Number(weights[k]) < 0) ||
+    const marketDemandSourceChannel = typeof cfg.market_demand_source_channel === "string" ? cfg.market_demand_source_channel.trim() : "";
+    const marketDemandLos = Number(cfg.market_demand_los);
+    const marketDemandGuests = Number(cfg.market_demand_guests);
+    const marketDemandConfigValid = normalizedWeights.market_demand === 0 || (
+      marketDemandSourceChannel.length > 0 &&
+      Number.isInteger(marketDemandLos) && marketDemandLos > 0 &&
+      Number.isInteger(marketDemandGuests) && marketDemandGuests > 0
+    );
+    const baseRatePlanCode = typeof cfg.base_rate_plan_code === "string" ? cfg.base_rate_plan_code.trim() : "";
+    const reconciliationToleranceRooms = cfg.inventory_reservation_tolerance_rooms == null ? 1 : Number(cfg.inventory_reservation_tolerance_rooms);
+
+    if (totalWeight <= 0 ||
         !Number.isFinite(normalThreshold) || !Number.isFinite(highThreshold) || !Number.isFinite(exceptionalThreshold) ||
         normalThreshold < 0 || normalThreshold >= highThreshold || highThreshold >= exceptionalThreshold || exceptionalThreshold > 100 ||
-        !["low","normal","high","exceptional"].every(k => Number.isFinite(Number(adjustments[k]))) ||
+        !["low","normal","high","exceptional"].every(key => Number.isFinite(Number(adjustments[key]))) ||
         !Number.isFinite(maxObservationAge) || maxObservationAge <= 0 ||
-        !Number.isFinite(maxInventoryAge) || maxInventoryAge <= 0 || !Number.isFinite(maxPickupSnapshotAge) || maxPickupSnapshotAge <= 0 || !pickupConfigValid || !compsetConfigValid || !Number.isInteger(minimumSources) || minimumSources<1 || !Number.isFinite(minimumCoverage) || minimumCoverage<0 || minimumCoverage>100) {
-      return fail("Configuration pricing_v1 invalide : weights, thresholds et rate_adjustments_pct requis", 422);
+        !Number.isFinite(maxInventoryAge) || maxInventoryAge <= 0 ||
+        !Number.isFinite(maxPickupSnapshotAge) || maxPickupSnapshotAge <= 0 ||
+        !pickupConfigValid || !compsetConfigValid || !marketDemandConfigValid ||
+        !Number.isInteger(minimumSources) || minimumSources < 1 || minimumSources > keys.length ||
+        !Number.isFinite(minimumCoverage) || minimumCoverage < 0 || minimumCoverage > 100 ||
+        !Number.isFinite(reconciliationToleranceRooms) || reconciliationToleranceRooms < 0 ||
+        !baseRatePlanCode) {
+      return fail("Configuration pricing_v1 invalide : plan BAR public, weights, seuils, fraîcheur et dimensions des sources requis", 422);
     }
 
-    const [inventoryResult,reservationResult,compRateResult,impactResult] = await Promise.all([
-      supabase.from("hotel_inventory_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
-      supabase.from("hotel_reservation_snapshots").select("*").eq("hotel_id",hotelId).in("source_status",["live","imported"]).in("pickup_window_hours",[24,72,168]).not("net_pickup_rooms","is",null).gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(5000),
-      supabase.from("lighthouse_rate_observations").select("stay_date,competitor_id,rate_amount,availability_status,observed_at,source_status,los,pos,currency,room_type,rate_plan,channel").eq("hotel_id",hotelId).eq("availability_status","available").eq("los",compsetLos).eq("pos",compsetPos).eq("currency",hotel.currency).eq("room_type",cfg.compset_room_type).eq("rate_plan",cfg.compset_rate_plan).eq("channel",cfg.compset_channel).not("competitor_id","is",null).in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null).order("observed_at",{ascending:false}).limit(5000),
-      supabase.from("event_hotel_impacts").select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)").eq("hotel_id",hotelId).eq("impact_status","validated").gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end).not("final_rm_score","is",null),
+    const [{ data: ratePlan, error: ratePlanError }, { data: roomTypes, error: roomTypesError }] = await Promise.all([
+      supabase.from("hotel_rate_plans").select("id,code,name,currency,is_active,is_public")
+        .eq("hotel_id",hotelId).eq("code",baseRatePlanCode).eq("is_active",true).eq("is_public",true).maybeSingle(),
+      supabase.from("hotel_room_types").select("id,code,name,rooms_count")
+        .eq("hotel_id",hotelId).eq("is_active",true).order("name"),
     ]);
-    const queryError = inventoryResult.error ?? reservationResult.error ?? compRateResult.error ?? impactResult.error;
-    if (queryError) return fail("Lecture des données sources Revenue impossible", 400, queryError.message);
-    const inventory = inventoryResult.data ?? [];
-    const reservations = reservationResult.data ?? [];
-    const compRates = compRateResult.data ?? [];
-    const impacts = impactResult.data ?? [];
+    if (ratePlanError || roomTypesError) return fail("Lecture des référentiels chambre et tarif impossible",400,ratePlanError?.message ?? roomTypesError?.message);
+    if (!ratePlan) return fail("Le plan BAR sélectionné n'existe pas, n'est pas actif ou n'est pas déclaré public",422);
+    if (!roomTypes?.length) return fail("Aucune typologie active n'est configurée pour cet hôtel",422);
+    const hotelRoomCount = numberOrNull(hotelSettings?.room_count);
+    const allRoomTypeCountsConfigured = roomTypes.every((room:any)=>numberOrNull(room.rooms_count)!==null);
+    const totalRoomTypeCapacity = roomTypes.reduce((sum:number,room:any)=>sum+(numberOrNull(room.rooms_count)??0),0);
+    const roomTypeCapacityMismatch = hotelRoomCount !== null && allRoomTypeCountsConfigured && totalRoomTypeCapacity !== hotelRoomCount;
+
+    const compRatesPromise = normalizedWeights.compset > 0
+      ? supabase.from("lighthouse_rate_observations")
+          .select("stay_date,competitor_id,rate_amount,availability_status,observed_at,source_status,los,pos,currency,room_type,rate_plan,channel")
+          .eq("hotel_id",hotelId).eq("availability_status","available")
+          .eq("los",compsetLos).eq("pos",compsetPos).eq("currency",hotel.currency)
+          .eq("room_type",cfg.compset_room_type).eq("rate_plan",cfg.compset_rate_plan).eq("channel",cfg.compset_channel)
+          .not("competitor_id","is",null).in("source_status",["live","imported"])
+          .gte("stay_date",start).lte("stay_date",end).not("rate_amount","is",null)
+          .order("observed_at",{ascending:false}).limit(5000)
+      : Promise.resolve({data:[],error:null});
+    const marketDemandPromise = normalizedWeights.market_demand > 0
+      ? supabase.from("lighthouse_market_observations")
+          .select("stay_date,observed_at,source_channel,los_nights,guests_count,market_median_rate,demand_index,demand_index_raw,demand_index_scale,source_status,source_hash")
+          .eq("hotel_id",hotelId).eq("source_channel",marketDemandSourceChannel)
+          .eq("los_nights",marketDemandLos).eq("guests_count",marketDemandGuests)
+          .in("source_status",["live","imported"]).gte("stay_date",start).lte("stay_date",end)
+          .order("observed_at",{ascending:false}).limit(5000)
+      : Promise.resolve({data:[],error:null});
+
+    const [rateObservationResult,inventoryResult,reservationResult,compRateResult,marketResult,impactResult] = await Promise.all([
+      supabase.from("hotel_rate_plan_observations")
+        .select("room_type_id,stay_date,snapshot_at,rate_amount,availability_status,source_status")
+        .eq("hotel_id",hotelId).eq("rate_plan_id",ratePlan.id)
+        .eq("availability_status","available").in("source_status",["live","imported"])
+        .not("rate_amount","is",null).gte("stay_date",start).lte("stay_date",end)
+        .order("snapshot_at",{ascending:false}).limit(10000),
+      supabase.from("hotel_inventory_snapshots")
+        .select("room_type_id,stay_date,snapshot_at,rooms_available,source_status")
+        .eq("hotel_id",hotelId).in("source_status",["live","imported"])
+        .gte("stay_date",start).lte("stay_date",end).order("snapshot_at",{ascending:false}).limit(10000),
+      supabase.from("hotel_reservation_snapshots").select("*")
+        .eq("hotel_id",hotelId).in("source_status",["live","imported"])
+        .in("pickup_window_hours",[24,72,168]).gte("stay_date",start).lte("stay_date",end)
+        .order("snapshot_at",{ascending:false}).limit(10000),
+      compRatesPromise,
+      marketDemandPromise,
+      supabase.from("event_hotel_impacts")
+        .select("final_rm_score,occurrence_id,event_occurrences(start_date,end_date)")
+        .eq("hotel_id",hotelId).eq("impact_status","validated")
+        .gte("event_occurrences.start_date",start).lte("event_occurrences.end_date",end)
+        .not("final_rm_score","is",null),
+    ]);
+    const queryError = rateObservationResult.error ?? inventoryResult.error ?? reservationResult.error ??
+      compRateResult.error ?? marketResult.error ?? impactResult.error;
+    if (queryError) return fail("Lecture des données sources Revenue impossible",400,queryError.message);
+
+    const latestRate = new Map<string,any>();
+    for (const row of rateObservationResult.data ?? []) {
+      const key = row.room_type_id + "|" + row.stay_date;
+      if (!latestRate.has(key)) latestRate.set(key,row);
+    }
     const latestInventory = new Map<string,any>();
-    for (const r of inventory ?? []) if (!latestInventory.has(r.stay_date)) latestInventory.set(r.stay_date,r);
-    const reservationByDate = new Map<string,any[]>();
-    for (const r of reservations ?? []) reservationByDate.set(r.stay_date,[...(reservationByDate.get(r.stay_date)??[]),r]);
+    for (const row of inventoryResult.data ?? []) {
+      if (!row.room_type_id) continue;
+      const key = row.room_type_id + "|" + row.stay_date;
+      if (!latestInventory.has(key)) latestInventory.set(key,row);
+    }
+    const reservationByRoomDate = new Map<string,any[]>();
+    for (const row of reservationResult.data ?? []) {
+      if (!row.room_type_id) continue;
+      const key = row.room_type_id + "|" + row.stay_date;
+      reservationByRoomDate.set(key,[...(reservationByRoomDate.get(key) ?? []),row]);
+    }
     const compByDate = new Map<string,Map<string,number>>();
-    const maxAgeHours = maxObservationAge;
-    for (const r of compRates ?? []) {
-      const age=(Date.now()-Date.parse(r.observed_at))/3600000;
-      if (age>=0&&age<=maxAgeHours&&Number(r.rate_amount)>0&&r.competitor_id) {
-        if (!compByDate.has(r.stay_date)) compByDate.set(r.stay_date,new Map());
-        const byCompetitor=compByDate.get(r.stay_date)!;
-        if (!byCompetitor.has(r.competitor_id)) byCompetitor.set(r.competitor_id,Number(r.rate_amount));
+    for (const row of compRateResult.data ?? []) {
+      const ageHours = (Date.now()-Date.parse(row.observed_at))/3600000;
+      if (ageHours >= 0 && ageHours <= maxObservationAge && Number(row.rate_amount)>0 && row.competitor_id) {
+        if (!compByDate.has(row.stay_date)) compByDate.set(row.stay_date,new Map());
+        const byCompetitor = compByDate.get(row.stay_date)!;
+        if (!byCompetitor.has(row.competitor_id)) byCompetitor.set(row.competitor_id,Number(row.rate_amount));
+      }
+    }
+    const marketByDate = new Map<string,any>();
+    for (const row of marketResult.data ?? []) {
+      const ageHours = (Date.now()-Date.parse(row.observed_at))/3600000;
+      if (ageHours >= 0 && ageHours <= maxObservationAge && !marketByDate.has(row.stay_date)) {
+        marketByDate.set(row.stay_date,row);
       }
     }
     const eventByDate = new Map<string,number>();
-    for (const r of impacts ?? []) {
-      const occ=(r as any).event_occurrences;
-      if (!occ?.start_date || !occ?.end_date) continue;
-      for (const day of eachDate(occ.start_date,occ.end_date)) {
-        if (day>=start && day<=end) eventByDate.set(day,Math.max(eventByDate.get(day)??0,Number(r.final_rm_score)));
+    for (const row of impactResult.data ?? []) {
+      const occurrence = (row as any).event_occurrences;
+      if (!occurrence?.start_date || !occurrence?.end_date) continue;
+      for (const day of eachDate(occurrence.start_date,occurrence.end_date)) {
+        if (day>=start && day<=end) eventByDate.set(day,Math.max(eventByDate.get(day)??0,Number(row.final_rm_score)));
       }
     }
-    const output:any[]=[];
-    for (const stayDate of eachDate(start,end)) {
-      const inv=latestInventory.get(stayDate);
-      const current=numberOrNull(inv?.current_bar);
-      if (current===null || current<=0) continue;
-      const inventoryAgeHours=(Date.now()-Date.parse(inv.snapshot_at))/3600000;
-      if (!Number.isFinite(inventoryAgeHours) || inventoryAgeHours < 0 || inventoryAgeHours > maxInventoryAge) {
-        output.push({stayDate,status:"skipped",reason:"stale_inventory_snapshot"});
-        continue;
-      }
-      const signals:Record<string,number|null>={occupancy:null,pickup:null,event:eventByDate.get(stayDate)??null,compset:null};
-      if (numberOrNull(inv?.occupancy_pct)!==null) signals.occupancy=clamp(Number(inv.occupancy_pct),0,100);
-      const snaps=(reservationByDate.get(stayDate)??[]).sort((a,b)=>Date.parse(b.snapshot_at)-Date.parse(a.snapshot_at));
-      const pickups:Record<string,number|null>={"24h":null,"3d":null,"7d":null};
-      const pickupScores:Record<string,number|null>={"24h":null,"3d":null,"7d":null};
-      const pickupWindowHours:Record<string,number>={"24h":24,"3d":72,"7d":168};
-      for (const window of pickupWindows) {
-        const snapshot=snaps.find((s:any)=>Number(s.pickup_window_hours)===pickupWindowHours[window]);
-        if (!snapshot) continue;
-        const ageHours=(Date.now()-Date.parse(snapshot.snapshot_at))/3600000;
-        const netPickup=numberOrNull(snapshot.net_pickup_rooms);
-        if (ageHours<0 || ageHours>maxPickupSnapshotAge || netPickup===null) continue;
-        pickups[window]=netPickup;
-        if (pickupWindowScales && Number(pickupWindowScales[window])>0) {
-          pickupScores[window]=clamp(50+50*netPickup/Number(pickupWindowScales[window]),0,100);
+
+    const output:any[] = [];
+    let skipped = 0;
+    for (const roomType of roomTypes) {
+      for (const stayDate of eachDate(start,end)) {
+        const key = roomType.id + "|" + stayDate;
+        const rateObservation = latestRate.get(key);
+        const current = numberOrNull(rateObservation?.rate_amount);
+        if (!rateObservation || current === null || current <= 0) {
+          output.push({stayDate,roomTypeCode:roomType.code,status:"skipped",reason:"base_rate_observation_missing_or_unavailable"});
+          skipped++;
+          continue;
         }
+        const rateAgeHours = (Date.now()-Date.parse(rateObservation.snapshot_at))/3600000;
+        if (!Number.isFinite(rateAgeHours) || rateAgeHours < 0 || rateAgeHours > maxInventoryAge) {
+          output.push({stayDate,roomTypeCode:roomType.code,status:"skipped",reason:"stale_base_rate_observation"});
+          skipped++;
+          continue;
+        }
+        if (current < floor || current > ceiling) {
+          output.push({stayDate,roomTypeCode:roomType.code,status:"skipped",reason:"current_rate_outside_configured_bounds"});
+          skipped++;
+          continue;
+        }
+
+        const inventory = latestInventory.get(key);
+        const inventoryAgeHours = inventory ? (Date.now()-Date.parse(inventory.snapshot_at))/3600000 : null;
+        const inventoryFresh = inventoryAgeHours !== null && Number.isFinite(inventoryAgeHours) && inventoryAgeHours >= 0 && inventoryAgeHours <= maxInventoryAge;
+        const roomsAvailablePms = inventoryFresh ? numberOrNull(inventory.rooms_available) : null;
+        const reservationSnapshots = (reservationByRoomDate.get(key) ?? []).sort((a,b)=>Date.parse(b.snapshot_at)-Date.parse(a.snapshot_at));
+        const latestReservation = reservationSnapshots[0] ?? null;
+        const roomCount = numberOrNull(roomType.rooms_count);
+        const roomsOtb = numberOrNull(latestReservation?.rooms_otb);
+        const remainingFromOtb = roomCount !== null && roomsOtb !== null ? roomCount - roomsOtb : null;
+        const inventoryReservationConflict = roomTypeCapacityMismatch || (roomCount !== null && roomsAvailablePms !== null && remainingFromOtb !== null &&
+          (roomsAvailablePms < 0 || roomsAvailablePms > roomCount || Math.abs(roomsAvailablePms-remainingFromOtb) > reconciliationToleranceRooms));
+        const occupancyFromOtb = roomCount !== null && roomsOtb !== null && roomCount > 0 && roomsOtb >= 0 && roomsOtb <= roomCount
+          ? clamp(roomsOtb/roomCount*100,0,100) : null;
+        const occupancyFromPms = roomCount !== null && roomsAvailablePms !== null && roomCount > 0 && roomsAvailablePms >= 0 && roomsAvailablePms <= roomCount
+          ? clamp((roomCount-roomsAvailablePms)/roomCount*100,0,100) : null;
+        const occupancy = inventoryReservationConflict ? null : occupancyFromOtb ?? occupancyFromPms;
+        const roomsRemaining = inventoryReservationConflict ? null : roomsAvailablePms ?? remainingFromOtb;
+
+        const signals:Record<string,number|null> = {
+          occupancy: occupancy,
+          pickup: null,
+          event: eventByDate.get(stayDate) ?? null,
+          compset: null,
+          market_demand: null,
+        };
+        const pickups:Record<string,number|null> = {"24h":null,"3d":null,"7d":null};
+        const pickupScores:Record<string,number|null> = {"24h":null,"3d":null,"7d":null};
+        for (const window of pickupWindows) {
+          const snapshot = reservationSnapshots.find((item:any)=>Number(item.pickup_window_hours)===pickupWindowHours[window]);
+          if (!snapshot) continue;
+          const ageHours = (Date.now()-Date.parse(snapshot.snapshot_at))/3600000;
+          const netPickup = numberOrNull(snapshot.net_pickup_rooms);
+          if (ageHours < 0 || ageHours > maxPickupSnapshotAge || netPickup === null) continue;
+          pickups[window] = netPickup;
+          if (pickupWindowScales && Number(pickupWindowScales[window]) > 0) {
+            pickupScores[window] = clamp(50+50*netPickup/Number(pickupWindowScales[window]),0,100);
+          }
+        }
+        if (pickupWindowWeights) {
+          const availableWindows = pickupWindows.filter(window=>pickupScores[window] !== null && Number(pickupWindowWeights[window]) > 0);
+          const windowWeight = availableWindows.reduce((sum,window)=>sum+Number(pickupWindowWeights[window]),0);
+          if (windowWeight > 0) signals.pickup = availableWindows.reduce((sum,window)=>sum+Number(pickupWindowWeights[window])*Number(pickupScores[window]),0)/windowWeight;
+        }
+
+        const competitorRates = [...(compByDate.get(stayDate)?.values() ?? [])];
+        const compsetMedian = competitorRates.length >= minimumCompsetHotels ? median(competitorRates) : null;
+        if (compsetMedian !== null) signals.compset = clamp(50+50*((compsetMedian-current)/current)/compsetGapScale,0,100);
+
+        const marketObservation = marketByDate.get(stayDate) ?? null;
+        if (marketObservation && numberOrNull(marketObservation.demand_index) !== null) signals.market_demand = clamp(Number(marketObservation.demand_index),0,100);
+
+        const decision = buildRoomTypeRecommendation({
+          currentBar: current,
+          signals: signals as Record<RoomTypeSignalKey,number|null>,
+          inventoryReservationConflict,
+        }, {
+          weights: normalizedWeights,
+          thresholds: { normal: normalThreshold, high: highThreshold, exceptional: exceptionalThreshold },
+          rateAdjustmentsPct: {
+            low: Number(adjustments.low),
+            normal: Number(adjustments.normal),
+            high: Number(adjustments.high),
+            exceptional: Number(adjustments.exceptional),
+          },
+          floor,
+          ceiling,
+          maxChangePct: maxChange,
+          minimumSources,
+          minimumWeightCoveragePct: minimumCoverage,
+        });
+        const { score, bucket, sufficient, requestedPct, suggestedBar: suggested, demandLevel, dataQualityStatus, strategyCode, confidenceScore: confidence, coveredWeight, totalWeight: decisionTotalWeight } = decision;
+        const marketMedian = numberOrNull(marketObservation?.market_median_rate);
+        const latestPickup = latestReservation;
+        const evidence = {
+          roomType: {id:roomType.id,code:roomType.code,name:roomType.name,roomsCount:roomCount},
+          hotelRoomCount,
+          totalRoomTypeCapacity,
+          allRoomTypeCountsConfigured,
+          roomTypeCapacityMismatch,
+          ratePlan: {id:ratePlan.id,code:ratePlan.code,name:ratePlan.name},
+          currentRateObservationAt: rateObservation.snapshot_at,
+          inventorySnapshotAt: inventory?.snapshot_at ?? null,
+          inventoryFresh,
+          roomsAvailablePms,
+          roomsOtb,
+          remainingFromOtb,
+          occupancyFromOtb,
+          occupancyFromPms,
+          inventoryReservationConflict,
+          reconciliationToleranceRooms,
+          leadTimeDays: numberOrNull(latestPickup?.lead_time_days),
+          bookedAdr: numberOrNull(latestPickup?.booked_adr),
+          bookedRevenue: numberOrNull(latestPickup?.booked_revenue),
+          cancellationCount: numberOrNull(latestPickup?.cancellation_count),
+          newRoomsBooked: numberOrNull(latestPickup?.new_rooms_booked),
+          cancelledRooms: numberOrNull(latestPickup?.cancelled_rooms),
+          signals,
+          weights: normalizedWeights,
+          coveredWeight,
+          totalWeight: decisionTotalWeight,
+          confidenceIsSourceCoverage: true,
+          pickupWindows: pickups,
+          pickupWindowScores: pickupScores,
+          pickupWindowWeights: pickupWindowWeights ?? null,
+          compsetMedian,
+          compsetCompetitorCount: competitorRates.length,
+          compsetLos,
+          compsetPos,
+          marketDemand: marketObservation ? {
+            index: marketObservation.demand_index,
+            rawIndex: marketObservation.demand_index_raw,
+            scale: marketObservation.demand_index_scale,
+            evolution1d: marketObservation.demand_evolution_1d,
+            evolution3d: marketObservation.demand_evolution_3d,
+            evolution7d: marketObservation.demand_evolution_7d,
+            hotelLowestRate: marketObservation.hotel_lowest_rate,
+            hotelAvailabilityStatus: marketObservation.hotel_availability_status,
+            medianRate: marketMedian,
+            lighthouseCompsetAverage: marketObservation.compset_average,
+            lighthouseCompsetMin: marketObservation.compset_min,
+            lighthouseCompsetMax: marketObservation.compset_max,
+            hotelMarketRank: marketObservation.market_rank,
+            hotelMarketRankTotal: marketObservation.market_rank_total,
+            totalAvailableHotels: marketObservation.total_available_hotels,
+            totalSoldOutHotels: marketObservation.total_sold_out_hotels,
+            observedAt: marketObservation.observed_at,
+            sourceChannel: marketObservation.source_channel,
+            los: marketObservation.los_nights,
+            guests: marketObservation.guests_count,
+          } : null,
+          eventScore: eventByDate.get(stayDate) ?? null,
+          pricingConfig: cfg,
+        };
+        const explanation = sufficient
+          ? `${roomType.name} · ${ratePlan.code} : score demande ${score!.toFixed(1)}/100 (${bucket}); tarif actuel ${current.toFixed(2)} ${hotel.currency}, proposition ${suggested.toFixed(2)} ${hotel.currency} (${requestedPct}% paramétré). Couverture des sources : ${confidence}%. Validation humaine obligatoire.`
+          : roomTypeCapacityMismatch
+            ? "MAINTENIR : la somme des capacités des typologies ne correspond pas à la capacité totale de l'hôtel ; aucune variation tarifaire autorisée."
+            : inventoryReservationConflict
+              ? "MAINTENIR : divergence entre l'inventaire PMS et les chambres OTB du PMS réservation ; aucune variation tarifaire autorisée."
+              : "MAINTENIR : données indépendantes insuffisantes ou trop anciennes pour justifier une variation tarifaire.";
+        const row = {
+          current_bar: current,
+          suggested_bar: suggested,
+          delta_amount: decision.deltaAmount,
+          delta_pct: decision.deltaPct,
+          demand_index: decision.demandIndex,
+          demand_level: demandLevel,
+          occupancy_pct: occupancy,
+          rooms_remaining: roomsRemaining,
+          pickup_24h: pickups["24h"],
+          pickup_3d: pickups["3d"],
+          pickup_7d: pickups["7d"],
+          lighthouse_median: marketMedian,
+          flowtym_compset_median: compsetMedian,
+          strategy_code: strategyCode,
+          explanation,
+          evidence,
+          confidence_score: confidence,
+          data_quality_status: dataQualityStatus,
+          input_snapshot: evidence,
+          engine_version: "pricing_v2_room_type",
+        };
+        const {data:persisted,error:persistError} = await supabase.rpc("persist_rm_recommendation_v2",{
+          p_organization_id:hotel.organization_id,
+          p_hotel_id:hotelId,
+          p_room_type_id:roomType.id,
+          p_rate_plan_id:ratePlan.id,
+          p_stay_date:stayDate,
+          p_currency:hotel.currency,
+          p_current_bar:row.current_bar,
+          p_suggested_bar:row.suggested_bar,
+          p_delta_amount:row.delta_amount,
+          p_delta_pct:row.delta_pct,
+          p_demand_index:row.demand_index,
+          p_demand_level:row.demand_level,
+          p_occupancy_pct:row.occupancy_pct,
+          p_rooms_remaining:row.rooms_remaining,
+          p_pickup_24h:row.pickup_24h,
+          p_pickup_3d:row.pickup_3d,
+          p_pickup_7d:row.pickup_7d,
+          p_lighthouse_median:row.lighthouse_median,
+          p_flowtym_compset_median:row.flowtym_compset_median,
+          p_strategy_code:row.strategy_code,
+          p_explanation:row.explanation,
+          p_evidence:row.evidence,
+          p_confidence_score:row.confidence_score,
+          p_data_quality_status:row.data_quality_status,
+          p_input_snapshot:row.input_snapshot,
+          p_engine_version:row.engine_version,
+        });
+        if (persistError) return fail("Persistance idempotente de la recommandation par typologie impossible",409,persistError.message);
+        const saved = Array.isArray(persisted) ? persisted[0] : persisted;
+        output.push({
+          recommendationId:saved?.id,
+          stayDate,
+          roomTypeCode:roomType.code,
+          roomTypeName:roomType.name,
+          ratePlanCode:ratePlan.code,
+          currentBar:current,
+          suggestedBar:suggested,
+          deltaAmount:row.delta_amount,
+          deltaPct:row.delta_pct,
+          demandIndex:row.demand_index,
+          bucket:demandLevel,
+          occupancyPct:occupancy,
+          roomsRemaining,
+          pickup24h:pickups["24h"],
+          pickup3d:pickups["3d"],
+          pickup7d:pickups["7d"],
+          marketMedian,
+          compsetMedian,
+          coverageScore:confidence,
+          status:dataQualityStatus,
+          action:sufficient ? "REVIEW_RECOMMENDATION" : "HOLD",
+        });
       }
-      if (pickupWindowWeights) {
-        const availableWindows=pickupWindows.filter(w=>pickupScores[w]!==null && Number(pickupWindowWeights[w])>0);
-        const windowWeight=availableWindows.reduce((s,w)=>s+Number(pickupWindowWeights[w]),0);
-        if (windowWeight>0) signals.pickup=availableWindows.reduce((s,w)=>s+Number(pickupWindowWeights[w])*Number(pickupScores[w]),0)/windowWeight;
-      }
-      const competitorRates=[...(compByDate.get(stayDate)?.values()??[])];
-      const med=competitorRates.length>=minimumCompsetHotels?median(competitorRates):null;
-      if (med!==null) signals.compset=clamp(50+50*((med-current)/current)/compsetGapScale,0,100);
-      const available=keys.filter(k=>signals[k]!==null && Number(weights[k])>0);
-      const coveredWeight=available.reduce((s,k)=>s+Number(weights[k]),0);
-      const confidence=Math.round(100*coveredWeight/totalWeight);
-      const score=coveredWeight>0 ? available.reduce((s,k)=>s+Number(weights[k])*Number(signals[k]),0)/coveredWeight : null;
-      let bucket="low";
-      if (score!==null && score>=Number(thresholds.exceptional)) bucket="exceptional";
-      else if (score!==null && score>=Number(thresholds.high)) bucket="high";
-      else if (score!==null && score>=Number(thresholds.normal)) bucket="normal";
-      const sufficient=available.length>=minimumSources && confidence>=minimumCoverage && score!==null;
-      const requestedPct=sufficient ? Number(adjustments[bucket]) : 0;
-      const maxDelta=current*maxChange/100;
-      const bounded=clamp(current*(1+requestedPct/100),Math.max(floor,current-maxDelta),Math.min(ceiling,current+maxDelta));
-      const suggested=Math.round(bounded*100)/100;
-      const evidence={signals,weights,coveredWeight,totalWeight,confidenceIsSourceCoverage:true,pickupWindows:pickups,pickupWindowScores:pickupScores,pickupWindowWeights:pickupWindowWeights??null,compsetMedian:med,compsetCompetitorCount:competitorRates.length,compsetLos,compsetPos,eventScore:eventByDate.get(stayDate)??null,inventorySnapshotAt:inv?.snapshot_at??null,pricingConfig:cfg};
-      const explanation=sufficient
-        ? `Score demande ${score!.toFixed(1)}/100 (${bucket}); variation paramétrée ${requestedPct}% bornée par plancher/plafond et variation maximale. Couverture des sources: ${confidence}%.`
-        : "MAINTENIR : données indépendantes insuffisantes pour justifier une variation tarifaire.";
-      const row={
-        organization_id:hotel.organization_id,hotel_id:hotelId,stay_date:stayDate,currency:hotel.currency,
-        current_bar:current,suggested_bar:suggested,delta_amount:Math.round((suggested-current)*100)/100,
-        delta_pct:Math.round(((suggested-current)/current)*10000)/100,
-        demand_index:score===null?null:Math.round(score),demand_level:sufficient?({low:"faible",normal:"normal",high:"eleve",exceptional:"exceptionnel"} as Record<string,string>)[bucket]:null,
-        occupancy_pct:signals.occupancy,rooms_remaining:numberOrNull(inv?.rooms_available),pickup_24h:pickups["24h"],pickup_3d:pickups["3d"],pickup_7d:pickups["7d"],
-        lighthouse_median:med,flowtym_compset_median:null,strategy_code:sufficient?`PRICING_V1_${bucket.toUpperCase()}`:"HOLD_INSUFFICIENT_DATA",
-        explanation, evidence, confidence_score:confidence,
-        data_quality_status:sufficient?"valid":"insufficient",input_snapshot:evidence,
-        engine_version:"pricing_v1",recommendation_status:"pending",
-      };
-      const {data:persisted,error:persistError}=await supabase.rpc("persist_rm_recommendation",{
-        p_organization_id:hotel.organization_id,
-        p_hotel_id:hotelId,
-        p_stay_date:stayDate,
-        p_currency:hotel.currency,
-        p_current_bar:row.current_bar,
-        p_suggested_bar:row.suggested_bar,
-        p_delta_amount:row.delta_amount,
-        p_delta_pct:row.delta_pct,
-        p_demand_index:row.demand_index,
-        p_demand_level:row.demand_level,
-        p_occupancy_pct:row.occupancy_pct,
-        p_rooms_remaining:row.rooms_remaining,
-        p_pickup_24h:row.pickup_24h,
-        p_pickup_3d:row.pickup_3d,
-        p_pickup_7d:row.pickup_7d,
-        p_lighthouse_median:row.lighthouse_median,
-        p_flowtym_compset_median:row.flowtym_compset_median,
-        p_strategy_code:row.strategy_code,
-        p_explanation:row.explanation,
-        p_evidence:row.evidence,
-        p_confidence_score:row.confidence_score,
-        p_data_quality_status:row.data_quality_status,
-        p_input_snapshot:row.input_snapshot,
-        p_engine_version:row.engine_version,
-      });
-      if (persistError) return fail("Persistance idempotente de la recommandation impossible",409,persistError.message);
-      const saved=Array.isArray(persisted)?persisted[0]:persisted;
-      output.push({recommendationId:saved?.id,stayDate,currentBar:current,suggestedBar:suggested,demandIndex:row.demand_index,bucket:row.demand_level,pickup24h:pickups["24h"],pickup3d:pickups["3d"],pickup7d:pickups["7d"],coverageScore:confidence,status:row.data_quality_status});
     }
-    return json({ok:true,hotelId,engineVersion:"pricing_v1",generated:output.length,requiresHumanApproval:true,automaticPublication:false,data:output},201);
+    return json({
+      ok:true,
+      hotelId,
+      engineVersion:"pricing_v2_room_type",
+      baseRatePlanCode:ratePlan.code,
+      generated:output.length,
+      skipped,
+      requiresHumanApproval:true,
+      automaticPublication:false,
+      data:output,
+    },201);
   }
 
   return fail("Route inconnue", 404);
