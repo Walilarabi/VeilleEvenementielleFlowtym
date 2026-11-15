@@ -142,6 +142,8 @@ type PersistedRMRecommendation = {
   confidence_score: number;
   data_quality_status: string;
   recommendation_status: string;
+  evidence?: Record<string, any> | null;
+  input_snapshot?: Record<string, any> | null;
 };
 
 function getParisDateRange(days: number) {
@@ -1254,9 +1256,21 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                           <td className="px-3 py-3 text-right tabular-nums">{recommendation.flowtym_compset_median == null ? '—' : `${formatRevenueValue(recommendation.flowtym_compset_median)} ${recommendation.currency}`}</td>
                           <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.confidence_score)}%</td>
                           <td className="px-3 py-3">
-                            <div className="font-semibold">{valid ? 'Valide' : 'Données insuffisantes'}</div>
-                            <div className="text-[10px] text-slate-500">{recommendation.recommendation_status}</div>
+                            <div className="font-semibold">{valid ? 'Valide' : recommendation.data_quality_status === 'conflicted' ? 'Conflit de données' : recommendation.data_quality_status === 'degraded' ? 'Données partielles' : recommendation.data_quality_status === 'stale' ? 'Sources périmées' : 'Données insuffisantes'}</div>
+                            <div className="text-[10px] text-slate-500">{recommendation.recommendation_status} · {recommendation.strategy_code}</div>
                             <p className="mt-1 max-w-xs whitespace-normal text-[10px] text-slate-500">{recommendation.explanation}</p>
+                            <details className="mt-2 text-left">
+                              <summary className="cursor-pointer text-[10px] font-semibold text-violet-700">Voir les preuves et les facteurs</summary>
+                              <div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2 text-[10px] text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                                {recommendation.evidence?.marketDemand && <p>Demande marché : {recommendation.evidence.marketDemand.index ?? '—'}/100 · {recommendation.evidence.marketDemand.sourceChannel} · LOS {recommendation.evidence.marketDemand.los ?? '—'} · {recommendation.evidence.marketDemand.guests ?? '—'} personne(s)</p>}
+                                <p>Chambres OTB : {recommendation.evidence?.roomsOtb ?? '—'} · Stock PMS : {recommendation.evidence?.roomsAvailablePms ?? '—'} · Capacité : {recommendation.evidence?.roomType?.roomsCount ?? '—'}</p>
+                                <p>Lead time : {recommendation.evidence?.leadTimeDays ?? '—'} jours · ADR réservé : {recommendation.evidence?.bookedAdr ?? '—'} · CA réservé : {recommendation.evidence?.bookedRevenue ?? '—'}</p>
+                                <p>Nouvelles réservations : {recommendation.evidence?.newRoomsBooked ?? '—'} · Annulations : {recommendation.evidence?.cancelledRooms ?? '—'} · Annulations cumulées : {recommendation.evidence?.cancellationCount ?? '—'}</p>
+                                <p>CompSet : {recommendation.evidence?.compsetCompetitorCount ?? 0} concurrents · médiane {recommendation.evidence?.compsetMedian ?? '—'} · Événement : {recommendation.evidence?.eventScore ?? '—'}</p>
+                                <p>Snapshot tarif : {recommendation.evidence?.currentRateObservationAt ?? '—'} · Snapshot inventaire : {recommendation.evidence?.inventorySnapshotAt ?? '—'}</p>
+                                {recommendation.evidence?.inventoryReservationConflict && <p className="font-semibold text-rose-700">Conflit entre inventaire PMS et chambres OTB : recommandation bloquée.</p>}
+                              </div>
+                            </details>
                           </td>
                           <td className="px-3 py-3 text-right">
                             {pending ? (
