@@ -475,8 +475,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
     ]);
     if (roomTypesResult.error) throw roomTypesResult.error;
     if (ratePlansResult.error) throw ratePlansResult.error;
-    const roomTypesById = new Map((roomTypesResult.data ?? []).map((row: any) => [row.id, row]));
-    const ratePlansById = new Map((ratePlansResult.data ?? []).map((row: any) => [row.id, row]));
+    const roomTypesById = new Map<string, any>((roomTypesResult.data ?? []).map((row: any) => [row.id, row]));
+    const ratePlansById = new Map<string, any>((ratePlansResult.data ?? []).map((row: any) => [row.id, row]));
     return rows.map((row) => {
       const room = row.room_type_id ? roomTypesById.get(row.room_type_id) : null;
       const plan = row.rate_plan_id ? ratePlansById.get(row.rate_plan_id) : null;
