@@ -42,6 +42,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   const [integrations, setIntegrations] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [ratePlans, setRatePlans] = useState<DbRatePlan[]>([]);
+  const [marketContexts, setMarketContexts] = useState<MarketContext[]>([]);
   const [roomCountEdits, setRoomCountEdits] = useState<Record<string, string>>({});
   const [memberships, setMemberships] = useState<any[]>([]);
   const [ingestionJobs, setIngestionJobs] = useState<any[]>([]);
@@ -82,12 +83,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       setGeoForm({ lat: chosenHotel?.lat == null ? '' : String(chosenHotel.lat), lng: chosenHotel?.lng == null ? '' : String(chosenHotel.lng) });
       setEventRadiusForm({ main: String(chosenHotel?.main_radius_km ?? 10), extended: String(chosenHotel?.extended_radius_km ?? 30) });
       if (!chosenId) { setCompetitors([]); setIntegrations([]); return; }
-      const [profileResult, competitorResult, integrationResult, roomTypeResult, ratePlanResult, membershipResult, ingestionResult, auditResult, settingsAuditResult] = await Promise.all([
+      const [profileResult, competitorResult, integrationResult, roomTypeResult, ratePlanResult, marketContextResult, membershipResult, ingestionResult, auditResult, settingsAuditResult] = await Promise.all([
         supabase.from('hotel_parameters_profiles').select('*').eq('hotel_id', chosenId).maybeSingle(),
         supabase.from('competitor_hotels').select('id,competitor_name,address,stars,distance_meters,is_active').eq('hotel_id', chosenId).order('competitor_name'),
         supabase.from('integration_connections').select('id,provider,connection_name,connection_status,last_success_at,last_error_at,last_error_code').eq('hotel_id', chosenId).order('provider'),
         supabase.from('hotel_room_types').select('id,code,name,capacity,rooms_count,is_active').eq('hotel_id', chosenId).order('code'),
         supabase.from('hotel_rate_plans').select('id,code,name,room_type_id,is_active,is_public,refundable,meal_plan,currency').eq('hotel_id', chosenId).order('code'),
+        supabase.from('lighthouse_market_observations').select('source_channel,los_nights,guests_count').eq('hotel_id', chosenId).order('observed_at', { ascending: false }).limit(500),
         supabase.from('hotel_memberships').select('id,user_id,membership_role,created_at,users!hotel_memberships_user_id_fkey(email,full_name,role)').eq('hotel_id', chosenId).order('created_at'),
         supabase.from('data_ingestion_jobs').select('*').eq('hotel_id', chosenId).order('created_at', { ascending: false }).limit(20),
         supabase.from('rm_decision_audit_logs').select('*').eq('hotel_id', chosenId).order('created_at', { ascending: false }).limit(20),
@@ -127,11 +129,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       setRoomTypes(roomTypeResult.data ?? []);
       setRoomCountEdits(Object.fromEntries((roomTypeResult.data ?? []).map((room: any) => [room.id, room.rooms_count == null ? '' : String(room.rooms_count)])));
       setRatePlans((ratePlanResult.data ?? []) as DbRatePlan[]);
+      const marketContextMap = new Map<string, MarketContext>();
+      for (const row of marketContextResult.data ?? []) {
+        if (!row.source_channel || !Number.isInteger(row.los_nights) || !Number.isInteger(row.guests_count)) continue;
+        const context = { sourceChannel: row.source_channel, los: Number(row.los_nights), guests: Number(row.guests_count) };
+        marketContextMap.set(JSON.stringify(context), context);
+      }
+      setMarketContexts([...marketContextMap.values()]);
       setMemberships(membershipResult.error ? [] : (membershipResult.data ?? []));
       setIngestionJobs(ingestionResult.error ? [] : (ingestionResult.data ?? []));
       setAuditLogs(auditResult.error ? [] : (auditResult.data ?? []));
       setSettingsAuditLogs(settingsAuditResult.error ? [] : (settingsAuditResult.data ?? []) as SettingsAuditLog[]);
-      const optionalErrors = [ratePlanResult.error, membershipResult.error, ingestionResult.error, auditResult.error, settingsAuditResult.error].filter(Boolean);
+      const optionalErrors = [ratePlanResult.error, marketContextResult.error, membershipResult.error, ingestionResult.error, auditResult.error, settingsAuditResult.error].filter(Boolean);
       setSystemError(optionalErrors.length ? optionalErrors.map((item: any) => item.message).join(' · ') : null);
     } catch (e: any) {
       setError(e?.message || 'Impossible de charger les paramètres depuis Supabase.');
@@ -531,6 +540,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
          {ratePlans.filter(plan=>plan.is_active && plan.is_public).length===0 && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Activez et déclarez public un plan dans l'onglet Hôtel avant de le sélectionner ici.</p>}
        </div>
        <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
+         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Contexte de la demande marché</h3>
+         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Les choix ci-dessous proviennent uniquement des extractions Lighthouse réellement importées. Le moteur ne mélange pas des contextes LOS ou nombre de personnes différents.</p>
+         <select className={inputClass + ' mt-3'} value={(()=>{try{const c=JSON.parse(pricingConfigJson || '{}');return JSON.stringify({sourceChannel:c.market_demand_source_channel,los:c.market_demand_los,guests:c.market_demand_guests});}catch{return '';}})()} onChange={e=>{let current:any={};try{current=JSON.parse(pricingConfigJson || '{}');}catch{}let context:any=null;try{context=JSON.parse(e.target.value);}catch{}setPricingConfigJson(JSON.stringify({...current,market_demand_source_channel:context?.sourceChannel??null,market_demand_los:context?.los??null,market_demand_guests:context?.guests??null},null,2));}}>
+           <option value="">Non configuré</option>{marketContexts.map(context=><option key={JSON.stringify(context)} value={JSON.stringify(context)}>{context.sourceChannel} · LOS {context.los} · {context.guests} personne(s)</option>)}
+         </select>
+         {marketContexts.length===0 && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Aucun contexte marché importé. Importez d'abord un export Lighthouse compatible.</p>}
+       </div>
+       <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Configuration du moteur pricing_v1</h3>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Aucune pondération, aucun seuil ni ajustement n'est prérempli. Saisissez uniquement une configuration validée par votre Revenue Manager. Les valeurs sont enregistrées dans demand_thresholds.pricing_v1 et le moteur refusera toute configuration incomplète.</p>
         <textarea
@@ -555,7 +572,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   "compset_gap_scale_pct": null,
   "compset_room_type": null,
   "compset_rate_plan": null,
-  "compset_channel": null
+  "compset_channel": null,
+  "base_rate_plan_code": null,
+  "market_demand_source_channel": null,
+  "market_demand_los": null,
+  "market_demand_guests": null,
+  "inventory_reservation_tolerance_rooms": 1
 }`}
         />
         <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Laissez ce champ vide tant que les règles ne sont pas approuvées : les recommandations tarifaires resteront bloquées, sans valeur par défaut inventée.</p>
