@@ -898,7 +898,7 @@ export function parseLighthouseExcelFile(
     const rawDemandValue = apDemandIdx < 0 ? Number.NaN : Number.parseFloat(String(row[apDemandIdx]).replace("%", "").replace(",", "."));
     const demandRaw = Number.isFinite(rawDemandValue) ? rawDemandValue : null;
     const demandScale: '0_1' | '0_100' | 'missing' = demandRaw === null ? 'missing' : (demandRaw >= 0 && demandRaw <= 1 ? '0_1' : '0_100');
-    const dem = demandRaw === null ? null : (demandScale === '0_1' ? demandRaw * 100 : demandRaw);
+    const dem = demandRaw === null ? null : (demandScale === '0_1' ? Math.round(demandRaw * 1000) / 10 : demandRaw);
     if (dem !== null && (dem < 0 || dem > 100)) {
       throw new Error(`Indice de demande Lighthouse hors échelle pour le ${d} : ${demandRaw}.`);
     }
