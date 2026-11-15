@@ -24,7 +24,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { parseLighthouseExcelFile } from '../../services/lighthouseAnalysisEngine';
 import type { LighthouseExtractionDataset } from '../../services/lighthouseAnalysisEngine';
 import { persistLighthouseExtraction, resolveAccessibleRmsHotel } from '../../services/lighthouseImportService';
-import { parsePmsPlanningWorkbook } from '../../services/pmsPlanningImportService';
+import { parsePmsPlanningWorkbook, persistPmsPlanningImport } from '../../services/pmsPlanningImportService';
 import type { PmsPlanningImport } from '../../services/pmsPlanningImportService';
 
 export type ExcelSourceType = 'lighthouse' | 'dedge' | 'pms';
@@ -74,6 +74,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState<{ phase: string; completed: number; total: number } | null>(null);
   const [records, setRecords] = useState<UploadedDataRecord[]>([]);
 
   const formatFileSize = (bytes: number) => bytes >= 1024 * 1024
@@ -203,8 +204,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
           name: file.name, size: formatFileSize(file.size), rows, headers, sourceType: selectedChannel,
           rowCount: parsed.summary.inventoryCells + parsed.summary.rateCells,
           previewSummary: parsed.summary.dates + ' dates · ' + parsed.summary.roomTypes + ' typologies · ' + parsed.summary.ratePlans + ' plans tarifaires · ' + parsed.summary.rateCells + ' cellules tarifaires',
-          canImport: false,
-          blockedReason: "L'analyse du planning est opérationnelle, mais l'écriture des tarifs par date et typologie attend la migration normalisée hotel_rate_plan_observations. Aucune donnée n'a été écrite.",
+          canImport: true,
           parsedPms: parsed,
         });
       } else {
@@ -233,7 +233,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
 
   const handleConfirmInjection = async () => {
     if (!selectedFile) return;
-    if (!selectedFile.canImport || !selectedFile.parsedLighthouse) {
+    if (!selectedFile.canImport || (!selectedFile.parsedLighthouse && !selectedFile.parsedPms)) {
       setImportError(selectedFile.blockedReason || "Ce type de fichier n'est pas encore autorisé à écrire dans Supabase.");
       return;
     }
@@ -243,17 +243,37 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
     }
     setIsProcessing(true);
     setImportError(null);
+    setImportProgress({ phase: "Préparation", completed: 0, total: 1 });
     try {
       const dbHotel = await resolveAccessibleRmsHotel(supabase, {
         name: hotel.name, city: hotel.city, country: hotel.country,
       });
-      const parsed = selectedFile.parsedLighthouse;
-      const persisted = await persistLighthouseExtraction(supabase, dbHotel, parsed, user.id);
-      await loadHistory();
-      onDataImported?.('lighthouse', persisted.observationsInserted);
+      if (selectedFile.sourceType === 'lighthouse' && selectedFile.parsedLighthouse) {
+        const parsed = selectedFile.parsedLighthouse;
+        const persisted = await persistLighthouseExtraction(supabase, dbHotel, parsed, user.id);
+        await loadHistory();
+        onDataImported?.('lighthouse', persisted.observationsInserted);
+      } else if (selectedFile.sourceType === 'pms' && selectedFile.parsedPms) {
+        const persisted = await persistPmsPlanningImport(
+          supabase,
+          dbHotel,
+          selectedFile.parsedPms,
+          user.id,
+          (progress) => setImportProgress({
+            phase: progress.phase === 'catalog' ? 'Référentiels' : progress.phase === 'inventory' ? 'Inventaire' : progress.phase === 'rates' ? 'Plans tarifaires' : 'Finalisation',
+            completed: progress.completed,
+            total: progress.total,
+          }),
+        );
+        await loadHistory();
+        onDataImported?.('pms', persisted.inventoryRowsWritten + persisted.rateObservationsWritten);
+      } else {
+        throw new Error("Aucun importeur persistant n'est disponible pour ce fichier.");
+      }
       setSelectedFile(null);
+      setImportProgress(null);
     } catch (error: any) {
-      setImportError(error?.message || "Échec de la persistance Lighthouse.");
+      setImportError(error?.message || "Échec de la persistance des données.");
     } finally {
       setIsProcessing(false);
     }
@@ -544,6 +564,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
           <p className="text-xs text-slate-600 dark:text-slate-300">{selectedFile.previewSummary}</p>
           {selectedFile.blockedReason && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">{selectedFile.blockedReason}</p>}
           {importError && <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">{importError}</p>}
+          {isProcessing && importProgress && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200"><div className="flex justify-between"><span>{importProgress.phase}</span><span>{importProgress.total > 0 ? Math.round(importProgress.completed / importProgress.total * 100) : 0}%</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: (importProgress.total > 0 ? Math.min(100, importProgress.completed / importProgress.total * 100) : 0) + '%' }} /></div></div>}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs bg-white dark:bg-slate-900 rounded-xl border border-violet-100 dark:border-violet-900/60 overflow-hidden">
               <thead className="bg-slate-50 dark:bg-slate-800/60 text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
