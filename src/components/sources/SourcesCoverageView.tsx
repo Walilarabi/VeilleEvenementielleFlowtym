@@ -190,7 +190,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
           onNavigateToPricing={onNavigateToPricing}
           onDataImported={(sourceType, rowCount) => {
             if (onShowToast) {
-              onShowToast(`${rowCount} lignes importées avec succès depuis l'export ${sourceType.toUpperCase()} !`);
+              onShowToast(`${rowCount} observations réellement enregistrées depuis l'export ${sourceType.toUpperCase()}.`);
             }
           }}
         />
