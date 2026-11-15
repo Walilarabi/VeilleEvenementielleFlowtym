@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LighthouseExtractionDataset } from "./lighthouseAnalysisEngine";
 
-type AccessibleHotel = {
+export type AccessibleHotel = {
   id: string;
   name: string;
   city: string;
