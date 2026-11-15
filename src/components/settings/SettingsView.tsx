@@ -82,14 +82,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       setGeoForm({ lat: chosenHotel?.lat == null ? '' : String(chosenHotel.lat), lng: chosenHotel?.lng == null ? '' : String(chosenHotel.lng) });
       setEventRadiusForm({ main: String(chosenHotel?.main_radius_km ?? 10), extended: String(chosenHotel?.extended_radius_km ?? 30) });
       if (!chosenId) { setCompetitors([]); setIntegrations([]); return; }
-      const [profileResult, competitorResult, integrationResult, roomTypeResult, membershipResult, ingestionResult, auditResult] = await Promise.all([
+      const [profileResult, competitorResult, integrationResult, roomTypeResult, ratePlanResult, membershipResult, ingestionResult, auditResult, settingsAuditResult] = await Promise.all([
         supabase.from('hotel_parameters_profiles').select('*').eq('hotel_id', chosenId).maybeSingle(),
         supabase.from('competitor_hotels').select('id,competitor_name,address,stars,distance_meters,is_active').eq('hotel_id', chosenId).order('competitor_name'),
         supabase.from('integration_connections').select('id,provider,connection_name,connection_status,last_success_at,last_error_at,last_error_code').eq('hotel_id', chosenId).order('provider'),
         supabase.from('hotel_room_types').select('id,code,name,capacity,rooms_count,is_active').eq('hotel_id', chosenId).order('code'),
+        supabase.from('hotel_rate_plans').select('id,code,name,room_type_id,is_active,is_public,refundable,meal_plan,currency').eq('hotel_id', chosenId).order('code'),
         supabase.from('hotel_memberships').select('id,user_id,membership_role,created_at,users!hotel_memberships_user_id_fkey(email,full_name,role)').eq('hotel_id', chosenId).order('created_at'),
         supabase.from('data_ingestion_jobs').select('*').eq('hotel_id', chosenId).order('created_at', { ascending: false }).limit(20),
         supabase.from('rm_decision_audit_logs').select('*').eq('hotel_id', chosenId).order('created_at', { ascending: false }).limit(20),
+        supabase.from('hotel_settings_audit_logs').select('id,action_type,entity_type,created_at,actor_user_id,reason_text,before_state,after_state').eq('hotel_id', chosenId).order('created_at', { ascending: false }).limit(50),
       ]);
       if (profileResult.error) throw profileResult.error;
       if (competitorResult.error) throw competitorResult.error;
@@ -123,10 +125,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       setCompetitors((competitorResult.data ?? []) as Competitor[]);
       setIntegrations(integrationResult.data ?? []);
       setRoomTypes(roomTypeResult.data ?? []);
+      setRoomCountEdits(Object.fromEntries((roomTypeResult.data ?? []).map((room: any) => [room.id, room.rooms_count == null ? '' : String(room.rooms_count)])));
+      setRatePlans((ratePlanResult.data ?? []) as DbRatePlan[]);
       setMemberships(membershipResult.error ? [] : (membershipResult.data ?? []));
       setIngestionJobs(ingestionResult.error ? [] : (ingestionResult.data ?? []));
       setAuditLogs(auditResult.error ? [] : (auditResult.data ?? []));
-      const optionalErrors = [membershipResult.error, ingestionResult.error, auditResult.error].filter(Boolean);
+      setSettingsAuditLogs(settingsAuditResult.error ? [] : (settingsAuditResult.data ?? []) as SettingsAuditLog[]);
+      const optionalErrors = [ratePlanResult.error, membershipResult.error, ingestionResult.error, auditResult.error, settingsAuditResult.error].filter(Boolean);
       setSystemError(optionalErrors.length ? optionalErrors.map((item: any) => item.message).join(' · ') : null);
     } catch (e: any) {
       setError(e?.message || 'Impossible de charger les paramètres depuis Supabase.');
