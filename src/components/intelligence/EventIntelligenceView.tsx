@@ -20,7 +20,7 @@ type ImpactRow = {
   impact_status: 'to_review' | 'validated' | 'dismissed'; score_components: Record<string, any>; source_evidence: Record<string, any>;
 };
 type EvidenceRow = { id: string; event_id: string; occurrence_id: string | null; source_name: string | null; source_url: string | null; evidence_type: string | null; verified_at: string | null; captured_at: string | null; excerpt: string | null; trust_score: number | null };
-type WorkspaceEvent = { occurrence: OccurrenceRow; event: EventRow; venue: VenueRow | null; impact: ImpactRow | null; evidence: EvidenceRow[] };
+type WorkspaceEvent = { occurrence: OccurrenceRow; event: EventRow; venue: VenueRow | null; impact: ImpactRow | null; evidence: EvidenceRow[]; distanceKm: number | null };
 type ViewTab = 'compression' | 'recurrences' | 'pricing_rules' | 'revpar_simulator';
 type DateFilter = 'active_upcoming' | 'past' | 'all';
 
@@ -32,6 +32,12 @@ const addDays = (date: string, days: number) => { const d = new Date(date+'T12:0
 const scoreLevel = (score: number): RMImpactLevel => score >= 80 ? 'hyper' : score >= 60 ? 'critique' : score >= 30 ? 'modere' : 'faible';
 const fmtDate = (date: string) => new Date(date+'T12:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
 const fmtNumber = (value: number | null | undefined, suffix = '') => value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('fr-FR',{maximumFractionDigits:1}) + suffix;
+const haversineKm = (lat1:number,lng1:number,lat2:number,lng2:number) => {
+  const radians = (value:number) => value*Math.PI/180;
+  const dLat = radians(lat2-lat1), dLng = radians(lng2-lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(radians(lat1))*Math.cos(radians(lat2))*Math.sin(dLng/2)**2;
+  return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+};
 
 interface EventIntelligenceViewProps {
   events: EventItem[];
@@ -113,7 +119,12 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
           EVIDENCE_TYPES.has(String(item.evidence_type ?? ''))
         );
         const impact = impactByOccurrence.get(occurrence.id) ?? null;
-        mapped.push({occurrence,event,venue:event.venue_id ? venueById.get(event.venue_id) ?? null : null,impact,evidence});
+        const venue = event.venue_id ? venueById.get(event.venue_id) ?? null : null;
+        const distanceKm = impact?.distance_km != null ? Number(impact.distance_km)
+          : hotel.lat != null && hotel.lng != null && venue?.latitude != null && venue?.longitude != null
+            ? haversineKm(hotel.lat,hotel.lng,Number(venue.latitude),Number(venue.longitude)) : null;
+        if (distanceKm == null || distanceKm > 30) continue;
+        mapped.push({occurrence,event,venue,impact,evidence,distanceKm});
       }
       setRows(mapped);
     } catch (cause) {
@@ -214,6 +225,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
   const calculateImpact = async (row:WorkspaceEvent) => {
     if (!supabase || !hotel?.id) return;
     if (hotel.lat==null || hotel.lng==null) { setError('Coordonnées GPS de l’hôtel manquantes : le calcul géographique est bloqué.'); return; }
+    if (row.distanceKm==null || row.distanceKm>30) { setError('L’événement est hors du périmètre géographique exploitable (30 km).'); return; }
     if (row.evidence.length===0) { setError('Aucune preuve événementielle vérifiée : le calcul d’impact est bloqué.'); return; }
     setBusyOccurrenceId(row.occurrence.id); setError(null); setActionMessage(null);
     try {
@@ -273,11 +285,11 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
             const eventItem=toEventItem(row);
             return <article key={row.occurrence.id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700 dark:bg-violet-950 dark:text-violet-300">{row.event.category}</span><span className={status==='validated'?'rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300':status==='to_review'?'rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-300':'rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300'}>{status==='validated'?'Impact validé':status==='to_review'?'À valider':status==='dismissed'?'Écarté':'Non calculé'}</span></div><h2 className="mt-2 text-base font-bold text-slate-900 dark:text-white">{row.event.title}</h2><p className="mt-1 text-xs text-slate-500">{fmtDate(row.occurrence.start_date)} – {fmtDate(row.occurrence.end_date)} · {row.event.city ?? hotel?.city} · {row.venue?.name ?? 'Lieu non renseigné'}</p></div><div className="shrink-0 text-right"><p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{impact?.final_rm_score ?? '—'}</p><p className="text-[10px] text-slate-500">Score RM /100</p></div></div>
-              <div className="mt-3 grid grid-cols-3 gap-2"><div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[10px] text-slate-500">Fréquentation</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{Number(row.occurrence.attendance_estimate ?? row.event.expected_attendance ?? 0)>0?Number(row.occurrence.attendance_estimate ?? row.event.expected_attendance).toLocaleString('fr-FR'):'—'}</p></div><div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[10px] text-slate-500">Distance</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{fmtNumber(impact?.distance_km)} km</p></div><div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[10px] text-slate-500">Confiance</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{fmtNumber(impact?.confidence_score,'%')}</p></div></div>
+              <div className="mt-3 grid grid-cols-3 gap-2"><div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[10px] text-slate-500">Fréquentation</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{Number(row.occurrence.attendance_estimate ?? row.event.expected_attendance ?? 0)>0?Number(row.occurrence.attendance_estimate ?? row.event.expected_attendance).toLocaleString('fr-FR'):'—'}</p></div><div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[10px] text-slate-500">Distance</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{fmtNumber(row.distanceKm)} km</p></div><div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[10px] text-slate-500">Confiance</p><p className="text-sm font-semibold text-slate-900 dark:text-white">{fmtNumber(impact?.confidence_score,'%')}</p></div></div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-500">{row.evidence.length} preuve(s) vérifiée(s) · {impact?.recommended_action ?? 'Aucune action tarifaire calculée'}</p><button type="button" onClick={()=>onSelectEvent(eventItem)} className="text-xs font-semibold text-violet-700 hover:underline dark:text-violet-300">Ouvrir la fiche</button></div>
               {impact && <details className="mt-3"><summary className="cursor-pointer text-xs font-semibold text-violet-700 dark:text-violet-300">Composantes du score et preuves</summary><div className="mt-2 grid gap-2 sm:grid-cols-2"><div className="rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800"><p>Attendance : {fmtNumber(impact.attendance_score)}</p><p>International : {fmtNumber(impact.international_score)}</p><p>Durée : {fmtNumber(impact.duration_score)}</p><p>Proximité : {fmtNumber(impact.proximity_score)}</p><p>Capacité : {fmtNumber(impact.capacity_score)}</p><p>Récurrence : {fmtNumber(impact.recurrence_score)}</p><p>Notoriété : {fmtNumber(impact.notoriety_score)}</p><p>Nuits additionnelles : {fmtNumber(impact.extra_nights_score)}</p><p>Adéquation segment : {fmtNumber(impact.segment_fit_score)}</p><p>Demande historique : {fmtNumber(impact.historical_demand_score)} ({impact.historical_demand_sample_count ?? 0} obs.)</p></div><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{JSON.stringify(impact.source_evidence ?? {},null,2)}</pre></div></details>}
               {status==='to_review' && <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800"><label className="block text-[10px] font-semibold text-slate-500">Motif si rejet (obligatoire pour écarter)<input value={decisionReason} onChange={(e)=>setDecisionReason(e.target.value)} placeholder="Motif de rejet…" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-white"/></label><div className="mt-2 flex gap-2"><button type="button" disabled={busyOccurrenceId===row.occurrence.id} onClick={()=>void decideImpact(row,'validate')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><CheckCircle2 size={13}/>Valider l’impact</button><button type="button" disabled={busyOccurrenceId===row.occurrence.id} onClick={()=>void decideImpact(row,'dismiss')} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:text-rose-300"><XCircle size={13}/>Écarter</button></div></div>}
-              {!impact && <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800"><span className="text-[10px] text-slate-500">{hotel?.lat==null||hotel?.lng==null?'GPS hôtel manquant':row.evidence.length===0?'Aucune preuve vérifiée':'Prêt pour calcul'}</span><button type="button" disabled={busyOccurrenceId===row.occurrence.id||hotel?.lat==null||hotel?.lng==null||row.evidence.length===0} onClick={()=>void calculateImpact(row)} className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-35"><Zap size={13}/>{busyOccurrenceId===row.occurrence.id?'Calcul…':'Calculer l’impact'}</button></div>}
+              {!impact && <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800"><span className="text-[10px] text-slate-500">{hotel?.lat==null||hotel?.lng==null?'GPS hôtel manquant':row.evidence.length===0?'Aucune preuve vérifiée':'Prêt pour calcul'}</span><button type="button" disabled={busyOccurrenceId===row.occurrence.id||hotel?.lat==null||hotel?.lng==null||row.distanceKm==null||row.distanceKm>30||row.evidence.length===0} onClick={()=>void calculateImpact(row)} className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-35"><Zap size={13}/>{busyOccurrenceId===row.occurrence.id?'Calcul…':'Calculer l’impact'}</button></div>}
             </article>;
           })}
         </div>}
