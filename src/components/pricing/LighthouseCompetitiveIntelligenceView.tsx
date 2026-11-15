@@ -218,7 +218,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         }
 
         const buffer = event.target?.result as ArrayBuffer;
-        const parsed = parseLighthouseExcelFile(buffer, file.name);
+        const parsed = parseLighthouseExcelFile(buffer, file.name, dbHotel.timezone || 'Europe/Paris');
         const dbHotel = await resolveAccessibleRmsHotel(supabase, {
           name: hotel.name,
           city: hotel.city,
