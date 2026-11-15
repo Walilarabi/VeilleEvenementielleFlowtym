@@ -488,9 +488,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
         <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-700">
           <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-slate-900 dark:text-white">Typologies de chambres</h3><span className="text-xs text-slate-500">{roomTypes.length} typologie(s) enregistrée(s)</span></div>
           {roomTypes.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 dark:border-slate-700">Aucune typologie importée. Les catégories seront créées à partir d’un import PMS validé.</p> :
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{roomTypes.map((room: any) => <div key={room.id} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700"><div className="min-w-0 flex-1"><p className="font-semibold text-slate-900 dark:text-white">{room.name}</p><p className="mt-1 text-xs text-slate-500">{room.code} · {room.rooms_count == null ? 'Capacité non renseignée' : `${room.rooms_count} chambres`}</p></div><button type="button" onClick={()=>void toggleRoomType(room)} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${room.is_active?'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200':'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{room.is_active?'Active':'Inactive'}</button></div>)}</div>}
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{roomTypes.map((room: any) => <div key={room.id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+               <div className="mb-2 flex items-start justify-between gap-2"><div className="min-w-0"><p className="font-semibold text-slate-900 dark:text-white">{room.name}</p><p className="mt-1 text-xs text-slate-500">{room.code}</p></div><button type="button" onClick={()=>void toggleRoomType(room)} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${room.is_active?'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200':'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{room.is_active?'Active':'Inactive'}</button></div>
+               <div className="flex items-end gap-2"><label className="min-w-0 flex-1"><span className={labelClass}>Chambres dans cette typologie</span><input type="number" min="1" max="10000" step="1" className={inputClass} value={roomCountEdits[room.id] ?? ''} onChange={e=>setRoomCountEdits(p=>({...p,[room.id]:e.target.value}))} placeholder="À renseigner"/></label><button type="button" onClick={()=>void saveRoomTypeCount(room)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Enregistrer</button></div>
+             </div>)}</div>}
         </div>
-      </section>}
+               <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-700">
+           <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-slate-900 dark:text-white">Plans tarifaires Topsys</h3><span className="text-xs text-slate-500">{ratePlans.length} plan(s) · nouveaux plans inactifs jusqu'à validation</span></div>
+           {ratePlans.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 dark:border-slate-700">Aucun plan tarifaire importé.</p> : <div className="max-h-96 divide-y divide-slate-100 overflow-auto rounded-xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">{ratePlans.map(plan=><div key={plan.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5"><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900 dark:text-white">{plan.name}</p><p className="text-[11px] text-slate-500">{plan.code} · {plan.currency}{plan.meal_plan ? ' · '+plan.meal_plan : ''}{plan.refundable === null ? '' : plan.refundable ? ' · remboursable' : ' · non remboursable'}</p></div><button type="button" onClick={()=>void toggleRatePlan(plan)} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${plan.is_active?'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200':'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{plan.is_active?'Actif':'Inactif'}</button><button type="button" onClick={()=>void toggleRatePlanPublic(plan)} disabled={!plan.is_active} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold disabled:opacity-40 ${plan.is_public?'bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200':'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{plan.is_public?'Public':'Non public'}</button></div>)}</div>}
+         </div>
+       </section>}
 
       {tab === 'revenue' && <section className={cardClass}><h2 className="text-base font-bold text-slate-900 dark:text-white">Paramètres opérationnels et garde-fous tarifaires</h2><p className="mb-5 mt-1 text-sm text-slate-500 dark:text-slate-400">Les champs vides restent non renseignés. Le plancher et le plafond sont facultatifs, mais doivent être saisis ensemble. Aucun seuil n’est inventé.</p><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
@@ -511,6 +518,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
         <div className="mt-3 flex justify-end"><button type="button" disabled={savingGeo} onClick={() => void saveCoordinates()} className="rounded-xl border border-violet-200 px-4 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50 dark:border-violet-900 dark:text-violet-300 dark:hover:bg-violet-950/40">{savingGeo ? 'Enregistrement…' : 'Enregistrer les coordonnées'}</button></div>
       </div>
       <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
+         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Plan de référence pour le moteur</h3>
+         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Sélection explicite du plan public servant de tarif courant. Aucun plan n'est choisi automatiquement.</p>
+         <select className={inputClass + ' mt-3'} value={(()=>{try{return JSON.parse(pricingConfigJson || '{}').base_rate_plan_code ?? '';}catch{return '';}})()} onChange={e=>{let current:any={};try{current=JSON.parse(pricingConfigJson || '{}');}catch{}setPricingConfigJson(JSON.stringify({...current,base_rate_plan_code:e.target.value},null,2));}}>
+           <option value="">Non configuré</option>{ratePlans.filter(plan=>plan.is_active && plan.is_public).map(plan=><option key={plan.id} value={plan.code}>{plan.code} · {plan.name}</option>)}
+         </select>
+         {ratePlans.filter(plan=>plan.is_active && plan.is_public).length===0 && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Activez et déclarez public un plan dans l'onglet Hôtel avant de le sélectionner ici.</p>}
+       </div>
+       <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Configuration du moteur pricing_v1</h3>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Aucune pondération, aucun seuil ni ajustement n'est prérempli. Saisissez uniquement une configuration validée par votre Revenue Manager. Les valeurs sont enregistrées dans demand_thresholds.pricing_v1 et le moteur refusera toute configuration incomplète.</p>
         <textarea
@@ -519,7 +534,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
           onChange={e => setPricingConfigJson(e.target.value)}
           spellCheck={false}
           placeholder={`{
-  "weights": { "occupancy": null, "pickup": null, "event": null, "compset": null },
+  "weights": { "occupancy": null, "pickup": null, "event": null, "compset": null, "market_demand": null },
   "thresholds": { "normal": null, "high": null, "exceptional": null },
   "rate_adjustments_pct": { "low": null, "normal": null, "high": null, "exceptional": null },
   "max_observation_age_hours": null,
