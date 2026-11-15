@@ -1,6 +1,7 @@
 import { withSupabase } from "npm:@supabase/server@1";
 import { calculateForecastMetrics, calculateHaversineKm, selectForecastTrainingRows, summarizeForecastSamples } from "./_shared/forecast.ts";
 import { estimatePairedPriceElasticity } from "./_shared/priceElasticity.ts";
+import { buildRoomTypeRecommendation, type RoomTypeSignalKey } from "./_shared/roomTypeRecommendationEngine.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -862,8 +863,8 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     }
 
     const weights = cfg.weights as Record<string,number>;
-    const keys = ["occupancy","pickup","event","compset","market_demand"];
-    const normalizedWeights: Record<string,number> = {};
+    const keys: RoomTypeSignalKey[] = ["occupancy","pickup","event","compset","market_demand"];
+    const normalizedWeights: Record<RoomTypeSignalKey,number> = { occupancy: 0, pickup: 0, event: 0, compset: 0, market_demand: 0 };
     for (const key of keys) {
       const raw = weights[key] == null ? 0 : Number(weights[key]);
       if (!Number.isFinite(raw) || raw < 0) return fail("Poids pricing_v1 invalide pour " + key, 422);
@@ -1103,23 +1104,27 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         const marketObservation = marketByDate.get(stayDate) ?? null;
         if (marketObservation) signals.market_demand = clamp(Number(marketObservation.demand_index),0,100);
 
-        const available = keys.filter(keyName=>signals[keyName] !== null && normalizedWeights[keyName] > 0);
-        const coveredWeight = available.reduce((sum,keyName)=>sum+normalizedWeights[keyName],0);
-        const confidence = Math.round(100*coveredWeight/totalWeight);
-        const score = coveredWeight > 0
-          ? available.reduce((sum,keyName)=>sum+normalizedWeights[keyName]*Number(signals[keyName]),0)/coveredWeight
-          : null;
-        let bucket = "low";
-        if (score !== null && score >= Number(thresholds.exceptional)) bucket = "exceptional";
-        else if (score !== null && score >= Number(thresholds.high)) bucket = "high";
-        else if (score !== null && score >= Number(thresholds.normal)) bucket = "normal";
-        const sufficient = available.length >= minimumSources && confidence >= minimumCoverage && score !== null && !inventoryReservationConflict;
-        const requestedPct = sufficient ? Number(adjustments[bucket]) : 0;
-        const maxDelta = current*maxChange/100;
-        const suggested = Math.round(clamp(current*(1+requestedPct/100),Math.max(floor,current-maxDelta),Math.min(ceiling,current+maxDelta))*100)/100;
+        const decision = buildRoomTypeRecommendation({
+          currentBar: current,
+          signals: signals as Record<RoomTypeSignalKey,number|null>,
+          inventoryReservationConflict,
+        }, {
+          weights: normalizedWeights,
+          thresholds: { normal: normalThreshold, high: highThreshold, exceptional: exceptionalThreshold },
+          rateAdjustmentsPct: {
+            low: Number(adjustments.low),
+            normal: Number(adjustments.normal),
+            high: Number(adjustments.high),
+            exceptional: Number(adjustments.exceptional),
+          },
+          floor,
+          ceiling,
+          maxChangePct: maxChange,
+          minimumSources,
+          minimumWeightCoveragePct: minimumCoverage,
+        });
+        const { score, bucket, sufficient, requestedPct, suggestedBar: suggested, demandLevel, dataQualityStatus, strategyCode, confidenceScore: confidence, coveredWeight, totalWeight: decisionTotalWeight } = decision;
         const marketMedian = numberOrNull(marketObservation?.market_median_rate);
-        const demandLevel = score === null ? null : ({low:"faible",normal:"normal",high:"eleve",exceptional:"exceptionnel"} as Record<string,string>)[bucket];
-        const dataQualityStatus = inventoryReservationConflict ? "conflicted" : sufficient ? "valid" : available.length > 0 ? "degraded" : "insufficient";
         const latestPickup = latestReservation;
         const evidence = {
           roomType: {id:roomType.id,code:roomType.code,name:roomType.name,roomsCount:roomCount},
@@ -1143,7 +1148,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
           signals,
           weights: normalizedWeights,
           coveredWeight,
-          totalWeight,
+          totalWeight: decisionTotalWeight,
           confidenceIsSourceCoverage: true,
           pickupWindows: pickups,
           pickupWindowScores: pickupScores,
@@ -1174,9 +1179,9 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         const row = {
           current_bar: current,
           suggested_bar: suggested,
-          delta_amount: Math.round((suggested-current)*100)/100,
-          delta_pct: Math.round(((suggested-current)/current)*10000)/100,
-          demand_index: score === null ? null : Math.round(score),
+          delta_amount: decision.deltaAmount,
+          delta_pct: decision.deltaPct,
+          demand_index: decision.demandIndex,
           demand_level: demandLevel,
           occupancy_pct: occupancy,
           rooms_remaining: roomsRemaining,
