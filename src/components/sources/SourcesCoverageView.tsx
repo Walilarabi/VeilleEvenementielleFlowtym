@@ -24,8 +24,6 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { EventSource, Venue, EventItem, Hotel } from '../../types';
-import { batchScrape2027Events, ScrapingVerificationResult } from '../../services/scraperService';
-import { getDiscoveredSources } from '../../services/eventIntelligenceAgent';
 import { HotelDataExcelUploadSection } from './HotelDataExcelUploadSection';
 
 interface SourcesCoverageViewProps {
@@ -46,87 +44,24 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
   onShowToast,
   onNavigateToPricing,
 }) => {
-  const discoveredSources = getDiscoveredSources();
+  // Afficher uniquement les sources réellement enregistrées et validées dans Supabase.
+  const allSources = sources;
 
-  // Combine initial sources with agent auto-discovered sources
-  const allSources = React.useMemo(() => {
-    const map = new Map<string, EventSource>();
-    sources.forEach((s) => map.set(s.url, s));
-    discoveredSources.forEach((s) => {
-      if (!map.has(s.url)) {
-        map.set(s.url, s);
-      }
-    });
-    return Array.from(map.values());
-  }, [sources, discoveredSources]);
+  const crawlerNotice = "Le crawler historique est désactivé : il produisait des résultats simulés et utilisait des appels navigateur non authentifiés. Aucune requête ni vérification n'est revendiquée ici.";
 
-  const [isBatchScraping, setIsBatchScraping] = useState(false);
-  const [batchProgress, setBatchProgress] = useState<{
-    current: number;
-    total: number;
-    log: string;
-  } | null>(null);
-  const [terminalLogs, setTerminalLogs] = useState<string[]>([
-    '[System] Moteur de crawling & scraping initialisé',
-    '[Worker] 12 workers prêts pour la validation sémantique Schema.org Event',
-  ]);
-  const [verifiedCount2027, setVerifiedCount2027] = useState<number>(() => {
-    return events.filter((e) => e.startDate.startsWith('2027') && e.city === 'Paris').length;
-  });
-
-  const healthyCount = allSources.filter((s) => s.status === 'healthy').length;
-  const officialCount = allSources.filter((s) => s.isOfficial).length;
-  const totalEventsIndexed = allSources.reduce((acc, curr) => acc + curr.detectedEventsCount, 0);
+  const healthyCount = allSources.filter((source) => source.status === 'healthy').length;
+  const officialCount = allSources.filter((source) => source.isOfficial).length;
+  const totalEventsIndexed = allSources.reduce((acc, source) => acc + (Number(source.detectedEventsCount) || 0), 0);
+  const sourceCoveragePct = allSources.length > 0 ? Math.round((healthyCount / allSources.length) * 1000) / 10 : null;
 
   const paris2027Events = events.filter(
-    (e) => e.startDate.startsWith('2027') && e.city === 'Paris'
+    (event) => event.startDate.startsWith('2027') && event.city === 'Paris'
   );
+  const registeredEvents2027 = paris2027Events.length;
 
   const [activeSubTab, setActiveSubTab] = useState<
     'excel_uploads' | 'crawler' | 'sources_list' | 'venues'
   >('excel_uploads');
-
-  const handleStartBatchScraping = async () => {
-    if (paris2027Events.length === 0) {
-      if (onShowToast) onShowToast('Aucun événement 2027 détecté pour Paris');
-      return;
-    }
-
-    setIsBatchScraping(true);
-    setTerminalLogs((prev) => [
-      ...prev,
-      `[Crawler] Démarrage du scan automatisé de ${paris2027Events.length} événements Paris 2027...`,
-    ]);
-
-    try {
-      const result = await batchScrape2027Events(paris2027Events, (p) => {
-        setBatchProgress({
-          current: p.current,
-          total: p.total,
-          log: p.log,
-        });
-        setTerminalLogs((prevLogs) => [
-          ...prevLogs.slice(-25),
-          `[HTTP 200] ${p.currentEvent.title} (${p.currentEvent.startDate}) › ${p.currentEvent.officialUrl || p.currentEvent.venueName}`,
-        ]);
-      });
-
-      setVerifiedCount2027(result.verifiedCount);
-      setTerminalLogs((prevLogs) => [
-        ...prevLogs,
-        `[Terminé] ${result.verifiedCount} événements 2027 certifiés avec succès. Concordance 100%.`,
-      ]);
-
-      if (onShowToast) {
-        onShowToast(`Scraping terminé : ${result.verifiedCount} événements Paris 2027 validés`);
-      }
-    } catch {
-      if (onShowToast) onShowToast('Erreur durant le cycle de scraping');
-    } finally {
-      setIsBatchScraping(false);
-      setBatchProgress(null);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -269,96 +204,23 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
 
       {/* CRAWLER & SCRAPER AUTOMATISÉ 2027 BANNER */}
       {activeSubTab === 'crawler' && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-violet-200/80 dark:border-violet-800/70 p-6 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 flex items-center justify-center text-white shadow-xs">
-                <Globe className="w-5 h-5" />
-              </div>
+        <div className="space-y-6 animate-in fade-in">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 text-amber-600" size={20}/>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    Scraper & Robot de Vérification Automatisé — Paris 2027
-                  </h3>
-                <span className="text-[10px] font-bold uppercase bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-800/70">
-                  Web Crawler Live
-                </span>
+                <h3 className="font-bold text-amber-950 dark:text-amber-100">Collecte automatique non activée</h3>
+                <p className="mt-1 text-sm text-amber-900 dark:text-amber-200">{crawlerNotice}</p>
+                <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">Son activation nécessitera une Edge Function authentifiée, une liste blanche de sources, la validation des preuves et un journal d'ingestion. Aucun faux résultat ni faux journal d'exécution n'est affiché.</p>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Vérifie l&apos;accessibilité HTTP 200, les certificats TLS, le balisage Schema.org Event et la concordance des dates sur les sites officiels.
-              </p>
             </div>
           </div>
-
-          <button
-            onClick={handleStartBatchScraping}
-            disabled={isBatchScraping}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 shrink-0 cursor-pointer"
-          >
-            <RefreshCw className={`w-4 h-4 ${isBatchScraping ? 'animate-spin' : ''}`} />
-            <span>
-              {isBatchScraping
-                ? `Scraping en cours (${batchProgress?.current || 0}/${batchProgress?.total || paris2027Events.length})...`
-                : 'Lancer le Scraping Global 2027'}
-            </span>
-          </button>
-        </div>
-
-        {/* Progress Bar when scraping */}
-        {isBatchScraping && batchProgress && (
-          <div className="space-y-1.5 pt-2">
-            <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
-              <span>Progression du crawl</span>
-              <span className="font-bold text-violet-700 dark:text-violet-300 tabular-nums">
-                {Math.round((batchProgress.current / batchProgress.total) * 100)}% ({batchProgress.current} / {batchProgress.total})
-              </span>
-            </div>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-violet-600 h-2 rounded-full transition-all duration-150"
-                style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
-              />
-            </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-              {batchProgress.log}
-            </div>
-          </div>
-        )}
-
-        {/* Live Terminal Log */}
-        <div className="space-y-2 pt-2">
-          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-            <span className="font-bold flex items-center gap-1.5">
-              <Terminal className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
-              Console d&apos;Exécution du Crawler Web
-            </span>
-            <span className="text-[11px] text-slate-400">
-              {terminalLogs.length} requêtes enregistrées
-            </span>
-          </div>
-
-          <div className="bg-slate-950 text-slate-200 p-4 rounded-xl font-mono text-[11px] space-y-1 h-36 overflow-y-auto leading-relaxed border border-slate-800 shadow-inner">
-            {terminalLogs.map((log, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <span className="text-emerald-400 select-none">›</span>
-                <span
-                  className={
-                    log.includes('Terminé') || log.includes('100%')
-                      ? 'text-emerald-300 font-bold'
-                      : log.includes('HTTP 200')
-                      ? 'text-slate-300'
-                      : log.includes('Crawler')
-                      ? 'text-violet-300 font-semibold'
-                      : 'text-slate-400'
-                  }
-                >
-                  {log}
-                </span>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs font-bold uppercase text-slate-500">Sources enregistrées</p><p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{allSources.length}</p></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs font-bold uppercase text-slate-500">Événements 2027 en base</p><p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{registeredEvents2027}</p></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-xs font-bold uppercase text-slate-500">Événements référencés par les sources</p><p className="mt-2 text-2xl font-black text-slate-900 dark:text-white">{totalEventsIndexed}</p></div>
           </div>
         </div>
-      </div>
       )}
 
       {/* Workers & Ingestion Architecture Banner + Sources Table */}
