@@ -85,7 +85,7 @@ export async function persistLighthouseExtraction(
   hotel: AccessibleHotel,
   dataset: LighthouseExtractionDataset,
   importedBy: string,
-): Promise<{ extractionId: string; observationsInserted: number; observedAt: string }> {
+): Promise<{ extractionId: string; observationsInserted: number; observedAt: string; unmatchedCompetitors: string[] }> {
   if (dataset.metadata.sourceStatus !== "imported" || dataset.records.length === 0) {
     throw new Error("Seule une extraction Lighthouse réelle et non vide peut être enregistrée.");
   }
@@ -117,9 +117,8 @@ export async function persistLighthouseExtraction(
 
   const importedCompetitorNames = [...new Set(normalizedDataset.records.flatMap((record) => record.competitors.map((item) => item.name.trim())))];
   const unmatchedCompetitors = importedCompetitorNames.filter((name) => !competitorByName.has(normalizeHotelName(name)));
-  if (unmatchedCompetitors.length > 0) {
-    throw new Error(`Import bloqué : configurez et validez d'abord ces concurrents dans Paramètres > Compset : ${unmatchedCompetitors.join(", ")}.`);
-  }
+  // Les noms non rapprochés sont conservés comme observations brutes avec competitor_id NULL.
+  // Ils ne seront pas utilisés dans le calcul du CompSet tant qu'un mapping explicite n'existe pas.
 
   const observedAt = new Date().toISOString();
   const stayDates = normalizedDataset.records.map((record) => record.dateStr).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
@@ -130,7 +129,7 @@ export async function persistLighthouseExtraction(
       organization_id: hotel.organization_id,
       hotel_id: hotel.id,
       stay_date: record.dateStr,
-      competitor_id: competitorByName.get(normalizeHotelName(competitor.name))!.id,
+      competitor_id: competitorByName.get(normalizeHotelName(competitor.name))?.id ?? null,
       competitor_name: competitor.name.trim(),
       room_type: null,
       rate_plan: null,
@@ -150,6 +149,8 @@ export async function persistLighthouseExtraction(
         source_channel: normalizedDataset.metadata.sourceChannel,
         dimensions_confirmed: false,
         requires_channel_los_pos_confirmation: true,
+        mapping_status: competitorByName.has(normalizeHotelName(competitor.name)) ? "matched_exact_name" : "unmatched",
+
       },
       los: positiveIntegerFromLabel(normalizedDataset.metadata.los),
       pos: positiveIntegerFromLabel(normalizedDataset.metadata.occupancy),
@@ -185,6 +186,8 @@ export async function persistLighthouseExtraction(
         dateRange: normalizedDataset.metadata.dateRange,
         totalDatesCount: normalizedDataset.metadata.totalDatesCount,
         dimensionsConfirmed: false,
+        matchedCompetitors: importedCompetitorNames.length - unmatchedCompetitors.length,
+        unmatchedCompetitors,
         parsedDataset: normalizedDataset,
       },
     })
@@ -218,7 +221,7 @@ export async function persistLighthouseExtraction(
     throw new Error(`Enregistrement des tarifs Lighthouse interrompu ; nettoyage tenté : ${error instanceof Error ? error.message : "erreur inconnue"}`);
   }
 
-  return { extractionId: extraction.id, observationsInserted: inserted, observedAt };
+  return { extractionId: extraction.id, observationsInserted: inserted, observedAt, unmatchedCompetitors };
 }
 
 export async function loadRecentLighthouseExtractions(
