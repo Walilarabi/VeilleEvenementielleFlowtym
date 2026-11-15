@@ -999,6 +999,10 @@ export function parseLighthouseExcelFile(
       };
     });
 
+    const availableCompRates = competitors
+      .filter((c) => c.status === 'disponible' && c.rate !== null && c.rate > 0)
+      .map((c) => c.rate as number);
+
     // Médianes
     const flowtymMedianCalculated = calculateFlowtymMedian(competitors);
     const flowtymMedianEur = availableCompRates.length > 0 ? flowtymMedianCalculated : null;
@@ -1009,10 +1013,6 @@ export function parseLighthouseExcelFile(
       : null;
 
     // Stats
-    const availableCompRates = competitors
-      .filter((c) => c.status === 'disponible' && c.rate !== null && c.rate > 0)
-      .map((c) => c.rate as number);
-
     const compsetAverage =
       availableCompRates.length > 0
         ? Math.round(availableCompRates.reduce((a, b) => a + b, 0) / availableCompRates.length)
