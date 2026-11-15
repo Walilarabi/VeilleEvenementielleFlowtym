@@ -47,6 +47,7 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
   const officialCount = allSources.filter((source) => source.isOfficial).length;
   const totalEventsIndexed = allSources.reduce((acc, source) => acc + (Number(source.detectedEventsCount) || 0), 0);
   const sourceCoveragePct = allSources.length > 0 ? Math.round((healthyCount / allSources.length) * 1000) / 10 : null;
+  const anomalyCount = allSources.length - healthyCount;
 
   const paris2027Events = events.filter(
     (event) => event.startDate.startsWith('2027') && event.city === 'Paris'
@@ -77,9 +78,9 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/70">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Couverture certifiée 99.4%</span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <ShieldCheck className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+              <span>{sourceCoveragePct === null ? 'Aucune source enregistrée' : 'État sain des sources : ' + sourceCoveragePct.toLocaleString('fr-FR') + '%'}</span>
             </span>
           </div>
         </div>
@@ -91,8 +92,8 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
             <div className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
               {healthyCount} / {sources.length}
             </div>
-            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-              0 source en anomalie
+            <div className={`text-[11px] font-semibold mt-1 ${anomalyCount === 0 ? 'text-slate-500 dark:text-slate-400' : 'text-amber-700 dark:text-amber-300'}`}>
+              {allSources.length === 0 ? 'État indisponible sans source' : anomalyCount + ' source(s) à vérifier'}
             </div>
           </div>
 
@@ -121,8 +122,8 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
             <div className="text-2xl font-black text-violet-700 dark:text-violet-300 mt-1 tabular-nums">
               {paris2027Events.length}
             </div>
-            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-              100% avec URLs officielles
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              Événements enregistrés dans le référentiel
             </div>
           </div>
         </div>
@@ -226,20 +227,20 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
               <span>Architecture de Collecte Découplée (Background Workers)</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed max-w-4xl">
-              Conformément au PRD technique, le moteur de crawling et de déduplication est exécuté en dehors des fonctions serverless Vercel sur des conteneurs workers dédiés avec queue de tâches. Les données vérifiées sont synchronisées de manière asynchrone dans PostgreSQL / Supabase avec contrôle d&apos;intégrité.
+              Architecture cible : collecte côté serveur, file de tâches, déduplication, validation des preuves puis synchronisation Supabase. Aucun worker externe ni ordonnanceur n&apos;est déclaré actif tant qu&apos;une exécution réelle n&apos;est pas enregistrée.
             </p>
-            <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 pt-2 border-t border-slate-800">
+            <div className="flex flex-wrap items-center gap-4 text-[11px] text-amber-300 pt-2 border-t border-slate-700">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                Worker Ingestion Paris 2027 : En ligne ({paris2027Events.length} sources surveillées)
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                Collecte automatique : non activée
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                Worker Ingestion Lyon/Nice : En ligne (Fréquence : 2h)
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                Workers externes : non configurés
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                Moteur de Déduplication & Calcul Score RM : Actif
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                Déduplication planifiée : non exécutée
               </span>
             </div>
           </div>
@@ -298,10 +299,17 @@ export const SourcesCoverageView: React.FC<SourcesCoverageViewProps> = ({
                           {src.detectedEventsCount}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                            Actif
-                          </span>
+                          {src.status === 'healthy' ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              Sain
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                              À vérifier
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
