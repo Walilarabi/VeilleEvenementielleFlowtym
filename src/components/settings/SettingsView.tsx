@@ -68,6 +68,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   const [newCompetitor, setNewCompetitor] = useState({ name: '', address: '', stars: '', distanceKm: '' });
 
   const activeHotel = useMemo(() => hotels.find(h => h.id === hotelId) ?? null, [hotels, hotelId]);
+  const configuredRoomTypeCount = roomTypes.filter((room: any) => room.rooms_count !== null && room.rooms_count !== undefined).length;
+  const totalConfiguredRoomTypeCapacity = roomTypes.reduce((sum: number, room: any) => sum + (Number(room.rooms_count) || 0), 0);
+  const hotelTotalRooms = hotelProfileForm.roomCount === '' ? null : Number(hotelProfileForm.roomCount);
+  const roomTypeCapacityMismatch = roomTypes.length > 0 && configuredRoomTypeCount === roomTypes.length && hotelTotalRooms !== null && Number.isInteger(hotelTotalRooms) && totalConfiguredRoomTypeCapacity !== hotelTotalRooms;
 
   const load = useCallback(async (preferredHotelId?: string) => {
     if (!supabase) { setError('Connexion Supabase indisponible.'); setLoading(false); return; }
@@ -502,7 +506,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
           </div>)}
         </div>
         <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-700">
-          <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-slate-900 dark:text-white">Typologies de chambres</h3><span className="text-xs text-slate-500">{roomTypes.length} typologie(s) enregistrée(s)</span></div>
+          <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-slate-900 dark:text-white">Typologies de chambres</h3>
+           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Capacités renseignées : {configuredRoomTypeCount}/{roomTypes.length} typologies · total configuré : {totalConfiguredRoomTypeCapacity}/{hotelTotalRooms ?? '—'} chambres hôtel.</p>
+           {roomTypeCapacityMismatch && <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">La somme des capacités par typologie ne correspond pas au nombre total de chambres. Le moteur bloquera les recommandations tarifaires jusqu'à correction.</p>}<span className="text-xs text-slate-500">{roomTypes.length} typologie(s) enregistrée(s)</span></div>
           {roomTypes.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500 dark:border-slate-700">Aucune typologie importée. Les catégories seront créées à partir d’un import PMS validé.</p> :
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{roomTypes.map((room: any) => <div key={room.id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                <div className="mb-2 flex items-start justify-between gap-2"><div className="min-w-0"><p className="font-semibold text-slate-900 dark:text-white">{room.name}</p><p className="mt-1 text-xs text-slate-500">{room.code}</p></div><button type="button" onClick={()=>void toggleRoomType(room)} className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${room.is_active?'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200':'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{room.is_active?'Active':'Inactive'}</button></div>
