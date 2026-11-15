@@ -235,7 +235,10 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         setExtractionsHistory((prev) => [parsed, ...prev]);
         setSelectedExtractionId(parsed.metadata.id);
         setPersistenceError(null);
-        onShowToast(`✓ ${file.name} enregistré dans Supabase : ${parsed.records.length} dates et ${persisted.observationsInserted} relevés concurrents.`);
+        const mappingNote = persisted.unmatchedCompetitors.length > 0
+          ? ` ${persisted.unmatchedCompetitors.length} concurrent(s) non rapproché(s), conservé(s) hors calcul CompSet : ${persisted.unmatchedCompetitors.join(', ')}.`
+          : ' Tous les concurrents ont été rapprochés par nom exact.';
+        onShowToast(`✓ ${file.name} enregistré dans Supabase : ${parsed.records.length} dates et ${persisted.observationsInserted} relevés concurrents.${mappingNote}`);
       } catch (err: any) {
         console.error(err);
         onShowToast(`Échec de l'import Lighthouse : ${err?.message || 'Structure de fichier non reconnue'}`);
