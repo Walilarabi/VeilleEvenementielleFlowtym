@@ -174,6 +174,7 @@ export async function persistLighthouseExtraction(
     sourceChannel: normalizedDataset.metadata.sourceChannel,
     los: normalizedDataset.metadata.los,
     occupancy: normalizedDataset.metadata.occupancy,
+    sourceUpdatedAt: normalizedDataset.metadata.sourceUpdatedAt ?? null,
     records: normalizedDataset.records,
   }));
   const idempotencyKey = "lighthouse:" + hotel.id + ":" + sourceHash;
