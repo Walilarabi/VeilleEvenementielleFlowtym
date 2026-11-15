@@ -45,7 +45,7 @@ export type HotelAvailabilityStatus = 'disponible' | 'epuise' | 'los2' | '1pax' 
 export interface CompetitorRateRecord {
   id: string;
   name: string;
-  stars: number;
+  stars: number | null;
   rate: number | null; // null if sold-out or unavailable (NEVER 0)
   status: HotelAvailabilityStatus;
   statusLabel: string;
@@ -92,8 +92,10 @@ export interface LighthouseDailyItem {
   isWeekend: boolean;
 
   // A. Demande du marché (Aperçu + Tarifs)
-  demandIndex: number; // 0-100 (Indice Lighthouse de demande, PAS un taux d'occupation)
-  demandLevel: MarketDemandLevelCategory;
+  demandIndex: number | null; // indice normalisé 0-100, null si absent à la source
+  demandIndexRaw: number | null; // valeur brute exportée par Lighthouse
+  demandIndexScale: '0_1' | '0_100' | 'missing';
+  demandLevel: MarketDemandLevelCategory | 'non_renseigne';
   demandEvolution1d: number | null; // vs hier
   demandEvolution3d: number | null; // vs J-3
   demandEvolution7d: number | null; // vs J-7
@@ -171,9 +173,10 @@ export const FOLKESTONE_PRIMARY_COMPSET_NAMES = [
  * Calcul qualitatif du niveau de demande selon les seuils configurables Flowtym
  */
 export function getDemandLevelFromIndex(
-  index: number,
+  index: number | null,
   thresholds: MarketDemandThresholds = DEFAULT_DEMAND_THRESHOLDS
-): MarketDemandLevelCategory {
+): MarketDemandLevelCategory | 'non_renseigne' {
+  if (index === null || !Number.isFinite(index)) return 'non_renseigne';
   if (index >= thresholds.tresForteMin) return 'tres_forte';
   if (index >= thresholds.forteMax - 14) return 'forte';
   if (index >= thresholds.modereeMax - 29) return 'moderee';
@@ -183,13 +186,20 @@ export function getDemandLevelFromIndex(
 /**
  * Couleurs associées aux niveaux de demande Flowtym
  */
-export function getDemandColor(level: MarketDemandLevelCategory): {
+export function getDemandColor(level: MarketDemandLevelCategory | 'non_renseigne'): {
   bg: string;
   text: string;
   border: string;
   dot: string;
 } {
   switch (level) {
+    case 'non_renseigne':
+      return {
+        bg: 'bg-slate-50',
+        text: 'text-slate-500',
+        border: 'border-slate-200',
+        dot: 'bg-slate-400',
+      };
     case 'faible':
       return {
         bg: 'bg-emerald-50',
@@ -609,6 +619,8 @@ export function createDefaultLighthouseDataset(): LighthouseExtractionDataset {
       dayOfWeek,
       isWeekend,
       demandIndex,
+      demandIndexRaw,
+      demandIndexScale,
       demandLevel,
       demandEvolution1d,
       demandEvolution3d,
@@ -830,6 +842,11 @@ export function parseLighthouseExcelFile(
   const rawVs3j: any[][] = wsVs3j ? XLSX.utils.sheet_to_json(wsVs3j, { header: 1, defval: '' }) : [];
   const rawVs7j: any[][] = wsVs7j ? XLSX.utils.sheet_to_json(wsVs7j, { header: 1, defval: '' }) : [];
 
+  const findHeaderRowIndex = (rows: any[][], required: RegExp[]): number =>
+    rows.findIndex((row, index) => index < 20 && required.every((pattern) =>
+      row.some((cell) => pattern.test(String(cell ?? '').trim()))
+    ));
+
   if (rawTarifs.length < 2) {
     throw new Error("Le fichier ne contient pas de données dans l'onglet des tarifs.");
   }
@@ -837,17 +854,25 @@ export function parseLighthouseExcelFile(
     throw new Error("L'onglet Aperçu ne contient aucune donnée exploitable.");
   }
 
-  // Identifier les en-têtes
-  const headerRow = rawTarifs[0].map((h: any) => String(h).trim());
-  const dateColIdx = headerRow.findIndex((h) => /date/i.test(h));
+  // Lighthouse ajoute des lignes de titre/métadonnées avant les en-têtes.
+  const tarifsHeaderIndex = findHeaderRowIndex(rawTarifs, [/date/i, /folkestone/i]);
+  const apercuHeaderIndex = findHeaderRowIndex(rawApercu, [/date/i, /m[ée]diane/i]);
+  if (tarifsHeaderIndex < 0) throw new Error("En-tête Date/Folkestone introuvable dans l'onglet Tarifs.");
+  if (apercuHeaderIndex < 0) throw new Error("En-tête Date/Médiane introuvable dans l'onglet Aperçu.");
+
+  const headerRow = rawTarifs[tarifsHeaderIndex].map((h: any) => String(h).trim());
+  const dateColIdx = headerRow.findIndex((h) => /^date$/i.test(h));
   const demandColIdx = headerRow.findIndex((h) => /demande/i.test(h));
   const folkestoneColIdx = headerRow.findIndex((h) => /folkestone/i.test(h));
-  if (dateColIdx < 0) throw new Error("Colonne Date absente de l'onglet Tarifs.");
+  if (dateColIdx < 0 || folkestoneColIdx < 0) {
+    throw new Error("Les colonnes Date et Folkestone Opéra sont obligatoires dans l'onglet Tarifs.");
+  }
 
-  // Les autres colonnes sont les concurrents
+  // Exclure les colonnes de contrôle (Jour/Date/Demande/Hôtel de référence).
   const competitorCols: { name: string; idx: number }[] = [];
   headerRow.forEach((colName, idx) => {
-    if (idx !== dateColIdx && idx !== demandColIdx && idx !== folkestoneColIdx && colName.length > 0) {
+    if (idx !== dateColIdx && idx !== demandColIdx && idx !== folkestoneColIdx &&
+        colName.length > 0 && !/^(jour|day)$/i.test(colName)) {
       competitorCols.push({ name: colName, idx });
     }
   });
@@ -855,39 +880,46 @@ export function parseLighthouseExcelFile(
     throw new Error("Aucune colonne concurrent n'a été reconnue dans l'onglet Tarifs.");
   }
 
-  // Mapper Aperçu par Date : aucune valeur de demande ou médiane n'est inventée.
-  const apercuMap = new Map<string, { demand: number; medianLh: number }>();
-  const apHeaders = rawApercu[0].map((h: any) => String(h).trim());
-  const apDateIdx = apHeaders.findIndex((h) => /date/i.test(h));
+  // Demande source facultative : conserver le brut et détecter l'échelle sans assimiler
+  // une valeur absente à zéro. Les valeurs 0..1 sont normalisées en 0..100.
+  const apercuMap = new Map<string, { demand: number | null; demandRaw: number | null; demandScale: '0_1' | '0_100' | 'missing'; medianLh: number }>();
+  const apHeaders = rawApercu[apercuHeaderIndex].map((h: any) => String(h).trim());
+  const apDateIdx = apHeaders.findIndex((h) => /^date$/i.test(h));
   const apDemandIdx = apHeaders.findIndex((h) => /demande/i.test(h));
   const apMedianIdx = apHeaders.findIndex((h) => /m[ée]diane/i.test(h));
-  if (apDateIdx < 0 || apDemandIdx < 0 || apMedianIdx < 0) {
-    throw new Error("L'onglet Aperçu doit contenir les colonnes Date, Demande et Médiane Lighthouse.");
+  if (apDateIdx < 0 || apMedianIdx < 0) {
+    throw new Error("L'onglet Aperçu doit contenir les colonnes Date et Médiane Lighthouse.");
   }
 
-  for (let r = 1; r < rawApercu.length; r++) {
+  for (let r = apercuHeaderIndex + 1; r < rawApercu.length; r++) {
     const row = rawApercu[r];
     const d = parseExcelDate(row[apDateIdx]);
     if (!d) continue;
-    const dem = Number.parseFloat(String(row[apDemandIdx]).replace("%", "").replace(",", "."));
-    const med = Number.parseFloat(String(row[apMedianIdx]).replace(/[€\s]/g, "").replace(",", "."));
-    if (!Number.isFinite(dem) || dem < 0 || dem > 100) {
-      throw new Error(`Indice de demande Lighthouse invalide pour le ${d} : aucune valeur de remplacement ne sera inventée.`);
+    const rawDemandValue = apDemandIdx < 0 ? Number.NaN : Number.parseFloat(String(row[apDemandIdx]).replace("%", "").replace(",", "."));
+    const demandRaw = Number.isFinite(rawDemandValue) ? rawDemandValue : null;
+    const demandScale: '0_1' | '0_100' | 'missing' = demandRaw === null ? 'missing' : (demandRaw >= 0 && demandRaw <= 1 ? '0_1' : '0_100');
+    const dem = demandRaw === null ? null : (demandScale === '0_1' ? demandRaw * 100 : demandRaw);
+    if (dem !== null && (dem < 0 || dem > 100)) {
+      throw new Error(`Indice de demande Lighthouse hors échelle pour le ${d} : ${demandRaw}.`);
     }
+    const med = Number.parseFloat(String(row[apMedianIdx]).replace(/[€\s]/g, "").replace(",", "."));
     if (!Number.isFinite(med) || med <= 0) {
       throw new Error(`Médiane Lighthouse invalide pour le ${d} : aucune valeur de remplacement ne sera inventée.`);
     }
-    apercuMap.set(d, { demand: dem, medianLh: med });
+    apercuMap.set(d, { demand: dem, demandRaw, demandScale, medianLh: med });
   }
 
-  // Mapper les évolutions vs Hier, vs 3j, vs 7j par (date + nom d'hôtel)
+  // Mapper les évolutions vs Hier, vs 3j, vs 7j par (date + nom d'hôtel).
   const mapEvoSheet = (rows: any[][]) => {
     const m = new Map<string, number | null>();
     if (rows.length < 2) return m;
-    const hd = rows[0].map((h: any) => String(h).trim());
-    const dIdx = hd.findIndex((h) => /date/i.test(h));
+    const headerIndex = findHeaderRowIndex(rows, [/date/i]);
+    if (headerIndex < 0) return m;
+    const hd = rows[headerIndex].map((h: any) => String(h).trim());
+    const dIdx = hd.findIndex((h) => /^date$/i.test(h));
+    if (dIdx < 0) return m;
 
-    for (let r = 1; r < rows.length; r++) {
+    for (let r = headerIndex + 1; r < rows.length; r++) {
       const row = rows[r];
       const d = parseExcelDate(row[dIdx]);
       if (!d) continue;
@@ -910,7 +942,7 @@ export function parseLighthouseExcelFile(
   const frenchDays = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const records: LighthouseDailyItem[] = [];
 
-  for (let r = 1; r < rawTarifs.length; r++) {
+  for (let r = tarifsHeaderIndex + 1; r < rawTarifs.length; r++) {
     const row = rawTarifs[r];
     const dateStr = parseExcelDate(row[dateColIdx >= 0 ? dateColIdx : 0]);
     if (!dateStr) continue;
@@ -925,6 +957,8 @@ export function parseLighthouseExcelFile(
       throw new Error(`Aucune donnée Aperçu (demande/médiane) ne correspond à la date ${dateStr} de l'onglet Tarifs.`);
     }
     const demandIndex = apInfo.demand;
+    const demandIndexRaw = apInfo.demandRaw;
+    const demandIndexScale = apInfo.demandScale;
     const demandLevel = getDemandLevelFromIndex(demandIndex);
 
     // Évolution demande
@@ -954,7 +988,7 @@ export function parseLighthouseExcelFile(
       return {
         id: `comp-upload-${idx}`,
         name: cCol.name,
-        stars: 4,
+        stars: null,
         rate,
         status,
         statusLabel: label,
@@ -1051,10 +1085,10 @@ export function parseLighthouseExcelFile(
 
     const soldOutCount = competitors.filter((c) => c.status === 'epuise').length;
 
-    const aiAlerts = generateLighthouseAIAlerts(
+    const aiAlerts = demandIndex === null ? [] : generateLighthouseAIAlerts(
       dateStr,
       demandIndex,
-      demandLevel,
+      demandLevel as MarketDemandLevelCategory,
       folkRate,
       folkStatus,
       lighthouseMedianEur,
