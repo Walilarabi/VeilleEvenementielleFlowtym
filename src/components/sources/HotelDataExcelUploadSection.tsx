@@ -585,7 +585,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
             </h4>
           </div>
           <span className="text-[11px] text-slate-400">
-            Les données importées écrasent et enrichissent la mémoire de prévision
+            Journal Supabase en lecture seule · aucune suppression manuelle
           </span>
         </div>
 
@@ -599,14 +599,16 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
                 <th className="py-3 px-4 text-center">Lignes Traitées</th>
                 <th className="py-3 px-4">Période Couverte</th>
                 <th className="py-3 px-4 text-center">Statut RM</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+                <th className="py-3 px-4 text-right">Traçabilité</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-              {records.map((rec) => (
+              {records.length === 0 ? (
+               <tr><td colSpan={7} className="py-8 text-center text-xs text-slate-400">{isHistoryLoading ? 'Chargement…' : 'Aucun import réel enregistré pour cet établissement.'}</td></tr>
+             ) : records.map((rec) => (
                 <tr key={rec.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
                   <td className="py-3 px-4 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                    {rec.uploadedAt}
+                    {rec.uploadedAt ? new Date(rec.uploadedAt).toLocaleString('fr-FR') : '—'}
                   </td>
                   <td className="py-3 px-4 whitespace-nowrap">
                     <span
@@ -633,20 +635,17 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
                   </td>
                   <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">{rec.dateRange}</td>
                   <td className="py-3 px-4 text-center whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/70">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                      <span>Synchronisé</span>
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
+                      rec.status === 'synced' ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/70'
+                      : rec.status === 'failed' ? 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/70'
+                      : rec.status === 'running' ? 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/70'
+                      : rec.status === 'partial' ? 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/70'
+                      : 'text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                    }`}>
+                      {rec.status === 'synced' ? 'Synchronisé' : rec.status === 'failed' ? 'Échec' : rec.status === 'running' ? 'En cours' : rec.status === 'partial' ? 'Partiel' : 'En attente'}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-right whitespace-nowrap">
-                    <button
-                      onClick={() => handleDeleteRecord(rec.id)}
-                      title="Supprimer cet historique d'import"
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
+                  <td className="py-3 px-4 text-right whitespace-nowrap text-[10px] text-slate-400">Journal conservé</td>
                 </tr>
               ))}
             </tbody>
