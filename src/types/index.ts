@@ -43,6 +43,7 @@ export interface Hotel {
   lng: number | null;
   stars: number | null;
   roomCount: number | null;
+  currency?: string; // ISO 4217, provided by the persisted hotel record when available.
   segment: 'Luxe' | 'Boutique' | 'Affaires' | 'Économique' | 'Resort' | null;
   baseADR: number | null;
 }
