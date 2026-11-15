@@ -840,7 +840,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                       {/* Demande */}
                       <td className="py-3 px-3 text-center whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${demColor.bg} ${demColor.text}`}>
-                          {record.demandIndex} ({record.demandLevel.replace('_', ' ')})
+                          {record.demandIndex === null ? '—' : Math.round(record.demandIndex)} ({record.demandLevel === 'non_renseigne' ? 'Non renseignée' : record.demandLevel.replace('_', ' ')})
                         </span>
                       </td>
 
@@ -966,7 +966,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   <strong className="text-slate-700 font-bold">{marketSummary.avgDemandEvolution7d === null ? '—' : `${marketSummary.avgDemandEvolution7d > 0 ? '+' : ''}${marketSummary.avgDemandEvolution7d.toFixed(1)} pts`}</strong>
                 </div>
                 <p className="text-[9px] text-slate-400 pt-1 leading-tight">
-                  Indice de tension Lighthouse (non assimilable à un taux d&apos;occupation).
+                  Indice de tension Lighthouse (non assimilable à un taux d&apos;occupation). Observations : {marketSummary.demandObservations}/{dataset.records.length} dates.
                 </p>
               </div>
             </div>
@@ -993,7 +993,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   </strong>
                 </div>
                 <div className="flex justify-between">
-                  <span>Fourchette compset moyenne :</span>
+                  <span>Fourchette compset observée :</span>
                   <span className="font-semibold text-slate-700">{marketSummary.compsetMinObserved === null || marketSummary.compsetMaxObserved === null ? '—' : `${marketSummary.compsetMinObserved}€ — ${marketSummary.compsetMaxObserved}€`}</span>
                 </div>
               </div>
