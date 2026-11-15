@@ -800,9 +800,36 @@ export function exportLighthouseWorkbookToXLSX(
 /**
  * Analyseur robuste d'un fichier Excel Lighthouse (.xlsx) réel déposé par l'utilisateur
  */
+function parseLighthouseUpdatedAt(rows: any[][], headerIndex: number, referenceDate: string, timezone: string): string | null {
+  for (let rowIndex = 0; rowIndex < headerIndex; rowIndex++) {
+    const row = rows[rowIndex] ?? [];
+    for (let columnIndex = 0; columnIndex < row.length; columnIndex++) {
+      const label = String(row[columnIndex] ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      if (!label.includes('mis a jour')) continue;
+      const value = row[columnIndex + 1];
+      if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString();
+      const match = String(value ?? '').trim().match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+(\d{1,2}):(\d{2})$/);
+      if (!match) continue;
+      const day = Number(match[1]);
+      const month = Number(match[2]);
+      const year = match[3] ? Number(match[3].length === 2 ? \`20\${match[3]}\` : match[3]) : Number(referenceDate.slice(0, 4));
+      const hour = Number(match[4]);
+      const minute = Number(match[5]);
+      const noon = new Date(Date.UTC(year, month - 1, day, 12));
+      const zoneName = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'shortOffset' })
+        .formatToParts(noon).find((part) => part.type === 'timeZoneName')?.value ?? 'GMT';
+      const offset = zoneName.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+      const offsetMinutes = offset ? (offset[1] === '-' ? -1 : 1) * (Number(offset[2]) * 60 + Number(offset[3] ?? 0)) : 0;
+      return new Date(Date.UTC(year, month - 1, day, hour, minute) - offsetMinutes * 60_000).toISOString();
+    }
+  }
+  return null;
+}
+
 export function parseLighthouseExcelFile(
   buffer: ArrayBuffer,
-  fileName: string
+  fileName: string,
+  timezone = 'Europe/Paris'
 ): LighthouseExtractionDataset {
   const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
 
