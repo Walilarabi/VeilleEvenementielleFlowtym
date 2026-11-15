@@ -19,7 +19,6 @@ import {
   getSystemReferenceDate,
   sortEventsChronologically,
   getEventStatusBadgeConfig,
-  getEventChronologicalStatus,
   getEffectiveEndDate,
 } from '../../services/eventChronologyService';
 
@@ -153,7 +152,7 @@ export const TableView: React.FC<TableViewProps> = ({
 
   // Tri Revenue Management : en cours, puis à venir, puis passés.
   const sortedEvents = useMemo(() => {
-    if (sortColumn === 'dates') {
+    if (sortColumn === 'status') {
       const chronological = sortEventsChronologically(events, referenceDate, false);
       return sortDirection === 'asc' ? chronological : [...chronological].reverse();
     }
@@ -167,9 +166,6 @@ export const TableView: React.FC<TableViewProps> = ({
         case 'type':
           comparison = getTypeLabel(a.category, a.title).localeCompare(getTypeLabel(b.category, b.title), 'fr');
           break;
-        case 'dates':
-          comparison = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
-          break;
         case 'location':
           comparison = `${a.city} ${a.venueName}`.localeCompare(`${b.city} ${b.venueName}`, 'fr');
           break;
@@ -182,15 +178,7 @@ export const TableView: React.FC<TableViewProps> = ({
         case 'score':
           comparison = a.scoreBreakdown.finalRMScore - b.scoreBreakdown.finalRMScore;
           break;
-        case 'status': {
-          const rank = (event: EventItem) => {
-            const status = getEventChronologicalStatus(event, referenceDate);
-            return status === 'ongoing' ? 1 : status === 'upcoming' ? 2 : 3;
-          };
-          comparison = rank(a) - rank(b);
-          if (comparison === 0) comparison = a.startDate.localeCompare(b.startDate);
-          break;
-        }
+
         default:
           comparison = 0;
       }
