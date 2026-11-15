@@ -19,7 +19,7 @@ function makeLighthouseWorkbook(demandValues: Array<number | string> = [0.28, ""
   const rates = [
     ["Lighthouse export"],
     ["Canal : Booking.com"],
-    ["LOS : 1 nuit"],
+    ["LOS : 1 nuit", "", "", "", "", "", "Mis à jour", "14/11 02:13"],
     [],
     ["Jour", "Date", "Demande du marché", "Folkestone Opéra", "Hôtel de l’Arcade", "Hôtel Chavanel"],
     ["samedi", dates[0], demandValues[0], 199, 180, "Épuisé"],
@@ -50,6 +50,7 @@ test("Lighthouse parser detects headers after export preamble rows", () => {
   const dataset = parseLighthouseExcelFile(makeLighthouseWorkbook(), "fixture-booking.xlsx");
 
   assert.equal(dataset.records.length, 2);
+  assert.equal(dataset.metadata.sourceUpdatedAt, "2026-11-14T01:13:00.000Z");
   assert.deepEqual(dataset.records[0].competitors.map((item) => item.name), ["Hôtel de l’Arcade", "Hôtel Chavanel"]);
   assert.equal(dataset.records[0].competitors[0].rate, 180);
   assert.equal(dataset.records[0].competitors[1].status, "epuise");
