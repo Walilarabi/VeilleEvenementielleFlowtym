@@ -209,6 +209,10 @@ export async function persistLighthouseExtraction(
       if (previousExtraction) {
         normalizedDataset.metadata.id = previousExtraction.id;
         normalizedDataset.metadata.ingestionJobId = existingJob.id;
+        dataset.metadata.id = previousExtraction.id;
+        dataset.metadata.sourceHash = sourceHash;
+        dataset.metadata.ingestionJobId = existingJob.id;
+        dataset.metadata.observedAtSource = normalizedDataset.metadata.observedAtSource;
         return {
           extractionId: previousExtraction.id,
           observationsInserted: Number(existingJob.records_written ?? previousMetadata.observationsInserted ?? 0),
@@ -307,6 +311,7 @@ export async function persistLighthouseExtraction(
     if (extractionError || !extraction) throw new Error("Création de l'extraction Lighthouse impossible : " + (extractionError?.message ?? "réponse vide"));
     extractionId = extraction.id;
     normalizedDataset.metadata.id = extraction.id;
+    dataset.metadata.id = extraction.id;
 
     const rowsWithExtraction = observationRows.map((row) => ({ ...row, extraction_id: extraction.id }));
     const batchSize = 500;
