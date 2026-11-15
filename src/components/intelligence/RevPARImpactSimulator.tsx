@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Database, RefreshCw, TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
+import { AlertTriangle, Database, RefreshCw } from 'lucide-react';
 import { EventItem, Hotel } from '../../types';
 import { useAuth } from '../../auth/AuthProvider';
 
