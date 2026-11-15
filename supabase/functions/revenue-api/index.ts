@@ -848,7 +848,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     }
     const [{ data: params }, { data: hotelSettings }] = await Promise.all([
       supabase.from("hotel_parameters_profiles").select("*").eq("hotel_id",hotelId).maybeSingle(),
-      supabase.from("hotels").select("rate_floor,rate_ceiling,max_rate_change_pct").eq("id",hotelId).single(),
+      supabase.from("hotels").select("rate_floor,rate_ceiling,max_rate_change_pct,room_count").eq("id",hotelId).single(),
     ]);
     const cfg: any = params?.demand_thresholds?.pricing_v1;
     if (!params || !cfg || !cfg.weights || !cfg.thresholds || !cfg.rate_adjustments_pct) {
@@ -940,6 +940,10 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     if (ratePlanError || roomTypesError) return fail("Lecture des référentiels chambre et tarif impossible",400,ratePlanError?.message ?? roomTypesError?.message);
     if (!ratePlan) return fail("Le plan BAR sélectionné n'existe pas, n'est pas actif ou n'est pas déclaré public",422);
     if (!roomTypes?.length) return fail("Aucune typologie active n'est configurée pour cet hôtel",422);
+    const hotelRoomCount = numberOrNull(hotelSettings?.room_count);
+    const allRoomTypeCountsConfigured = roomTypes.every((room:any)=>numberOrNull(room.rooms_count)!==null);
+    const totalRoomTypeCapacity = roomTypes.reduce((sum:number,room:any)=>sum+(numberOrNull(room.rooms_count)??0),0);
+    const roomTypeCapacityMismatch = hotelRoomCount !== null && allRoomTypeCountsConfigured && totalRoomTypeCapacity !== hotelRoomCount;
 
     const compRatesPromise = normalizedWeights.compset > 0
       ? supabase.from("lighthouse_rate_observations")
@@ -1062,8 +1066,8 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         const roomCount = numberOrNull(roomType.rooms_count);
         const roomsOtb = numberOrNull(latestReservation?.rooms_otb);
         const remainingFromOtb = roomCount !== null && roomsOtb !== null ? roomCount - roomsOtb : null;
-        const inventoryReservationConflict = roomCount !== null && roomsAvailablePms !== null && remainingFromOtb !== null &&
-          (roomsAvailablePms < 0 || roomsAvailablePms > roomCount || Math.abs(roomsAvailablePms-remainingFromOtb) > reconciliationToleranceRooms);
+        const inventoryReservationConflict = roomTypeCapacityMismatch || (roomCount !== null && roomsAvailablePms !== null && remainingFromOtb !== null &&
+          (roomsAvailablePms < 0 || roomsAvailablePms > roomCount || Math.abs(roomsAvailablePms-remainingFromOtb) > reconciliationToleranceRooms));
         const occupancyFromOtb = roomCount !== null && roomsOtb !== null && roomCount > 0 && roomsOtb >= 0 && roomsOtb <= roomCount
           ? clamp(roomsOtb/roomCount*100,0,100) : null;
         const occupancyFromPms = roomCount !== null && roomsAvailablePms !== null && roomCount > 0 && roomsAvailablePms >= 0 && roomsAvailablePms <= roomCount
@@ -1128,6 +1132,10 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         const latestPickup = latestReservation;
         const evidence = {
           roomType: {id:roomType.id,code:roomType.code,name:roomType.name,roomsCount:roomCount},
+          hotelRoomCount,
+          totalRoomTypeCapacity,
+          allRoomTypeCountsConfigured,
+          roomTypeCapacityMismatch,
           ratePlan: {id:ratePlan.id,code:ratePlan.code,name:ratePlan.name},
           currentRateObservationAt: rateObservation.snapshot_at,
           inventorySnapshotAt: inventory?.snapshot_at ?? null,
@@ -1184,9 +1192,11 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
         };
         const explanation = sufficient
           ? `${roomType.name} · ${ratePlan.code} : score demande ${score!.toFixed(1)}/100 (${bucket}); tarif actuel ${current.toFixed(2)} ${hotel.currency}, proposition ${suggested.toFixed(2)} ${hotel.currency} (${requestedPct}% paramétré). Couverture des sources : ${confidence}%. Validation humaine obligatoire.`
-          : inventoryReservationConflict
-            ? "MAINTENIR : divergence entre l'inventaire PMS et les chambres OTB du PMS réservation ; aucune variation tarifaire autorisée."
-            : "MAINTENIR : données indépendantes insuffisantes ou trop anciennes pour justifier une variation tarifaire.";
+          : roomTypeCapacityMismatch
+            ? "MAINTENIR : la somme des capacités des typologies ne correspond pas à la capacité totale de l'hôtel ; aucune variation tarifaire autorisée."
+            : inventoryReservationConflict
+              ? "MAINTENIR : divergence entre l'inventaire PMS et les chambres OTB du PMS réservation ; aucune variation tarifaire autorisée."
+              : "MAINTENIR : données indépendantes insuffisantes ou trop anciennes pour justifier une variation tarifaire.";
         const row = {
           current_bar: current,
           suggested_bar: suggested,
