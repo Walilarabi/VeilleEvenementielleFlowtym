@@ -16,6 +16,7 @@ type Competitor = {
 };
 
 type SettingsTab = 'hotel' | 'revenue' | 'compset' | 'events' | 'integrations' | 'users' | 'alerts' | 'system' | 'appearance';
+type SettingsAuditLog = { id: string; action_type: string; entity_type: string; created_at: string; actor_user_id: string; reason_text: string | null; before_state: unknown; after_state: unknown };
 
 interface SettingsViewProps {
   hotels: Hotel[];
@@ -31,7 +32,7 @@ const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2
 const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300';
 const cardClass = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900';
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onShowToast, onHotelCoordinatesUpdated }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onSelectHotel, onShowToast, onHotelCoordinatesUpdated }) => {
   const { supabase, user } = useAuth();
   const { themeMode, setThemeMode } = useTheme();
   const [tab, setTab] = useState<SettingsTab>('hotel');
@@ -43,7 +44,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   const [memberships, setMemberships] = useState<any[]>([]);
   const [ingestionJobs, setIngestionJobs] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [settingsAuditLogs, setSettingsAuditLogs] = useState<SettingsAuditLog[]>([]);
   const [systemError, setSystemError] = useState<string | null>(null);
+  const [hotelProfileForm, setHotelProfileForm] = useState({ name: '', city: '', country: '', address: '', stars: '', roomCount: '' });
   const [profileDemandThresholds, setProfileDemandThresholds] = useState<Record<string, unknown>>({});
   const [profileRoomTypeConfig, setProfileRoomTypeConfig] = useState<any[]>([]);
   const [eventRadiusForm, setEventRadiusForm] = useState({ main: '10', extended: '30' });
@@ -61,7 +64,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
 
   const activeHotel = useMemo(() => hotels.find(h => h.id === hotelId) ?? null, [hotels, hotelId]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preferredHotelId?: string) => {
     if (!supabase) { setError('Connexion Supabase indisponible.'); setLoading(false); return; }
     setLoading(true); setError(null);
     try {
@@ -71,7 +74,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       if (hotelError) throw hotelError;
       const rows = (hotelRows ?? []) as DbHotel[];
       setHotels(rows);
-      const chosenId = rows.some(h => h.id === selectedHotelId) ? selectedHotelId! : (rows[0]?.id ?? '');
+      const chosenId = rows.some(h => h.id === preferredHotelId) ? preferredHotelId! : rows.some(h => h.id === selectedHotelId) ? selectedHotelId! : (rows[0]?.id ?? '');
       setHotelId(chosenId);
       const chosenHotel = rows.find(h => h.id === chosenId);
       setGeoForm({ lat: chosenHotel?.lat == null ? '' : String(chosenHotel.lat), lng: chosenHotel?.lng == null ? '' : String(chosenHotel.lng) });
@@ -129,6 +132,70 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
   }, [supabase, selectedHotelId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const logSettingsChange = async (
+    actionType: string,
+    entityType: string,
+    beforeState: unknown,
+    afterState: unknown,
+    entityId?: string,
+  ) => {
+    if (!supabase || !activeHotel || !user?.id) return false;
+    const { error: auditError } = await supabase.from('hotel_settings_audit_logs').insert({
+      organization_id: activeHotel.organization_id,
+      hotel_id: hotelId,
+      actor_user_id: user.id,
+      action_type: actionType,
+      entity_type: entityType,
+      entity_id: entityId ?? null,
+      before_state: beforeState,
+      after_state: afterState,
+    });
+    if (auditError) {
+      setSystemError('Modification enregistrée, mais journalisation impossible : ' + auditError.message);
+      return false;
+    }
+    return true;
+  };
+
+  const saveHotelDetails = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!supabase || !activeHotel) return;
+    const stars = hotelProfileForm.stars === '' ? null : Number(hotelProfileForm.stars);
+    const roomCount = hotelProfileForm.roomCount === '' ? null : Number(hotelProfileForm.roomCount);
+    if (!hotelProfileForm.name.trim() || !hotelProfileForm.city.trim() || !hotelProfileForm.country.trim()) {
+      setError("Le nom, la ville et le pays de l'hôtel sont obligatoires."); return;
+    }
+    if (stars !== null && (!Number.isInteger(stars) || stars < 1 || stars > 5)) {
+      setError("Le classement doit être compris entre 1 et 5 étoiles."); return;
+    }
+    if (roomCount !== null && (!Number.isInteger(roomCount) || roomCount < 1 || roomCount > 10000)) {
+      setError("Le nombre de chambres doit être un entier compris entre 1 et 10 000."); return;
+    }
+    const beforeState = { name: activeHotel.name, city: activeHotel.city, country: activeHotel.country, address: activeHotel.address, stars: activeHotel.stars, room_count: activeHotel.room_count };
+    const afterState = {
+      name: hotelProfileForm.name.trim(), city: hotelProfileForm.city.trim(), country: hotelProfileForm.country.trim(),
+      address: hotelProfileForm.address.trim() || null, stars, room_count: roomCount, updated_at: new Date().toISOString(),
+    };
+    setSaving(true); setError(null);
+    try {
+      const { error: updateError } = await supabase.from('hotels').update(afterState).eq('id', hotelId).eq('organization_id', activeHotel.organization_id);
+      if (updateError) throw updateError;
+      await logSettingsChange('hotel_profile_updated', 'hotel', beforeState, afterState);
+      onShowToast?.('Fiche établissement enregistrée dans Supabase.');
+      await load(hotelId);
+    } catch (e: any) { setError(e?.message || "Impossible d'enregistrer la fiche établissement."); }
+    finally { setSaving(false); }
+  };
+
+  const toggleRoomType = async (roomType: any) => {
+    if (!supabase || !activeHotel) return;
+    const nextActive = !roomType.is_active;
+    const { error: updateError } = await supabase.from('hotel_room_types').update({ is_active: nextActive }).eq('id', roomType.id).eq('hotel_id', hotelId);
+    if (updateError) { setError(updateError.message); return; }
+    await logSettingsChange('room_type_status_updated', 'room_type', { is_active: roomType.is_active }, { is_active: nextActive }, roomType.id);
+    await load(hotelId);
+  };
 
   const saveParameters = async () => {
     if (!supabase || !hotelId) return;
