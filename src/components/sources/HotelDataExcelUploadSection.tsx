@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import {
   FileSpreadsheet,
   Upload,
-  Download,
+  Info,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -145,7 +145,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
 
   useEffect(() => { void loadHistory(); }, [hotel?.id, supabase, user?.id]);
 
-  const handleDownloadTemplate = (type: ExcelSourceType) => {
+  const handleShowFormatGuidance = (type: ExcelSourceType) => {
     const guidance: Record<ExcelSourceType, string> = {
       lighthouse: "Utilisez l'export natif Lighthouse, avec les onglets Aperçu, Tarifs et les comparaisons vs. Hier / 3 jours / 7 jours. Les fichiers d'exemple synthétiques ont été retirés.",
       dedge: "Le format D-EDGE sera validé à partir du premier export réel de réservations. Aucun modèle fictif n'est proposé.",
@@ -367,12 +367,12 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleDownloadTemplate('lighthouse');
+                handleShowFormatGuidance('lighthouse');
               }}
               className="text-[10px] font-bold text-amber-700 dark:text-amber-300 hover:underline flex items-center gap-1"
             >
-              <Download className="w-3 h-3" />
-              <span>Format attendu</span>
+              <Info className="w-3 h-3" />
+              <span>Voir les consignes</span>
             </button>
           </div>
         </div>
@@ -406,12 +406,12 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleDownloadTemplate('dedge');
+                handleShowFormatGuidance('dedge');
               }}
               className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 hover:underline flex items-center gap-1"
             >
-              <Download className="w-3 h-3" />
-              <span>Format attendu</span>
+              <Info className="w-3 h-3" />
+              <span>Voir les consignes</span>
             </button>
           </div>
         </div>
@@ -445,12 +445,12 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleDownloadTemplate('pms');
+                handleShowFormatGuidance('pms');
               }}
               className="text-[10px] font-bold text-violet-700 dark:text-violet-300 hover:underline flex items-center gap-1"
             >
-              <Download className="w-3 h-3" />
-              <span>Modèle Excel</span>
+              <Info className="w-3 h-3" />
+              <span>Consignes de format</span>
             </button>
           </div>
         </div>
@@ -515,10 +515,10 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
             </label>
 
             <button
-              onClick={() => handleDownloadTemplate(selectedChannel)}
+              onClick={() => handleShowFormatGuidance(selectedChannel)}
               className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <Info className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <span>Voir le format attendu</span>
             </button>
           </div>
