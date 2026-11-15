@@ -60,7 +60,7 @@ export function buildRoomTypeRecommendation(
       currentBar < config.floor || currentBar > config.ceiling) {
     throw new Error("Current BAR and configured floor/ceiling are inconsistent");
   }
-  if (!Number.isFinite(config.maxChangePct) || config.maxChangePct <= 0 ||
+  if (!Number.isFinite(config.maxChangePct) || config.maxChangePct <= 0 || config.maxChangePct > 100 ||
       !Number.isInteger(config.minimumSources) || config.minimumSources < 1 ||
       config.minimumSources > SIGNAL_KEYS.length ||
       !Number.isFinite(config.minimumWeightCoveragePct) ||
