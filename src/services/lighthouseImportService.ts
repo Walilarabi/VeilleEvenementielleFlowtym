@@ -130,6 +130,9 @@ export async function persistLighthouseExtraction(
     .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
   if (stayDates.length === 0) throw new Error("Aucune date de séjour valide dans l'export Lighthouse.");
 
+  const importTime = new Date().toISOString();
+  const observedAt = normalizedDataset.metadata.sourceUpdatedAt ?? importTime;
+
   const observationRows = normalizedDataset.records.flatMap((record) =>
     record.competitors.map((competitor) => ({
       organization_id: hotel.organization_id,
@@ -143,7 +146,7 @@ export async function persistLighthouseExtraction(
       currency: hotel.currency.slice(0, 3),
       rate_amount: competitor.rate,
       availability_status: availabilityStatus(competitor.status),
-      observed_at: normalizedDataset.metadata.sourceUpdatedAt ?? new Date().toISOString(),
+      observed_at: observedAt,
       source_status: "imported",
       comparability: {
         original_status: competitor.status,
@@ -174,8 +177,6 @@ export async function persistLighthouseExtraction(
     records: normalizedDataset.records,
   }));
   const idempotencyKey = "lighthouse:" + hotel.id + ":" + sourceHash;
-  const importTime = new Date().toISOString();
-  const observedAt = normalizedDataset.metadata.sourceUpdatedAt ?? importTime;
   normalizedDataset.metadata.sourceHash = sourceHash;
   normalizedDataset.metadata.observedAtSource = normalizedDataset.metadata.sourceUpdatedAt
     ? "source_updated_at"
