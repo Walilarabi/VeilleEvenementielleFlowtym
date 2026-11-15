@@ -58,6 +58,12 @@ export async function resolveAccessibleRmsHotel(
   return matches[0];
 }
 
+async function sha256Hex(value: string): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error("SHA-256 indisponible dans ce navigateur sécurisé.");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function positiveIntegerFromLabel(value: string): number | null {
   const match = value.match(/\d+/);
   if (!match) return null;
@@ -120,8 +126,8 @@ export async function persistLighthouseExtraction(
   // Les noms non rapprochés sont conservés comme observations brutes avec competitor_id NULL.
   // Ils ne seront pas utilisés dans le calcul du CompSet tant qu'un mapping explicite n'existe pas.
 
-  const observedAt = new Date().toISOString();
-  const stayDates = normalizedDataset.records.map((record) => record.dateStr).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+  const stayDates = normalizedDataset.records.map((record) => record.dateStr)
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
   if (stayDates.length === 0) throw new Error("Aucune date de séjour valide dans l'export Lighthouse.");
 
   const observationRows = normalizedDataset.records.flatMap((record) =>
@@ -137,7 +143,7 @@ export async function persistLighthouseExtraction(
       currency: hotel.currency.slice(0, 3),
       rate_amount: competitor.rate,
       availability_status: availabilityStatus(competitor.status),
-      observed_at: observedAt,
+      observed_at: normalizedDataset.metadata.sourceUpdatedAt ?? new Date().toISOString(),
       source_status: "imported",
       comparability: {
         original_status: competitor.status,
@@ -150,7 +156,6 @@ export async function persistLighthouseExtraction(
         dimensions_confirmed: false,
         requires_channel_los_pos_confirmation: true,
         mapping_status: competitorByName.has(normalizeHotelName(competitor.name)) ? "matched_exact_name" : "unmatched",
-
       },
       los: positiveIntegerFromLabel(normalizedDataset.metadata.los),
       pos: positiveIntegerFromLabel(normalizedDataset.metadata.occupancy),
@@ -161,67 +166,184 @@ export async function persistLighthouseExtraction(
     throw new Error("L'export doit contenir entre 1 et 5000 observations concurrentielles.");
   }
 
-  const { data: extraction, error: extractionError } = await supabase
-    .from("lighthouse_extractions")
-    .insert({
-      organization_id: hotel.organization_id,
-      hotel_id: hotel.id,
-      file_name: normalizedDataset.metadata.fileName,
-      provider: "lighthouse",
-      extraction_type: "manual_import",
-      observed_at: observedAt,
-      stay_start: stayDates[0],
-      stay_end: stayDates[stayDates.length - 1],
-      currency: hotel.currency.slice(0, 3),
-      occupancy_context: normalizedDataset.metadata.occupancy,
-      los_nights: positiveIntegerFromLabel(normalizedDataset.metadata.los),
-      guests_count: positiveIntegerFromLabel(normalizedDataset.metadata.occupancy),
-      source_status: "imported",
-      records_count: observationRows.length,
-      imported_by: importedBy,
-      metadata: {
-        sourceChannel: normalizedDataset.metadata.sourceChannel,
-        compsetName: normalizedDataset.metadata.compsetName,
-        referenceHotel: normalizedDataset.metadata.referenceHotel,
-        dateRange: normalizedDataset.metadata.dateRange,
-        totalDatesCount: normalizedDataset.metadata.totalDatesCount,
-        dimensionsConfirmed: false,
-        matchedCompetitors: importedCompetitorNames.length - unmatchedCompetitors.length,
-        unmatchedCompetitors,
-        parsedDataset: normalizedDataset,
-      },
-    })
-    .select("id")
-    .single();
+  const sourceHash = await sha256Hex(JSON.stringify({
+    hotelId: hotel.id,
+    sourceChannel: normalizedDataset.metadata.sourceChannel,
+    los: normalizedDataset.metadata.los,
+    occupancy: normalizedDataset.metadata.occupancy,
+    records: normalizedDataset.records,
+  }));
+  const idempotencyKey = "lighthouse:" + hotel.id + ":" + sourceHash;
+  const importTime = new Date().toISOString();
+  const observedAt = normalizedDataset.metadata.sourceUpdatedAt ?? importTime;
+  normalizedDataset.metadata.sourceHash = sourceHash;
+  normalizedDataset.metadata.observedAtSource = normalizedDataset.metadata.sourceUpdatedAt
+    ? "source_updated_at"
+    : "import_time_fallback";
 
-  if (extractionError || !extraction) {
-    throw new Error(`Création de l'extraction Lighthouse impossible : ${extractionError?.message ?? "réponse vide"}`);
+  const jobMetadata = {
+    fileName: normalizedDataset.metadata.fileName,
+    sourceHash,
+    sourceChannel: normalizedDataset.metadata.sourceChannel,
+    stayStart: stayDates[0],
+    stayEnd: stayDates[stayDates.length - 1],
+    observationsExpected: observationRows.length,
+    unmatchedCompetitors,
+  };
+
+  const { data: existingJob, error: existingJobError } = await supabase
+    .from("data_ingestion_jobs")
+    .select("id,status,metadata,records_written,started_at")
+    .eq("organization_id", hotel.organization_id)
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle();
+  if (existingJobError) throw new Error("Vérification d'idempotence impossible : " + existingJobError.message);
+
+  if (existingJob && (existingJob.status === "completed" || existingJob.status === "partial")) {
+    const previousMetadata = (existingJob.metadata ?? {}) as Record<string, unknown>;
+    const previousExtractionId = typeof previousMetadata.extractionId === "string" ? previousMetadata.extractionId : null;
+    if (previousExtractionId) {
+      const { data: previousExtraction, error: previousExtractionError } = await supabase
+        .from("lighthouse_extractions").select("id").eq("id", previousExtractionId).eq("hotel_id", hotel.id).maybeSingle();
+      if (previousExtractionError) throw new Error("Vérification de l'extraction existante impossible : " + previousExtractionError.message);
+      if (previousExtraction) {
+        normalizedDataset.metadata.id = previousExtraction.id;
+        normalizedDataset.metadata.ingestionJobId = existingJob.id;
+        return {
+          extractionId: previousExtraction.id,
+          observationsInserted: Number(existingJob.records_written ?? previousMetadata.observationsInserted ?? 0),
+          observedAt,
+          unmatchedCompetitors: Array.isArray(previousMetadata.unmatchedCompetitors) ? previousMetadata.unmatchedCompetitors as string[] : unmatchedCompetitors,
+        };
+      }
+    }
   }
 
-  const rowsWithExtraction = observationRows.map((row) => ({
-    ...row,
-    extraction_id: extraction.id,
-  }));
+  if (existingJob?.status === "running" || existingJob?.status === "queued") {
+    const startedAt = existingJob.started_at ? new Date(existingJob.started_at).getTime() : 0;
+    if (startedAt && Date.now() - startedAt < 30 * 60 * 1000) {
+      throw new Error("Un import identique est déjà en cours. Attendez sa fin avant de relancer le fichier.");
+    }
+  }
 
-  const batchSize = 500;
+  let jobId: string;
+  if (existingJob) {
+    const { data: updatedJob, error: updateJobError } = await supabase
+      .from("data_ingestion_jobs")
+      .update({
+        status: "running",
+        started_at: importTime,
+        finished_at: null,
+        records_read: observationRows.length,
+        records_written: 0,
+        records_rejected: 0,
+        error_summary: null,
+        metadata: jobMetadata,
+      })
+      .eq("id", existingJob.id)
+      .select("id")
+      .single();
+    if (updateJobError || !updatedJob) throw new Error("Relance du job d'import impossible : " + (updateJobError?.message ?? "réponse vide"));
+    jobId = updatedJob.id;
+  } else {
+    const { data: createdJob, error: createJobError } = await supabase
+      .from("data_ingestion_jobs")
+      .insert({
+        organization_id: hotel.organization_id,
+        hotel_id: hotel.id,
+        source_system: "lighthouse",
+        job_type: "rate_shop_import",
+        status: "running",
+        idempotency_key: idempotencyKey,
+        started_at: importTime,
+        records_read: observationRows.length,
+        records_written: 0,
+        records_rejected: 0,
+        created_by: importedBy,
+        metadata: jobMetadata,
+      })
+      .select("id")
+      .single();
+    if (createJobError || !createdJob) {
+      throw new Error("Création du job d'import impossible : " + (createJobError?.message ?? "réponse vide"));
+    }
+    jobId = createdJob.id;
+  }
+
+  normalizedDataset.metadata.ingestionJobId = jobId;
+  let extractionId: string | null = null;
   let inserted = 0;
   try {
+    const { data: extraction, error: extractionError } = await supabase
+      .from("lighthouse_extractions")
+      .insert({
+        organization_id: hotel.organization_id,
+        hotel_id: hotel.id,
+        file_name: normalizedDataset.metadata.fileName,
+        provider: "lighthouse",
+        extraction_type: "manual_import",
+        observed_at: observedAt,
+        stay_start: stayDates[0],
+        stay_end: stayDates[stayDates.length - 1],
+        currency: hotel.currency.slice(0, 3),
+        occupancy_context: normalizedDataset.metadata.occupancy,
+        los_nights: positiveIntegerFromLabel(normalizedDataset.metadata.los),
+        guests_count: positiveIntegerFromLabel(normalizedDataset.metadata.occupancy),
+        source_status: "imported",
+        records_count: observationRows.length,
+        imported_by: importedBy,
+        metadata: {
+          ...jobMetadata,
+          ingestionJobId: jobId,
+          observedAt,
+          observedAtSource: normalizedDataset.metadata.observedAtSource,
+          dimensionsConfirmed: false,
+          matchedCompetitors: importedCompetitorNames.length - unmatchedCompetitors.length,
+          parsedDataset: normalizedDataset,
+        },
+      })
+      .select("id")
+      .single();
+    if (extractionError || !extraction) throw new Error("Création de l'extraction Lighthouse impossible : " + (extractionError?.message ?? "réponse vide"));
+    extractionId = extraction.id;
+    normalizedDataset.metadata.id = extraction.id;
+
+    const rowsWithExtraction = observationRows.map((row) => ({ ...row, extraction_id: extraction.id }));
+    const batchSize = 500;
     for (let offset = 0; offset < rowsWithExtraction.length; offset += batchSize) {
       const batch = rowsWithExtraction.slice(offset, offset + batchSize);
-      const { data, error } = await supabase
-        .from("lighthouse_rate_observations")
-        .insert(batch)
-        .select("id");
+      const { data, error } = await supabase.from("lighthouse_rate_observations").insert(batch).select("id");
       if (error) throw new Error(error.message);
       inserted += data?.length ?? 0;
     }
-  } catch (error) {
-    await supabase.from("lighthouse_rate_observations").delete().eq("extraction_id", extraction.id);
-    await supabase.from("lighthouse_extractions").delete().eq("id", extraction.id);
-    throw new Error(`Enregistrement des tarifs Lighthouse interrompu ; nettoyage tenté : ${error instanceof Error ? error.message : "erreur inconnue"}`);
-  }
 
-  return { extractionId: extraction.id, observationsInserted: inserted, observedAt, unmatchedCompetitors };
+    const completedAt = new Date().toISOString();
+    const completedMetadata = { ...jobMetadata, extractionId: extraction.id, observationsInserted: inserted, unmatchedCompetitors };
+    const { error: completeJobError } = await supabase
+      .from("data_ingestion_jobs")
+      .update({ status: "completed", finished_at: completedAt, records_written: inserted, records_rejected: 0, error_summary: null, metadata: completedMetadata })
+      .eq("id", jobId);
+    if (completeJobError) throw new Error("Mise à jour du journal d'import impossible : " + completeJobError.message);
+
+    return { extractionId: extraction.id, observationsInserted: inserted, observedAt, unmatchedCompetitors };
+  } catch (error) {
+    let cleanupError: string | null = null;
+    if (extractionId) {
+      const { error: observationCleanupError } = await supabase.from("lighthouse_rate_observations").delete().eq("extraction_id", extractionId);
+      const { error: extractionCleanupError } = await supabase.from("lighthouse_extractions").delete().eq("id", extractionId);
+      cleanupError = observationCleanupError?.message ?? extractionCleanupError?.message ?? null;
+    }
+    const errorMessage = error instanceof Error ? error.message : "erreur inconnue";
+    await supabase.from("data_ingestion_jobs").update({
+      status: "failed",
+      finished_at: new Date().toISOString(),
+      records_written: 0,
+      records_rejected: observationRows.length,
+      error_summary: cleanupError ? errorMessage + " ; nettoyage : " + cleanupError : errorMessage,
+      metadata: { ...jobMetadata, failedAt: new Date().toISOString(), cleanupError },
+    }).eq("id", jobId);
+    throw new Error("Import Lighthouse échoué : " + errorMessage + (cleanupError ? " ; nettoyage incomplet : " + cleanupError : ""));
+  }
 }
 
 export async function loadRecentLighthouseExtractions(
