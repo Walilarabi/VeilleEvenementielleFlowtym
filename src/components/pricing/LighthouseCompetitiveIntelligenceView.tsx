@@ -859,21 +859,21 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
                       {/* Médiane Recalculée Flowtym */}
                       <td className="py-3 px-3 text-center font-black text-indigo-900 dark:text-indigo-200 bg-indigo-50/40 dark:bg-indigo-950/30 whitespace-nowrap">
-                        {record.flowtymMedianEur} €
+                        {record.flowtymMedianEur === null ? '—' : `${record.flowtymMedianEur} €`}
                       </td>
 
                       {/* Écart entre les 2 médianes */}
                       <td className="py-3 px-3 text-center whitespace-nowrap">
                         <span
                           className={`text-xs font-bold ${
-                            record.medianGapEur === 0
+                            record.medianGapEur === null || record.medianGapEur === 0
                               ? 'text-slate-400'
                               : record.medianGapEur > 0
                               ? 'text-indigo-600'
                               : 'text-amber-600'
                           }`}
                         >
-                          {record.medianGapEur > 0 ? `+${record.medianGapEur}` : record.medianGapEur} € ({record.medianGapPct}%)
+                          {record.medianGapEur === null ? '—' : `${record.medianGapEur > 0 ? '+' : ''}${record.medianGapEur} € (${record.medianGapPct === null ? '—' : `${record.medianGapPct}%`})`}
                         </span>
                       </td>
 
