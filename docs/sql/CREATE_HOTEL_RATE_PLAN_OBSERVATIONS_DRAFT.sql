@@ -3,9 +3,17 @@
 -- The global hotel_rate_plans table remains unique by (hotel_id, code); room_type_id
 -- is intentionally NULL for shared rate-plan definitions. Room type specificity lives here.
 
+create unique index if not exists data_ingestion_jobs_id_hotel_org_unique
+  on public.data_ingestion_jobs (id, hotel_id, organization_id);
+
 alter table public.hotel_inventory_snapshots
-  add column if not exists ingestion_job_id uuid
-  references public.data_ingestion_jobs(id) on delete set null;
+  add column if not exists ingestion_job_id uuid;
+
+alter table public.hotel_inventory_snapshots
+  add constraint hotel_inventory_snapshots_ingestion_job_same_hotel_fk
+  foreign key (ingestion_job_id, hotel_id, organization_id)
+  references public.data_ingestion_jobs(id, hotel_id, organization_id)
+  on delete set null (ingestion_job_id);
 
 create unique index if not exists hotel_inventory_snapshot_idempotency_uidx
   on public.hotel_inventory_snapshots
@@ -18,7 +26,7 @@ create table if not exists public.hotel_rate_plan_observations (
   hotel_id uuid not null,
   room_type_id uuid not null,
   rate_plan_id uuid not null,
-  ingestion_job_id uuid references public.data_ingestion_jobs(id) on delete set null,
+  ingestion_job_id uuid,
   stay_date date not null,
   snapshot_at timestamptz not null,
   source_system text not null,
@@ -37,6 +45,13 @@ create table if not exists public.hotel_rate_plan_observations (
   constraint hotel_rate_plan_observations_hotel_org_fk
     foreign key (hotel_id, organization_id)
     references public.hotels(id, organization_id) on delete cascade,
+  constraint hotel_rate_plan_observations_organization_fk
+    foreign key (organization_id)
+    references public.organizations(id) on delete cascade,
+  constraint hotel_rate_plan_observations_ingestion_job_same_hotel_fk
+    foreign key (ingestion_job_id, hotel_id, organization_id)
+    references public.data_ingestion_jobs(id, hotel_id, organization_id)
+    on delete set null (ingestion_job_id),
   constraint hotel_rate_plan_observations_room_type_fk
     foreign key (room_type_id, hotel_id, organization_id)
     references public.hotel_room_types(id, hotel_id, organization_id) on delete cascade,
@@ -75,3 +90,5 @@ create policy hotel_rate_plan_observations_update
 create policy hotel_rate_plan_observations_delete
   on public.hotel_rate_plan_observations for delete to authenticated
   using (flowtym_private.can_manage_hotel(hotel_id));
+
+grant select, insert, update, delete on public.hotel_rate_plan_observations to authenticated;
