@@ -258,7 +258,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
       await updateHotelCoordinates(supabase, hotelId, { lat, lng });
       onHotelCoordinatesUpdated?.(hotelId, lat, lng);
       onShowToast?.('Coordonnées GPS enregistrées dans Supabase.');
-      await load();
+      await load(hotelId);
     } catch (e: any) {
       setError(e?.message || 'Impossible d’enregistrer les coordonnées GPS.');
     } finally {
@@ -272,18 +272,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
     if (competitors.filter(c => c.is_active).length >= 10) { setError('Le CompSet est limité à 10 concurrents actifs.'); return; }
     setSaving(true); setError(null);
     try {
-      const { error: insertError } = await supabase.from('competitor_hotels').insert({
+      const { data: insertedCompetitor, error: insertError } = await supabase.from('competitor_hotels').insert({
         organization_id: activeHotel.organization_id,
         hotel_id: hotelId, competitor_name: newCompetitor.name.trim(),
         address: newCompetitor.address.trim() || null,
         stars: newCompetitor.stars ? Number(newCompetitor.stars) : null,
         distance_meters: newCompetitor.distanceKm === '' ? null : Math.round(Number(newCompetitor.distanceKm) * 1000),
         is_active: true,
-      });
+      }).select('id').single();
       if (insertError) throw insertError;
+      await logSettingsChange('competitor_added', 'competitor', null, newCompetitor, insertedCompetitor?.id);
       setNewCompetitor({ name: '', address: '', stars: '', distanceKm: '' });
       onShowToast?.('Concurrent ajouté au CompSet de cet hôtel.');
-      await load();
+      await load(hotelId);
     } catch (e: any) { setError(e?.message || 'Impossible d’ajouter ce concurrent.'); }
     finally { setSaving(false); }
   };
@@ -292,13 +293,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
     if (!supabase) return;
     if (!competitor.is_active && competitors.filter(c => c.is_active).length >= 10) { setError('Maximum 10 concurrents actifs.'); return; }
     const { error: updateError } = await supabase.from('competitor_hotels').update({ is_active: !competitor.is_active }).eq('id', competitor.id).eq('hotel_id', hotelId);
-    if (updateError) setError(updateError.message); else await load();
+    if (updateError) setError(updateError.message); else {
+      await logSettingsChange('competitor_status_updated', 'competitor', { is_active: competitor.is_active }, { is_active: !competitor.is_active }, competitor.id);
+      await load(hotelId);
+    }
   };
 
   const deleteCompetitor = async (id: string) => {
     if (!supabase) return;
+    const previous = competitors.find((competitor) => competitor.id === id);
     const { error: deleteError } = await supabase.from('competitor_hotels').delete().eq('id', id).eq('hotel_id', hotelId);
-    if (deleteError) setError(deleteError.message); else { onShowToast?.('Concurrent supprimé.'); await load(); }
+    if (deleteError) setError(deleteError.message); else {
+      await logSettingsChange('competitor_deleted', 'competitor', previous ?? null, null, id);
+      onShowToast?.('Concurrent supprimé.');
+      await load(hotelId);
+    }
   };
 
 
