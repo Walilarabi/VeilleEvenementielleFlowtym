@@ -119,7 +119,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
 
     // Specific styling for seasonal & holiday periods
-    if (category === 'periodes_saisonnieres_fetes') {
+    if (t.includes('fête') || t.includes('noël') || t.includes('nouvel an') || t.includes('saint-valentin')) {
       return 'text-rose-800 dark:text-rose-300 bg-amber-50/95 dark:bg-rose-950/45 border border-rose-200/90 dark:border-rose-800/70 hover:bg-rose-50 dark:hover:bg-rose-900/55 font-semibold';
     }
 
@@ -150,7 +150,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   // Today follows the current hotel-local date.
-  const isToday = (dateStr: string | null) => dateStr === referenceDate;
+  const isCurrentDay = (dateStr: string | null) => dateStr === referenceDate;
   const monthTemporal = getMonthTemporalRelation(currentYear, currentMonth, referenceDate);
 
   return (
@@ -208,7 +208,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
           const dayEvents = getEventsForDate(cell.dateStr);
           const impactDot = getCellImpactDot(dayEvents);
-          const isToday = isToday(cell.dateStr);
+          const isToday = isCurrentDay(cell.dateStr);
           const isPastDay = cell.dateStr < referenceDate;
 
           // Highlight today, subtly attenuate past days, tint major upcoming event cells
