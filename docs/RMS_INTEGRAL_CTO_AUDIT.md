@@ -211,3 +211,23 @@ Les tables contrôlées (`hotel_inventory_snapshots`, `hotel_reservation_snapsho
 - Santé : aucun lint remonté.
 
 Aucune modification live n'a été réalisée pendant cette inspection.
+
+
+## 11. Contraintes SQL live utiles à l'import PMS
+
+Inspection complémentaire des index et colonnes Supabase :
+
+- `hotel_room_types` possède une unicité `(hotel_id, code)` : création idempotente des 8 typologies possible.
+- `hotel_rate_plans` possède une unicité `(hotel_id, code)`, et non `(hotel_id, room_type_id, code)`. Dans le planning Topsys, les mêmes codes de plan tarifaire se répètent pour plusieurs typologies. Il faut donc stocker les plans comme définitions globales par hôtel (room_type_id NULL) et porter la typologie au niveau de chaque observation tarifaire.
+- `data_ingestion_jobs` possède une unicité `(organization_id, idempotency_key)` : elle peut empêcher un même fichier de créer plusieurs jobs.
+- `hotel_inventory_snapshots` ne possède actuellement aucune unicité métier sur hôtel/typologie/date/instant/source. Un import répété pourrait donc créer des doublons.
+- Il n'existe pas de table normalisée de prix quotidiens par `hotel_rate_plan` × `room_type` × `stay_date`.
+
+Conception cible avant import complet :
+1. Ajouter `ingestion_job_id` aux snapshots d'inventaire.
+2. Ajouter un index unique métier sur `(hotel_id, room_type_id, stay_date, snapshot_at, source_system)` pour les snapshots avec room_type_id non NULL.
+3. Créer `hotel_rate_plan_observations` avec hotel_id, organization_id, room_type_id, rate_plan_id, stay_date, snapshot_at, rate_amount nullable, currency, availability_status, source_system, source_status, ingestion_job_id et raw_payload.
+4. Ajouter l'unicité `(hotel_id, room_type_id, rate_plan_id, stay_date, snapshot_at, source_system)` et les politiques RLS `can_access_hotel` / `can_manage_hotel`.
+5. Modifier l'API d'ingestion pour utiliser un upsert sur ces clés et des lots bornés.
+
+Cette migration n'est pas encore appliquée à la base live. Aucun import des deux classeurs n'a été exécuté.
