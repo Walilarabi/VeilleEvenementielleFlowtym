@@ -904,21 +904,11 @@ export default function App() {
           {activeTab === 'flowboard' && (
             <FlowboardView
               events={events}
-              suggestions={suggestions}
+              sources={sources}
+              venues={venues}
               hotels={hotels}
               selectedHotelId={filterState.selectedHotelId}
               onSelectEvent={setSelectedEvent}
-              onApproveSuggestion={(id) => {
-                const s = suggestions.find((x) => x.id === id);
-                if (s) {
-                  setSuggestions((prev) => prev.filter((x) => x.id !== id));
-                  showToast(`Suggestion "${s.eventTitle}" validée`);
-                }
-              }}
-              onDismissSuggestion={(id) => {
-                setSuggestions((prev) => prev.filter((x) => x.id !== id));
-                showToast('Suggestion ignorée');
-              }}
               onGoToExplorer={() => {
                 setActiveTab('calendar');
                 setCalendarSubTab('explorer');
