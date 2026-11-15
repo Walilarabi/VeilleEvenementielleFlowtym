@@ -166,8 +166,12 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
     setSelectedFile(null);
     try {
       const buffer = await file.arrayBuffer();
+      const dbHotel = supabase && hotel ? await resolveAccessibleRmsHotel(supabase, {
+        name: hotel.name, city: hotel.city, country: hotel.country,
+      }) : null;
+      const hotelTimezone = dbHotel?.timezone || 'Europe/Paris';
       if (selectedChannel === 'lighthouse') {
-        const parsed = parseLighthouseExcelFile(buffer, file.name, 'Europe/Paris');
+        const parsed = parseLighthouseExcelFile(buffer, file.name, hotelTimezone);
         const competitorNames = [...new Set(parsed.records.flatMap((record) => record.competitors.map((item) => item.name)))];
         const headers = ['Date', 'Demande (/100)', 'Médiane Lighthouse', 'Folkestone Opéra', ...competitorNames];
         const rows = parsed.records.slice(0, 5).map((record) => [
@@ -189,7 +193,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
           parsedLighthouse: parsed,
         });
       } else if (selectedChannel === 'pms') {
-        const parsed = parsePmsPlanningWorkbook(buffer, file.name, 'Europe/Paris');
+        const parsed = parsePmsPlanningWorkbook(buffer, file.name, hotelTimezone);
         const firstRoom = parsed.roomTypes[0];
         const headers = ['Date', 'Typologie', 'Stock restant', 'Statut stock', 'Plans tarifaires'];
         const rows = firstRoom.inventory.slice(0, 5).map((item) => [
