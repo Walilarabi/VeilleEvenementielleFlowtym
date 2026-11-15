@@ -8,6 +8,7 @@ type AccessibleHotel = {
   country: string;
   organization_id: string;
   currency: string;
+  timezone: string;
 };
 
 function normalizeHotelName(value: string): string {
@@ -31,7 +32,7 @@ export async function resolveAccessibleRmsHotel(
 ): Promise<AccessibleHotel> {
   const { data, error } = await supabase
     .from("hotels")
-    .select("id,name,city,country,organization_id,currency")
+    .select("id,name,city,country,organization_id,currency,timezone")
     .eq("is_active", true);
 
   if (error) throw new Error(`Lecture des hôtels accessibles impossible : ${error.message}`);
