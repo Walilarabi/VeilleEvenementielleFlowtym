@@ -218,12 +218,12 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         }
 
         const buffer = event.target?.result as ArrayBuffer;
-        const parsed = parseLighthouseExcelFile(buffer, file.name, dbHotel.timezone || 'Europe/Paris');
         const dbHotel = await resolveAccessibleRmsHotel(supabase, {
           name: hotel.name,
           city: hotel.city,
           country: hotel.country,
         });
+        const parsed = parseLighthouseExcelFile(buffer, file.name, dbHotel.timezone || 'Europe/Paris');
         if (dbHotel.id !== databaseHotelId) {
           throw new Error('L’hôtel sélectionné a changé depuis le chargement. Rechargez l’écran avant import.');
         }
