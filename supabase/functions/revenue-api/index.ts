@@ -858,7 +858,7 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
     const floor = numberOrNull(params.floor_rate) ?? numberOrNull(hotelSettings?.rate_floor);
     const ceiling = numberOrNull(params.ceiling_rate) ?? numberOrNull(hotelSettings?.rate_ceiling);
     const maxChange = numberOrNull(params.max_daily_rate_change_pct) ?? numberOrNull(hotelSettings?.max_rate_change_pct);
-    if (floor === null || ceiling === null || maxChange === null || floor <= 0 || ceiling < floor || maxChange <= 0) {
+    if (floor === null || ceiling === null || maxChange === null || floor <= 0 || ceiling < floor || maxChange <= 0 || maxChange > 100) {
       return fail("Plancher, plafond et variation maximale doivent être configurés", 422);
     }
 
