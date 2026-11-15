@@ -25,7 +25,8 @@ test("PMS planning parser reads French snapshot timestamp and date headers", () 
   assert.deepEqual(parsed.dateRange, { start: "2026-11-14", end: "2026-11-15" });
   assert.equal(parsed.roomTypes.length, 2);
   assert.equal(parsed.summary.dates, 2);
-  assert.equal(parsed.summary.ratePlans, 3);
+  assert.equal(parsed.summary.ratePlans, 2);
+  assert.equal(parsed.summary.roomTypeRatePlanMappings, 3);
 });
 
 test("PMS planning parser preserves X, blank, zero and numeric values distinctly", () => {
