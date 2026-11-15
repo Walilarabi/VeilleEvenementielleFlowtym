@@ -1171,7 +1171,7 @@ export function parseLighthouseExcelFile(
 
   records.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
-  const stayDates = records.map((record) => record.dateStr).filter((date) => /^\\d{4}-\\d{2}-\\d{2}$/.test(date)).sort();
+  const stayDates = records.map((record) => record.dateStr).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
   const sourceUpdatedAt = stayDates.length > 0
     ? parseLighthouseUpdatedAt(rawTarifs, tarifsHeaderIndex, stayDates[0], timezone)
     : null;
