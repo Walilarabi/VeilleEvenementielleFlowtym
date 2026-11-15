@@ -372,18 +372,18 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
         </div>
       )}
       {/* 1. Header & Navigation des sous-onglets */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-2 rounded-xl bg-violet-100 text-violet-700">
                 <Database className="w-5 h-5" />
               </span>
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">
+              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100 tracking-tight">
                 Données Historiques & Apprentissage Prédictif
               </h2>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Importez l’historique certifié de l’établissement (N-1, N-2, N-3) pour calibrer le moteur de prédiction et de tarification dynamique.
             </p>
           </div>
@@ -401,7 +401,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
         </div>
 
         {/* Barre d'onglets internes */}
-        <div className="flex items-center gap-2 border-b border-slate-100 pt-2 text-xs font-bold">
+        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pt-2 text-xs font-bold">
           <button
             onClick={() => setActiveTab('import')}
             className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -459,14 +459,14 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
               accept=".xlsx,.xls"
               className="hidden"
             />
-            <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform shadow-xs">
               <Upload className="w-6 h-6" />
             </div>
             <div>
               <div className="text-sm font-bold text-slate-900">
                 Glissez-déposez votre export historique Excel (.xlsx) ou cliquez pour parcourir
               </div>
-              <p className="text-xs text-slate-500 mt-1 max-w-lg mx-auto">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-lg mx-auto">
                 Conforme au modèle officiel FLOWTYM. Analyse automatique des 3 onglets, détection des doublons et recalcul instantané du RevPAR.
               </p>
             </div>
@@ -478,8 +478,8 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
           {/* Prévisualisation après analyse du fichier */}
           {previewData && (
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-5 animate-in fade-in duration-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-5 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <FileCheck className="w-5 h-5 text-emerald-600" />
@@ -487,7 +487,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                       Rapport d'Analyse Pré-Import : {previewData.fileName}
                     </h3>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Période couverte : <strong>{previewData.log.dateRange}</strong> • Taille : {previewData.fileSizeKb} Ko
                   </p>
                 </div>
@@ -495,7 +495,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setPreviewData(null)}
-                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
                   >
                     Annuler
                   </button>
@@ -534,15 +534,15 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
               {/* Tableau d'erreurs et d'ajustements si existants */}
               {previewData.log.errorsList.length > 0 && (
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2">
-                  <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/70 space-y-2">
+                  <div className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-600" />
                     <span>Contrôles de cohérence et recalculs automatiques ({previewData.log.errorsList.length}) :</span>
                   </div>
                   <div className="max-h-40 overflow-y-auto space-y-1 text-[11px] text-amber-800">
                     {previewData.log.errorsList.slice(0, 8).map((err, idx) => (
                       <div key={idx} className="flex items-start gap-2">
-                        <span className="font-mono font-bold bg-amber-200/60 px-1 rounded">Ligne {err.rowNumber}</span>
+                        <span className="font-mono font-bold bg-amber-200/60 dark:bg-amber-900/60 px-1 rounded">Ligne {err.rowNumber}</span>
                         <span className="font-semibold">{err.column} :</span>
                         <span>{err.message}</span>
                       </div>
@@ -557,7 +557,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
               )}
 
               {/* Aperçu des 5 premières lignes */}
-              <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] border-b border-slate-200">
@@ -604,10 +604,10 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
       {/* 3. ONGLET : HISTORIQUE ACTUELLEMENT ENREGISTRÉ */}
       {activeTab === 'history' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-violet-600" />
                 <span>Base Historique Active ({currentHistory.length} jours enregistrés)</span>
               </h3>
@@ -617,9 +617,9 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-2xl max-h-[500px]">
+          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl max-h-[500px]">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="sticky top-0 bg-slate-50 z-10 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
+              <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/60 z-10 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase text-[10px]">
                 <tr>
                   <th className="py-3 px-3">Date</th>
                   <th className="py-3 px-2">Jour</th>
@@ -638,8 +638,8 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {currentHistory.slice(-60).reverse().map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">{r.dateStr}</td>
+                  <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors">
+                    <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">{r.dateStr}</td>
                     <td className="py-2.5 px-2 text-slate-600">{r.dayOfWeek.slice(0, 3)}</td>
                     <td className="py-2.5 px-2 text-center">
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
@@ -676,9 +676,9 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
 
       {/* 4. ONGLET : DICTIONNAIRE DES DONNÉES (78 COLONNES) */}
       {activeTab === 'dictionary' && (
-        <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
               <span>Dictionnaire de Données Officiel FLOWTYM (78 Colonnes, A à BZ)</span>
             </h3>
@@ -687,7 +687,7 @@ export const HistoricalDataImportView: React.FC<HistoricalDataImportViewProps> =
             </p>
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+          <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] border-b border-slate-200">
                 <tr>
