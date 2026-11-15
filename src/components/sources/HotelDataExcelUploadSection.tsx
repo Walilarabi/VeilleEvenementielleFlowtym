@@ -293,12 +293,12 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
                 Importation contrôlée des sources de données
               </h3>
               <span className="text-[10px] font-bold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800/70">
-                Lighthouse manuel actif · PMS en préparation · D-EDGE à valider
+                Lighthouse et Topsys importables · D-EDGE à mapper
               </span>
             </div>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-            Importez un export réel <strong>Lighthouse</strong> (persisté dans Supabase), analysez un planning <strong>Topsys</strong> (aperçu en attente du schéma tarifaire normalisé) ou prévisualisez un export <strong>D-EDGE</strong> (mapping à valider avant toute écriture).
+            Importez un export <strong>Lighthouse</strong> (tarifs concurrents, médiane et indice de demande persistés), un planning <strong>Topsys</strong> (stocks et observations tarifaires par typologie / plan) ou prévisualisez un export <strong>D-EDGE</strong> (réservations et pickup : mapping à valider avant toute écriture).
           </p>
         </div>
 
@@ -399,7 +399,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
             )}
           </div>
           <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-            Stock restant, inventaire chambres, tarifs BAR actuels et restrictions Min Stay.
+            Réservations, modifications, annulations, OTB, Pickup, Booking Pace et Lead Time (import désactivé tant que le mapping n'est pas validé).
           </p>
           <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/70 flex items-center justify-between">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Formats : .xlsx, .csv</span>
@@ -411,7 +411,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
               className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 hover:underline flex items-center gap-1"
             >
               <Download className="w-3 h-3" />
-              <span>Modèle Excel</span>
+              <span>Format attendu</span>
             </button>
           </div>
         </div>
@@ -431,14 +431,14 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Server className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-              <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">3. PMS Night Audit & Pickup</span>
+              <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">3. Topsys Planning & Inventaire</span>
             </div>
             {selectedChannel === 'pms' && (
               <span className="w-2 h-2 rounded-full bg-violet-600" />
             )}
           </div>
           <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-            Clôture journalière, OTB %, Pickup 24h/72h/7d, lead times et annulations.
+            Stock restant par date et typologie, prix par plan tarifaire. Les réservations, OTB et pickup ne sont pas contenus dans ce planning.
           </p>
           <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/70 flex items-center justify-between">
             <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Opera, Protel, Mews</span>
