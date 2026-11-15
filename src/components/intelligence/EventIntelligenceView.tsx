@@ -199,7 +199,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
     };
     const status = ALLOWED_STATUSES.has(row.event.status as ConfirmationStatus) ? row.event.status as ConfirmationStatus : 'a_verifier';
     const hotelImpacts = impact && hotel ? {[hotel.id]:{
-      hotelId:hotel.id,distanceKm:Number(impact.distance_km ?? 0),
+      hotelId:hotel.id,distanceKm:row.distanceKm ?? Number(impact.distance_km ?? 0),
       ...(impact.drive_time_minutes!=null?{distanceMins:Number(impact.drive_time_minutes)}:{}),
       ...(impact.estimated_demand_lift_pct!=null?{directDemandShare:Number(impact.estimated_demand_lift_pct)}:{}),
       estimatedADRBoostPercent:Number(impact.estimated_adr_lift_pct ?? 0),
