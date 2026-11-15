@@ -116,6 +116,12 @@ import { FullPredictivePricingRecommendation } from '../../types/historicalData'
 
 type PersistedRMRecommendation = {
   id: string;
+  room_type_id: string | null;
+  rate_plan_id: string | null;
+  room_type_code?: string | null;
+  room_type_name?: string | null;
+  rate_plan_code?: string | null;
+  rate_plan_name?: string | null;
   stay_date: string;
   currency: string;
   current_bar: number;
@@ -130,6 +136,7 @@ type PersistedRMRecommendation = {
   pickup_3d: number | null;
   pickup_7d: number | null;
   lighthouse_median: number | null;
+  flowtym_compset_median: number | null;
   strategy_code: string;
   explanation: string;
   confidence_score: number;
@@ -461,11 +468,34 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const [savingDecisionId, setSavingDecisionId] = useState<string | null>(null);
   const [apiRecommendationError, setApiRecommendationError] = useState<string | null>(null);
 
+  const enrichApiRecommendations = async (client: any, hotelId: string, rows: PersistedRMRecommendation[]) => {
+    const [roomTypesResult, ratePlansResult] = await Promise.all([
+      client.from('hotel_room_types').select('id,code,name').eq('hotel_id', hotelId),
+      client.from('hotel_rate_plans').select('id,code,name').eq('hotel_id', hotelId),
+    ]);
+    if (roomTypesResult.error) throw roomTypesResult.error;
+    if (ratePlansResult.error) throw ratePlansResult.error;
+    const roomTypesById = new Map((roomTypesResult.data ?? []).map((row: any) => [row.id, row]));
+    const ratePlansById = new Map((ratePlansResult.data ?? []).map((row: any) => [row.id, row]));
+    return rows.map((row) => {
+      const room = row.room_type_id ? roomTypesById.get(row.room_type_id) : null;
+      const plan = row.rate_plan_id ? ratePlansById.get(row.rate_plan_id) : null;
+      return {
+        ...row,
+        room_type_code: room?.code ?? null,
+        room_type_name: room?.name ?? null,
+        rate_plan_code: plan?.code ?? null,
+        rate_plan_name: plan?.name ?? null,
+      };
+    });
+  };
+
   const refreshApiRecommendations = async (hotelId: string, client = supabase) => {
     if (!client) throw new Error('Session Supabase absente.');
     const range = getParisDateRange(90);
     const result = await getHotelRecommendations(client, hotelId, range.start, range.end);
-    setApiRecommendations(result.data as PersistedRMRecommendation[]);
+    const enriched = await enrichApiRecommendations(client, hotelId, result.data as PersistedRMRecommendation[]);
+    setApiRecommendations(enriched);
   };
 
   useEffect(() => {
@@ -490,10 +520,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         await getRecommendationsV2Status(supabase, dbHotel.id);
         const range = getParisDateRange(90);
         const result = await getHotelRecommendations(supabase, dbHotel.id, range.start, range.end);
+        const enriched = await enrichApiRecommendations(supabase, dbHotel.id, result.data as PersistedRMRecommendation[]);
         if (cancelled) return;
         setRealHotelId(dbHotel.id);
         setRecommendationsApiReady(true);
-        setApiRecommendations(result.data as PersistedRMRecommendation[]);
+        setApiRecommendations(enriched);
         setApiRecommendationError(null);
       } catch (error) {
         if (!cancelled) {
@@ -1185,17 +1216,20 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1100px] text-left text-xs">
+                <table className="w-full min-w-[1450px] text-left text-xs">
                   <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                     <tr>
                       <th className="px-3 py-3">Séjour</th>
+                      <th className="px-3 py-3">Typologie</th>
+                      <th className="px-3 py-3">Plan tarifaire</th>
                       <th className="px-3 py-3 text-right">BAR actuel</th>
                       <th className="px-3 py-3 text-right">BAR proposé</th>
                       <th className="px-3 py-3 text-right">Écart</th>
                       <th className="px-3 py-3 text-right">Demande</th>
                       <th className="px-3 py-3 text-right">Occupation</th>
                       <th className="px-3 py-3 text-right">Pickup 24h / 3j / 7j</th>
-                      <th className="px-3 py-3 text-right">Médiane LH</th>
+                      <th className="px-3 py-3 text-right">Médiane marché LH</th>
+                      <th className="px-3 py-3 text-right">Médiane CompSet</th>
                       <th className="px-3 py-3 text-right">Confiance</th>
                       <th className="px-3 py-3">Qualité / statut</th>
                       <th className="px-3 py-3 text-right">Décision</th>
@@ -1208,6 +1242,8 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                       return (
                         <tr key={recommendation.id} className="align-top">
                           <td className="px-3 py-3 font-semibold text-slate-800">{recommendation.stay_date}</td>
+                          <td className="px-3 py-3"><div className="font-semibold">{recommendation.room_type_name ?? 'Typologie inconnue'}</div><div className="text-[10px] text-slate-500">{recommendation.room_type_code ?? recommendation.room_type_id ?? '—'}</div></td>
+                          <td className="px-3 py-3"><div className="font-semibold">{recommendation.rate_plan_name ?? 'Plan inconnu'}</div><div className="text-[10px] text-slate-500">{recommendation.rate_plan_code ?? recommendation.rate_plan_id ?? '—'}</div></td>
                           <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.current_bar)} {recommendation.currency}</td>
                           <td className="px-3 py-3 text-right font-bold tabular-nums text-violet-700">{formatRevenueValue(recommendation.suggested_bar)} {recommendation.currency}</td>
                           <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.delta_amount)} ({formatRevenueValue(recommendation.delta_pct, 1)}%)</td>
@@ -1215,6 +1251,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                           <td className="px-3 py-3 text-right tabular-nums">{recommendation.occupancy_pct == null ? '—' : `${formatRevenueValue(recommendation.occupancy_pct, 1)}%`}</td>
                           <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.pickup_24h)} / {formatRevenueValue(recommendation.pickup_3d)} / {formatRevenueValue(recommendation.pickup_7d)}</td>
                           <td className="px-3 py-3 text-right tabular-nums">{recommendation.lighthouse_median == null ? '—' : `${formatRevenueValue(recommendation.lighthouse_median)} ${recommendation.currency}`}</td>
+                          <td className="px-3 py-3 text-right tabular-nums">{recommendation.flowtym_compset_median == null ? '—' : `${formatRevenueValue(recommendation.flowtym_compset_median)} ${recommendation.currency}`}</td>
                           <td className="px-3 py-3 text-right tabular-nums">{formatRevenueValue(recommendation.confidence_score)}%</td>
                           <td className="px-3 py-3">
                             <div className="font-semibold">{valid ? 'Valide' : 'Données insuffisantes'}</div>
