@@ -16,9 +16,10 @@ import {
 import { EventItem, EventCategory, RMImpactLevel } from '../../types';
 import { getRMScoreColorClasses } from '../../utils/helpers';
 import {
-  SYSTEM_REFERENCE_DATE,
+  getSystemReferenceDate,
   sortEventsChronologically,
   getEventStatusBadgeConfig,
+  getEventChronologicalStatus,
   getEffectiveEndDate,
 } from '../../services/eventChronologyService';
 
@@ -53,6 +54,9 @@ export const TableView: React.FC<TableViewProps> = ({
   onToggleFavorite,
   onExportPDF,
 }) => {
+  // Date de référence dynamique dans le fuseau de l'hôtel.
+  const referenceDate = getSystemReferenceDate();
+
   // Sort state
   const [sortColumn, setSortColumn] = useState<SortColumn>('dates');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -89,7 +93,7 @@ export const TableView: React.FC<TableViewProps> = ({
 
   // Status helper (En cours vs À venir vs Terminé)
   const renderStatusBadge = (ev: EventItem) => {
-    const config = getEventStatusBadgeConfig(ev, SYSTEM_REFERENCE_DATE);
+    const config = getEventStatusBadgeConfig(ev, referenceDate);
     return (
       <div className="flex flex-col items-start gap-0.5">
         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs ${config.badgeClass}`}>
@@ -147,8 +151,12 @@ export const TableView: React.FC<TableViewProps> = ({
     return 'bg-emerald-500';
   };
 
-  // Sorted events
+  // Tri Revenue Management : en cours, puis à venir, puis passés.
   const sortedEvents = useMemo(() => {
+    if (sortColumn === 'dates') {
+      const chronological = sortEventsChronologically(events, referenceDate, false);
+      return sortDirection === 'asc' ? chronological : [...chronological].reverse();
+    }
     const list = [...events];
     list.sort((a, b) => {
       let comparison = 0;
@@ -174,16 +182,22 @@ export const TableView: React.FC<TableViewProps> = ({
         case 'score':
           comparison = a.scoreBreakdown.finalRMScore - b.scoreBreakdown.finalRMScore;
           break;
-        case 'status':
-          comparison = a.startDate.localeCompare(b.startDate);
+        case 'status': {
+          const rank = (event: EventItem) => {
+            const status = getEventChronologicalStatus(event, referenceDate);
+            return status === 'ongoing' ? 1 : status === 'upcoming' ? 2 : 3;
+          };
+          comparison = rank(a) - rank(b);
+          if (comparison === 0) comparison = a.startDate.localeCompare(b.startDate);
           break;
+        }
         default:
           comparison = 0;
       }
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     return list;
-  }, [events, sortColumn, sortDirection]);
+  }, [events, sortColumn, sortDirection, referenceDate]);
 
   // Render sorting header cell
   const renderSortHeader = (label: string, col: SortColumn, align: 'left' | 'right' = 'left') => {
