@@ -14,6 +14,8 @@ type Competitor = {
   id: string; competitor_name: string; address: string | null; stars: number | null;
   distance_meters: number | null; is_active: boolean;
 };
+type DbRatePlan = { id: string; code: string; name: string; room_type_id: string | null; is_active: boolean; is_public: boolean; refundable: boolean | null; meal_plan: string | null; currency: string };
+type MarketContext = { sourceChannel: string; los: number; guests: number };
 
 type SettingsTab = 'hotel' | 'revenue' | 'compset' | 'events' | 'integrations' | 'users' | 'alerts' | 'system' | 'appearance';
 type SettingsAuditLog = { id: string; action_type: string; entity_type: string; created_at: string; actor_user_id: string; reason_text: string | null; before_state: unknown; after_state: unknown };
