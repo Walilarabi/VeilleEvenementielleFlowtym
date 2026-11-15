@@ -116,8 +116,8 @@ end;
 $function$;
 
 revoke all on function public.persist_rm_recommendation_v2(
-  uuid,uuid,uuid,uuid,date,text,numeric,numeric,numeric,numeric,integer,text,numeric,integer,integer,integer,numeric,numeric,text,text,jsonb,integer,text,jsonb,text
+  uuid,uuid,uuid,uuid,date,text,numeric,numeric,numeric,numeric,integer,text,numeric,integer,integer,integer,integer,numeric,numeric,text,text,jsonb,integer,text,jsonb,text
 ) from public;
 grant execute on function public.persist_rm_recommendation_v2(
-  uuid,uuid,uuid,uuid,date,text,numeric,numeric,numeric,numeric,integer,text,numeric,integer,integer,integer,numeric,numeric,text,text,jsonb,integer,text,jsonb,text
+  uuid,uuid,uuid,uuid,date,text,numeric,numeric,numeric,numeric,integer,text,numeric,integer,integer,integer,integer,numeric,numeric,text,text,jsonb,integer,text,jsonb,text
 ) to authenticated;
