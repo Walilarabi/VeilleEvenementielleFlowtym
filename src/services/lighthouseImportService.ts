@@ -221,6 +221,7 @@ export async function persistLighthouseExtraction(
     records: normalizedDataset.records,
   }));
   const idempotencyKey = "lighthouse:" + hotel.id + ":" + sourceHash;
+  marketObservationRows.forEach((row) => { row.source_hash = sourceHash; });
   normalizedDataset.metadata.sourceHash = sourceHash;
   normalizedDataset.metadata.observedAtSource = normalizedDataset.metadata.sourceUpdatedAt
     ? "source_updated_at"
