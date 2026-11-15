@@ -812,7 +812,7 @@ function parseLighthouseUpdatedAt(rows: any[][], headerIndex: number, referenceD
       if (!match) continue;
       const day = Number(match[1]);
       const month = Number(match[2]);
-      const year = match[3] ? Number(match[3].length === 2 ? \`20\${match[3]}\` : match[3]) : Number(referenceDate.slice(0, 4));
+      const year = match[3] ? Number(match[3].length === 2 ? '20' + match[3] : match[3]) : Number(referenceDate.slice(0, 4));
       const hour = Number(match[4]);
       const minute = Number(match[5]);
       const noon = new Date(Date.UTC(year, month - 1, day, 12));
