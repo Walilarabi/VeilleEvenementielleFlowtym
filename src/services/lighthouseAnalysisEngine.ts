@@ -102,9 +102,9 @@ export interface LighthouseDailyItem {
 
   // B. Médianes du marché
   lighthouseMedianEur: number; // Médiane officielle fournie par Lighthouse (Aperçu)
-  flowtymMedianEur: number;    // Médiane recalculée Flowtym (exclut Folkestone, indispos et non-numériques)
-  medianGapEur: number;        // flowtymMedianEur - lighthouseMedianEur
-  medianGapPct: number;
+  flowtymMedianEur: number | null; // Médiane recalculée Flowtym (exclut Folkestone, indispos et non-numériques)
+  medianGapEur: number | null;  // flowtymMedianEur - lighthouseMedianEur
+  medianGapPct: number | null;
 
   // C. Mon Hôtel : Folkestone Opéra (Hôtel de référence)
   folkestone: FolkestoneRateRecord;
@@ -113,7 +113,7 @@ export interface LighthouseDailyItem {
   competitors: CompetitorRateRecord[];
 
   // Indicateurs synthétiques du compset pour cette date
-  compsetAverage: number;
+  compsetAverage: number | null;
   minCompRate: number | null;
   minCompHotelName: string | null;
   maxCompRate: number | null;
@@ -1000,10 +1000,13 @@ export function parseLighthouseExcelFile(
     });
 
     // Médianes
-    const flowtymMedianEur = calculateFlowtymMedian(competitors);
-    const lighthouseMedianEur = apInfo ? apInfo.medianLh : flowtymMedianEur;
-    const medianGapEur = flowtymMedianEur - lighthouseMedianEur;
-    const medianGapPct = lighthouseMedianEur > 0 ? Math.round((medianGapEur / lighthouseMedianEur) * 1000) / 10 : 0;
+    const flowtymMedianCalculated = calculateFlowtymMedian(competitors);
+    const flowtymMedianEur = availableCompRates.length > 0 ? flowtymMedianCalculated : null;
+    const lighthouseMedianEur = apInfo.medianLh;
+    const medianGapEur = flowtymMedianEur === null ? null : flowtymMedianEur - lighthouseMedianEur;
+    const medianGapPct = flowtymMedianEur !== null && lighthouseMedianEur > 0
+      ? Math.round((medianGapEur! / lighthouseMedianEur) * 1000) / 10
+      : null;
 
     // Stats
     const availableCompRates = competitors
@@ -1013,7 +1016,7 @@ export function parseLighthouseExcelFile(
     const compsetAverage =
       availableCompRates.length > 0
         ? Math.round(availableCompRates.reduce((a, b) => a + b, 0) / availableCompRates.length)
-        : 0;
+        : null;
 
     const minCompRate = availableCompRates.length > 0 ? Math.min(...availableCompRates) : null;
     const minCompHotel = competitors.find((c) => c.rate === minCompRate);
@@ -1054,8 +1057,8 @@ export function parseLighthouseExcelFile(
       evolution7d: folkEvo7d,
       gapVsLighthouseMedianEur: folkRate !== null ? folkRate - lighthouseMedianEur : null,
       gapVsLighthouseMedianPct: folkRate !== null && lighthouseMedianEur > 0 ? Math.round(((folkRate - lighthouseMedianEur) / lighthouseMedianEur) * 1000) / 10 : null,
-      gapVsFlowtymMedianEur: folkRate !== null ? folkRate - flowtymMedianEur : null,
-      gapVsFlowtymMedianPct: folkRate !== null && flowtymMedianEur > 0 ? Math.round(((folkRate - flowtymMedianEur) / flowtymMedianEur) * 1000) / 10 : null,
+      gapVsFlowtymMedianEur: folkRate !== null && flowtymMedianEur !== null ? folkRate - flowtymMedianEur : null,
+      gapVsFlowtymMedianPct: folkRate !== null && flowtymMedianEur !== null && flowtymMedianEur > 0 ? Math.round(((folkRate - flowtymMedianEur) / flowtymMedianEur) * 1000) / 10 : null,
       rank: folkRank,
       totalAvailable: totalAvailableHotels,
       positioning: folkPositioning,
@@ -1085,7 +1088,7 @@ export function parseLighthouseExcelFile(
 
     const soldOutCount = competitors.filter((c) => c.status === 'epuise').length;
 
-    const aiAlerts = demandIndex === null ? [] : generateLighthouseAIAlerts(
+    const aiAlerts = demandIndex === null || flowtymMedianEur === null ? [] : generateLighthouseAIAlerts(
       dateStr,
       demandIndex,
       demandLevel as MarketDemandLevelCategory,
