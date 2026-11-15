@@ -187,6 +187,8 @@ export async function persistLighthouseExtraction(
     sourceChannel: normalizedDataset.metadata.sourceChannel,
     stayStart: stayDates[0],
     stayEnd: stayDates[stayDates.length - 1],
+    sourceUpdatedAt: normalizedDataset.metadata.sourceUpdatedAt ?? null,
+    observedAtSource: normalizedDataset.metadata.sourceUpdatedAt ? "source_updated_at" : "import_time_fallback",
     observationsExpected: observationRows.length,
     unmatchedCompetitors,
   };
