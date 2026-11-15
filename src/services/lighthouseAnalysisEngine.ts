@@ -148,6 +148,10 @@ export interface LighthouseExtractionMetadata {
   totalDatesCount: number;
   isCustomUpload: boolean;
   sourceStatus?: 'live' | 'imported' | 'fixture' | 'simulation' | 'empty';
+  sourceUpdatedAt?: string | null;
+  sourceHash?: string;
+  ingestionJobId?: string;
+  observedAtSource?: 'source_updated_at' | 'import_time_fallback';
 }
 
 export interface LighthouseExtractionDataset {
@@ -1167,6 +1171,11 @@ export function parseLighthouseExcelFile(
 
   records.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
+  const stayDates = records.map((record) => record.dateStr).filter((date) => /^\\d{4}-\\d{2}-\\d{2}$/.test(date)).sort();
+  const sourceUpdatedAt = stayDates.length > 0
+    ? parseLighthouseUpdatedAt(rawTarifs, tarifsHeaderIndex, stayDates[0], timezone)
+    : null;
+
   return {
     metadata: {
       id: `ext-upload-${Date.now()}`,
@@ -1182,6 +1191,7 @@ export function parseLighthouseExcelFile(
       totalDatesCount: records.length,
       isCustomUpload: true,
       sourceStatus: 'imported',
+      sourceUpdatedAt,
     },
     records,
   };
