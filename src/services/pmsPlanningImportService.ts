@@ -43,6 +43,7 @@ export interface PmsPlanningImport {
     dates: number;
     roomTypes: number;
     ratePlans: number;
+    roomTypeRatePlanMappings: number;
     inventoryCells: number;
     inventoryUnknown: number;
     rateCells: number;
@@ -208,7 +209,8 @@ export function parsePmsPlanningWorkbook(
     summary: {
       dates: dateColumns.length,
       roomTypes: roomTypes.length,
-      ratePlans: roomTypes.reduce((sum, room) => sum + room.ratePlans.length, 0),
+      ratePlans: new Set(roomTypes.flatMap((room) => room.ratePlans.map((plan) => plan.code))).size,
+      roomTypeRatePlanMappings: roomTypes.reduce((sum, room) => sum + room.ratePlans.length, 0),
       inventoryCells,
       inventoryUnknown,
       rateCells,
@@ -273,6 +275,7 @@ export async function persistPmsPlanningImport(
     stayEnd: dataset.dateRange.end,
     roomTypeCount: dataset.summary.roomTypes,
     ratePlanCount: dataset.summary.ratePlans,
+    roomTypeRatePlanMappings: dataset.summary.roomTypeRatePlanMappings,
     inventoryCells: dataset.summary.inventoryCells,
     rateCells: dataset.summary.rateCells,
     inventoryUnknown: dataset.summary.inventoryUnknown,
