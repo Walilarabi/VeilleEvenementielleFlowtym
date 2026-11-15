@@ -11,23 +11,22 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  Database,
   ArrowRight,
   TrendingUp,
   Activity,
   Server,
   FileCheck,
-  Trash2,
   RefreshCw,
-  Info,
 } from 'lucide-react';
-import { Hotel } from '../../types';
+import type { Hotel } from '../../types';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../auth/AuthProvider';
 import { resolveAccessibleRmsHotel } from '../../services/revenueApiClient';
-import { parseLighthouseExcelFile, LighthouseExtractionDataset } from '../../services/lighthouseAnalysisEngine';
+import { parseLighthouseExcelFile } from '../../services/lighthouseAnalysisEngine';
+import type { LighthouseExtractionDataset } from '../../services/lighthouseAnalysisEngine';
 import { persistLighthouseExtraction } from '../../services/lighthouseImportService';
-import { parsePmsPlanningWorkbook, PmsPlanningImport } from '../../services/pmsPlanningImportService';
+import { parsePmsPlanningWorkbook } from '../../services/pmsPlanningImportService';
+import type { PmsPlanningImport } from '../../services/pmsPlanningImportService';
 
 export type ExcelSourceType = 'lighthouse' | 'dedge' | 'pms';
 
@@ -40,6 +39,7 @@ export interface UploadedDataRecord {
   dateRange: string;
   status: 'synced' | 'pending' | 'running' | 'partial' | 'failed';
   fileSize: string;
+  sourceObservedAt?: string;
 }
 
 interface HotelDataExcelUploadSectionProps {
@@ -91,7 +91,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
       });
       const [extractionsResult, jobsResult] = await Promise.all([
         supabase.from('lighthouse_extractions')
-          .select('id,file_name,observed_at,stay_start,stay_end,records_count,source_status')
+          .select('id,file_name,observed_at,created_at,stay_start,stay_end,records_count,source_status')
           .eq('hotel_id', dbHotel.id).order('observed_at', { ascending: false }).limit(20),
         supabase.from('data_ingestion_jobs')
           .select('id,source_system,status,records_read,records_written,created_at,metadata')
@@ -103,7 +103,8 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
         id: row.id,
         sourceType: 'lighthouse',
         fileName: row.file_name || 'Export Lighthouse',
-        uploadedAt: row.observed_at || '',
+        uploadedAt: row.created_at || row.observed_at || '',
+        sourceObservedAt: row.observed_at || undefined,
         rowCount: Number(row.records_count ?? 0),
         dateRange: row.stay_start && row.stay_end ? row.stay_start + ' — ' + row.stay_end : 'Non renseignée',
         status: row.source_status === 'imported' ? 'synced' : 'pending',
@@ -124,6 +125,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
             sourceType,
             fileName: meta.fileName || (sourceType === 'pms' ? 'Import PMS' : 'Import D-EDGE'),
             uploadedAt: job.created_at || '',
+            sourceObservedAt: meta.sourceUpdatedAt || undefined,
             rowCount: Number(job.records_written ?? job.records_read ?? 0),
             dateRange: meta.stayStart && meta.stayEnd ? meta.stayStart + ' — ' + meta.stayEnd : 'Non renseignée',
             status,
@@ -246,7 +248,6 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
       const persisted = await persistLighthouseExtraction(supabase, dbHotel, parsed, user.id);
       await loadHistory();
       onDataImported?.('lighthouse', persisted.observationsInserted);
-      onShowToast?.("Import Lighthouse enregistré : " + persisted.observationsInserted + " observations. " + persisted.unmatchedCompetitors.length + " concurrent(s) non rapproché(s).");
       setSelectedFile(null);
     } catch (error: any) {
       setImportError(error?.message || "Échec de la persistance Lighthouse.");
@@ -596,9 +597,9 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
                 <th className="py-3 px-4">Date Import</th>
                 <th className="py-3 px-4">Canal / Source</th>
                 <th className="py-3 px-4">Nom du Fichier</th>
-                <th className="py-3 px-4 text-center">Lignes Traitées</th>
+                <th className="py-3 px-4 text-center">Observations enregistrées</th>
                 <th className="py-3 px-4">Période Couverte</th>
-                <th className="py-3 px-4 text-center">Statut RM</th>
+                <th className="py-3 px-4 text-center">Statut import</th>
                 <th className="py-3 px-4 text-right">Traçabilité</th>
               </tr>
             </thead>
