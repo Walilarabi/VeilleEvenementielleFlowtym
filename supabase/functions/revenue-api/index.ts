@@ -1178,7 +1178,6 @@ async function handle(req: Request, supabase: any, userId: string): Promise<Resp
           : inventoryReservationConflict
             ? "MAINTENIR : divergence entre l'inventaire PMS et les chambres OTB du PMS réservation ; aucune variation tarifaire autorisée."
             : "MAINTENIR : données indépendantes insuffisantes ou trop anciennes pour justifier une variation tarifaire.";
-        const strategyCode = sufficient ? `PRICING_V2_${bucket.toUpperCase()}` : inventoryReservationConflict ? "HOLD_DATA_CONFLICT" : "HOLD_INSUFFICIENT_DATA";
         const row = {
           current_bar: current,
           suggested_bar: suggested,
