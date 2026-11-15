@@ -298,6 +298,8 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         case 'highest_evo_7d':
           return (b.folkestone.evolution7d ?? 0) - (a.folkestone.evolution7d ?? 0);
         case 'demand_desc':
+          if (a.demandIndex === null) return b.demandIndex === null ? 0 : 1;
+          if (b.demandIndex === null) return -1;
           return b.demandIndex - a.demandIndex;
         default:
           return 0;
@@ -307,55 +309,66 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
     return list;
   }, [dataset.records, searchQuery, demandFilter, sortBy]);
 
-  // Overall Market Summary (Section 6)
+  // Synthèse calculée uniquement à partir des observations réellement importées.
   const marketSummary = useMemo(() => {
     if (dataset.records.length === 0) return null;
-
-    const avgDemand = Math.round(
-      dataset.records.reduce((acc, r) => acc + r.demandIndex, 0) / dataset.records.length
-    );
-
-    const availableFolkestone = dataset.records.filter((r) => r.folkestone.rate !== null);
-    const avgFolkestone =
-      availableFolkestone.length > 0
-        ? Math.round(
-            availableFolkestone.reduce((acc, r) => acc + (r.folkestone.rate as number), 0) /
-              availableFolkestone.length
-          )
-        : 240;
-
-    const avgLhMedian = Math.round(
-      dataset.records.reduce((acc, r) => acc + r.lighthouseMedianEur, 0) / dataset.records.length
-    );
-
-    const avgFtMedian = Math.round(
-      dataset.records.reduce((acc, r) => acc + r.flowtymMedianEur, 0) / dataset.records.length
-    );
-
-    const totalSoldOutEvents = dataset.records.reduce((acc, r) => acc + r.totalSoldOutHotels, 0);
-
+    const mean = (values: Array<number | null | undefined>): number | null => {
+      const valid = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value));
+      return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
+    };
+    const min = (values: Array<number | null>): number | null => {
+      const valid = values.filter((value): value is number => value !== null && Number.isFinite(value));
+      return valid.length ? Math.min(...valid) : null;
+    };
+    const max = (values: Array<number | null>): number | null => {
+      const valid = values.filter((value): value is number => value !== null && Number.isFinite(value));
+      return valid.length ? Math.max(...valid) : null;
+    };
+    const avgDemandRaw = mean(dataset.records.map(r => r.demandIndex));
+    const avgFolkestoneRaw = mean(dataset.records.map(r => r.folkestone.rate));
+    const avgLhMedianRaw = mean(dataset.records.map(r => r.lighthouseMedianEur));
+    const avgFtMedianRaw = mean(dataset.records.map(r => r.flowtymMedianEur));
+    const avgGapBetweenMedians = mean(dataset.records.map(r => r.medianGapEur));
+    const avgGapFolkestoneVsMedian = mean(dataset.records.map(r => r.folkestone.gapVsFlowtymMedianEur));
+    const avgGapFolkestoneVsMedianPct = mean(dataset.records.map(r => r.folkestone.gapVsFlowtymMedianPct));
+    const avgDemandEvolution1d = mean(dataset.records.map(r => r.demandEvolution1d));
+    const avgDemandEvolution7d = mean(dataset.records.map(r => r.demandEvolution7d));
+    const avgRank = mean(dataset.records.map(r => r.folkestone.rank));
+    const avgAvailableHotels = mean(dataset.records.map(r => r.totalAvailableHotels));
+    const avgPositioningGapPct = avgFolkestoneRaw !== null && avgFtMedianRaw !== null && avgFtMedianRaw > 0
+      ? ((avgFolkestoneRaw - avgFtMedianRaw) / avgFtMedianRaw) * 100
+      : null;
+    const positioningLabel = avgPositioningGapPct === null ? 'Non disponible'
+      : avgPositioningGapPct <= -8 ? 'Sous la médiane'
+      : avgPositioningGapPct >= 8 ? 'Au-dessus de la médiane'
+      : 'Aligné sur la médiane';
+    const maxIncrease7d = dataset.records
+      .flatMap(r => r.maxIncrease7d ? [r.maxIncrease7d] : [])
+      .sort((a, b) => b.amount - a.amount)[0] ?? null;
     const allAiAlerts: LighthouseAIRecoveryAlert[] = [];
-    dataset.records.forEach((r) => {
-      allAiAlerts.push(...r.aiAlerts);
-    });
-
-    // Count velocity 24h & 7d
-    const totalHikes1d = dataset.records.reduce((acc, r) => acc + r.increasedCount1d, 0);
-    const totalDrops1d = dataset.records.reduce((acc, r) => acc + r.decreasedCount1d, 0);
-    const totalStables1d = dataset.records.reduce((acc, r) => acc + r.stableCount1d, 0);
-
+    dataset.records.forEach((r) => allAiAlerts.push(...r.aiAlerts));
     return {
-      avgDemand,
-      avgFolkestone,
-      avgLhMedian,
-      avgFtMedian,
-      gapBetweenMedians: avgFtMedian - avgLhMedian,
-      gapFolkestoneVsMedian: avgFolkestone - avgFtMedian,
-      totalSoldOutEvents,
+      avgDemand: avgDemandRaw === null ? null : Math.round(avgDemandRaw),
+      demandObservations: dataset.records.filter(r => r.demandIndex !== null).length,
+      avgFolkestone: avgFolkestoneRaw === null ? null : Math.round(avgFolkestoneRaw),
+      avgLhMedian: avgLhMedianRaw === null ? null : Math.round(avgLhMedianRaw),
+      avgFtMedian: avgFtMedianRaw === null ? null : Math.round(avgFtMedianRaw),
+      gapBetweenMedians: avgGapBetweenMedians === null ? null : Math.round(avgGapBetweenMedians * 10) / 10,
+      gapFolkestoneVsMedian: avgGapFolkestoneVsMedian === null ? null : Math.round(avgGapFolkestoneVsMedian * 10) / 10,
+      gapFolkestoneVsMedianPct: avgGapFolkestoneVsMedianPct === null ? null : Math.round(avgGapFolkestoneVsMedianPct * 10) / 10,
+      avgDemandEvolution1d,
+      avgDemandEvolution7d,
+      avgRank,
+      avgAvailableHotels,
+      positioningLabel,
+      compsetMinObserved: min(dataset.records.map(r => r.minCompRate)),
+      compsetMaxObserved: max(dataset.records.map(r => r.maxCompRate)),
+      maxIncrease7d,
+      totalSoldOutEvents: dataset.records.reduce((acc, r) => acc + r.totalSoldOutHotels, 0),
       allAiAlerts,
-      totalHikes1d,
-      totalDrops1d,
-      totalStables1d,
+      totalHikes1d: dataset.records.reduce((acc, r) => acc + r.increasedCount1d, 0),
+      totalDrops1d: dataset.records.reduce((acc, r) => acc + r.decreasedCount1d, 0),
+      totalStables1d: dataset.records.reduce((acc, r) => acc + r.stableCount1d, 0),
     };
   }, [dataset.records]);
 
@@ -691,10 +704,10 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                         <div className={`inline-flex flex-col items-center px-2.5 py-1 rounded-xl border ${demColor.bg} ${demColor.border}`}>
                           <div className="flex items-center gap-1.5">
                             <span className={`w-2 h-2 rounded-full ${demColor.dot}`} />
-                            <span className={`font-black text-xs ${demColor.text}`}>{record.demandIndex}</span>
+                            <span className={`font-black text-xs ${demColor.text}`}>{record.demandIndex === null ? '—' : Math.round(record.demandIndex)}</span>
                           </div>
                           <span className={`text-[9px] font-bold uppercase tracking-wide ${demColor.text}`}>
-                            {record.demandLevel.replace('_', ' ')}
+                            {record.demandLevel === 'non_renseigne' ? 'Non renseignée' : record.demandLevel.replace('_', ' ')}
                           </span>
                         </div>
                         {record.demandEvolution1d !== null && record.demandEvolution1d !== 0 && (
@@ -940,17 +953,17 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                 <Flame className="w-4 h-4 text-orange-500" />
               </div>
               <div>
-                <div className="text-2xl font-black text-slate-900">{marketSummary.avgDemand} / 100</div>
-                <div className="text-xs text-orange-700 font-bold mt-0.5">Niveau Moyen : Forte Pression</div>
+                <div className="text-2xl font-black text-slate-900">{marketSummary.avgDemand === null ? '—' : `${marketSummary.avgDemand} / 100`}</div>
+                <div className="text-xs text-slate-600 font-bold mt-0.5">{marketSummary.avgDemand === null ? 'Demande non renseignée' : `Niveau moyen : ${getDemandLevelFromIndex(marketSummary.avgDemand).replace('_', ' ')}`}</div>
               </div>
               <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
                 <div className="flex justify-between">
                   <span>Évolution J-1 :</span>
-                  <strong className="text-emerald-600 font-bold">+2.4 pts</strong>
+                  <strong className="text-slate-700 font-bold">{marketSummary.avgDemandEvolution1d === null ? '—' : `${marketSummary.avgDemandEvolution1d > 0 ? '+' : ''}${marketSummary.avgDemandEvolution1d.toFixed(1)} pts`}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Évolution J-7 :</span>
-                  <strong className="text-emerald-600 font-bold">+6.8 pts</strong>
+                  <strong className="text-slate-700 font-bold">{marketSummary.avgDemandEvolution7d === null ? '—' : `${marketSummary.avgDemandEvolution7d > 0 ? '+' : ''}${marketSummary.avgDemandEvolution7d.toFixed(1)} pts`}</strong>
                 </div>
                 <p className="text-[9px] text-slate-400 pt-1 leading-tight">
                   Indice de tension Lighthouse (non assimilable à un taux d&apos;occupation).
@@ -965,23 +978,23 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                 <DollarSign className="w-4 h-4 text-indigo-500" />
               </div>
               <div>
-                <div className="text-2xl font-black text-indigo-950">{marketSummary.avgFtMedian} €</div>
+                <div className="text-2xl font-black text-indigo-950">{marketSummary.avgFtMedian === null ? '—' : `${marketSummary.avgFtMedian} €`}</div>
                 <div className="text-xs text-indigo-700 font-bold mt-0.5">Médiane Recalculée Flowtym</div>
               </div>
               <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
                 <div className="flex justify-between">
                   <span>Médiane Lighthouse (Off.) :</span>
-                  <strong className="text-slate-800">{marketSummary.avgLhMedian} €</strong>
+                  <strong className="text-slate-800">{marketSummary.avgLhMedian === null ? '—' : `${marketSummary.avgLhMedian} €`}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Écart entre médianes :</span>
                   <strong className="text-indigo-600">
-                    {marketSummary.gapBetweenMedians >= 0 ? `+${marketSummary.gapBetweenMedians}` : marketSummary.gapBetweenMedians} €
+                    {marketSummary.gapBetweenMedians === null ? '—' : `${marketSummary.gapBetweenMedians >= 0 ? '+' : ''}${marketSummary.gapBetweenMedians} €`}
                   </strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Fourchette compset moyenne :</span>
-                  <span className="font-semibold text-slate-700">260€ — 360€</span>
+                  <span className="font-semibold text-slate-700">{marketSummary.compsetMinObserved === null || marketSummary.compsetMaxObserved === null ? '—' : `${marketSummary.compsetMinObserved}€ — ${marketSummary.compsetMaxObserved}€`}</span>
                 </div>
               </div>
             </div>
@@ -993,24 +1006,23 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                 <Building2 className="w-4 h-4 text-violet-600" />
               </div>
               <div>
-                <div className="text-2xl font-black text-violet-950">{marketSummary.avgFolkestone} €</div>
-                <div className="text-xs text-emerald-700 font-bold mt-0.5">Positionnement : Compétitif / Attractif</div>
+                <div className="text-2xl font-black text-violet-950">{marketSummary.avgFolkestone === null ? '—' : `${marketSummary.avgFolkestone} €`}</div>
+                <div className="text-xs text-slate-600 font-bold mt-0.5">Positionnement : {marketSummary.positioningLabel}</div>
               </div>
               <div className="pt-2 border-t border-violet-100 text-[11px] text-slate-600 space-y-1">
                 <div className="flex justify-between">
                   <span>Écart vs. Médiane Compset :</span>
                   <strong className="text-emerald-700 font-bold">
-                    {marketSummary.gapFolkestoneVsMedian} € (
-                    {Math.round((marketSummary.gapFolkestoneVsMedian / marketSummary.avgFtMedian) * 100)}%)
+                    {marketSummary.gapFolkestoneVsMedian === null ? '—' : `${marketSummary.gapFolkestoneVsMedian} € (${marketSummary.gapFolkestoneVsMedianPct === null ? '—' : `${marketSummary.gapFolkestoneVsMedianPct}%`})`}
                   </strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Rang moyen de prix :</span>
-                  <strong className="text-slate-800">2.1 sur 6</strong>
+                  <strong className="text-slate-800">{marketSummary.avgRank === null ? '—' : `${marketSummary.avgRank.toFixed(1)} sur ${marketSummary.avgAvailableHotels === null ? '—' : marketSummary.avgAvailableHotels.toFixed(0)}`}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Opportunité de rehausse :</span>
-                  <span className="text-violet-700 font-bold">+15€ à +35€</span>
+                  <span className="text-slate-500 font-semibold">Non calculée par le benchmark seul</span>
                 </div>
               </div>
             </div>
@@ -1037,12 +1049,12 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               </div>
               <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-600 space-y-1">
                 <div className="flex justify-between">
-                  <span>Occurrences Sold-out :</span>
-                  <strong className="text-rose-600 font-bold">{marketSummary.totalSoldOutEvents} dates complètes</strong>
+                  <span>Relevés concurrents sold-out :</span>
+                  <strong className="text-rose-600 font-bold">{marketSummary.totalSoldOutEvents} observations</strong>
                 </div>
                 <div className="flex justify-between">
                   <span>Plus forte hausse 7j :</span>
-                  <strong className="text-emerald-700">+60 € (St-Pétersbourg)</strong>
+                  <strong className="text-emerald-700">{marketSummary.maxIncrease7d ? `+${marketSummary.maxIncrease7d.amount} € (${marketSummary.maxIncrease7d.hotelName})` : '—'}</strong>
                 </div>
               </div>
             </div>
@@ -1057,7 +1069,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
                   <span>Visualisation Graphique du Marché & Positionnement Tarifaire</span>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Évolution temporelle sur les 30 prochaines dates de séjour
+                  Évolution temporelle sur les 30 dates affichées
                 </p>
               </div>
 
@@ -1342,9 +1354,9 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
                   <span className="text-[10px] text-slate-400 font-bold block uppercase">Demande Marché</span>
-                  <strong className="text-lg font-black text-slate-900">{inspectedRecord.demandIndex}/100</strong>
+                  <strong className="text-lg font-black text-slate-900">{inspectedRecord.demandIndex === null ? '—' : Math.round(inspectedRecord.demandIndex)}/100</strong>
                   <span className="text-[10px] text-orange-600 font-bold block uppercase">
-                    {inspectedRecord.demandLevel.replace('_', ' ')}
+                    {inspectedRecord.demandLevel === 'non_renseigne' ? 'Non renseignée' : inspectedRecord.demandLevel.replace('_', ' ')}
                   </span>
                 </div>
                 <div className="p-3 bg-violet-50 rounded-2xl border border-violet-200">
