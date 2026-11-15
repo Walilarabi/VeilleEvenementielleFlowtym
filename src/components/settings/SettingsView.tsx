@@ -552,6 +552,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ selectedHotelId, onS
        <div className="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Configuration du moteur pricing_v1</h3>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Aucune pondération, aucun seuil ni ajustement n'est prérempli. Saisissez uniquement une configuration validée par votre Revenue Manager. Les valeurs sont enregistrées dans demand_thresholds.pricing_v1 et le moteur refusera toute configuration incomplète.</p>
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">Important : l'export Lighthouse Booking.com « tarif le plus bas, LOS 1, 2 personnes » fournit un signal de marché, mais ne renseigne pas une typologie ni un plan tarifaire concurrents comparables. Laissez le poids CompSet à 0 tant que ces dimensions n'ont pas été validées. Le signal « demande marché » est distinct.</div>
         <textarea
           className={inputClass + ' mt-3 min-h-64 font-mono text-xs'}
           value={pricingConfigJson}
