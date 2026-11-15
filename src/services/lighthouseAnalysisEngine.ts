@@ -1108,6 +1108,8 @@ export function parseLighthouseExcelFile(
       dayOfWeek,
       isWeekend,
       demandIndex,
+      demandIndexRaw,
+      demandIndexScale,
       demandLevel,
       demandEvolution1d,
       demandEvolution3d,
@@ -1163,7 +1165,7 @@ function parseRateCell(val: any): { rate: number | null; status: HotelAvailabili
     return { rate: null, status: 'non_disponible', label: 'N/D' };
   }
 
-  const str = String(val).trim().toLowerCase();
+  const str = String(val).trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
 
   if (str.includes('epuis') || str.includes('complet') || str.includes('sold')) {
     return { rate: null, status: 'epuise', label: 'Épuisé' };
