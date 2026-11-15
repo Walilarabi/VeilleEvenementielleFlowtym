@@ -365,14 +365,29 @@ export async function persistPmsPlanningImport(
     const roomTypeIds = new Map((roomTypeData ?? []).map((row) => [row.code, row.id]));
     if (roomTypeIds.size !== dataset.roomTypes.length) throw new Error("Certaines typologies n'ont pas pu être rapprochées après upsert.");
 
-    const ratePlanRows = [...uniquePlans.entries()].map(([code, name]) => ({
-      organization_id: hotel.organization_id,
-      hotel_id: hotel.id,
-      room_type_id: null,
-      code,
-      name,
-      currency: dataset.currency,
-    }));
+    const { data: existingRatePlanData, error: existingRatePlanError } = await supabase
+      .from("hotel_rate_plans")
+      .select("id,code,room_type_id,is_active,is_public,refundable,meal_plan")
+      .eq("hotel_id", hotel.id);
+    if (existingRatePlanError) throw new Error("Lecture des plans tarifaires existants impossible : " + existingRatePlanError.message);
+    const existingRatePlans = new Map((existingRatePlanData ?? []).map((plan) => [plan.code, plan]));
+    const ratePlanRows = [...uniquePlans.entries()].map(([code, name]) => {
+      const existing = existingRatePlans.get(code);
+      return {
+        organization_id: hotel.organization_id,
+        hotel_id: hotel.id,
+        room_type_id: existing?.room_type_id ?? null,
+        code,
+        name,
+        currency: dataset.currency,
+        // Un code importé n'est pas automatiquement déclaré vendable/public.
+        // Les statuts existants sont préservés ; les nouveaux plans restent inactifs jusqu'à validation.
+        is_active: existing?.is_active ?? false,
+        is_public: existing?.is_public ?? false,
+        refundable: existing?.refundable ?? null,
+        meal_plan: existing?.meal_plan ?? null,
+      };
+    });
     const { data: ratePlanData, error: ratePlanError } = await supabase
       .from("hotel_rate_plans")
       .upsert(ratePlanRows, { onConflict: "hotel_id,code" })
