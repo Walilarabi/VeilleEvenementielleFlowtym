@@ -2821,6 +2821,9 @@ export type Database = {
           compset_min: number | null
           created_at: string
           currency: string
+          demand_evolution_1d: number | null
+          demand_evolution_3d: number | null
+          demand_evolution_7d: number | null
           demand_index: number | null
           demand_index_raw: number | null
           demand_index_scale: string
@@ -2853,6 +2856,9 @@ export type Database = {
           compset_min?: number | null
           created_at?: string
           currency?: string
+          demand_evolution_1d?: number | null
+          demand_evolution_3d?: number | null
+          demand_evolution_7d?: number | null
           demand_index?: number | null
           demand_index_raw?: number | null
           demand_index_scale?: string
@@ -2885,6 +2891,9 @@ export type Database = {
           compset_min?: number | null
           created_at?: string
           currency?: string
+          demand_evolution_1d?: number | null
+          demand_evolution_3d?: number | null
+          demand_evolution_7d?: number | null
           demand_index?: number | null
           demand_index_raw?: number | null
           demand_index_scale?: string
