@@ -4,7 +4,7 @@ create or replace function public.persist_rm_recommendation_v2(
   p_room_type_id uuid,
   p_rate_plan_id uuid,
   p_stay_date date,
-  p_currency character,
+  p_currency text,
   p_current_bar numeric,
   p_suggested_bar numeric,
   p_delta_amount numeric,
@@ -116,8 +116,8 @@ end;
 $function$;
 
 revoke all on function public.persist_rm_recommendation_v2(
-  uuid,uuid,uuid,uuid,date,character,numeric,numeric,numeric,numeric,integer,text,numeric,integer,integer,integer,numeric,numeric,text,text,jsonb,integer,text,jsonb,text
+  uuid,uuid,uuid,uuid,date,text,numeric,numeric,numeric,numeric,integer,text,numeric,integer,integer,integer,numeric,numeric,text,text,jsonb,integer,text,jsonb,text
 ) from public;
 grant execute on function public.persist_rm_recommendation_v2(
-  uuid,uuid,uuid,uuid,date,character,numeric,numeric,numeric,numeric,integer,text,numeric,integer,integer,integer,numeric,numeric,text,text,jsonb,integer,text,jsonb,text
+  uuid,uuid,uuid,uuid,date,text,numeric,numeric,numeric,numeric,integer,text,numeric,integer,integer,integer,numeric,numeric,text,text,jsonb,integer,text,jsonb,text
 ) to authenticated;
