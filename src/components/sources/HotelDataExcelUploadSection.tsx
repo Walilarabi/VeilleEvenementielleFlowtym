@@ -502,6 +502,8 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
         </div>
       </div>
 
+      {importError && !selectedFile && <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">{importError}</p>}
+
       {/* Preview Table of Uploaded File */}
       {selectedFile && (
         <div className="border border-violet-200 dark:border-violet-800/70 bg-violet-50/30 dark:bg-violet-950/30 rounded-2xl p-5 space-y-4 animate-in fade-in duration-200">
@@ -589,6 +591,8 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
             Journal Supabase en lecture seule · aucune suppression manuelle
           </span>
         </div>
+        {historyError && <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">{historyError}</p>}
+        {isHistoryLoading && <p className="text-xs text-slate-500 dark:text-slate-400">Chargement de l'historique Supabase…</p>}
 
         <div className="overflow-x-auto border border-slate-200/90 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 shadow-2xs">
           <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
