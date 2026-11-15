@@ -21,10 +21,9 @@ import {
 import type { Hotel } from '../../types';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../auth/AuthProvider';
-import { resolveAccessibleRmsHotel } from '../../services/revenueApiClient';
 import { parseLighthouseExcelFile } from '../../services/lighthouseAnalysisEngine';
 import type { LighthouseExtractionDataset } from '../../services/lighthouseAnalysisEngine';
-import { persistLighthouseExtraction } from '../../services/lighthouseImportService';
+import { persistLighthouseExtraction, resolveAccessibleRmsHotel } from '../../services/lighthouseImportService';
 import { parsePmsPlanningWorkbook } from '../../services/pmsPlanningImportService';
 import type { PmsPlanningImport } from '../../services/pmsPlanningImportService';
 
