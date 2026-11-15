@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import {
-  CalendarDays, Compass, MapPin, ArrowUpRight, ShieldCheck, AlertTriangle,
-  CheckCircle2, Clock3, Building2, Users, TrendingUp, Database,
+  CalendarDays, Compass, MapPin, ArrowUpRight, ShieldCheck, Clock3, Building2, TrendingUp, Database,
 } from 'lucide-react';
 import { EventItem, EventSource, Hotel, Venue } from '../../types';
 
