@@ -173,3 +173,41 @@ Les imports d'inventaire doivent aussi distinguer l'inventaire total, commercial
 ## 9. Règle de preuve
 
 Chaque fonctionnalité livrée devra être classée : récupérée, reconstruite, corrigée, testée, bloquée ou non commencée. Un build vert seul ne constitue pas une preuve de fonctionnement métier.
+
+
+## 10. Vérification Supabase live — lecture seule (15/11/2026)
+
+Projet RMS vérifié : `aliploqizujgovnlgjvg`.
+
+### Données observées
+
+- 1 organisation, 1 hôtel : Folkestone Opéra, Paris, France, 45 chambres, EUR, Europe/Paris.
+- Latitude et longitude de l'hôtel : NULL.
+- 2 comptes : `walilarabi@gmail.com` (super_admin) et `direction.commerciale.bh@gmail.com` (revenue_manager).
+- 1 membership explicite pour le compte revenue_manager sur Folkestone Opéra.
+- 10 concurrents actifs déjà enregistrés.
+- 24 migrations appliquées.
+- RLS activé sur toutes les tables consultées dans le périmètre RMS.
+
+### Données RMS absentes dans la base live
+
+- 0 typologie de chambre ; 0 plan tarifaire.
+- 0 snapshot inventaire ; 0 snapshot réservation/OTB.
+- 0 extraction Lighthouse ; 0 observation concurrentielle.
+- 0 historique journalier ; 0 snapshot de demande historique.
+- 0 profil de paramètres RM ; 0 run de prévision ; 0 prévision journalière.
+- 0 intégration ; 0 job d'ingestion.
+
+La liste des 10 concurrents et leurs identifiants est dans l'historique de l'audit live ; les noms doivent être rapprochés du fichier Lighthouse sans fuzzy-match automatique. Les correspondances exactes peuvent être utilisées ; les autres restent non rapprochées et exclues des calculs CompSet jusqu'à validation.
+
+### RLS — contrôle des politiques
+
+Les tables contrôlées (`hotel_inventory_snapshots`, `hotel_reservation_snapshots`, `hotel_rate_plans`, `hotel_room_types`, `lighthouse_rate_observations`, `hotel_parameters_profiles`, `data_ingestion_jobs`, `daily_rate_intelligence`) ont chacune des politiques SELECT liées à `flowtym_private.can_access_hotel` et des politiques d'écriture liées à `flowtym_private.can_manage_hotel`. Cela constitue un signal positif, pas une preuve complète de non-contournement ; les tests multi-utilisateurs restent à exécuter.
+
+### Advisors Supabase
+
+- Sécurité : 1 avertissement `Leaked Password Protection Disabled`. Remédiation officielle : https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+- Performance : 1 information relative à des index non encore utilisés. Ne pas supprimer automatiquement des index sur la seule base de cette observation : la base est encore peu alimentée.
+- Santé : aucun lint remonté.
+
+Aucune modification live n'a été réalisée pendant cette inspection.
