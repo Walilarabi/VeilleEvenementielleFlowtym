@@ -22,7 +22,12 @@ import {
   Info,
 } from 'lucide-react';
 import { Hotel } from '../../types';
-import { exportLighthouseWorkbookToXLSX } from '../../services/lighthouseAnalysisEngine';
+import * as XLSX from 'xlsx';
+import { useAuth } from '../../auth/AuthProvider';
+import { resolveAccessibleRmsHotel } from '../../services/revenueApiClient';
+import { parseLighthouseExcelFile, LighthouseExtractionDataset } from '../../services/lighthouseAnalysisEngine';
+import { persistLighthouseExtraction } from '../../services/lighthouseImportService';
+import { parsePmsPlanningWorkbook, PmsPlanningImport } from '../../services/pmsPlanningImportService';
 
 export type ExcelSourceType = 'lighthouse' | 'dedge' | 'pms';
 
@@ -33,7 +38,7 @@ export interface UploadedDataRecord {
   uploadedAt: string;
   rowCount: number;
   dateRange: string;
-  status: 'synced' | 'pending';
+  status: 'synced' | 'pending' | 'running' | 'partial' | 'failed';
   fileSize: string;
 }
 
@@ -44,226 +49,210 @@ interface HotelDataExcelUploadSectionProps {
   onNavigateToPricing?: () => void;
 }
 
-const STORAGE_KEY = 'flowtym_uploaded_excel_records';
-
 export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionProps> = ({
   hotel,
   onShowToast,
   onDataImported,
   onNavigateToPricing,
 }) => {
+  const { supabase, user } = useAuth();
   const [selectedChannel, setSelectedChannel] = useState<ExcelSourceType>('lighthouse');
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{
     name: string;
     size: string;
-    rows: any[];
+    rows: any[][];
     headers: string[];
     sourceType: ExcelSourceType;
+    rowCount: number;
+    previewSummary: string;
+    canImport: boolean;
+    blockedReason?: string;
+    parsedLighthouse?: LighthouseExtractionDataset;
+    parsedPms?: PmsPlanningImport;
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [records, setRecords] = useState<UploadedDataRecord[]>([]);
 
-  // Upload history in local storage
-  const [records, setRecords] = useState<UploadedDataRecord[]>(() => {
+  const formatFileSize = (bytes: number) => bytes >= 1024 * 1024
+    ? (bytes / (1024 * 1024)).toFixed(2) + ' Mo'
+    : (bytes / 1024).toFixed(1) + ' Ko';
+
+  const loadHistory = async () => {
+    if (!supabase || !hotel) { setRecords([]); return; }
+    setIsHistoryLoading(true);
+    setHistoryError(null);
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Failed to load upload history', e);
-    }
-    // Default initial demonstration logs
-    return [
-      {
-        id: 'rec-init-lh',
+      const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+        name: hotel.name, city: hotel.city, country: hotel.country,
+      });
+      const [extractionsResult, jobsResult] = await Promise.all([
+        supabase.from('lighthouse_extractions')
+          .select('id,file_name,observed_at,stay_start,stay_end,records_count,source_status')
+          .eq('hotel_id', dbHotel.id).order('observed_at', { ascending: false }).limit(20),
+        supabase.from('data_ingestion_jobs')
+          .select('id,source_system,status,records_read,records_written,created_at,metadata')
+          .eq('hotel_id', dbHotel.id).order('created_at', { ascending: false }).limit(20),
+      ]);
+      if (extractionsResult.error) throw extractionsResult.error;
+      if (jobsResult.error) throw jobsResult.error;
+      const lighthouseRecords: UploadedDataRecord[] = (extractionsResult.data ?? []).map((row: any) => ({
+        id: row.id,
         sourceType: 'lighthouse',
-        fileName: 'folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx',
-        uploadedAt: '06/11/2026 à 08:30',
-        rowCount: 60,
-        dateRange: '10/11/2026 — 08/01/2027',
-        status: 'synced',
-        fileSize: '48.2 Ko',
-      },
-      {
-        id: 'rec-init-de',
-        sourceType: 'dedge',
-        fileName: 'dedge_crs_inventory_paris_opera.csv',
-        uploadedAt: '05/11/2026 à 17:40',
-        rowCount: 61,
-        dateRange: '01/11/2026 — 31/12/2026',
-        status: 'synced',
-        fileSize: '24.6 Ko',
-      },
-      {
-        id: 'rec-init-pms',
-        sourceType: 'pms',
-        fileName: 'cloture_night_audit_opera_pms.xlsx',
-        uploadedAt: '05/11/2026 à 06:10',
-        rowCount: 90,
-        dateRange: '01/10/2026 — 31/12/2026',
-        status: 'synced',
-        fileSize: '62.1 Ko',
-      },
-    ];
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-    } catch (e) {
-      console.error('Failed to save upload history', e);
+        fileName: row.file_name || 'Export Lighthouse',
+        uploadedAt: row.observed_at || '',
+        rowCount: Number(row.records_count ?? 0),
+        dateRange: row.stay_start && row.stay_end ? row.stay_start + ' — ' + row.stay_end : 'Non renseignée',
+        status: row.source_status === 'imported' ? 'synced' : 'pending',
+        fileSize: '—',
+      }));
+      const jobRecords: UploadedDataRecord[] = (jobsResult.data ?? [])
+        .filter((job: any) => String(job.source_system).toLowerCase() !== 'lighthouse')
+        .map((job: any) => {
+          const source = String(job.source_system ?? '').toLowerCase();
+          const sourceType: ExcelSourceType = source.includes('dedge') ? 'dedge' : 'pms';
+          const meta = (job.metadata ?? {}) as Record<string, any>;
+          const status: UploadedDataRecord['status'] = job.status === 'completed' ? 'synced'
+            : job.status === 'failed' ? 'failed'
+            : job.status === 'running' || job.status === 'queued' ? 'running'
+            : job.status === 'partial' ? 'partial' : 'pending';
+          return {
+            id: job.id,
+            sourceType,
+            fileName: meta.fileName || (sourceType === 'pms' ? 'Import PMS' : 'Import D-EDGE'),
+            uploadedAt: job.created_at || '',
+            rowCount: Number(job.records_written ?? job.records_read ?? 0),
+            dateRange: meta.stayStart && meta.stayEnd ? meta.stayStart + ' — ' + meta.stayEnd : 'Non renseignée',
+            status,
+            fileSize: typeof meta.fileSize === 'string' ? meta.fileSize : '—',
+          };
+        });
+      setRecords([...lighthouseRecords, ...jobRecords]
+        .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+        .slice(0, 20));
+    } catch (error: any) {
+      setHistoryError(error?.message || "Impossible de charger l'historique réel des imports.");
+      setRecords([]);
+    } finally {
+      setIsHistoryLoading(false);
     }
-  }, [records]);
+  };
 
-  // Download Sample Excel/CSV Templates
+  useEffect(() => { void loadHistory(); }, [hotel?.id, supabase, user?.id]);
+
   const handleDownloadTemplate = (type: ExcelSourceType) => {
-    if (type === 'lighthouse') {
-      const u8array = exportLighthouseWorkbookToXLSX();
-      const blob = new Blob([u8array.buffer as ArrayBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      if (onShowToast) {
-        onShowToast('Export officiel Lighthouse (5 onglets) téléchargé : folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx');
-      }
-      return;
-    }
-
-    let csvContent = '';
-    let fileName = '';
-
-    if (type === 'dedge') {
-      fileName = 'modele_import_dedge_crs_inventory.csv';
-      csvContent =
-        'Date,Hotel_Code,Chambres_Total,Chambres_Vendues_OTB,Stock_Disponible,Tarif_BAR_EUR,Min_Stay_Nuits,Stop_Sell_Actif\n' +
-        '2026-11-18,FR-PAR-FOLKESTONE-08,45,36,9,285,2,Non\n' +
-        '2026-11-19,FR-PAR-FOLKESTONE-08,45,39,6,320,2,Non\n' +
-        '2026-11-20,FR-PAR-FOLKESTONE-08,45,41,4,340,3,Non\n' +
-        '2026-11-21,FR-PAR-FOLKESTONE-08,45,43,2,360,3,Oui\n';
-    } else {
-      fileName = 'modele_import_pms_night_audit.csv';
-      csvContent =
-        'Date_Sejour,Taux_Occupation_OTB_Pct,Chambres_Occupees,Stock_Restant,ADR_Portefeuille_EUR,Pickup_24h_Nuits,Pickup_72h_Nuits,Pickup_7j_Nuits,Annulations_24h\n' +
-        '2026-11-18,80.0,36,9,268.50,5,11,18,0\n' +
-        '2026-11-19,86.7,39,6,282.00,4,9,16,1\n' +
-        '2026-11-20,91.1,41,4,295.40,6,14,22,0\n' +
-        '2026-11-21,95.5,43,2,315.00,3,8,15,0\n';
-    }
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    if (onShowToast) {
-      onShowToast(`Modèle Excel / CSV téléchargé : ${fileName}`);
-    }
-  };
-
-  // Simulate file upload and parsing
-  const handleFileDrop = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    const isExcelOrCsv =
-      file.name.endsWith('.xlsx') ||
-      file.name.endsWith('.xls') ||
-      file.name.endsWith('.csv');
-
-    if (!isExcelOrCsv) {
-      if (onShowToast) onShowToast('Veuillez déposer un fichier Excel (.xlsx, .xls) ou CSV (.csv)');
-      return;
-    }
-
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      let headers: string[] = [];
-      let rows: any[] = [];
-
-      if (selectedChannel === 'lighthouse') {
-        headers = ['Date', 'Concurrent', 'Étoiles', 'Chambre', 'Tarif BAR', 'Disponibilité', 'Canal'];
-        rows = [
-          ['2026-11-18', 'Hôtel Saint-Pétersbourg Opéra', '4★', 'Classique', '345€', 'Complet', 'Booking.com'],
-          ['2026-11-18', 'Hôtel Charing Cross', '4★', 'Supérieure', '310€', 'Disponible', 'Site Direct'],
-          ['2026-11-19', 'Hôtel Saint-Pétersbourg Opéra', '4★', 'Classique', '360€', 'Complet', 'Booking.com'],
-          ['2026-11-19', 'Hôtel Astra Opéra', '4★', 'Standard', '295€', 'Disponible', 'Expedia'],
-          ['2026-11-20', 'Hotel Indigo Paris-Opéra', '4★', 'Deluxe', '385€', 'Disponible', 'Site Direct'],
-        ];
-      } else if (selectedChannel === 'dedge') {
-        headers = ['Date', 'Hotel Code', 'Total Ch.', 'OTB Vendues', 'Stock Dispo', 'Tarif BAR', 'Min Stay'];
-        rows = [
-          ['2026-11-18', 'FR-PAR-FOLKESTONE-08', '45', '36 (80%)', '9 ch.', '285€', '2 nuits'],
-          ['2026-11-19', 'FR-PAR-FOLKESTONE-08', '45', '39 (87%)', '6 ch.', '320€', '2 nuits'],
-          ['2026-11-20', 'FR-PAR-FOLKESTONE-08', '45', '41 (91%)', '4 ch.', '340€', '3 nuits'],
-          ['2026-11-21', 'FR-PAR-FOLKESTONE-08', '45', '43 (96%)', '2 ch.', '360€', '3 nuits'],
-        ];
-      } else {
-        headers = ['Date Séjour', 'Occ. %', 'Ch. Louées', 'Stock Dispo', 'ADR Portefeuille', 'Pickup 24h', 'Pickup 7j'];
-        rows = [
-          ['2026-11-18', '80.0%', '36 ch.', '9 ch.', '268.50€', '+5 nuits', '+18 nuits'],
-          ['2026-11-19', '86.7%', '39 ch.', '6 ch.', '282.00€', '+4 nuits', '+16 nuits'],
-          ['2026-11-20', '91.1%', '41 ch.', '4 ch.', '295.40€', '+6 nuits', '+22 nuits'],
-          ['2026-11-21', '95.5%', '43 ch.', '2 ch.', '315.00€', '+3 nuits', '+15 nuits'],
-        ];
-      }
-
-      setSelectedFile({
-        name: file.name,
-        size: `${(file.size / 1024).toFixed(1)} Ko`,
-        rows,
-        headers,
-        sourceType: selectedChannel,
-      });
-
-      if (onShowToast) {
-        onShowToast(`Fichier "${file.name}" pré-analysé avec succès`);
-      }
-    }, 600);
-  };
-
-  const handleConfirmInjection = () => {
-    if (!selectedFile) return;
-
-    const newRec: UploadedDataRecord = {
-      id: `rec-${Date.now()}`,
-      sourceType: selectedFile.sourceType,
-      fileName: selectedFile.name,
-      uploadedAt: `${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
-      rowCount: selectedFile.rows.length * 15, // simulation of parsed rows
-      dateRange: '15/11/2026 — 31/12/2026',
-      status: 'synced',
-      fileSize: selectedFile.size,
+    const guidance: Record<ExcelSourceType, string> = {
+      lighthouse: "Utilisez l'export natif Lighthouse, avec les onglets Aperçu, Tarifs et les comparaisons vs. Hier / 3 jours / 7 jours. Les fichiers d'exemple synthétiques ont été retirés.",
+      dedge: "Le format D-EDGE sera validé à partir du premier export réel de réservations. Aucun modèle fictif n'est proposé.",
+      pms: "Utilisez l'export Topsys Planning original, onglet Planning, avec les dates en colonnes et les lignes Left for sale / Price (EUR).",
     };
-
-    setRecords((prev) => [newRec, ...prev]);
-
-    if (onDataImported) {
-      onDataImported(selectedFile.sourceType, newRec.rowCount);
-    }
-
-    if (onShowToast) {
-      onShowToast(
-        `Données ${selectedFile.sourceType.toUpperCase()} injectées avec succès (${newRec.rowCount} lignes synchronisées)`
-      );
-    }
-
-    setSelectedFile(null);
+    onShowToast?.(guidance[type]);
   };
 
-  const handleDeleteRecord = (id: string) => {
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-    if (onShowToast) onShowToast('Historique d’importation mis à jour');
+  const handleFileDrop = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const file = files[0];
+    const extension = file.name.toLowerCase().split('.').pop();
+    if (!['xlsx', 'xls', 'csv'].includes(extension || '')) {
+      setImportError('Veuillez sélectionner un fichier Excel (.xlsx, .xls) ou CSV (.csv).');
+      return;
+    }
+    setIsProcessing(true);
+    setImportError(null);
+    setSelectedFile(null);
+    try {
+      const buffer = await file.arrayBuffer();
+      if (selectedChannel === 'lighthouse') {
+        const parsed = parseLighthouseExcelFile(buffer, file.name, 'Europe/Paris');
+        const competitorNames = [...new Set(parsed.records.flatMap((record) => record.competitors.map((item) => item.name)))];
+        const headers = ['Date', 'Demande (/100)', 'Médiane Lighthouse', 'Folkestone Opéra', ...competitorNames];
+        const rows = parsed.records.slice(0, 5).map((record) => [
+          record.dateStr,
+          record.demandIndex === null ? '—' : record.demandIndex,
+          record.lighthouseMedianEur,
+          record.folkestone.rate ?? record.folkestone.statusLabel,
+          ...competitorNames.map((name) => {
+            const competitor = record.competitors.find((item) => item.name === name);
+            return competitor?.rate ?? competitor?.statusLabel ?? '—';
+          }),
+        ]);
+        const observationCount = parsed.records.reduce((sum, record) => sum + record.competitors.length, 0);
+        setSelectedFile({
+          name: file.name, size: formatFileSize(file.size), rows, headers, sourceType: selectedChannel,
+          rowCount: parsed.records.length,
+          previewSummary: parsed.records.length + ' dates · ' + competitorNames.length + ' concurrents · ' + observationCount + ' observations · demande renseignée ' + parsed.records.filter((record) => record.demandIndex !== null).length + '/' + parsed.records.length,
+          canImport: parsed.records.length > 0,
+          parsedLighthouse: parsed,
+        });
+      } else if (selectedChannel === 'pms') {
+        const parsed = parsePmsPlanningWorkbook(buffer, file.name, 'Europe/Paris');
+        const firstRoom = parsed.roomTypes[0];
+        const headers = ['Date', 'Typologie', 'Stock restant', 'Statut stock', 'Plans tarifaires'];
+        const rows = firstRoom.inventory.slice(0, 5).map((item) => [
+          item.stayDate, firstRoom.name, item.remainingSellableRooms ?? '—', item.status, firstRoom.ratePlans.length,
+        ]);
+        setSelectedFile({
+          name: file.name, size: formatFileSize(file.size), rows, headers, sourceType: selectedChannel,
+          rowCount: parsed.summary.inventoryCells + parsed.summary.rateCells,
+          previewSummary: parsed.summary.dates + ' dates · ' + parsed.summary.roomTypes + ' typologies · ' + parsed.summary.ratePlans + ' plans tarifaires · ' + parsed.summary.rateCells + ' cellules tarifaires',
+          canImport: false,
+          blockedReason: "L'analyse du planning est opérationnelle, mais l'écriture des tarifs par date et typologie attend la migration normalisée hotel_rate_plan_observations. Aucune donnée n'a été écrite.",
+          parsedPms: parsed,
+        });
+      } else {
+        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) throw new Error("Aucun onglet trouvé dans le fichier D-EDGE.");
+        const matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], { header: 1, defval: '' }) as unknown[][];
+        const headerIndex = matrix.findIndex((row) => row.filter((value) => String(value ?? '').trim() !== '').length >= 3);
+        if (headerIndex < 0) throw new Error("Aucune ligne d'en-tête exploitable dans le fichier D-EDGE.");
+        const headers = matrix[headerIndex].map((value) => String(value ?? '').trim());
+        const rows = matrix.slice(headerIndex + 1, headerIndex + 6).filter((row) => row.some((value) => String(value ?? '').trim() !== ''));
+        setSelectedFile({
+          name: file.name, size: formatFileSize(file.size), rows, headers, sourceType: selectedChannel,
+          rowCount: Math.max(0, matrix.length - headerIndex - 1),
+          previewSummary: 'Aperçu brut de ' + sheetName + ' · mapping métier non validé',
+          canImport: false,
+          blockedReason: "Le mapping D-EDGE n'est pas validé : le fichier est analysé en aperçu uniquement et aucune réservation n'est importée.",
+        });
+      }
+    } catch (error: any) {
+      setImportError(error?.message || "Le fichier n'a pas pu être analysé.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleConfirmInjection = async () => {
+    if (!selectedFile) return;
+    if (!selectedFile.canImport || !selectedFile.parsedLighthouse) {
+      setImportError(selectedFile.blockedReason || "Ce type de fichier n'est pas encore autorisé à écrire dans Supabase.");
+      return;
+    }
+    if (!supabase || !user || !hotel) {
+      setImportError("Connexion authentifiée et hôtel sélectionné requis pour importer.");
+      return;
+    }
+    setIsProcessing(true);
+    setImportError(null);
+    try {
+      const dbHotel = await resolveAccessibleRmsHotel(supabase, {
+        name: hotel.name, city: hotel.city, country: hotel.country,
+      });
+      const parsed = selectedFile.parsedLighthouse;
+      const persisted = await persistLighthouseExtraction(supabase, dbHotel, parsed, user.id);
+      await loadHistory();
+      onDataImported?.('lighthouse', persisted.observationsInserted);
+      onShowToast?.("Import Lighthouse enregistré : " + persisted.observationsInserted + " observations. " + persisted.unmatchedCompetitors.length + " concurrent(s) non rapproché(s).");
+      setSelectedFile(null);
+    } catch (error: any) {
+      setImportError(error?.message || "Échec de la persistance Lighthouse.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
