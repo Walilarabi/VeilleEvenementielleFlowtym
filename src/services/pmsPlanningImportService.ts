@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AccessibleHotel } from "./lighthouseImportService";
 
 export type PlanningCellStatus = "available" | "zero" | "unknown_marker" | "missing" | "invalid";
 
@@ -215,4 +217,292 @@ export function parsePmsPlanningWorkbook(
       rateInvalid,
     },
   };
+}
+
+
+export interface PmsPlanningPersistenceResult {
+  ingestionJobId: string;
+  inventoryRowsWritten: number;
+  rateObservationsWritten: number;
+  idempotent: boolean;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error("SHA-256 indisponible dans ce navigateur sécurisé.");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function persistPmsPlanningImport(
+  supabase: SupabaseClient,
+  hotel: AccessibleHotel,
+  dataset: PmsPlanningImport,
+  importedBy: string,
+  onProgress?: (progress: { phase: "catalog" | "inventory" | "rates" | "complete"; completed: number; total: number }) => void,
+): Promise<PmsPlanningPersistenceResult> {
+  if (dataset.sourceSystem !== "topsys" || dataset.roomTypes.length === 0) {
+    throw new Error("Le fichier n'est pas un planning Topsys valide.");
+  }
+
+  const uniquePlans = new Map<string, string>();
+  for (const room of dataset.roomTypes) {
+    for (const plan of room.ratePlans) {
+      const previousName = uniquePlans.get(plan.code);
+      if (previousName && previousName !== plan.name) {
+        throw new Error("Le code de plan tarifaire " + plan.code + " porte plusieurs libellés. Corrigez le mapping avant import.");
+      }
+      uniquePlans.set(plan.code, plan.name);
+    }
+  }
+
+  const sourceHash = await sha256Hex(JSON.stringify({
+    hotelId: hotel.id,
+    snapshotAt: dataset.snapshotAt,
+    dateRange: dataset.dateRange,
+    roomTypes: dataset.roomTypes,
+  }));
+  const idempotencyKey = "topsys:" + hotel.id + ":" + sourceHash;
+  const importTime = new Date().toISOString();
+  const recordsRead = dataset.summary.inventoryCells + dataset.summary.rateCells;
+  const jobMetadata = {
+    fileName: dataset.fileName,
+    sourceHash,
+    snapshotAt: dataset.snapshotAt,
+    timezone: dataset.timezone,
+    stayStart: dataset.dateRange.start,
+    stayEnd: dataset.dateRange.end,
+    roomTypeCount: dataset.summary.roomTypes,
+    ratePlanCount: dataset.summary.ratePlans,
+    inventoryCells: dataset.summary.inventoryCells,
+    rateCells: dataset.summary.rateCells,
+    inventoryUnknown: dataset.summary.inventoryUnknown,
+    rateUnknown: dataset.summary.rateUnknown,
+    rateMissing: dataset.summary.rateMissing,
+    rateInvalid: dataset.summary.rateInvalid,
+  };
+
+  const { data: existingJob, error: lookupError } = await supabase
+    .from("data_ingestion_jobs")
+    .select("id,status,metadata,records_written,started_at")
+    .eq("organization_id", hotel.organization_id)
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle();
+  if (lookupError) throw new Error("Vérification d'idempotence Topsys impossible : " + lookupError.message);
+
+  if (existingJob && existingJob.status === "completed") {
+    const meta = (existingJob.metadata ?? {}) as Record<string, unknown>;
+    return {
+      ingestionJobId: existingJob.id,
+      inventoryRowsWritten: Number(meta.inventoryRowsWritten ?? 0),
+      rateObservationsWritten: Number(meta.rateObservationsWritten ?? 0),
+      idempotent: true,
+    };
+  }
+  if (existingJob && (existingJob.status === "running" || existingJob.status === "queued")) {
+    const startedAt = existingJob.started_at ? new Date(existingJob.started_at).getTime() : 0;
+    if (startedAt && Date.now() - startedAt < 30 * 60 * 1000) {
+      throw new Error("Un import Topsys identique est déjà en cours. Attendez sa fin avant de relancer le fichier.");
+    }
+  }
+
+  let ingestionJobId: string;
+  if (existingJob) {
+    const { data: resumed, error: resumeError } = await supabase
+      .from("data_ingestion_jobs")
+      .update({
+        status: "running",
+        started_at: importTime,
+        finished_at: null,
+        records_read: recordsRead,
+        records_written: 0,
+        records_rejected: 0,
+        error_summary: null,
+        metadata: jobMetadata,
+      })
+      .eq("id", existingJob.id)
+      .select("id")
+      .single();
+    if (resumeError || !resumed) throw new Error("Relance du job Topsys impossible : " + (resumeError?.message ?? "réponse vide"));
+    ingestionJobId = resumed.id;
+  } else {
+    const { data: created, error: createError } = await supabase
+      .from("data_ingestion_jobs")
+      .insert({
+        organization_id: hotel.organization_id,
+        hotel_id: hotel.id,
+        source_system: "topsys",
+        job_type: "pms_planning_import",
+        status: "running",
+        idempotency_key: idempotencyKey,
+        started_at: importTime,
+        records_read: recordsRead,
+        records_written: 0,
+        records_rejected: 0,
+        created_by: importedBy,
+        metadata: jobMetadata,
+      })
+      .select("id")
+      .single();
+    if (createError || !created) throw new Error("Création du job Topsys impossible : " + (createError?.message ?? "réponse vide"));
+    ingestionJobId = created.id;
+  }
+
+  let inventoryRowsWritten = 0;
+  let rateObservationsWritten = 0;
+  try {
+    onProgress?.({ phase: "catalog", completed: 0, total: dataset.roomTypes.length + uniquePlans.size });
+    const roomTypeRows = dataset.roomTypes.map((room) => ({
+      organization_id: hotel.organization_id,
+      hotel_id: hotel.id,
+      code: room.code,
+      name: room.name,
+    }));
+    const { data: roomTypeData, error: roomTypeError } = await supabase
+      .from("hotel_room_types")
+      .upsert(roomTypeRows, { onConflict: "hotel_id,code" })
+      .select("id,code");
+    if (roomTypeError) throw new Error("Création des typologies Topsys impossible : " + roomTypeError.message);
+    const roomTypeIds = new Map((roomTypeData ?? []).map((row) => [row.code, row.id]));
+    if (roomTypeIds.size !== dataset.roomTypes.length) throw new Error("Certaines typologies n'ont pas pu être rapprochées après upsert.");
+
+    const ratePlanRows = [...uniquePlans.entries()].map(([code, name]) => ({
+      organization_id: hotel.organization_id,
+      hotel_id: hotel.id,
+      room_type_id: null,
+      code,
+      name,
+      currency: dataset.currency,
+    }));
+    const { data: ratePlanData, error: ratePlanError } = await supabase
+      .from("hotel_rate_plans")
+      .upsert(ratePlanRows, { onConflict: "hotel_id,code" })
+      .select("id,code");
+    if (ratePlanError) throw new Error("Création des plans tarifaires Topsys impossible : " + ratePlanError.message);
+    const ratePlanIds = new Map((ratePlanData ?? []).map((row) => [row.code, row.id]));
+    if (ratePlanIds.size !== uniquePlans.size) throw new Error("Certains plans tarifaires n'ont pas pu être rapprochés après upsert.");
+    onProgress?.({ phase: "catalog", completed: roomTypeIds.size + ratePlanIds.size, total: dataset.roomTypes.length + uniquePlans.size });
+
+    const inventoryRows = dataset.roomTypes.flatMap((room) => {
+      const roomTypeId = roomTypeIds.get(room.code);
+      if (!roomTypeId) throw new Error("Typologie sans identifiant Supabase : " + room.code);
+      return room.inventory.map((observation) => ({
+        organization_id: hotel.organization_id,
+        hotel_id: hotel.id,
+        room_type_id: roomTypeId,
+        stay_date: observation.stayDate,
+        snapshot_at: dataset.snapshotAt,
+        source_system: "topsys",
+        source_status: "imported",
+        total_rooms: null,
+        sellable_rooms: null,
+        rooms_sold: null,
+        rooms_available: observation.remainingSellableRooms,
+        out_of_order_rooms: null,
+        complimentary_rooms: null,
+        occupancy_pct: null,
+        current_bar: null,
+        currency: dataset.currency,
+        raw_payload: {
+          fileName: dataset.fileName,
+          sourceLabel: "Left for sale",
+          rawValue: observation.rawValue,
+          cellStatus: observation.status,
+          ingestionJobId,
+        },
+        ingestion_job_id: ingestionJobId,
+      }));
+    });
+
+    const inventoryBatchSize = 1000;
+    for (let offset = 0; offset < inventoryRows.length; offset += inventoryBatchSize) {
+      const batch = inventoryRows.slice(offset, offset + inventoryBatchSize);
+      const { error } = await supabase
+        .from("hotel_inventory_snapshots")
+        .upsert(batch, { onConflict: "hotel_id,room_type_id,stay_date,snapshot_at,source_system" });
+      if (error) throw new Error("Écriture des snapshots d'inventaire impossible : " + error.message);
+      inventoryRowsWritten += batch.length;
+      onProgress?.({ phase: "inventory", completed: inventoryRowsWritten, total: inventoryRows.length });
+    }
+
+    const rateRows = dataset.roomTypes.flatMap((room) => {
+      const roomTypeId = roomTypeIds.get(room.code);
+      if (!roomTypeId) throw new Error("Typologie sans identifiant Supabase : " + room.code);
+      return room.ratePlans.flatMap((plan) => {
+        const ratePlanId = ratePlanIds.get(plan.code);
+        if (!ratePlanId) throw new Error("Plan tarifaire sans identifiant Supabase : " + plan.code);
+        return plan.observations.map((observation) => ({
+          organization_id: hotel.organization_id,
+          hotel_id: hotel.id,
+          room_type_id: roomTypeId,
+          rate_plan_id: ratePlanId,
+          ingestion_job_id: ingestionJobId,
+          stay_date: observation.stayDate,
+          snapshot_at: dataset.snapshotAt,
+          source_system: "topsys",
+          source_status: "imported",
+          rate_amount: observation.rateAmount,
+          currency: dataset.currency,
+          availability_status: observation.status,
+          raw_payload: {
+            fileName: dataset.fileName,
+            ratePlanCode: plan.code,
+            ratePlanName: plan.name,
+            rawValue: observation.rawValue,
+            cellStatus: observation.status,
+          },
+        }));
+      });
+    });
+
+    const rateBatchSize = 2000;
+    for (let offset = 0; offset < rateRows.length; offset += rateBatchSize) {
+      const batch = rateRows.slice(offset, offset + rateBatchSize);
+      const { error } = await supabase
+        .from("hotel_rate_plan_observations")
+        .upsert(batch, { onConflict: "hotel_id,room_type_id,rate_plan_id,stay_date,snapshot_at,source_system" });
+      if (error) throw new Error("Écriture des observations tarifaires impossible : " + error.message);
+      rateObservationsWritten += batch.length;
+      onProgress?.({ phase: "rates", completed: rateObservationsWritten, total: rateRows.length });
+    }
+
+    const finishedAt = new Date().toISOString();
+    const completedMetadata = {
+      ...jobMetadata,
+      inventoryRowsWritten,
+      rateObservationsWritten,
+      totalRowsWritten: inventoryRowsWritten + rateObservationsWritten,
+    };
+    const { error: finishError } = await supabase
+      .from("data_ingestion_jobs")
+      .update({
+        status: "completed",
+        finished_at: finishedAt,
+        records_written: inventoryRowsWritten + rateObservationsWritten,
+        records_rejected: 0,
+        error_summary: null,
+        metadata: completedMetadata,
+      })
+      .eq("id", ingestionJobId);
+    if (finishError) throw new Error("Clôture du job Topsys impossible : " + finishError.message);
+
+    onProgress?.({ phase: "complete", completed: 1, total: 1 });
+    return { ingestionJobId, inventoryRowsWritten, rateObservationsWritten, idempotent: false };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "erreur inconnue";
+    const written = inventoryRowsWritten + rateObservationsWritten;
+    await supabase.from("data_ingestion_jobs").update({
+      status: written > 0 ? "partial" : "failed",
+      finished_at: new Date().toISOString(),
+      records_written: written,
+      records_rejected: 0,
+      error_summary: errorMessage,
+      metadata: {
+        ...jobMetadata,
+        inventoryRowsWritten,
+        rateObservationsWritten,
+        partialWrite: written > 0,
+      },
+    }).eq("id", ingestionJobId);
+    throw new Error("Import Topsys interrompu : " + errorMessage + (written > 0 ? " ; relancez le même fichier pour reprendre sans doublons." : ""));
+  }
 }
