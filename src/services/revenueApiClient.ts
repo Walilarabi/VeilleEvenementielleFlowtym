@@ -55,10 +55,24 @@ export const submitRevenueDecision = (
   supabase, `/hotels/${encodeURIComponent(hotelId)}/decisions`, { method: "POST", body: decision },
 );
 
+export type BaselineForecastRunResult = {
+  modelName: string;
+  modelVersion: string;
+  forecastRunId: string;
+  datesRequested: number;
+  datesForecast: number;
+  skippedForInsufficientHistory: number;
+};
+
 export const generateBaselineForecast = (supabase: SupabaseClient, hotelId: string, startDate: string, endDate: string) =>
-  revenueApiRequest<{ ok: true; forecastRunId: string; datesForecast: number; skippedForInsufficientHistory: number }>(
+  revenueApiRequest<{ ok: true; hotelId: string; asOf: string; models: BaselineForecastRunResult[]; forecastingIsBaselineOnly: true }>(
     supabase, `/hotels/${encodeURIComponent(hotelId)}/forecasts/baseline`,
     { method: "POST", body: { startDate, endDate } },
+  );
+
+export const getHotelForecasts = (supabase: SupabaseClient, hotelId: string, from: string, to: string) =>
+  revenueApiRequest<{ ok: true; hotelId: string; from: string; to: string; data: Record<string, unknown>[] }>(
+    supabase, `/hotels/${encodeURIComponent(hotelId)}/forecasts?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
   );
 
 export const getRecommendationsV2Status = (supabase: SupabaseClient, hotelId: string) =>
