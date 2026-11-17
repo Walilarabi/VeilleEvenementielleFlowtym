@@ -36,6 +36,7 @@ import { AddEventModal } from './components/modals/AddEventModal';
 import { ImportExcelModal } from './components/modals/ImportExcelModal';
 import { RefreshModal } from './components/modals/RefreshModal';
 import { ProposalsModal } from './components/proposals/ProposalsModal';
+import { FavoritesModal } from './components/modals/FavoritesModal';
 import { LoginPage } from './components/auth/LoginPage';
 import { MarketCalendarView } from './components/market/MarketCalendarView';
 import { SchoolHolidaysCalendarView } from './components/events/SchoolHolidaysCalendarView';
@@ -45,6 +46,7 @@ import { DemandForecastView } from './components/forecast/DemandForecastView';
 import { DateDetailModal } from './components/events/DateDetailModal';
 import { HotelConnectivityHub } from './components/connectivity/HotelConnectivityHub';
 import { RateIntelligenceView } from './components/pricing/RateIntelligenceView';
+import { RatePlanningView } from './components/pricing/RatePlanningView';
 import { RateOpportunityPushNotification } from './components/notifications/RateOpportunityPushNotification';
 import { PushOpportunityAlert } from './services/pushNotificationService';
 import { ReportsAndAutomationsHub } from './components/reports/ReportsAndAutomationsHub';
@@ -68,7 +70,11 @@ import { exportEventsToPDF } from './utils/pdfExport';
 import {
   filterEventsByDate,
   filterEventsByHotelGeography,
-  CURRENT_REFERENCE_DATE,
+  getTodayIsoDate,
+  addDaysIso,
+  isEventOngoing,
+  isEventUpcoming,
+  isEventPast,
 } from './utils/eventFilterUtils';
 import { getHotelRMSConfig } from './services/rmsSettingsService';
 
@@ -172,61 +178,67 @@ export default function App() {
   const [events, setEvents] = useState<EventItem[]>(() => generateFullMockEvents());
   const [configVersion, setConfigVersion] = useState(0);
 
-  // Proposals State (Score RM 30 à 59)
-  const [proposals, setProposals] = useState<EventProposal[]>([
-    {
-      id: 'prop-init-1',
-      title: 'Salon du Vélo Urbain & Mobilités Douces',
-      subtitle: 'Écomobilité & transition urbaine',
-      category: 'salons_foires',
-      city: 'Paris',
-      venueName: 'Porte de Versailles',
-      startDate: '2026-11-27',
-      endDate: '2026-11-29',
-      expectedAttendance: 19000,
-      score: 48,
-      status: 'pending',
-      detectedSource: 'Fédération des Usagers de la Bicyclette (FUB)',
-      impactLevel: 'modere',
-    },
-    {
-      id: 'prop-init-2',
-      title: 'Championnat d’Europe d’Escrime Junior',
-      subtitle: 'Escrime épée & fleuret',
-      category: 'sport',
-      city: 'Paris',
-      venueName: 'Halle Carpentier',
-      startDate: '2026-12-04',
-      endDate: '2026-12-06',
-      expectedAttendance: 8500,
-      score: 36,
-      status: 'pending',
-      detectedSource: 'Fédération Française d’Escrime',
-      impactLevel: 'modere',
-    },
-  ]);
+  // Proposals State (Score RM 30 à 59) — dates ancrées dynamiquement >= aujourd'hui
+  const [proposals, setProposals] = useState<EventProposal[]>(() => {
+    const today = getTodayIsoDate();
+    return [
+      {
+        id: 'prop-init-1',
+        title: 'Salon du Vélo Urbain & Mobilités Douces',
+        subtitle: 'Écomobilité & transition urbaine',
+        category: 'salons_foires',
+        city: 'Paris',
+        venueName: 'Porte de Versailles',
+        startDate: addDaysIso(today, 11),
+        endDate: addDaysIso(today, 13),
+        expectedAttendance: 19000,
+        score: 48,
+        status: 'pending',
+        detectedSource: 'Fédération des Usagers de la Bicyclette (FUB)',
+        impactLevel: 'modere',
+      },
+      {
+        id: 'prop-init-2',
+        title: 'Championnat d’Europe d’Escrime Junior',
+        subtitle: 'Escrime épée & fleuret',
+        category: 'sport',
+        city: 'Paris',
+        venueName: 'Halle Carpentier',
+        startDate: addDaysIso(today, 18),
+        endDate: addDaysIso(today, 20),
+        expectedAttendance: 8500,
+        score: 36,
+        status: 'pending',
+        detectedSource: 'Fédération Française d’Escrime',
+        impactLevel: 'modere',
+      },
+    ];
+  });
 
   // View switch: 'calendar' vs 'table' (default to 'table' so Table View is immediately active)
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
   const [calendarSubTab, setCalendarSubTab] = useState<CalendarSubTabMode>('table');
   const [selectedDateForModal, setSelectedDateForModal] = useState<string | null>(null);
 
-  // Filter state (Initialized on current real date: 12/11/2026 -> November 2026, 0-indexed 10)
-  const [filterState, setFilterState] = useState<FilterState>({
-    search: '',
-    periodTab: 'all',
-    impact: 'all',
-    category: 'all',
-    city: 'all',
-    status: 'all',
-    recurrenceOnly: false,
-    rmsPrioritiesOnly: false,
-    anomaliesOnly: false,
-    watchlistOnly: false,
-    showSchoolHolidays: true,
-    selectedHotelId: 'hotel-opera',
-    currentYear: 2026,
-    currentMonth: 10, // Novembre 2026 (0-indexed 10)
+  // Filter state (Initialized dynamically on current real local date)
+  const [filterState, setFilterState] = useState<FilterState>(() => {
+    const now = new Date();
+    return {
+      search: '',
+      periodTab: 'all',
+      impact: 'all',
+      category: 'all',
+      city: 'all',
+      status: 'all',
+      recurrenceOnly: false,
+      rmsPrioritiesOnly: false,
+      anomaliesOnly: false,
+      watchlistOnly: false,
+      showSchoolHolidays: true,
+      selectedHotelId: 'hotel-opera',
+      currentYear: now.getFullYear(),
+      currentMonth: now.getMonth(),
+    };
   });
 
   // Collapsible advanced filters (open by default like the screenshot)
@@ -235,10 +247,11 @@ export default function App() {
   // Modals & Drawers
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [addEventDefaultDate, setAddEventDefaultDate] = useState<string>(CURRENT_REFERENCE_DATE);
+  const [addEventDefaultDate, setAddEventDefaultDate] = useState<string>(() => getTodayIsoDate());
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isRefreshModalOpen, setIsRefreshModalOpen] = useState(false);
   const [isProposalsModalOpen, setIsProposalsModalOpen] = useState(false);
+  const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
 
   // Toast notification feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -254,6 +267,7 @@ export default function App() {
   };
 
   const handleResetFilters = () => {
+    const now = new Date();
     setFilterState((prev) => ({
       ...prev,
       search: '',
@@ -266,8 +280,10 @@ export default function App() {
       rmsPrioritiesOnly: false,
       anomaliesOnly: false,
       watchlistOnly: false,
+      currentYear: now.getFullYear(),
+      currentMonth: now.getMonth(),
     }));
-    showToast('Filtres réinitialisés');
+    showToast('Filtres réinitialisés à la date du jour');
   };
 
   // Current Hotel selection & persisted RMS configuration
@@ -318,6 +334,7 @@ export default function App() {
 
   // Filtered & Chronologically Sorted Events Calculation (Centralized via filterEventsByDate)
   const filteredEvents = useMemo(() => {
+    const todayStr = getTodayIsoDate();
     const attributeFiltered = geoFilteredEvents.filter((ev) => {
       // Search
       if (filterState.search.trim()) {
@@ -354,13 +371,19 @@ export default function App() {
       if (filterState.anomaliesOnly && !ev.isAnomaly) return false;
       if (filterState.watchlistOnly && !ev.isWatchlist) return false;
 
+      // Period tab strict filtering
+      if (filterState.periodTab === 'ongoing' && !isEventOngoing(ev, todayStr)) return false;
+      if (filterState.periodTab === 'upcoming' && !isEventUpcoming(ev, todayStr)) return false;
+      if (filterState.periodTab === 'past' && !isEventPast(ev, todayStr)) return false;
+
       return true;
     });
 
     return filterEventsByDate(attributeFiltered, {
-      referenceDate: CURRENT_REFERENCE_DATE,
+      referenceDate: todayStr,
       selectedYear: filterState.currentYear,
       selectedMonth: filterState.currentMonth,
+      includePastInCurrentMonth: filterState.periodTab === 'past',
     });
   }, [geoFilteredEvents, filterState]);
 
@@ -426,7 +449,7 @@ export default function App() {
       hotel: currentHotel,
       viewMode,
       filterState,
-      referenceDate: CURRENT_REFERENCE_DATE,
+      referenceDate: getTodayIsoDate(),
     });
     setTimeout(() => {
       showToast('Rapport PDF téléchargé avec succès');
@@ -434,6 +457,7 @@ export default function App() {
   };
 
   const handleDownloadTemplate = () => {
+    const todayStr = getTodayIsoDate();
     const sampleEvent: EventItem = {
       id: 'template-sample',
       title: 'Exemple Modèle Salon',
@@ -442,8 +466,8 @@ export default function App() {
       venueName: 'Paris Expo Porte de Versailles',
       city: 'Paris',
       country: 'France',
-      startDate: '2026-11-01',
-      endDate: '2026-11-04',
+      startDate: addDaysIso(todayStr, 5),
+      endDate: addDaysIso(todayStr, 8),
       expectedAttendance: 50000,
       internationalRatioPercent: 40,
       status: 'confirmed',
@@ -461,8 +485,8 @@ export default function App() {
       evidences: [],
       hotelImpacts: {},
       isRecurring: true,
-      createdAt: '2026-10-31',
-      lastVerifiedAt: '2026-10-31',
+      createdAt: todayStr,
+      lastVerifiedAt: todayStr,
     };
     exportEventsToCSV([sampleEvent], 'modele_import_flowtym.csv');
     showToast('Modèle de fichier CSV téléchargé');
@@ -575,6 +599,11 @@ export default function App() {
   const pendingSuggestionsCount = suggestions.filter((s) => s.status === 'pending').length;
   const pendingProposalsCount = proposals.filter((p) => p.status === 'pending').length;
 
+  const favoriteEvents = useMemo(
+    () => allEventsWithHolidays.filter((ev) => Boolean(ev.isFavorite)),
+    [allEventsWithHolidays]
+  );
+
   // If user is not authenticated, render Login Page!
   if (!user) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
@@ -604,6 +633,8 @@ export default function App() {
         onOpenShortcutsHelp={() => setIsShortcutsHelpOpen(true)}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
+        favoriteCount={favoriteEvents.length}
+        onOpenFavorites={() => setIsFavoritesModalOpen(true)}
       />
 
       {/* Sub-header Banner Session Demo */}
@@ -759,6 +790,22 @@ export default function App() {
                       onSelectEvent={setSelectedEvent}
                       onToggleFavorite={handleToggleFavorite}
                       onExportPDF={handleExportPDF}
+                      currentYear={filterState.currentYear}
+                      currentMonth={filterState.currentMonth}
+                      filterKey={[
+                        filterState.selectedHotelId,
+                        filterState.periodTab,
+                        filterState.impact,
+                        filterState.category,
+                        filterState.city,
+                        filterState.status,
+                        filterState.search,
+                        filterState.recurrenceOnly,
+                        filterState.rmsPrioritiesOnly,
+                        filterState.anomaliesOnly,
+                        filterState.watchlistOnly,
+                        filterState.showSchoolHolidays,
+                      ].join('|')}
                     />
                   )}
                 </>
@@ -832,7 +879,18 @@ export default function App() {
               configVersion={configVersion}
               onSelectEvent={setSelectedEvent}
               onGoToExcelUpload={() => setActiveTab('sources')}
+              onNavigateToPlanning={() => setActiveTab('planning')}
               onShowToast={showToast}
+            />
+          )}
+
+          {/* TAB: PLANNING TARIFAIRE CONNECTÉ & BIDIRECTIONNEL */}
+          {activeTab === 'planning' && (
+            <RatePlanningView
+              hotel={currentHotel}
+              configVersion={configVersion}
+              onShowToast={showToast}
+              onOpenConnectivitySettings={() => setActiveTab('settings')}
             />
           )}
 
@@ -888,6 +946,7 @@ export default function App() {
             <HotelConnectivityHub
               hotel={currentHotel}
               onNavigateToPricing={() => setActiveTab('pricing')}
+              onNavigateToPlanning={() => setActiveTab('planning')}
               onShowToast={showToast}
             />
           )}
@@ -899,6 +958,7 @@ export default function App() {
               events={geoFilteredEvents}
               onSelectEvent={setSelectedEvent}
               onGoToMarket={() => setActiveTab('market')}
+              onShowToast={showToast}
             />
           )}
 
@@ -973,6 +1033,24 @@ export default function App() {
         onAcceptProposal={handleAcceptProposal}
         onRefuseProposal={handleRefuseProposal}
         onRestoreProposal={handleRestoreProposal}
+      />
+
+      {/* Modal: Favoris Multi-Hôtels (Global State) */}
+      <FavoritesModal
+        isOpen={isFavoritesModalOpen}
+        onClose={() => setIsFavoritesModalOpen(false)}
+        favoriteEvents={favoriteEvents}
+        hotels={hotels}
+        selectedHotelId={filterState.selectedHotelId}
+        onSelectEvent={setSelectedEvent}
+        onToggleFavorite={handleToggleFavorite}
+        onSelectHotel={(hotelId) => {
+          handleFilterChange({ selectedHotelId: hotelId, city: 'all' });
+          const targetHotel = hotels.find((h) => h.id === hotelId);
+          if (targetHotel) {
+            showToast(`Portefeuille basculé sur ${targetHotel.name}`);
+          }
+        }}
       />
 
       {/* Modal: Date Detail & Compset Rate Benchmark */}

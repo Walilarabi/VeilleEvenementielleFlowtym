@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   TrendingUp,
   AlertTriangle,
@@ -16,11 +16,15 @@ import {
   GraduationCap,
   Radar,
   SlidersHorizontal,
+  BarChart3,
+  LayoutDashboard,
 } from 'lucide-react';
 import { EventItem, EventSuggestion, Hotel } from '../../types';
 import { formatEventDateRange, getCategoryLabel, getImpactColorClasses } from '../../utils/helpers';
 import { getHotelRoomTypology } from '../../data/hotelRoomTypologies';
+import { getTodayIsoDate, addDaysIso, getEffectiveEndDate } from '../../utils/eventFilterUtils';
 import { D3RadarChart } from './D3RadarChart';
+import { RevPARImpactView } from './RevPARImpactView';
 
 interface FlowboardViewProps {
   events: EventItem[];
@@ -52,54 +56,173 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
   const currentHotel = hotels.find((h) => h.id === selectedHotelId) || hotels[0];
   const typology = getHotelRoomTypology(currentHotel.id);
 
-  // Top priorities: score >= 75
-  const priorityEvents = [...events]
-    .filter((e) => e.scoreBreakdown.finalRMScore >= 70)
-    .sort((a, b) => b.scoreBreakdown.finalRMScore - a.scoreBreakdown.finalRMScore)
-    .slice(0, 5);
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+
+  // Top priorities: score >= 70 & >= todayStr (aucun événement passé par défaut)
+  const priorityEvents = useMemo(
+    () =>
+      [...events]
+        .filter((e) => getEffectiveEndDate(e) >= todayStr && e.scoreBreakdown.finalRMScore >= 70)
+        .sort((a, b) => b.scoreBreakdown.finalRMScore - a.scoreBreakdown.finalRMScore)
+        .slice(0, 5),
+    [events, todayStr]
+  );
+
+  const upcomingEventsPool = useMemo(
+    () =>
+      [...events]
+        .filter((e) => getEffectiveEndDate(e) >= todayStr)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate)),
+    [events, todayStr]
+  );
+
+  const horizonPeriodLabel = useMemo(() => {
+    const startDt = new Date(`${todayStr}T00:00:00`);
+    const endDt = new Date(`${addDaysIso(todayStr, 60)}T00:00:00`);
+    const fmt = (dt: Date) =>
+      dt.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    const startLabel = fmt(startDt);
+    const endLabel = fmt(endDt);
+    return startLabel === endLabel ? startLabel : `${startLabel} — ${endLabel}`;
+  }, [todayStr]);
+
+  const formatShortDate = (iso: string) => {
+    const dt = new Date(`${iso}T00:00:00`);
+    return dt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const nextHolidayWindow = useMemo(
+    () =>
+      upcomingEventsPool.find((e) => e.category === 'vacances_scolaires') ||
+      upcomingEventsPool[0],
+    [upcomingEventsPool]
+  );
+
+  const pickupLeadEvent1 = priorityEvents[0] || upcomingEventsPool[0];
+  const pickupLeadEvent2 = priorityEvents[1] || upcomingEventsPool[1];
+  const pickupDate1 = pickupLeadEvent1?.startDate || addDaysIso(todayStr, 2);
+  const pickupDate2 = pickupLeadEvent2?.startDate || addDaysIso(todayStr, 10);
+
+  const [activeSubView, setActiveSubView] = useState<'executive' | 'revpar_impact'>('executive');
 
   const [selectedRadarEventId, setSelectedRadarEventId] = useState<string>(
-    priorityEvents[0]?.id || events[0]?.id || ''
+    priorityEvents[0]?.id || upcomingEventsPool[0]?.id || ''
   );
 
   const selectedRadarEvent =
-    events.find((e) => e.id === selectedRadarEventId) || priorityEvents[0] || events[0];
+    events.find((e) => e.id === selectedRadarEventId && getEffectiveEndDate(e) >= todayStr) ||
+    priorityEvents[0] ||
+    upcomingEventsPool[0] ||
+    events[0];
 
   // Pending suggestions
   const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
 
   return (
     <div className="space-y-6">
-      {/* Executive Welcome & Yield Advisory Banner */}
-      <div className="bg-gradient-to-r from-violet-900 to-indigo-900 rounded-2xl p-6 text-white shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full text-xs font-semibold text-violet-200">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>Synthèse Revenue Management · Octobre — Décembre 2026</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Forte compression identifiée sur le marché parisien & lyonnais
-          </h2>
-          <p className="text-xs sm:text-sm text-violet-200/90 max-w-2xl leading-relaxed">
-            Le chevauchement du <strong>Mondial de l&apos;Automobile</strong> (490k pax) et du <strong>SIAL Paris</strong> (285k pax) en semaine 42 requiert un verrouillage immédiat des tarifs de groupe et l&apos;application d&apos;un minimum stay de 3 nuits sur votre portefeuille.
-          </p>
+      {/* Flowboard Sub-View Switcher Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3">
+        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 min-w-0">
+          <Building2 className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
+          <span className="font-bold text-slate-900 dark:text-slate-100 truncate">
+            {currentHotel.name}
+          </span>
+          <span className="text-slate-300 dark:text-slate-600">·</span>
+          <span className="truncate">{currentHotel.city}</span>
+          <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">·</span>
+          <span className="hidden sm:inline tabular-nums">
+            {currentHotel.roomCount} ch. · {priorityEvents.length} événements majeurs (&ge; 70)
+          </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
+        <div
+          role="tablist"
+          aria-label="Vues du dashboard Flowboard"
+          className="inline-flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 self-start sm:self-auto shrink-0"
+        >
           <button
-            onClick={onGoToCalendar}
-            className="px-4 py-2 text-xs font-bold bg-white dark:bg-slate-900 text-violet-950 dark:text-violet-100 hover:bg-violet-50 dark:hover:bg-violet-950/50 rounded-xl transition-all shadow-xs"
+            role="tab"
+            aria-selected={activeSubView === 'executive'}
+            onClick={() => setActiveSubView('executive')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              activeSubView === 'executive'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
           >
-            Ouvrir le calendrier d&apos;impact
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>Vue Exécutive</span>
           </button>
           <button
-            onClick={onGoToExplorer}
-            className="px-4 py-2 text-xs font-bold bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/20 transition-all"
+            role="tab"
+            aria-selected={activeSubView === 'revpar_impact'}
+            onClick={() => setActiveSubView('revpar_impact')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              activeSubView === 'revpar_impact'
+                ? 'bg-violet-600 text-white shadow-2xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
           >
-            Lancer une recherche ciblée
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>RevPAR Impact</span>
           </button>
         </div>
       </div>
+
+      {activeSubView === 'revpar_impact' ? (
+        <RevPARImpactView
+          events={events}
+          hotel={currentHotel}
+          onSelectEvent={onSelectEvent}
+        />
+      ) : (
+        <>
+          {/* Executive Welcome & Yield Advisory Banner */}
+          <div className="bg-gradient-to-r from-violet-900 to-indigo-900 rounded-2xl p-6 text-white shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full text-xs font-semibold text-violet-200">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span className="capitalize">Synthèse Revenue Management · {horizonPeriodLabel}</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
+                Forte compression identifiée sur le marché ({currentHotel.city})
+              </h2>
+              <p className="text-xs sm:text-sm text-violet-200/90 max-w-2xl leading-relaxed">
+                {priorityEvents.length >= 2 ? (
+                  <>
+                    Les échéances à fort impact <strong>{priorityEvents[0].title}</strong> ({formatShortDate(priorityEvents[0].startDate)}) et{' '}
+                    <strong>{priorityEvents[1].title}</strong> ({formatShortDate(priorityEvents[1].startDate)}) requièrent un verrouillage rapide des tarifs de groupe et l&apos;application d&apos;un minimum stay adapté.
+                  </>
+                ) : (
+                  <>
+                    Suivi des pics de compression à partir d&apos;aujourd&apos;hui ({formatShortDate(todayStr)}) pour optimiser les tarifs BAR et les restrictions de durée de séjour.
+                  </>
+                )}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <button
+                onClick={() => setActiveSubView('revpar_impact')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-white dark:bg-slate-900 text-violet-950 dark:text-violet-100 hover:bg-violet-50 dark:hover:bg-violet-950/50 rounded-xl transition-all shadow-xs whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <BarChart3 className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                <span>Analyse RevPAR Impact</span>
+              </button>
+              <button
+                onClick={onGoToCalendar}
+                className="px-4 py-2 text-xs font-bold bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/20 transition-all whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                Ouvrir le calendrier d&apos;impact
+              </button>
+              <button
+                onClick={onGoToExplorer}
+                className="px-4 py-2 text-xs font-bold bg-white/10 hover:bg-white/20 text-white rounded-xl border border-white/20 transition-all whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                Lancer une recherche ciblée
+              </button>
+            </div>
+          </div>
 
       {/* School Holidays Executive Alert & Room Typology Insight */}
       <div className="bg-gradient-to-r from-indigo-50 dark:from-indigo-950/50 via-purple-50/60 dark:via-purple-950/30 to-white dark:to-slate-900 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/70 p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -110,17 +233,20 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-indigo-950 dark:text-indigo-100">
-                Veille Vacances Scolaires & Overlaps Multi-Pays 2026
+                Veille Vacances Scolaires & Overlaps Multi-Pays {new Date(`${todayStr}T00:00:00`).getFullYear()}
               </span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/70">
-                Score Impact: 82/100 · Fort
+                Score Impact: {nextHolidayWindow?.scoreBreakdown.finalRMScore ?? 82}/100 · Fort
               </span>
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-100/80 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/70">
                 {typology.familyCapacityPercentage}% capacité famille ({typology.familyCapacityRooms} ch. sur {typology.totalRooms})
               </span>
             </div>
             <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-              <strong>Grand Hôtel Folkestone Opéra :</strong> Conjonction exceptionnelle <strong>Pâques / Printemps</strong> du 06 au 26 avril 2026 (France Zones A/B/C, Royaume-Uni, Belgique et Pays-Bas simultanés). Protection recommandée des 8 Triples et 4 Quadruples avec un minimum stay de 2 nuits.
+              <strong>{currentHotel.name} :</strong>{' '}
+              {nextHolidayWindow
+                ? `Prochaine fenêtre clé : ${nextHolidayWindow.title} (${formatEventDateRange(nextHolidayWindow.startDate, nextHolidayWindow.endDate)}). Protection recommandée des chambres familiales avec un minimum stay de 2 nuits.`
+                : `Surveillance active des vacances scolaires à partir du ${formatShortDate(todayStr)} sur l’ensemble des zones européennes.`}
             </p>
           </div>
         </div>
@@ -169,7 +295,9 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
           <div className="space-y-2 text-xs">
             <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800/70 flex items-center justify-between">
               <div>
-                <span className="font-bold text-slate-900 dark:text-slate-100">18 nov. 2026 (Semaine Salon des Maires)</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">
+                  {formatShortDate(pickupDate1)} ({pickupLeadEvent1?.title || 'Pic de demande à venir'})
+                </span>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400">Stock restant : 9 ch. (OTB 80%)</div>
               </div>
               <div className="text-right">
@@ -180,7 +308,9 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
 
             <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800/70 flex items-center justify-between">
               <div>
-                <span className="font-bold text-slate-900 dark:text-slate-100">03 déc. 2026 (Congrès Médical)</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">
+                  {formatShortDate(pickupDate2)} ({pickupLeadEvent2?.title || 'Échéance majeure'})
+                </span>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400">Stock restant : 11 ch. (OTB 76%)</div>
               </div>
               <div className="text-right">
@@ -212,7 +342,9 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
             <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800/70 flex items-center justify-between">
               <div>
                 <span className="font-bold text-slate-900 dark:text-slate-100">Hôtel Saint-Pétersbourg Opéra</span>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400">18-20 nov. : Relevé à 345€ (+25%)</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                  {formatShortDate(pickupDate1)} : Relevé à 345€ (+25%)
+                </div>
               </div>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/70">
                 SOLD-OUT J-2
@@ -222,7 +354,9 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
             <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800/70 flex items-center justify-between">
               <div>
                 <span className="font-bold text-slate-900 dark:text-slate-100">Hôtel Charing Cross & Astra</span>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400">Hausse tarifaire coordonnée de +22€ sur la semaine 47</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Hausse tarifaire coordonnée de +22€ à partir du {formatShortDate(todayStr)}
+                </div>
               </div>
               <span className="text-xs font-bold text-slate-900 dark:text-slate-100">Moy. 315€</span>
             </div>
@@ -491,6 +625,8 @@ export const FlowboardView: React.FC<FlowboardViewProps> = ({
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

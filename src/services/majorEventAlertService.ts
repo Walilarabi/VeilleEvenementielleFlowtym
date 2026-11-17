@@ -7,7 +7,7 @@
 
 import { EventItem } from '../types';
 import {
-  CURRENT_REFERENCE_DATE,
+  getTodayIsoDate,
   sortEventsChronologically,
   getEventChronologicalStatus,
 } from '../utils/eventFilterUtils';
@@ -72,7 +72,7 @@ export function getMajorEventAlertConfig(): MajorEventEmailAlertConfig {
     includeOngoing: true,
     horizonDays: 60,
     includeYieldRecommendations: true,
-    lastSentAt: '2026-11-12 07:30:05',
+    lastSentAt: `${getTodayIsoDate()} 07:30:05`,
   };
 }
 
@@ -98,7 +98,7 @@ export function getMajorEventAlertLogs(): MajorEventEmailAlertLog[] {
   return [
     {
       id: 'alert-log-init-1',
-      sentAt: '2026-11-12 07:30:05',
+      sentAt: `${getTodayIsoDate()} 07:30:05`,
       recipients: ['WaliLarabi@gmail.com'],
       eventsCount: 4,
       minScore: 70,
@@ -127,7 +127,7 @@ export function appendMajorEventAlertLog(log: MajorEventEmailAlertLog): MajorEve
 export function getQualifyingMajorEvents(
   events: EventItem[],
   config: MajorEventEmailAlertConfig,
-  refDate: string = CURRENT_REFERENCE_DATE
+  refDate: string = getTodayIsoDate()
 ): EventItem[] {
   const refTime = new Date(refDate).getTime();
   const maxHorizonTime = refTime + config.horizonDays * 24 * 60 * 60 * 1000;
@@ -152,7 +152,7 @@ export function buildMajorEventAlertEmailPreview(
   config: MajorEventEmailAlertConfig,
   events: EventItem[],
   hotelName: string,
-  refDate: string = CURRENT_REFERENCE_DATE
+  refDate: string = getTodayIsoDate()
 ): { subject: string; bodyText: string; qualifyingEvents: EventItem[] } {
   const qualifyingEvents = getQualifyingMajorEvents(events, config, refDate);
   const subject = `[Flowtym RM] Alerte Quotidienne : ${qualifyingEvents.length} événement(s) majeur(s) (Score > ${config.minScore}) · ${hotelName}`;

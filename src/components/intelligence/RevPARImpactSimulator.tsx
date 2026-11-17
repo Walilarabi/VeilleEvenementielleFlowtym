@@ -32,6 +32,7 @@ import {
 } from 'recharts';
 import { EventItem, Hotel } from '../../types';
 import { formatEventDateRange, getImpactColorClasses } from '../../utils/helpers';
+import { getEffectiveEndDate, getTodayIsoDate } from '../../utils/eventFilterUtils';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface RevPARImpactSimulatorProps {
@@ -71,16 +72,27 @@ export const RevPARImpactSimulator: React.FC<RevPARImpactSimulatorProps> = ({
   // Baseline Occupancy Rate (TO de base hors événement)
   const [baseOccupancy, setBaseOccupancy] = useState<number>(70);
 
+  // Date de début dynamique (aujourd'hui par défaut, aucune donnée passée)
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+  const [startDateFilter, setStartDateFilter] = useState<string>(() => getTodayIsoDate());
+  const [includePastEvents, setIncludePastEvents] = useState<boolean>(false);
+
   // Filter high-impact events relevant for this hotel
   const highImpactEvents = useMemo(() => {
+    const effectiveMin = includePastEvents
+      ? startDateFilter
+      : startDateFilter > todayStr
+      ? startDateFilter
+      : todayStr;
     return events
       .filter((e) => {
+        const isNotPast = !effectiveMin || getEffectiveEndDate(e) >= effectiveMin;
         const isCityMatch = !currentHotel.city || e.city.toLowerCase() === currentHotel.city.toLowerCase();
         const isHighImpact = e.impactLevel === 'hyper' || e.impactLevel === 'critique' || e.scoreBreakdown.finalRMScore >= 60;
-        return isCityMatch && isHighImpact;
+        return isNotPast && isCityMatch && isHighImpact;
       })
       .sort((a, b) => b.scoreBreakdown.finalRMScore - a.scoreBreakdown.finalRMScore);
-  }, [events, currentHotel]);
+  }, [events, currentHotel, todayStr, startDateFilter, includePastEvents]);
 
   // Selected events IDs (defaults to top 5 high-impact events)
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>(() => {
@@ -298,6 +310,48 @@ export const RevPARImpactSimulator: React.FC<RevPARImpactSimulatorProps> = ({
                   ))}
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Date filter */}
+            <div>
+              <label htmlFor="revpar-start-date" className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                À partir du :
+              </label>
+              <div className="flex items-center gap-1.5">
+                <input
+                  id="revpar-start-date"
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (!next) return;
+                    setStartDateFilter(next);
+                    if (next < todayStr) setIncludePastEvents(true);
+                  }}
+                  className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                />
+                <label className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 cursor-pointer px-2 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={includePastEvents}
+                    onChange={(e) => setIncludePastEvents(e.target.checked)}
+                    className="rounded accent-violet-600"
+                  />
+                  <span>Passés</span>
+                </label>
+                {(startDateFilter !== todayStr || includePastEvents) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartDateFilter(todayStr);
+                      setIncludePastEvents(false);
+                    }}
+                    className="px-2 py-1.5 text-[11px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 rounded-xl hover:bg-violet-100 cursor-pointer"
+                  >
+                    Aujourd&apos;hui
+                  </button>
+                )}
               </div>
             </div>
 

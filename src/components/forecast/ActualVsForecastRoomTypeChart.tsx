@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { Hotel } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
+import { addDaysIso, getTodayIsoDate } from '../../utils/eventFilterUtils';
 
 export interface RoomTypeConfig {
   id: string;
@@ -70,7 +71,9 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
   // Metric selector: 'rooms' (Nuitées), 'occupancy' (TO %), 'revenue' (CA €)
   const [metricMode, setMetricMode] = useState<'rooms' | 'occupancy' | 'revenue'>('rooms');
   
-  // Horizon selector: 7, 14, 30, 60 days
+  // Horizon selector: 7, 14, 30, 60 days + dynamic start date (today by default)
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+  const [startDateStr, setStartDateStr] = useState<string>(() => getTodayIsoDate());
   const [dayRange, setDayRange] = useState<number>(30);
 
   // Toggle room type
@@ -98,16 +101,19 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
     return selectedTypes.reduce((sum, t) => sum + t.totalRooms, 0);
   }, [selectedTypes]);
 
-  // Generate date series starting from today (2026-11-04)
+  // Generate date series starting dynamically from today (or user-selected start date)
   const chartData = useMemo(() => {
-    const startDate = new Date(2026, 10, 4); // Nov 4, 2026
+    const startDate = new Date(`${startDateStr}T00:00:00`);
+    const evt1Start = addDaysIso(todayStr, 4);
+    const evt1End = addDaysIso(todayStr, 6);
+    const evt2Start = addDaysIso(todayStr, 15);
+    const evt2End = addDaysIso(todayStr, 17);
     const data = [];
 
     // Realistic day-by-day modeling with weekend peaks and major events
     for (let i = 0; i < dayRange; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = addDaysIso(startDateStr, i);
+      const d = new Date(`${dateStr}T00:00:00`);
       const dayOfWeekNum = d.getDay();
       const isWeekend = dayOfWeekNum === 5 || dayOfWeekNum === 6; // Friday, Saturday
 
@@ -117,16 +123,17 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
       // Events detection
       let eventTitle = '';
       let compressionBonus = 0;
-      if (dateStr >= '2026-11-18' && dateStr <= '2026-11-20') {
+      if (dateStr >= evt1Start && dateStr <= evt1End) {
         eventTitle = 'Salon des Maires';
         compressionBonus = 0.22;
-      } else if (dateStr >= '2026-12-02' && dateStr <= '2026-12-04') {
+      } else if (dateStr >= evt2Start && dateStr <= evt2End) {
         eventTitle = 'Congrès Médical';
         compressionBonus = 0.25;
-      } else if (dateStr === '2026-12-31') {
+      } else if (dateStr.endsWith('-12-31')) {
         eventTitle = 'Réveillon Saint-Sylvestre';
         compressionBonus = 0.35;
       }
+      void startDate;
 
       // Base occupancy curve (higher near term, dips mid-week, spikes on events)
       const proximityDecay = Math.max(0.45, 1 - i * 0.015);
@@ -185,7 +192,7 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
     }
 
     return data;
-  }, [dayRange, selectedTypes, selectedCapacity]);
+  }, [dayRange, selectedTypes, selectedCapacity, startDateStr, todayStr]);
 
   // Totals for top cards
   const totalActualRooms = chartData.reduce((s, d) => s + d.actualRooms, 0);
@@ -242,6 +249,27 @@ export const ActualVsForecastRoomTypeChart: React.FC<ActualVsForecastRoomTypeCha
             >
               Chiffre d’Affaires (€)
             </button>
+          </div>
+
+          {/* Start Date + Horizon Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-xl text-xs">
+            <span className="font-semibold text-slate-500 dark:text-slate-400">Dès :</span>
+            <input
+              type="date"
+              value={startDateStr}
+              onChange={(e) => e.target.value && setStartDateStr(e.target.value)}
+              className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+              aria-label="Date de début prévisions vs OTB"
+            />
+            {startDateStr !== todayStr && (
+              <button
+                type="button"
+                onClick={() => setStartDateStr(todayStr)}
+                className="text-[11px] font-bold text-violet-700 dark:text-violet-300 hover:underline cursor-pointer"
+              >
+                Aujourd&apos;hui
+              </button>
+            )}
           </div>
 
           {/* Date Horizon Selector */}

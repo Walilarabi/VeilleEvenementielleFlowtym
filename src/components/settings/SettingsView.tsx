@@ -50,15 +50,26 @@ import {
   Monitor,
   Palette,
 } from 'lucide-react';
-import { Hotel, EventItem, EventCategory } from '../../types';
+import {
+  Hotel,
+  EventItem,
+  EventCategory,
+  ConnectivityMode,
+  ConflictPriorityStrategy,
+  HotelConnectivityConfig,
+} from '../../types';
 import { useTheme, ThemeMode } from '../../contexts/ThemeContext';
 import { GeoIntelligenceView } from '../geo/GeoIntelligenceView';
+import { UniversalConnectorCenter } from '../connectivity/UniversalConnectorCenter';
 import {
   getSupabaseCredentials,
   saveSupabaseCredentials,
   testSupabaseConnection,
 } from '../../services/supabaseClient';
 import { syncInitialDataToSupabase } from '../../services/supabaseSyncService';
+import {
+  saveHotelConnectivityConfig,
+} from '../../services/ratePlanningSyncService';
 import { FULL_SUPABASE_SQL } from '../../supabase/schemaSqlString';
 import { INITIAL_VENUES, INITIAL_SOURCES, INITIAL_SUGGESTIONS } from '../../data/mockData';
 import {
@@ -90,10 +101,11 @@ import {
   getSystemOperationLogs,
   clearSystemOperationLogs,
   appendSystemOperationLog,
+  buildDefaultConnectivityConfig,
 } from '../../services/rmsSettingsService';
 import { recalculateHotelRateIntelligence } from '../../services/rateIntelligenceService';
 import {
-  CURRENT_REFERENCE_DATE,
+  getTodayIsoDate,
   filterEventsByHotelGeography,
   getEventStatusBadgeConfig,
 } from '../../utils/eventFilterUtils';
@@ -159,6 +171,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     [hotels, selectedHotelId]
   );
 
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
   const { themeMode, resolvedTheme, systemPrefersDark, setThemeMode } = useTheme();
 
   const handleThemeSelect = (mode: ThemeMode) => {
@@ -262,9 +275,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         alertConfig,
         geoScopedEvents,
         activeHotel ? activeHotel.name : 'Hôtel actif',
-        CURRENT_REFERENCE_DATE
+        todayStr
       ),
-    [alertConfig, geoScopedEvents, activeHotel]
+    [alertConfig, geoScopedEvents, activeHotel, todayStr]
   );
 
   const activeCompsetCount = useMemo(
@@ -674,7 +687,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setRecipientError('Ajoutez au moins un destinataire avant de tester l’envoi.');
       return;
     }
-    const nowStamp = `${CURRENT_REFERENCE_DATE} ${new Date().toTimeString().slice(0, 8)}`;
+    const nowStamp = `${getTodayIsoDate()} ${new Date().toTimeString().slice(0, 8)}`;
     const topEvent = emailPreview.qualifyingEvents[0];
     const logEntry: MajorEventEmailAlertLog = {
       id: `alert-log-${Date.now()}`,
@@ -2053,6 +2066,281 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
 
+              {/* Centre Universel des Connecteurs (PMS, Channel Manager, Rate Shopper, API Custom) */}
+              <UniversalConnectorCenter hotel={activeHotel} onShowToast={onShowToast} />
+
+              {/* Architecture de Connectivité Bidirectionnelle (Mode A PMS / Mode B Channel Manager / Coexistence) */}
+              {(() => {
+                const conn: HotelConnectivityConfig =
+                  hotelConfig.connectivity || buildDefaultConnectivityConfig(activeHotel.id);
+                const updateConn = (patch: Partial<HotelConnectivityConfig>) => {
+                  setHotelConfig((prev) => ({
+                    ...prev,
+                    connectivity: {
+                      ...(prev.connectivity || buildDefaultConnectivityConfig(activeHotel.id)),
+                      ...patch,
+                    },
+                  }));
+                };
+                const handleSaveConnectivity = () => {
+                  if (conn.activeMode === 'dual_coordinated' && !conn.dualModeConfirmed) {
+                    onShowToast?.(
+                      'Veuillez confirmer la répartition des responsabilités pour le mode coexistence PMS + Channel Manager.'
+                    );
+                    return;
+                  }
+                  const saved = saveHotelConnectivityConfig(activeHotel, conn, 'Wali Larabi');
+                  setHotelConfig((prev) => ({ ...prev, connectivity: saved }));
+                  setOpLogs(getSystemOperationLogs());
+                  onConfigUpdated?.();
+                  onShowToast?.(
+                    `Connectivité tarifaire enregistrée (${
+                      conn.activeMode === 'pms'
+                        ? `Mode A — ${conn.pmsProvider}`
+                        : conn.activeMode === 'channel_manager'
+                        ? `Mode B — ${conn.channelManagerProvider}`
+                        : 'Coexistence coordonnée'
+                    }).`
+                  );
+                };
+
+                return (
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
+                      <div className="flex items-center gap-2.5">
+                        <Plug className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                            Connectivité Bidirectionnelle du Planning Tarifaire — {activeHotel.name}
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Définissez le système externe de référence (PMS ou Channel Manager) et les règles anti-boucle pour le 2-Way Sync.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSaveConnectivity}
+                        className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Enregistrer le connecteur actif</span>
+                      </button>
+                    </div>
+
+                    {/* Sélecteur Mode A / Mode B / Coexistence */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {[
+                        {
+                          mode: 'pms' as ConnectivityMode,
+                          title: 'Mode A — Connexion directe PMS',
+                          flow: 'PMS ↔ FLOWTYM REVENUE',
+                          desc: 'Le PMS est le système de référence pour les tarifs, restrictions et disponibilités.',
+                        },
+                        {
+                          mode: 'channel_manager' as ConnectivityMode,
+                          title: 'Mode B — Channel Manager',
+                          flow: 'CHANNEL MANAGER ↔ FLOWTYM',
+                          desc: 'Le Channel Manager distribue les nouveaux tarifs vers les OTA et remonte les écarts.',
+                        },
+                        {
+                          mode: 'dual_coordinated' as ConnectivityMode,
+                          title: 'Architecture Coexistence',
+                          flow: 'PMS + CM (Rôles séparés)',
+                          desc: 'Connexion simultanée avec séparation stricte des responsabilités et anti-boucle renforcé.',
+                        },
+                      ].map((opt) => {
+                        const selected = conn.activeMode === opt.mode;
+                        return (
+                          <button
+                            key={opt.mode}
+                            type="button"
+                            onClick={() =>
+                              updateConn({
+                                activeMode: opt.mode,
+                                sourceOfTruth:
+                                  opt.mode === 'pms'
+                                    ? 'pms'
+                                    : opt.mode === 'channel_manager'
+                                    ? 'channel_manager'
+                                    : 'flowtym',
+                              })
+                            }
+                            className={`text-left p-4 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
+                              selected
+                                ? 'border-violet-500 bg-violet-50/70 dark:bg-violet-950/30 ring-1 ring-violet-500/40'
+                                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                {opt.title}
+                              </span>
+                              {selected && (
+                                <CheckCircle2 className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0" />
+                              )}
+                            </div>
+                            <div className="text-[11px] font-mono font-semibold text-violet-700 dark:text-violet-300">
+                              {opt.flow}
+                            </div>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                              {opt.desc}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Avertissement explicite Coexistence */}
+                    {conn.activeMode === 'dual_coordinated' && (
+                      <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/80 dark:bg-amber-950/30 space-y-3 text-xs">
+                        <div className="flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
+                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                          <div className="space-y-1">
+                            <div className="font-bold">
+                              Gouvernance obligatoire pour connexion simultanée PMS + Channel Manager
+                            </div>
+                            <p className="text-[11px] leading-relaxed">
+                              Deux systèmes actifs ne doivent jamais écrire simultanément les mêmes champs sans priorité explicite. Attribution active : <strong>{conn.pmsProvider}</strong> pilote les inventaires &amp; restrictions, <strong>{conn.channelManagerProvider}</strong> distribue les tarifs vers les canaux OTA.
+                            </p>
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 text-[11px] font-semibold text-amber-950 dark:text-amber-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={conn.dualModeConfirmed}
+                            onChange={(e) => updateConn({ dualModeConfirmed: e.target.checked })}
+                            className="rounded text-violet-600"
+                          />
+                          <span>
+                            Je confirme la séparation explicite des responsabilités PMS vs Channel Manager (protection anti-boucle requise).
+                          </span>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Paramètres connecteur */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          Fournisseur PMS (Mode A)
+                        </label>
+                        <select
+                          value={conn.pmsProvider}
+                          onChange={(e) =>
+                            updateConn({
+                              pmsProvider: e.target.value as HotelConnectivityConfig['pmsProvider'],
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs"
+                        >
+                          <option value="Opera PMS">Oracle Opera / Opera Cloud</option>
+                          <option value="Mews PMS">Mews PMS</option>
+                          <option value="Cloudbeds">Cloudbeds</option>
+                          <option value="Protel PMS">Protel PMS</option>
+                          <option value="RoomRaccoon">RoomRaccoon</option>
+                          <option value="Apaleo">Apaleo</option>
+                          <option value="Medialog PMS">Medialog PMS</option>
+                          <option value="Clock PMS">Clock PMS</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          Channel Manager (Mode B)
+                        </label>
+                        <select
+                          value={conn.channelManagerProvider}
+                          onChange={(e) =>
+                            updateConn({
+                              channelManagerProvider: e.target.value as HotelConnectivityConfig['channelManagerProvider'],
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs"
+                        >
+                          <option value="D-EDGE CRS">D-EDGE CRS &amp; CM</option>
+                          <option value="SiteMinder">SiteMinder</option>
+                          <option value="Cubilis">Cubilis</option>
+                          <option value="Vertical Booking">Vertical Booking</option>
+                          <option value="RoomCloud">RoomCloud</option>
+                          <option value="Channex">Channex</option>
+                          <option value="Availpro">Availpro</option>
+                          <option value="RateGain">RateGain</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          Stratégie de résolution de conflits
+                        </label>
+                        <select
+                          value={conn.conflictPriorityStrategy}
+                          onChange={(e) =>
+                            updateConn({
+                              conflictPriorityStrategy: e.target.value as ConflictPriorityStrategy,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs"
+                        >
+                          <option value="manual">Validation manuelle (Aucune surcharge silencieuse)</option>
+                          <option value="priority_flowtym">Priorité à FLOWTYM REVENUE</option>
+                          <option value="priority_pms">Priorité au PMS</option>
+                          <option value="priority_channel_manager">Priorité au Channel Manager</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          Polling API périodique (fallback webhook)
+                        </label>
+                        <select
+                          value={conn.pollingIntervalMinutes}
+                          onChange={(e) =>
+                            updateConn({
+                              pollingIntervalMinutes: Number(e.target.value) as 5 | 15 | 30 | 60,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs"
+                        >
+                          <option value={5}>Toutes les 5 minutes</option>
+                          <option value={15}>Toutes les 15 minutes</option>
+                          <option value={30}>Toutes les 30 minutes</option>
+                          <option value={60}>Toutes les heures</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                            Protection Anti-Boucle Bidirectionnelle
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Les mises à jour importées depuis le PMS / CM ne sont jamais réémises en boucle.
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={conn.antiLoopEnabled}
+                          onChange={(e) => updateConn({ antiLoopEnabled: e.target.checked })}
+                          className="h-4 w-4 rounded text-violet-600"
+                        />
+                      </div>
+
+                      <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 space-y-1">
+                        <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                          Endpoint Webhook entrant (Sens 2)
+                        </div>
+                        <div className="font-mono text-xs text-slate-900 dark:text-slate-100 truncate">
+                          {conn.webhookUrl}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Configuration Supabase */}
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4">
@@ -2638,7 +2926,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                         {emailPreview.qualifyingEvents.slice(0, 6).map((ev) => {
-                          const badge = getEventStatusBadgeConfig(ev, CURRENT_REFERENCE_DATE);
+                          const badge = getEventStatusBadgeConfig(ev, todayStr);
                           return (
                             <tr key={ev.id}>
                               <td className="py-2 px-3">
@@ -2881,7 +3169,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       }
                       className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl font-semibold"
                     >
-                      <option value="fixed_demo_2026_11_12">Date Référence Métier (12/11/2026)</option>
+                      <option value="fixed_demo_2026_11_12">Date Référence Métier (Aujourd&apos;hui dynamique)</option>
                       <option value="live_clock">Horloge Temps Réel</option>
                     </select>
                   </div>

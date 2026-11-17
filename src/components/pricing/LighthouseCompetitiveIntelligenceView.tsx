@@ -73,6 +73,7 @@ import {
 } from '../../services/lighthouseAnalysisEngine';
 import { Hotel } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getTodayIsoDate } from '../../utils/eventFilterUtils';
 
 interface LighthouseCompetitiveIntelligenceViewProps {
   hotel?: Hotel;
@@ -123,7 +124,11 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
   // Chart view selection
   const [activeChartType, setActiveChartType] = useState<'demand' | 'medians_compare' | 'all_competitors' | 'evolutions'>('medians_compare');
 
-  // Filters & Sorting
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+
+  // Filters & Sorting (start date defaults to today dynamically)
+  const [startDateFilter, setStartDateFilter] = useState<string>(() => getTodayIsoDate());
+  const [includePastDates, setIncludePastDates] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<LighthouseSortOption>('date_asc');
   const [demandFilter, setDemandFilter] = useState<string>('all');
@@ -198,9 +203,19 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
     }
   };
 
+  const effectiveMinDate = useMemo(() => {
+    if (includePastDates) return startDateFilter || '';
+    return startDateFilter && startDateFilter > todayStr ? startDateFilter : todayStr;
+  }, [includePastDates, startDateFilter, todayStr]);
+
+  // Scope records to >= todayStr by default unless user picks an earlier date or toggles includePastDates
+  const scopedRecords = useMemo(() => {
+    return dataset.records.filter((rec) => !effectiveMinDate || rec.dateStr >= effectiveMinDate);
+  }, [dataset.records, effectiveMinDate]);
+
   // Filtered & Sorted Records
   const filteredRecords = useMemo(() => {
-    let list = dataset.records.filter((rec) => {
+    let list = scopedRecords.filter((rec) => {
       // Search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -243,17 +258,17 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
     });
 
     return list;
-  }, [dataset.records, searchQuery, demandFilter, sortBy]);
+  }, [scopedRecords, searchQuery, demandFilter, sortBy]);
 
   // Overall Market Summary (Section 6)
   const marketSummary = useMemo(() => {
-    if (dataset.records.length === 0) return null;
+    if (scopedRecords.length === 0) return null;
 
     const avgDemand = Math.round(
-      dataset.records.reduce((acc, r) => acc + r.demandIndex, 0) / dataset.records.length
+      scopedRecords.reduce((acc, r) => acc + r.demandIndex, 0) / scopedRecords.length
     );
 
-    const availableFolkestone = dataset.records.filter((r) => r.folkestone.rate !== null);
+    const availableFolkestone = scopedRecords.filter((r) => r.folkestone.rate !== null);
     const avgFolkestone =
       availableFolkestone.length > 0
         ? Math.round(
@@ -263,31 +278,31 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         : 240;
 
     const avgLhMedian = Math.round(
-      dataset.records.reduce((acc, r) => acc + r.lighthouseMedianEur, 0) / dataset.records.length
+      scopedRecords.reduce((acc, r) => acc + r.lighthouseMedianEur, 0) / scopedRecords.length
     );
 
     const avgFtMedian = Math.round(
-      dataset.records.reduce((acc, r) => acc + r.flowtymMedianEur, 0) / dataset.records.length
+      scopedRecords.reduce((acc, r) => acc + r.flowtymMedianEur, 0) / scopedRecords.length
     );
 
-    const totalSoldOutEvents = dataset.records.reduce((acc, r) => acc + r.totalSoldOutHotels, 0);
+    const totalSoldOutEvents = scopedRecords.reduce((acc, r) => acc + r.totalSoldOutHotels, 0);
 
     const allAiAlerts: LighthouseAIRecoveryAlert[] = [];
-    dataset.records.forEach((r) => {
+    scopedRecords.forEach((r) => {
       allAiAlerts.push(...r.aiAlerts);
     });
 
     // Count velocity 24h & 7d
-    const totalHikes1d = dataset.records.reduce((acc, r) => acc + r.increasedCount1d, 0);
-    const totalDrops1d = dataset.records.reduce((acc, r) => acc + r.decreasedCount1d, 0);
-    const totalStables1d = dataset.records.reduce((acc, r) => acc + r.stableCount1d, 0);
+    const totalHikes1d = scopedRecords.reduce((acc, r) => acc + r.increasedCount1d, 0);
+    const totalDrops1d = scopedRecords.reduce((acc, r) => acc + r.decreasedCount1d, 0);
+    const totalStables1d = scopedRecords.reduce((acc, r) => acc + r.stableCount1d, 0);
 
-    const validMins = dataset.records.map((r) => r.minCompRate).filter((v): v is number => v !== null);
-    const validMaxs = dataset.records.map((r) => r.maxCompRate).filter((v): v is number => v !== null);
+    const validMins = scopedRecords.map((r) => r.minCompRate).filter((v): v is number => v !== null);
+    const validMaxs = scopedRecords.map((r) => r.maxCompRate).filter((v): v is number => v !== null);
     const avgMinRate = validMins.length > 0 ? Math.round(validMins.reduce((a, b) => a + b, 0) / validMins.length) : null;
     const avgMaxRate = validMaxs.length > 0 ? Math.round(validMaxs.reduce((a, b) => a + b, 0) / validMaxs.length) : null;
 
-    const rankedRows = dataset.records.filter((r) => r.folkestone.rank !== null);
+    const rankedRows = scopedRecords.filter((r) => r.folkestone.rank !== null);
     const avgRank =
       rankedRows.length > 0
         ? (rankedRows.reduce((acc, r) => acc + (r.folkestone.rank as number), 0) / rankedRows.length).toFixed(1)
@@ -298,7 +313,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         : 0;
 
     let topIncrease7d = null as { hotelName: string; amount: number } | null;
-    for (const r of dataset.records) {
+    for (const r of scopedRecords) {
       if (r.maxIncrease7d && (!topIncrease7d || r.maxIncrease7d.amount > topIncrease7d.amount)) {
         topIncrease7d = r.maxIncrease7d;
       }
@@ -322,11 +337,11 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
       avgTotalAvail,
       topIncrease7d,
     };
-  }, [dataset.records]);
+  }, [scopedRecords]);
 
   // Chart preparation data
   const chartData = useMemo(() => {
-    return dataset.records.slice(0, 30).map((r) => {
+    return scopedRecords.slice(0, 30).map((r) => {
       const entry: any = {
         dateStr: r.dateStr.slice(5),
         fullDate: r.dateStr,
@@ -347,7 +362,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
 
       return entry;
     });
-  }, [dataset.records]);
+  }, [scopedRecords]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -457,7 +472,7 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
           </div>
           <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800/70 p-2.5 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-slate-400 block">Horizon Analysé</span>
-            <strong className="text-slate-800 dark:text-slate-200 font-bold block tabular-nums">{dataset.metadata.totalDatesCount} dates</strong>
+            <strong className="text-slate-800 dark:text-slate-200 font-bold block tabular-nums">{scopedRecords.length} dates (dès {effectiveMinDate})</strong>
           </div>
         </div>
       </div>
@@ -531,16 +546,43 @@ export const LighthouseCompetitiveIntelligenceView: React.FC<LighthouseCompetiti
         <div className="space-y-4">
           {/* Controls & Filter Bar */}
           <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-              <div className="relative flex-1 max-w-md">
+            <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+              <div className="relative flex-1 min-w-[180px] max-w-md">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Filtrer par date (ex: 2026-11-25) ou concurrent..."
+                  placeholder={`Filtrer par date (ex: ${todayStr}) ou concurrent...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-hidden focus:border-violet-400"
                 />
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 text-xs">
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Dès :</span>
+                <input
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    setIncludePastDates(v < todayStr);
+                    setStartDateFilter(v);
+                  }}
+                  className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
+                />
+                {startDateFilter !== todayStr && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIncludePastDates(false);
+                      setStartDateFilter(todayStr);
+                    }}
+                    className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
+                  >
+                    Aujourd&apos;hui
+                  </button>
+                )}
               </div>
 
               {/* Demand level filter */}

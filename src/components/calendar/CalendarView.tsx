@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Shirt,
   Store,
@@ -17,7 +17,7 @@ import {
 import { EventItem, EventCategory, RMImpactLevel } from '../../types';
 import { getRMScoreColorClasses } from '../../utils/helpers';
 import {
-  CURRENT_REFERENCE_DATE,
+  getTodayIsoDate,
   getEffectiveEndDate,
   isEventOngoing,
   sortEventsChronologically,
@@ -43,6 +43,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onExportPDF,
   onSelectDate,
 }) => {
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
   // Days of the week in French (starting Monday)
   const WEEKDAYS = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
 
@@ -82,7 +83,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       const effectiveEnd = getEffectiveEndDate(e);
       return dateStr >= e.startDate && dateStr <= effectiveEnd;
     });
-    return sortEventsChronologically(matching, CURRENT_REFERENCE_DATE, false);
+    return sortEventsChronologically(matching, todayStr, false);
   };
 
   // Icon helper based on category
@@ -146,9 +147,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return null;
   };
 
-  // Today is 2026-11-12 (CURRENT_REFERENCE_DATE)
-  const isSimulationToday = (dateStr: string | null) => dateStr === CURRENT_REFERENCE_DATE;
-  const monthTemporal = getMonthTemporalRelation(currentYear, currentMonth, CURRENT_REFERENCE_DATE);
+  const isSimulationToday = (dateStr: string | null) => dateStr === todayStr;
+  const monthTemporal = getMonthTemporalRelation(currentYear, currentMonth, todayStr);
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
@@ -206,7 +206,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           const dayEvents = getEventsForDate(cell.dateStr);
           const impactDot = getCellImpactDot(dayEvents);
           const isToday = isSimulationToday(cell.dateStr);
-          const isPastDay = cell.dateStr < CURRENT_REFERENCE_DATE;
+          const isPastDay = cell.dateStr < todayStr;
 
           // Highlight today, subtly attenuate past days, tint major upcoming event cells
           const hasBigEvent = dayEvents.some((e) => e.impactLevel === 'hyper' || e.impactLevel === 'critique');
@@ -272,7 +272,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 const chipStyle = getChipStyle(ev.impactLevel, ev.title, ev.category);
                 const score = ev.scoreBreakdown.finalRMScore;
                 const scoreColors = getRMScoreColorClasses(score);
-                const ongoing = isEventOngoing(ev, CURRENT_REFERENCE_DATE);
+                const ongoing = isEventOngoing(ev, todayStr);
 
                 return (
                   <button

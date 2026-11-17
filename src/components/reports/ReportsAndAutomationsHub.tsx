@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Hotel } from '../../types';
 import { downloadGenericCsv } from '../../utils/helpers';
+import { addDaysIso, getTodayIsoDate } from '../../utils/eventFilterUtils';
 
 interface ReportsAndAutomationsHubProps {
   hotel?: Hotel;
@@ -61,10 +62,114 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
   onNavigateToDecisionCenter,
 }) => {
   const [selectedReport, setSelectedReport] = useState<ReportType>('daily');
+  const todayStr = React.useMemo(() => getTodayIsoDate(), []);
+  const [periodStartDate, setPeriodStartDate] = useState<string>(() => getTodayIsoDate());
 
   const hotelName = hotel?.name || 'Folkestone Chartrons (3★)';
   const totalRooms = hotel?.roomCount || 44;
   const baseADR = hotel?.baseADR || 124;
+
+  const formatFrShort = (iso: string) =>
+    new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+
+  const formatWeekdayFr = (iso: string) => {
+    const raw = new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR', { weekday: 'long' });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  };
+
+  const periodDates = React.useMemo(() => {
+    const startObj = new Date(`${periodStartDate}T00:00:00`);
+    const y = startObj.getFullYear();
+    const m = startObj.getMonth();
+    const monthDays = new Date(y, m + 1, 0).getDate();
+    const monthStartIso = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    const monthEndIso = `${y}-${String(m + 1).padStart(2, '0')}-${String(monthDays).padStart(2, '0')}`;
+    const monthLabelRaw = startObj.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    const monthLabel = monthLabelRaw.charAt(0).toUpperCase() + monthLabelRaw.slice(1);
+
+    return {
+      todayIso: periodStartDate,
+      weekEndIso: addDaysIso(periodStartDate, 6),
+      horizon60EndIso: addDaysIso(periodStartDate, 60),
+      monthStartIso,
+      monthEndIso,
+      monthDays,
+      monthLabel,
+      year: y,
+      days7: Array.from({ length: 7 }, (_, i) => addDaysIso(periodStartDate, i)),
+    };
+  }, [periodStartDate]);
+
+  const weeklyRows = React.useMemo(() => {
+    const templates = [
+      { soldDelta: -2, occ: '95,5%', adr: 142.5, revpar: '136,02 €', ca: '5 985 €', event: 'Congrès Santé & Biotech (28k pax)', yield: 'Fermer OTA, Tarif Rack', sugOffset: 18, sugDelta: '+18 €', pct: '+14.5%', tension: '78%', score: 72, action: 'Hausse tarifaire & fermeture canaux discount', cancel: 0 },
+      { soldDelta: -4, occ: '90,9%', adr: 145.0, revpar: '131,82 €', ca: '5 800 €', event: 'Congrès Santé & Biotech (J2)', yield: 'Hausse ADR +15€', sugOffset: 21, sugDelta: '+21 €', pct: '+16.9%', tension: '76%', score: 70, action: 'Fermeture tarifs promotionnels non-flexibles', cancel: 1 },
+      { soldDelta: -6, occ: '86,4%', adr: 152.0, revpar: '131,27 €', ca: '5 776 €', event: 'Congrès Santé (Clôture) + Arrivées loisir', yield: 'MinStay 2 nuits', sugOffset: 22, sugDelta: '+22 €', pct: '+16.9%', tension: '71%', score: 68, action: 'MinStay 2 nuits recommandé', cancel: 1 },
+      { soldDelta: -7, occ: '84,1%', adr: 155.0, revpar: '130,34 €', ca: '5 735 €', event: 'Concert Symphonique (14.5k pax)', yield: 'MinStay 2 nuits', sugOffset: 20, sugDelta: '+20 €', pct: '+14.8%', tension: '73%', score: 69, action: 'MinStay 2 nuits recommandé', cancel: 0 },
+      { soldDelta: -3, occ: '93,2%', adr: 141.0, revpar: '131,39 €', ca: '5 781 €', event: 'Veille Salon International Énergie', yield: 'Sécuriser le plein', sugOffset: 17, sugDelta: '+17 €', pct: '+13.7%', tension: '75%', score: 71, action: 'Pilotage du pickup J-1', cancel: 1 },
+      { soldDelta: -2, occ: '95,5%', adr: 144.0, revpar: '137,45 €', ca: '6 048 €', event: 'Salon Int. Énergie & Climat (42k pax)', yield: 'Hausse ADR +25€', sugOffset: 20, sugDelta: '+20 €', pct: '+16.1%', tension: '79%', score: 74, action: 'Surcote sur canaux directs', cancel: 1 },
+      { soldDelta: -3, occ: '93,2%', adr: 142.0, revpar: '132,32 €', ca: '5 822 €', event: 'Salon Int. Énergie (J2)', yield: 'MinStay 2 nuits', sugOffset: 18, sugDelta: '+18 €', pct: '+14.5%', tension: '76%', score: 72, action: 'Hausse progressive ADR', cancel: 0 },
+    ];
+    return periodDates.days7.map((dateIso, i) => {
+      const tpl = templates[i];
+      const sold = Math.max(1, totalRooms + tpl.soldDelta);
+      return {
+        date: dateIso,
+        day: formatWeekdayFr(dateIso),
+        dispo: totalRooms,
+        sold,
+        occ: tpl.occ,
+        adrNum: tpl.adr,
+        adr: `${tpl.adr.toFixed(2).replace('.', ',')} €`,
+        revparNum: Number((tpl.adr * (sold / totalRooms)).toFixed(2)),
+        revpar: tpl.revpar,
+        caNum: Math.round(sold * tpl.adr),
+        ca: tpl.ca,
+        event: tpl.event,
+        yield: tpl.yield,
+        basePrice: baseADR + (i === 2 ? 6 : i === 3 ? 11 : 0),
+        suggestedPrice: baseADR + tpl.sugOffset,
+        sugDelta: tpl.sugDelta,
+        pct: tpl.pct,
+        tension: tpl.tension,
+        score: tpl.score,
+        action: tpl.action,
+        cancel: tpl.cancel,
+      };
+    });
+  }, [periodDates.days7, totalRooms, baseADR]);
+
+  const territorialEventsRows = React.useMemo(() => {
+    const e1s = periodStartDate;
+    const e1e = addDaysIso(periodStartDate, 2);
+    const e2s = addDaysIso(periodStartDate, 4);
+    const e2e = addDaysIso(periodStartDate, 6);
+    const e3s = addDaysIso(periodStartDate, 3);
+    const e4s = addDaysIso(periodStartDate, 10);
+    const e4e = addDaysIso(periodStartDate, 12);
+    const e5s = addDaysIso(periodStartDate, 18);
+    const e5e = addDaysIso(periodStartDate, 20);
+    return [
+      { title: 'Congrès National Santé & Biotech', cat: 'Congrès Médical', start: e1s, end: e1e, venue: 'Palais des Congrès', paxNum: 28000, pax: '28 000 pax', distNum: 2.8, dist: '2.8 km', score: 86, boost: '+28,5 %', csvBoost: '+28.5%', action: 'MinStay 2 nuits & non-annulable', csvAction: 'Fermeture OTA discount, MinStay 2j' },
+      { title: 'Salon International Énergie & Climat', cat: 'Salons & Foires', start: e2s, end: e2e, venue: 'Parc des Expositions', paxNum: 42000, pax: '42 000 pax', distNum: 4.5, dist: '4.5 km', score: 91, boost: '+38,0 %', csvBoost: '+38.0%', action: 'MinStay 3 nuits & fermeture OTA', csvAction: 'Hausse ADR +35%, MinStay 3j' },
+      { title: 'Concert Symphonique Européen', cat: 'Concerts & Spectacles', start: e3s, end: e3s, venue: 'Aréna Métropole', paxNum: 14500, pax: '14 500 pax', distNum: 3.2, dist: '3.2 km', score: 74, boost: '+18,0 %', csvBoost: '+18.0%', action: 'Plein tarif direct', csvAction: 'Tarif non-annulable garanti' },
+      { title: 'Sommet Tech & Intelligence Artificielle', cat: 'Corporate & Sommets', start: e4s, end: e4e, venue: 'Centre des Affaires', paxNum: 18000, pax: '18 000 pax', distNum: 1.8, dist: '1.8 km', score: 82, boost: '+24,5 %', csvBoost: '+24.5%', action: 'Surcote chambres supérieures', csvAction: 'Surcote chambres exécutives' },
+      { title: 'Festival International du Vin & Terroirs', cat: 'Festivals & Culture', start: e5s, end: e5e, venue: 'Centre-Ville', paxNum: 35000, pax: '35 000 pax', distNum: 2.1, dist: '2.1 km', score: 88, boost: '+32,0 %', csvBoost: '+32.0%', action: 'MinStay 2 nuits', csvAction: 'MinStay 2 nuits' },
+    ];
+  }, [periodStartDate]);
+
+  const decisionsAuditRows = React.useMemo(() => [
+    { id: 'DEC-801', date: addDaysIso(periodStartDate, 0), cat: 'Standard Double', oldNum: 124, sugNum: 142, valNum: 142, oldP: '124 €', sugP: '142 €', valP: '142 €', delta: '+18 €', reason: 'Tension territoriale forte & salon professionnel', user: 'Nabil Amrani', status: 'Appliquée' },
+    { id: 'DEC-802', date: addDaysIso(periodStartDate, 1), cat: 'Standard Double', oldNum: 124, sugNum: 145, valNum: 145, oldP: '124 €', sugP: '145 €', valP: '145 €', delta: '+21 €', reason: 'Pickup soutenu J-1 & Compset médian à 179€', user: 'Nabil Amrani', status: 'Appliquée' },
+    { id: 'DEC-803', date: addDaysIso(periodStartDate, 2), cat: 'Supérieure Twin', oldNum: 148, sugNum: 172, valNum: 172, oldP: '148 €', sugP: '172 €', valP: '172 €', delta: '+24 €', reason: 'Saturation compset (2 concurrents complets)', user: 'Nabil Amrani', status: 'Appliquée' },
+    { id: 'DEC-804', date: addDaysIso(periodStartDate, 3), cat: 'Supérieure Twin', oldNum: 148, sugNum: 175, valNum: 175, oldP: '148 €', sugP: '175 €', valP: '175 €', delta: '+27 €', reason: 'Weekend sous tension événementielle', user: 'Nabil Amrani', status: 'Appliquée' },
+    { id: 'DEC-805', date: addDaysIso(periodStartDate, 4), cat: 'Deluxe Balcon', oldNum: 180, sugNum: 205, valNum: 205, oldP: '180 €', sugP: '205 €', valP: '205 €', delta: '+25 €', reason: 'Maintien marge haute et restriction MinStay 2j', user: 'Nabil Amrani', status: 'Appliquée' },
+    { id: 'DEC-806', date: addDaysIso(periodStartDate, 5), cat: 'Standard Double', oldNum: 124, sugNum: 144, valNum: 144, oldP: '124 €', sugP: '144 €', valP: '144 €', delta: '+20 €', reason: 'Pression corporate internationale', user: 'Nabil Amrani', status: 'Appliquée' },
+  ], [periodStartDate]);
 
   // 1. Données réelles pour Performance par canal et par segment (24 lignes)
   const channelPerformanceData: ChannelRow[] = [
@@ -109,17 +214,21 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
         'Annulations',
         'No-show',
       ];
-      const rows = [
-        ['2026-11-11', 'Mercredi', totalRooms, 42, '95.5%', 142.50, 136.02, 5985, 0, 0],
-        ['2026-11-12', 'Jeudi', totalRooms, 40, '90.9%', 145.00, 131.82, 5800, 1, 0],
-        ['2026-11-13', 'Vendredi', totalRooms, 38, '86.4%', 152.00, 131.27, 5776, 1, 0],
-        ['2026-11-14', 'Samedi', totalRooms, 37, '84.1%', 155.00, 130.34, 5735, 0, 0],
-        ['2026-11-15', 'Dimanche', totalRooms, 41, '93.2%', 141.00, 131.39, 5781, 1, 0],
-        ['2026-11-16', 'Lundi', totalRooms, 42, '95.5%', 144.00, 137.45, 6048, 1, 0],
-        ['2026-11-17', 'Mardi', totalRooms, 41, '93.2%', 142.00, 132.32, 5822, 0, 0],
-      ];
-      downloadGenericCsv('production_flowtym_2026.csv', headers, rows);
-      onShowToast('✓ Export CSV réel téléchargé : production_flowtym_2026.csv');
+      const rows = weeklyRows.map((r) => [
+        r.date,
+        r.day,
+        r.dispo,
+        r.sold,
+        r.occ.replace(',', '.'),
+        r.adrNum,
+        r.revparNum,
+        r.caNum,
+        r.cancel,
+        0,
+      ]);
+      const fileName = `production_flowtym_${periodDates.year}.csv`;
+      downloadGenericCsv(fileName, headers, rows);
+      onShowToast(`✓ Export CSV réel téléchargé : ${fileName}`);
     } else if (type === 'decisions') {
       const headers = [
         'ID Décision',
@@ -133,14 +242,18 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
         'Motif Revenue Management',
         'Opérateur',
       ];
-      const rows = [
-        ['DEC-801', '2026-11-11', 'Chambre Standard', 124, 142, 142, '+18 €', 'Appliquée', 'Tension territoriale forte & salon professionnel', 'Nabil Amrani'],
-        ['DEC-802', '2026-11-12', 'Chambre Standard', 124, 145, 145, '+21 €', 'Appliquée', 'Pickup soutenu J-1 & Compset médian à 179€', 'Nabil Amrani'],
-        ['DEC-803', '2026-11-13', 'Chambre Supérieure', 148, 172, 172, '+24 €', 'Appliquée', 'Saturation compset (2 concurrents complets)', 'Nabil Amrani'],
-        ['DEC-804', '2026-11-14', 'Chambre Supérieure', 148, 175, 175, '+27 €', 'Appliquée', 'Weekend sous tension événementielle', 'Nabil Amrani'],
-        ['DEC-805', '2026-11-15', 'Chambre Deluxe', 180, 205, 205, '+25 €', 'Appliquée', 'Maintien marge haute et restriction MinStay 2j', 'Nabil Amrani'],
-        ['DEC-806', '2026-11-16', 'Chambre Standard', 124, 144, 144, '+20 €', 'Appliquée', 'Pression corporate internationale', 'Nabil Amrani'],
-      ];
+      const rows = decisionsAuditRows.map((d) => [
+        d.id,
+        d.date,
+        d.cat,
+        d.oldNum,
+        d.sugNum,
+        d.valNum,
+        d.delta,
+        d.status,
+        d.reason,
+        d.user,
+      ]);
       downloadGenericCsv('decisions_tarifaires_audit.csv', headers, rows);
       onShowToast('✓ Export CSV réel téléchargé : decisions_tarifaires_audit.csv');
     } else if (type === 'tarifs') {
@@ -156,15 +269,18 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
         'Score RM (0-100)',
         'Action Yield conseillée',
       ];
-      const rows = [
-        ['2026-11-11', 'Mercredi', 124, 142, '+18 €', '+14.5%', '95.5%', '78%', 72, 'Hausse tarifaire & fermeture canaux discount'],
-        ['2026-11-12', 'Jeudi', 124, 145, '+21 €', '+16.9%', '90.9%', '76%', 70, 'Fermeture tarifs promotionnels non-flexibles'],
-        ['2026-11-13', 'Vendredi', 130, 152, '+22 €', '+16.9%', '86.4%', '71%', 68, 'MinStay 2 nuits recommandé'],
-        ['2026-11-14', 'Samedi', 135, 155, '+20 €', '+14.8%', '84.1%', '73%', 69, 'MinStay 2 nuits recommandé'],
-        ['2026-11-15', 'Dimanche', 124, 141, '+17 €', '+13.7%', '93.2%', '75%', 71, 'Pilotage du pickup J-1'],
-        ['2026-11-16', 'Lundi', 124, 144, '+20 €', '+16.1%', '95.5%', '79%', 74, 'Surcote sur canaux directs'],
-        ['2026-11-17', 'Mardi', 124, 142, '+18 €', '+14.5%', '93.2%', '76%', 72, 'Hausse progressive ADR'],
-      ];
+      const rows = weeklyRows.map((r) => [
+        r.date,
+        r.day,
+        r.basePrice,
+        r.suggestedPrice,
+        r.sugDelta,
+        r.pct,
+        r.occ.replace(',', '.'),
+        r.tension,
+        r.score,
+        r.action,
+      ]);
       downloadGenericCsv('tarifs_recommandes_flowtym.csv', headers, rows);
       onShowToast('✓ Export CSV réel téléchargé : tarifs_recommandes_flowtym.csv');
     } else if (type === 'evenements') {
@@ -180,12 +296,18 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
         'Impact RevPAR estimé',
         'Action RM préconisée',
       ];
-      const rows = [
-        ['Congrès National Santé & Biotech', 'Congrès Médical', '2026-11-11', '2026-11-13', 'Palais des Congrès', 28000, 2.8, 86, '+28.5%', 'Fermeture OTA discount, MinStay 2j'],
-        ['Salon International Énergie & Climat', 'Salons & Foires', '2026-11-16', '2026-11-18', 'Parc des Expositions', 42000, 4.5, 91, '+38.0%', 'Hausse ADR +35%, MinStay 3j'],
-        ['Concert Symphonique Européen', 'Concerts & Spectacles', '2026-11-14', '2026-11-14', 'Aréna Métropole', 14500, 3.2, 74, '+18.0%', 'Tarif non-annulable garanti'],
-        ['Sommet Tech & Intelligence Artificielle', 'Corporate & Sommets', '2026-11-25', '2026-11-27', 'Centre des Affaires', 18000, 1.8, 82, '+24.5%', 'Surcote chambres exécutives'],
-      ];
+      const rows = territorialEventsRows.map((ev) => [
+        ev.title,
+        ev.cat,
+        ev.start,
+        ev.end,
+        ev.venue,
+        ev.paxNum,
+        ev.distNum,
+        ev.score,
+        ev.csvBoost,
+        ev.csvAction,
+      ]);
       downloadGenericCsv('evenements_impact_territoire.csv', headers, rows);
       onShowToast('✓ Export CSV réel téléchargé : evenements_impact_territoire.csv');
     }
@@ -195,12 +317,12 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
   const reportMeta = {
     daily: {
       title: 'Rapport quotidien',
-      period: `Aujourd'hui : 11 nov. 2026 (J vs J-1) — ${hotelName}`,
+      period: `${periodStartDate === todayStr ? "Aujourd'hui" : 'Date sélectionnée'} : ${formatFrShort(periodStartDate)} — ${hotelName}`,
       desc: 'Synthèse en direct de la journée, du remplissage, du pickup des dernières 24h et des arbitrages tarifaires urgents.',
-      badge: 'EN DIRECT · AUJOURD\'HUI',
+      badge: periodStartDate === todayStr ? "EN DIRECT · AUJOURD'HUI" : formatFrShort(periodStartDate).toUpperCase(),
       badgeColor: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70',
       kpis: [
-        { label: 'OCCUPATION', value: '95,5 %', sub: '42 chambres vendues / 44 dispo', color: 'slate', badge: 'RÉALISÉ' },
+        { label: 'OCCUPATION', value: '95,5 %', sub: `42 chambres vendues / ${totalRooms} dispo`, color: 'slate', badge: 'RÉALISÉ' },
         { label: 'ADR', value: '142,50 €', sub: 'Chiffre d\'affaires / ch. vendues', color: 'slate', badge: 'CALCULÉ' },
         { label: 'REVPAR', value: '136,02 €', sub: 'CA hébergement / ch. disponibles', color: 'slate', badge: 'CALCULÉ' },
         { label: 'CA HÉBERGEMENT', value: '5 985 €', sub: 'Pickup 24h : +3 ch. · No-shows : 0', color: 'emerald', badge: 'ENREGISTRÉ' },
@@ -208,12 +330,12 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
     },
     weekly: {
       title: 'Rapport hebdomadaire',
-      period: `Semaine en cours : 11 nov. 2026 → 17 nov. 2026 (7 jours) — ${hotelName}`,
+      period: `Horizon 7 jours : ${formatFrShort(periodDates.todayIso)} → ${formatFrShort(periodDates.weekEndIso)} — ${hotelName}`,
       desc: 'Vision consolidée des 7 prochains jours : rythme de montée en charge (pickup), pression concurrentielle et événements.',
       badge: '7 PROCHAINS JOURS',
       badgeColor: 'bg-violet-50 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300 border-violet-200 dark:border-violet-800/70',
       kpis: [
-        { label: 'OCCUPATION MOYENNE', value: '91,2 %', sub: '281 chambres vendues / 308 dispo', color: 'slate', badge: 'PRÉVISIONNEL' },
+        { label: 'OCCUPATION MOYENNE', value: '91,2 %', sub: `281 chambres vendues / ${totalRooms * 7} dispo`, color: 'slate', badge: 'PRÉVISIONNEL' },
         { label: 'ADR MOYEN', value: '144,30 €', sub: 'Moyenne pondérée des 7 dates', color: 'slate', badge: 'CALCULÉ' },
         { label: 'REVPAR MOYEN', value: '131,60 €', sub: 'Performance moyenne hebdomadaire', color: 'slate', badge: 'CALCULÉ' },
         { label: 'CA HÉBERGEMENT SEMAINE', value: '40 548 €', sub: 'Pickup 7j : +18 ch. · Annulations : 4', color: 'emerald', badge: 'PROJETÉ' },
@@ -221,7 +343,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
     },
     monthly: {
       title: 'Rapport mensuel',
-      period: `Mois de Novembre 2026 : 1 nov. 2026 → 30 nov. 2026 (30 jours) — ${hotelName}`,
+      period: `Mois de ${periodDates.monthLabel} : ${formatFrShort(periodDates.todayIso)} → ${formatFrShort(periodDates.monthEndIso)} — ${hotelName}`,
       desc: 'Bilan complet du mois : taux d\'occupation projeté, ADR moyen, comparaison à N-1 et tenue des objectifs budgétaires.',
       badge: 'MOIS CALENDAIRE',
       badgeColor: 'bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800/70',
@@ -273,7 +395,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
     },
     channel: {
       title: 'Performance par canal de distribution',
-      period: `Mix de distribution et rentabilité nette (13 août 2026 → 10 janv. 2027) — ${hotelName}`,
+      period: `Mix de distribution et rentabilité nette (${formatFrShort(periodDates.todayIso)} → ${formatFrShort(periodDates.horizon60EndIso)}) — ${hotelName}`,
       desc: 'Décomposition du chiffre d\'affaires par source de réservation, part de vente directe et poids des commissions intermédiaires.',
       badge: 'MIX DISTRIBUTION',
       badgeColor: 'bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800/70',
@@ -326,8 +448,27 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             </p>
           </div>
 
-          {/* Action buttons top-right (Real CSV downloads) */}
+          {/* Action buttons top-right (Date selector + Real CSV downloads) */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 px-2.5 py-1.5 rounded-xl text-xs">
+              <span className="font-semibold text-slate-500 dark:text-slate-400">Dès :</span>
+              <input
+                type="date"
+                value={periodStartDate}
+                onChange={(e) => e.target.value && setPeriodStartDate(e.target.value)}
+                className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                aria-label="Date de début des rapports"
+              />
+              {periodStartDate !== todayStr && (
+                <button
+                  type="button"
+                  onClick={() => setPeriodStartDate(todayStr)}
+                  className="text-[11px] font-bold text-violet-700 dark:text-violet-300 hover:underline cursor-pointer"
+                >
+                  Aujourd&apos;hui
+                </button>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => handleExportCsv('production')}
@@ -584,7 +725,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
             <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                  Situation par typologie de chambre — Aujourd&apos;hui (11 nov. 2026)
+                  Situation par typologie de chambre — {periodStartDate === todayStr ? "Aujourd'hui" : 'Journée'} ({formatFrShort(periodStartDate)})
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Détail en temps réel des ventes, de la capacité commercialisable et des prix moyens appliqués.
@@ -716,7 +857,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
           <div className="p-6 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                Planning prévisionnel des 7 prochains jours (11 nov. → 17 nov. 2026)
+                Planning prévisionnel des 7 prochains jours ({formatFrShort(periodDates.todayIso)} → {formatFrShort(periodDates.weekEndIso)})
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Suivi au jour le jour des taux de remplissage, du tarif moyen, du RevPAR et des événements moteurs.
@@ -748,15 +889,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                {[
-                  { date: '2026-11-11', day: 'Mercredi', dispo: totalRooms, sold: 42, occ: '95,5%', adr: '142,50 €', revpar: '136,02 €', ca: '5 985 €', event: 'Congrès Santé & Biotech (28k pax)', yield: 'Fermer OTA, Tarif Rack' },
-                  { date: '2026-11-12', day: 'Jeudi', dispo: totalRooms, sold: 40, occ: '90,9%', adr: '145,00 €', revpar: '131,82 €', ca: '5 800 €', event: 'Congrès Santé & Biotech (J2)', yield: 'Hausse ADR +15€' },
-                  { date: '2026-11-13', day: 'Vendredi', dispo: totalRooms, sold: 38, occ: '86,4%', adr: '152,00 €', revpar: '131,27 €', ca: '5 776 €', event: 'Congrès Santé (Clôture) + Arrivées loisir', yield: 'MinStay 2 nuits' },
-                  { date: '2026-11-14', day: 'Samedi', dispo: totalRooms, sold: 37, occ: '84,1%', adr: '155,00 €', revpar: '130,34 €', ca: '5 735 €', event: 'Concert Symphonique (14.5k pax)', yield: 'MinStay 2 nuits' },
-                  { date: '2026-11-15', day: 'Dimanche', dispo: totalRooms, sold: 41, occ: '93,2%', adr: '141,00 €', revpar: '131,39 €', ca: '5 781 €', event: 'Veille Salon International Énergie', yield: 'Sécuriser le plein' },
-                  { date: '2026-11-16', day: 'Lundi', dispo: totalRooms, sold: 42, occ: '95,5%', adr: '144,00 €', revpar: '137,45 €', ca: '6 048 €', event: 'Salon Int. Énergie & Climat (42k pax)', yield: 'Hausse ADR +25€' },
-                  { date: '2026-11-17', day: 'Mardi', dispo: totalRooms, sold: 41, occ: '93,2%', adr: '142,00 €', revpar: '132,32 €', ca: '5 822 €', event: 'Salon Int. Énergie (J2)', yield: 'MinStay 2 nuits' },
-                ].map((row, idx) => (
+                {weeklyRows.map((row, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
                     <td className="py-3 px-4 font-mono font-semibold text-slate-900 dark:text-slate-100">{row.date}</td>
                     <td className="py-3 px-3 text-slate-700 dark:text-slate-300 font-medium">{row.day}</td>
@@ -789,7 +922,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                 Vitesse d&apos;absorption et historique de pickup par horizon
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Mesure du rythme de montée en charge pour le mois de Novembre 2026 comparé à la même période N-1.
+                Mesure du rythme de montée en charge pour {periodDates.monthLabel} comparé à la même période N-1.
               </p>
             </div>
             <span className="text-xs font-bold px-3 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70 rounded-xl">
@@ -956,17 +1089,15 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                {[
-                  { title: 'Congrès National Santé & Biotech', cat: 'Congrès Médical', dates: '11 nov. → 13 nov. 2026', pax: '28 000 pax', dist: '2.8 km', score: 86, boost: '+28,5 %', action: 'MinStay 2 nuits & non-annulable' },
-                  { title: 'Salon International Énergie & Climat', cat: 'Salons & Foires', dates: '16 nov. → 18 nov. 2026', pax: '42 000 pax', dist: '4.5 km', score: 91, boost: '+38,0 %', action: 'MinStay 3 nuits & fermeture OTA' },
-                  { title: 'Concert Symphonique Européen', cat: 'Concerts & Spectacles', dates: '14 nov. 2026', pax: '14 500 pax', dist: '3.2 km', score: 74, boost: '+18,0 %', action: 'Plein tarif direct' },
-                  { title: 'Sommet Tech & Intelligence Artificielle', cat: 'Corporate & Sommets', dates: '25 nov. → 27 nov. 2026', pax: '18 000 pax', dist: '1.8 km', score: 82, boost: '+24,5 %', action: 'Surcote chambres supérieures' },
-                  { title: 'Festival International du Vin & Terroirs', cat: 'Festivals & Culture', dates: '4 déc. → 6 déc. 2026', pax: '35 000 pax', dist: '2.1 km', score: 88, boost: '+32,0 %', action: 'MinStay 2 nuits' },
-                ].map((ev, idx) => (
+                {territorialEventsRows.map((ev, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
                     <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">{ev.title}</td>
                     <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">{ev.cat}</td>
-                    <td className="py-3.5 px-3 font-mono text-slate-700 dark:text-slate-300">{ev.dates}</td>
+                    <td className="py-3.5 px-3 font-mono text-slate-700 dark:text-slate-300">
+                      {ev.start === ev.end
+                        ? formatFrShort(ev.start)
+                        : `${formatFrShort(ev.start)} → ${formatFrShort(ev.end)}`}
+                    </td>
                     <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">{ev.pax}</td>
                     <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">{ev.dist}</td>
                     <td className="py-3.5 px-3 font-black text-rose-600 dark:text-rose-400">{ev.score}/100</td>
@@ -996,7 +1127,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                     Performance par canal et par segment
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Production observée entre 13 août 2026 et 10 janv. 2027.
+                    Production observée entre {formatFrShort(periodDates.todayIso)} et {formatFrShort(periodDates.horizon60EndIso)}.
                   </p>
                 </div>
                 <button
@@ -1183,14 +1314,7 @@ export const ReportsAndAutomationsHub: React.FC<ReportsAndAutomationsHubProps> =
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                {[
-                  { id: 'DEC-801', date: '2026-11-11', cat: 'Standard Double', oldP: '124 €', sugP: '142 €', valP: '142 €', delta: '+18 €', reason: 'Tension territoriale forte & salon professionnel', user: 'Nabil Amrani', status: 'Appliquée' },
-                  { id: 'DEC-802', date: '2026-11-12', cat: 'Standard Double', oldP: '124 €', sugP: '145 €', valP: '145 €', delta: '+21 €', reason: 'Pickup soutenu J-1 & Compset médian à 179€', user: 'Nabil Amrani', status: 'Appliquée' },
-                  { id: 'DEC-803', date: '2026-11-13', cat: 'Supérieure Twin', oldP: '148 €', sugP: '172 €', valP: '172 €', delta: '+24 €', reason: 'Saturation compset (2 concurrents complets)', user: 'Nabil Amrani', status: 'Appliquée' },
-                  { id: 'DEC-804', date: '2026-11-14', cat: 'Supérieure Twin', oldP: '148 €', sugP: '175 €', valP: '175 €', delta: '+27 €', reason: 'Weekend sous tension événementielle', user: 'Nabil Amrani', status: 'Appliquée' },
-                  { id: 'DEC-805', date: '2026-11-15', cat: 'Deluxe Balcon', oldP: '180 €', sugP: '205 €', valP: '205 €', delta: '+25 €', reason: 'Maintien marge haute et restriction MinStay 2j', user: 'Nabil Amrani', status: 'Appliquée' },
-                  { id: 'DEC-806', date: '2026-11-16', cat: 'Standard Double', oldP: '124 €', sugP: '144 €', valP: '144 €', delta: '+20 €', reason: 'Pression corporate internationale', user: 'Nabil Amrani', status: 'Appliquée' },
-                ].map((dec, idx) => (
+                {decisionsAuditRows.map((dec, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100">{dec.id}</td>
                     <td className="py-3.5 px-3 font-semibold text-slate-800 dark:text-slate-200">{dec.date}</td>

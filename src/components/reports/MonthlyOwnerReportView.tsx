@@ -44,8 +44,33 @@ export const MonthlyOwnerReportView: React.FC<MonthlyOwnerReportViewProps> = ({
   onShowToast,
   className = '',
 }) => {
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonth, setSelectedMonth] = useState<number>(10); // Octobre
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1);
+  const [includePastMonths, setIncludePastMonths] = useState<boolean>(false);
+
+  const periodOptions = useMemo(() => {
+    const now = new Date();
+    const baseYear = now.getFullYear();
+    const baseMonthIdx = now.getMonth();
+    const startOffset = includePastMonths ? -3 : 0;
+    const endOffset = 5;
+    const options: { year: number; month: number; label: string; key: string }[] = [];
+
+    for (let offset = startOffset; offset <= endOffset; offset++) {
+      const d = new Date(baseYear, baseMonthIdx + offset, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      const monthLabel = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      const capitalized = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+      options.push({
+        year: y,
+        month: m,
+        label: offset === 0 ? `${capitalized} (Mois en cours)` : capitalized,
+        key: `${y}-${String(m).padStart(2, '0')}`,
+      });
+    }
+    return options;
+  }, [includePastMonths]);
 
   const kpis: MonthlyOwnerKPIs = useMemo(() => {
     return getMonthlyOwnerData(selectedYear, selectedMonth);
@@ -86,17 +111,31 @@ export const MonthlyOwnerReportView: React.FC<MonthlyOwnerReportViewProps> = ({
           {/* Action Buttons & Period Selector */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             {/* Month / Year Selectors */}
-            <div className="flex items-center bg-white/10 border border-white/20 rounded-2xl p-1 text-xs">
+            <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-2xl p-1 text-xs">
               <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                value={`${selectedYear}-${String(selectedMonth).padStart(2, '0')}`}
+                onChange={(e) => {
+                  const [y, m] = e.target.value.split('-').map(Number);
+                  setSelectedYear(y);
+                  setSelectedMonth(m);
+                }}
                 className="bg-transparent text-white font-bold px-3 py-1.5 focus:outline-none cursor-pointer [&>option]:text-slate-900"
               >
-                <option value={9}>Septembre 2026</option>
-                <option value={10}>Octobre 2026 (Haute compression)</option>
-                <option value={11}>Novembre 2026</option>
-                <option value={12}>Décembre 2026</option>
+                {periodOptions.map((opt) => (
+                  <option key={opt.key} value={opt.key}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
+              <label className="inline-flex items-center gap-1 pr-2.5 text-[11px] font-semibold text-violet-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includePastMonths}
+                  onChange={(e) => setIncludePastMonths(e.target.checked)}
+                  className="rounded accent-violet-500"
+                />
+                <span>Passés</span>
+              </label>
             </div>
 
             {/* Download PDF Button */}

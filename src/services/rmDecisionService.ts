@@ -5,6 +5,14 @@
 
 import { RMAlertItem, RMDecisionRecord, RMDecisionAction, StandardDemandLevel } from '../types';
 import { syncRMDecisionToSupabase } from './supabaseSyncService';
+import { INITIAL_HOTELS } from '../data/mockData';
+import { getHotelRMSConfig } from './rmsSettingsService';
+import { emitRMSUpdate } from './rmsMetricsEngine';
+import { getTodayIsoDate, addDaysIso } from '../utils/eventFilterUtils';
+
+function ensureUpcomingDate(preferredDate: string, fallbackOffsetDays: number, todayStr: string = getTodayIsoDate()): string {
+  return preferredDate >= todayStr ? preferredDate : addDaysIso(todayStr, fallbackOffsetDays);
+}
 
 const ALERTS_STORAGE_KEY = 'flowtym_rm_alerts_v1';
 const DECISIONS_STORAGE_KEY = 'flowtym_rm_decisions_log_v1';
@@ -152,15 +160,16 @@ export function formatDemandWithPercentage(demandLevel?: string): {
   return { label: 'Modéré', badge: `⚖️ Modéré (${percent}%)`, percent, colorClass: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700' };
 }
 
-export const INITIAL_RM_ALERTS: RMAlertItem[] = [
+export function getInitialRMAlerts(todayStr: string = getTodayIsoDate()): RMAlertItem[] {
+  return [
   {
     id: 'alert-nouvel-an-2026',
     hotelId: 'hotel-opera',
     eventId: 'event-nouvel-an-2026',
-    eventTitle: 'Réveillon Saint-Sylvestre 2026 & Concerts Festifs Opéra Garnier',
+    eventTitle: 'Réveillon Saint-Sylvestre & Concerts Festifs Opéra Garnier',
     venueName: 'Palais Garnier & Madeleine',
     category: 'culturel',
-    dateStr: '2026-12-31',
+    dateStr: ensureUpcomingDate('2026-12-31', 21, todayStr),
     demandLevel: 'exceptionnel',
     currentRate: 320,
     recommendedRate: 550, // Bornes Plafond Atteinte (550 €)
@@ -171,7 +180,7 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
       'Opéra National de Paris — Billetterie Gala',
       'Observatoire Touristique de Paris (Saturation Festivités)',
       'Benchmark Compset Opéra (Hôtel Saint-Pétersbourg sold-out à 580€)',
-      'D-EDGE OTB 92% à J-56'
+      'D-EDGE OTB 92%'
     ],
     urgency: 'critique',
     status: 'active',
@@ -186,10 +195,10 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
     id: 'alert-sial-2026',
     hotelId: 'hotel-opera',
     eventId: 'event-sial-2026',
-    eventTitle: 'SIAL Paris 2026 — Salon International de l’Alimentation',
+    eventTitle: 'Congrès International & Sommet Tech Paris Nord Villepinte',
     venueName: 'Parc des Expositions Paris Nord Villepinte',
     category: 'salons_foires',
-    dateStr: '2026-10-18',
+    dateStr: addDaysIso(todayStr, 5),
     demandLevel: 'exceptionnel',
     currentRate: 275,
     recommendedRate: 395, // Saut > 100€ (gap: 120€)
@@ -218,7 +227,7 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
     eventTitle: 'Salon des Maires et des Collectivités Locales 2026 (SMCL) & 108e Congrès AMF',
     venueName: 'Paris Expo Porte de Versailles',
     category: 'salons_foires',
-    dateStr: '2026-11-24',
+    dateStr: ensureUpcomingDate('2026-11-24', 8, todayStr),
     demandLevel: 'eleve',
     currentRate: 260,
     recommendedRate: 345, // Conforme aux bornes
@@ -228,7 +237,7 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
     sources: [
       'Site Officiel SMCL (salondesmaires.com)',
       'Association des Maires de France (amf.asso.fr)',
-      'Viparis Porte de Versailles — Calendrier Salons 2026',
+      'Viparis Porte de Versailles — Calendrier Salons',
       'Benchmark Compset Opéra (Hôtel Saint-Pétersbourg, Astra Opéra)'
     ],
     urgency: 'critique',
@@ -244,10 +253,10 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
     id: 'alert-mondial-auto-2026',
     hotelId: 'hotel-opera',
     eventId: 'event-mondial-auto-2026',
-    eventTitle: 'Mondial de l’Automobile Paris 2026',
+    eventTitle: 'Grand Salon Professionnel & Forum Européen Porte de Versailles',
     venueName: 'Paris Expo Porte de Versailles',
     category: 'salons_foires',
-    dateStr: '2026-10-15',
+    dateStr: addDaysIso(todayStr, 12),
     demandLevel: 'exceptionnel',
     currentRate: 270,
     recommendedRate: 375, // Saut > 100€ (gap: 105€)
@@ -272,10 +281,10 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
     id: 'alert-janvier-creux-2027',
     hotelId: 'hotel-opera',
     eventId: 'event-soldes-janvier-2027',
-    eventTitle: 'Dimanche Creux Hivernal Post-Fêtes & Début Soldes d\'Hiver 2027',
+    eventTitle: 'Dimanche Creux Hivernal Post-Fêtes & Début Soldes d\'Hiver',
     venueName: 'Grands Magasins Haussmann / Opéra',
     category: 'culturel',
-    dateStr: '2027-01-10',
+    dateStr: ensureUpcomingDate('2027-01-10', 28, todayStr),
     demandLevel: 'normal',
     currentRate: 215,
     recommendedRate: 180, // Bornes Plancher Atteinte (180 €)
@@ -300,10 +309,10 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
     id: 'alert-rolex-masters-2026',
     hotelId: 'hotel-opera',
     eventId: 'event-rolex-paris-masters-2026',
-    eventTitle: 'Rolex Paris Masters 2026 — ATP Masters 1000',
+    eventTitle: 'Tournoi Indoor ATP & Événement Sportif Paris La Défense',
     venueName: 'Paris La Défense Arena',
     category: 'sport',
-    dateStr: '2026-10-31',
+    dateStr: addDaysIso(todayStr, 17),
     demandLevel: 'eleve',
     currentRate: 260,
     recommendedRate: 330, // Conforme
@@ -331,7 +340,7 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
     eventTitle: 'Salon des Maires et des Collectivités Locales 2027 (SMCL) — Anticipation J-380',
     venueName: 'Paris Expo Porte de Versailles',
     category: 'salons_foires',
-    dateStr: '2027-11-23',
+    dateStr: ensureUpcomingDate('2027-11-23', 45, todayStr),
     demandLevel: 'eleve',
     currentRate: 260,
     recommendedRate: 350, // Conforme
@@ -339,7 +348,7 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
     gapPercent: 34.6,
     confidenceScore: 92,
     sources: [
-      'Calendrier prévisionnel AMF / Salons de France 2027',
+      'Calendrier prévisionnel AMF / Salons de France',
       'Base historique Flowtym Event Intelligence'
     ],
     urgency: 'moyenne',
@@ -352,9 +361,115 @@ export const INITIAL_RM_ALERTS: RMAlertItem[] = [
     ctaRecommended: false,
   },
 ];
+}
+
+export const INITIAL_RM_ALERTS: RMAlertItem[] = getInitialRMAlerts();
 
 /**
- * Récupère les alertes actives et archivées
+ * Construit dynamiquement des alertes RM calibrées pour un hôtel hors Opéra
+ */
+function buildDynamicAlertsForHotel(hotelId: string): RMAlertItem[] {
+  const todayStr = getTodayIsoDate();
+  if (hotelId === 'hotel-opera') return getInitialRMAlerts(todayStr);
+  const hotel = INITIAL_HOTELS.find((h) => h.id === hotelId) || INITIAL_HOTELS[0];
+  const cfg = getHotelRMSConfig(hotel);
+  const floor = cfg.rmRules?.barFloorEur || 130;
+  const ceiling = cfg.rmRules?.barCeilingEur || 550;
+  const base = hotel.baseADR || 200;
+  const recHigh = Math.min(ceiling, Math.round(base * 1.32));
+  const recMid = Math.min(ceiling, Math.round(base * 1.18));
+  const recLow = Math.max(floor, Math.round(base * 0.88));
+
+  return [
+    {
+      id: `alert-${hotelId}-peak-1`,
+      hotelId,
+      eventId: `ev-peak-${hotel.city.toLowerCase()}`,
+      eventTitle: `Pic d’Affluence & Compression Marché (${hotel.city})`,
+      venueName: `${hotel.city} Centre / Parc des Expos`,
+      category: 'salons_foires',
+      dateStr: ensureUpcomingDate('2026-11-24', 8, todayStr),
+      demandLevel: 'eleve',
+      currentRate: base,
+      recommendedRate: recHigh,
+      gapEur: recHigh - base,
+      gapPercent: Math.round(((recHigh - base) / Math.max(1, base)) * 1000) / 10,
+      confidenceScore: 95,
+      sources: ['Calendrier Événements Flowtym', `Compset ${hotel.city}`, 'D-EDGE OTB'],
+      urgency: 'critique',
+      status: 'active',
+      reason: `Forte pression sur ${hotel.city} (${hotel.name}). Écart tarifaire détecté sous la médiane du Compset.`,
+      compressionFactor: 'Hausse recommandée dans le respect strict des garde-fous de l’établissement.',
+      compsetAverageRate: recHigh + 12,
+      soldOutCompetitorsCount: 2,
+      minStayRecommended: 2,
+      ctaRecommended: false,
+    },
+    {
+      id: `alert-${hotelId}-mid-2`,
+      hotelId,
+      eventId: `ev-mid-${hotel.city.toLowerCase()}`,
+      eventTitle: `Demande Corporate & Événementielle (${hotel.city})`,
+      venueName: `${hotel.city} Métropole`,
+      category: 'congres_medical',
+      dateStr: ensureUpcomingDate('2026-12-03', 17, todayStr),
+      demandLevel: 'eleve',
+      currentRate: base,
+      recommendedRate: recMid,
+      gapEur: recMid - base,
+      gapPercent: Math.round(((recMid - base) / Math.max(1, base)) * 1000) / 10,
+      confidenceScore: 92,
+      sources: ['Veille Congrès & Salons', `Compset ${hotel.city}`],
+      urgency: 'haute',
+      status: 'active',
+      reason: `Tension affaires anticipée sur ${hotel.city} : opportunité de revaloriser le BAR vers ${recMid}€.`,
+      compressionFactor: 'Alignement progressif sur la médiane du marché.',
+      compsetAverageRate: recMid + 5,
+      soldOutCompetitorsCount: 1,
+      minStayRecommended: 1,
+      ctaRecommended: false,
+    },
+    {
+      id: `alert-${hotelId}-low-3`,
+      hotelId,
+      eventId: `ev-low-${hotel.city.toLowerCase()}`,
+      eventTitle: `Dimanche Creux Hivernal (${hotel.city})`,
+      venueName: hotel.city,
+      category: 'culturel',
+      dateStr: ensureUpcomingDate('2027-01-10', 30, todayStr),
+      demandLevel: 'normal',
+      currentRate: base,
+      recommendedRate: recLow,
+      gapEur: recLow - base,
+      gapPercent: Math.round(((recLow - base) / Math.max(1, base)) * 1000) / 10,
+      confidenceScore: 89,
+      sources: ['Historique OTB N-1', `Garde-fous ${hotel.name}`],
+      urgency: 'moyenne',
+      status: 'active',
+      reason: `Ralentissement saisonnier sur ${hotel.city}. Tarif protégé au-dessus du plancher configuré (${floor}€).`,
+      compressionFactor: `Plancher de sécurité actif à ${floor}€.`,
+      compsetAverageRate: recLow + 8,
+      soldOutCompetitorsCount: 0,
+      minStayRecommended: 1,
+      ctaRecommended: false,
+    },
+  ];
+}
+
+export function getRMHotelSafetyLimits(hotelId: string) {
+  const hotel = INITIAL_HOTELS.find((h) => h.id === hotelId);
+  if (!hotel) return RM_HOTEL_SAFETY_LIMITS;
+  const cfg = getHotelRMSConfig(hotel);
+  return {
+    RATE_FLOOR_EUR: cfg.rmRules?.barFloorEur || RM_HOTEL_SAFETY_LIMITS.RATE_FLOOR_EUR,
+    RATE_CEILING_EUR: cfg.rmRules?.barCeilingEur || RM_HOTEL_SAFETY_LIMITS.RATE_CEILING_EUR,
+    MAX_SINGLE_STEP_EUR: cfg.rmRules?.maxSingleAdjustmentEur || RM_HOTEL_SAFETY_LIMITS.MAX_SINGLE_STEP_EUR,
+    COMPSET_HIGH_DISCONNECT_EUR: 80,
+  };
+}
+
+/**
+ * Récupère les alertes actives et archivées strictement filtrées pour l'hôtel actif
  */
 export function getStoredRMAlerts(hotelId: string = 'hotel-opera'): RMAlertItem[] {
   try {
@@ -362,21 +477,15 @@ export function getStoredRMAlerts(hotelId: string = 'hotel-opera'): RMAlertItem[
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Fusionner automatiquement avec les alertes types si manquantes
-        const existingIds = new Set(parsed.map((a: RMAlertItem) => a.id));
-        const missingDefaults = INITIAL_RM_ALERTS.filter((a) => !existingIds.has(a.id));
-        if (missingDefaults.length > 0) {
-          const merged = [...parsed, ...missingDefaults];
-          localStorage.setItem(`${ALERTS_STORAGE_KEY}_${hotelId}`, JSON.stringify(merged));
-          return merged;
-        }
         return parsed;
       }
     }
   } catch (err) {
     console.error('Failed to load RM alerts from storage:', err);
   }
-  return INITIAL_RM_ALERTS.filter((a) => a.hotelId === hotelId || hotelId === 'hotel-opera');
+  const initialForHotel = buildDynamicAlertsForHotel(hotelId);
+  saveStoredRMAlerts(hotelId, initialForHotel);
+  return initialForHotel;
 }
 
 /**
@@ -422,7 +531,6 @@ export function recordRMDecision(
   const currentAlerts = getStoredRMAlerts(hotelId);
   const currentDecisions = getStoredRMDecisions(hotelId);
 
-  // Mettre à jour le statut de l'alerte
   const updatedAlerts: RMAlertItem[] = currentAlerts.map((a) => {
     if (a.id === alert.id) {
       const newStatus: RMAlertItem['status'] =
@@ -439,7 +547,10 @@ export function recordRMDecision(
         status: newStatus,
         currentRate: action === 'accepted' || action === 'modified' ? appliedRate : a.currentRate,
         gapEur: action === 'accepted' || action === 'modified' ? Math.max(0, a.recommendedRate - appliedRate) : a.gapEur,
-        gapPercent: action === 'accepted' || action === 'modified' ? Math.round(((a.recommendedRate - appliedRate) / appliedRate) * 100) : a.gapPercent,
+        gapPercent:
+          action === 'accepted' || action === 'modified' && appliedRate > 0
+            ? Math.round(((a.recommendedRate - appliedRate) / appliedRate) * 100)
+            : a.gapPercent,
       };
     }
     return a;
@@ -472,6 +583,7 @@ export function recordRMDecision(
 
   const updatedAlert = updatedAlerts.find((a) => a.id === alert.id);
   void syncRMDecisionToSupabase(hotelId, newDecision, updatedAlert);
+  emitRMSUpdate(hotelId, 'pricing', `Décision RM (${action}) enregistrée pour ${alert.dateStr}`);
 
   return { updatedAlerts, newDecision };
 }

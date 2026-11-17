@@ -21,6 +21,8 @@ import {
   BacktestEvaluationPoint,
 } from '../types/historicalData';
 import { getHistoricalDailyRecords } from './historicalDataService';
+import { INITIAL_HOTELS } from '../data/mockData';
+import { getHotelRMSConfig } from './rmsSettingsService';
 
 export const WEIGHT_N1 = 0.50; // 50%
 export const WEIGHT_N2 = 0.30; // 30%
@@ -266,9 +268,11 @@ export function computeFullPredictivePricingRecommendation(
   });
 
   const remainingRooms = input.totalRooms - input.roomsSoldOtb;
-  const currentOcc = (input.roomsSoldOtb / input.totalRooms) * 100;
-  const floorRate = 180;
-  const ceilingRate = 550;
+  const currentOcc = (input.roomsSoldOtb / Math.max(1, input.totalRooms)) * 100;
+  const targetHotel = INITIAL_HOTELS.find((h) => h.id === input.hotelId) || INITIAL_HOTELS[0];
+  const rmsConfig = getHotelRMSConfig(targetHotel);
+  const floorRate = rmsConfig.rmRules?.barFloorEur || 180;
+  const ceilingRate = rmsConfig.rmRules?.barCeilingEur || 550;
 
   // Calcul du tarif optimal de compromis (Équilibré)
   let targetRate = input.currentBarEur;
@@ -547,6 +551,30 @@ export function runHistoricalBacktesting(hotelId: string): BacktestReport {
       3
   );
 
+  const j7Wape = metricsByHorizon['J-7'].wapeOcc;
+  const j14Wape = metricsByHorizon['J-14'].wapeOcc;
+  const j90Wape = metricsByHorizon['J-90'].wapeOcc;
+  const j7Bias = metricsByHorizon['J-7'].biasRevPar;
+  const j30MaeAdr = metricsByHorizon['J-30'].maeAdr;
+
+  const dynamicStrengths = [
+    `Précision court terme J-7 / J-14 mesurée sur ${evaluationSample.length} jours : WAPE Occupation de ${j7Wape}% (J-7) et ${j14Wape}% (J-14).`,
+    `Biais RevPAR J-7 de ${j7Bias >= 0 ? '+' : ''}${j7Bias} € sur l’échantillon évalué (${overallAccuracyPercent}% de précision consolidée).`,
+    `Erreur moyenne d’ADR à J-30 contenue à ±${j30MaeAdr} € grâce à l’alignement iso-weekday N-1/N-2.`,
+  ];
+
+  const dynamicAdjustments: string[] = [];
+  if (j90Wape > 7) {
+    dynamicAdjustments.push(`WAPE long terme J-90 élevé (${j90Wape}%) : renforcer la pondération des congrès et salons détectés précocement.`);
+  } else {
+    dynamicAdjustments.push(`Bonne stabilité à J-90 (WAPE ${j90Wape}%) : poursuivre l’intégration continue du calendrier événementiel.`);
+  }
+  if (Math.abs(j7Bias) > 3) {
+    dynamicAdjustments.push(`Correction du biais RevPAR J-7 (${j7Bias > 0 ? 'sur-estimation' : 'sous-estimation'} de ${Math.abs(j7Bias)} €) par recalibrage de l’élasticité prix.`);
+  } else {
+    dynamicAdjustments.push(`Intégrer les données d’annulations anticipées sur vacances scolaires pour affiner encore l’ADR net (±${j30MaeAdr} € à J-30).`);
+  }
+
   return {
     hotelId,
     evaluatedPeriod: evaluationSample.length > 0 ? `${evaluationSample[0].dateStr} — ${evaluationSample[evaluationSample.length - 1].dateStr}` : '90 derniers jours',
@@ -554,15 +582,8 @@ export function runHistoricalBacktesting(hotelId: string): BacktestReport {
     generatedAt: new Date().toISOString(),
     metricsByHorizon,
     overallAccuracyPercent,
-    strengths: [
-      'Excellente précision à court terme (J-7 et J-14) avec un WAPE inférieur à 4.2%',
-      'Faible biais de prévision global (+0.6 € sur le RevPAR), évitant la sur-tarification excessive',
-      'Cohérence parfaite entre les jours de semaine comparables (iso-weekday) grâce à l’alignement N-1/N-2',
-    ],
-    recommendedModelAdjustments: [
-      'Accroître la sensibilité aux événements à long terme (J-90) pour capter les congrès internationaux précoces',
-      'Intégrer les annulations anticipées lors des périodes de vacances scolaires pour affiner l’ADR net',
-    ],
+    strengths: dynamicStrengths,
+    recommendedModelAdjustments: dynamicAdjustments,
     detailedPoints: detailedPoints.slice(-30),
   };
 }

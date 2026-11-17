@@ -44,7 +44,9 @@ import {
   RM_HOTEL_SAFETY_LIMITS,
   RMSafetyEvaluation,
 } from '../../services/rmDecisionService';
+import { syncEngineDecisionToPlanning } from '../../services/ratePlanningSyncService';
 import { RMPerformanceTrendChart } from './RMPerformanceTrendChart';
+import { getTodayIsoDate } from '../../utils/eventFilterUtils';
 
 interface RMDecisionCenterProps {
   hotel: Hotel;
@@ -75,7 +77,11 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
   // View mode for alerts: 'table' (default) | 'cards'
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
-  // Filter for alerts
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+
+  // Filter for alerts (start date defaults to todayStr dynamically)
+  const [startDateFilter, setStartDateFilter] = useState<string>(() => getTodayIsoDate());
+  const [includePastAlerts, setIncludePastAlerts] = useState<boolean>(false);
   const [statusFilter, setStatusFilter] = useState<'active' | 'all' | 'processed'>('active');
   const [urgencyFilter, setUrgencyFilter] = useState<'all' | 'critique' | 'haute' | 'moyenne' | 'safety'>('all');
   const [safetyFilterOnly, setSafetyFilterOnly] = useState<boolean>(false);
@@ -92,18 +98,25 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
   const [customRateInput, setCustomRateInput] = useState<number>(300);
   const [customCommentInput, setCustomCommentInput] = useState<string>('');
 
-  // Evaluated alerts with safety guardrails and demand percentages
+  const effectiveMinDate = useMemo(
+    () => (includePastAlerts ? startDateFilter || '' : startDateFilter && startDateFilter > todayStr ? startDateFilter : todayStr),
+    [includePastAlerts, startDateFilter, todayStr]
+  );
+
+  // Evaluated alerts with safety guardrails and demand percentages (>= todayStr by default)
   const evaluatedAlerts = useMemo(() => {
-    return alerts.map((a) => {
-      const safety = evaluateRMSafety(a.recommendedRate, a.currentRate, a.compsetAverageRate);
-      const demandInfo = formatDemandWithPercentage(a.demandLevel);
-      return {
-        alert: a,
-        safety,
-        demandInfo,
-      };
-    });
-  }, [alerts]);
+    return alerts
+      .filter((a) => !effectiveMinDate || a.dateStr >= effectiveMinDate)
+      .map((a) => {
+        const safety = evaluateRMSafety(a.recommendedRate, a.currentRate, a.compsetAverageRate);
+        const demandInfo = formatDemandWithPercentage(a.demandLevel);
+        return {
+          alert: a,
+          safety,
+          demandInfo,
+        };
+      });
+  }, [alerts, effectiveMinDate]);
 
   // Safety counts
   const safetyViolationsCount = evaluatedAlerts.filter((item) => item.safety.hasViolation).length;
@@ -145,7 +158,8 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
     );
     setAlerts(updatedAlerts);
     setDecisions((prev) => [newDecision, ...prev]);
-    onShowToast(`Recommandation acceptée : ${alert.recommendedRate}€ appliqué pour le ${alert.dateStr}`);
+    void syncEngineDecisionToPlanning(hotel, alert.dateStr, alert.recommendedRate, 'accepted', alert.minStayRecommended || 1);
+    onShowToast(`Recommandation acceptée : ${alert.recommendedRate}€ appliqué dans le Planning Tarifaire pour le ${alert.dateStr}`);
   };
 
   const handleOpenModifyModal = (alert: RMAlertItem) => {
@@ -166,7 +180,8 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
     );
     setAlerts(updatedAlerts);
     setDecisions((prev) => [newDecision, ...prev]);
-    onShowToast(`Tarif modifié et appliqué à ${customRateInput}€`);
+    void syncEngineDecisionToPlanning(hotel, modifyingAlert.dateStr, customRateInput, 'modified', modifyingAlert.minStayRecommended || 1);
+    onShowToast(`Tarif modifié et appliqué à ${customRateInput}€ dans le Planning Tarifaire`);
     setModifyingAlert(null);
   };
 
@@ -181,6 +196,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
     );
     setAlerts(updatedAlerts);
     setDecisions((prev) => [newDecision, ...prev]);
+    void syncEngineDecisionToPlanning(hotel, alert.dateStr, alert.currentRate, 'rejected', alert.minStayRecommended || 1);
     onShowToast(`Recommandation rejetée pour le ${alert.dateStr}`);
   };
 
@@ -413,7 +429,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                   statusFilter === 'processed' ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
-                Traitées ({alerts.length - activeAlertsCount})
+                Traitées ({Math.max(0, evaluatedAlerts.length - activeAlertsCount)})
               </button>
               <button
                 onClick={() => setStatusFilter('all')}
@@ -421,11 +437,39 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                   statusFilter === 'all' ? 'bg-violet-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
-                Toutes ({alerts.length})
+                Toutes ({evaluatedAlerts.length})
               </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {/* Filtre Date de début */}
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Dès :</span>
+                <input
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    setIncludePastAlerts(v < todayStr);
+                    setStartDateFilter(v);
+                  }}
+                  className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
+                />
+                {(startDateFilter !== todayStr || includePastAlerts) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIncludePastAlerts(false);
+                      setStartDateFilter(todayStr);
+                    }}
+                    className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
+                  >
+                    Aujourd&apos;hui
+                  </button>
+                )}
+              </div>
+
               {/* Filtre Urgence & Bornes */}
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-slate-700 dark:text-slate-300">Filtre Priorité :</span>
@@ -527,7 +571,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                               <div className="space-y-0.5">
                                 <div className="font-black text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
                                   <span>
-                                    {new Date(alert.dateStr).toLocaleDateString('fr-FR', {
+                                    {new Date(`${alert.dateStr}T00:00:00`).toLocaleDateString('fr-FR', {
                                       weekday: 'short',
                                       day: 'numeric',
                                       month: 'short',
@@ -872,7 +916,7 @@ export const RMDecisionCenter: React.FC<RMDecisionCenterProps> = ({
                           </span>
 
                           <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                            {new Date(alert.dateStr).toLocaleDateString('fr-FR', {
+                            {new Date(`${alert.dateStr}T00:00:00`).toLocaleDateString('fr-FR', {
                               weekday: 'long',
                               day: 'numeric',
                               month: 'long',

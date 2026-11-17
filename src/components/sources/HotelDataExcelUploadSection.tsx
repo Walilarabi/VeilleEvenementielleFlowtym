@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Hotel } from '../../types';
 import { exportLighthouseWorkbookToXLSX } from '../../services/lighthouseAnalysisEngine';
+import { addDaysIso, getTodayIsoDate } from '../../utils/eventFilterUtils';
 
 export type ExcelSourceType = 'lighthouse' | 'dedge' | 'pms';
 
@@ -63,6 +64,9 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const todayStr = getTodayIsoDate();
+  const formatFrDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR');
+
   // Upload history in local storage
   const [records, setRecords] = useState<UploadedDataRecord[]>(() => {
     try {
@@ -71,15 +75,19 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
     } catch (e) {
       console.error('Failed to load upload history', e);
     }
+    const baseIso = getTodayIsoDate();
+    const horizon60Iso = addDaysIso(baseIso, 60);
+    const horizon30Iso = addDaysIso(baseIso, 30);
+    const fmt = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR');
     // Default initial demonstration logs
     return [
       {
         id: 'rec-init-lh',
         sourceType: 'lighthouse',
         fileName: 'folkestone-opéra_bookingdotcom_lowest_los1_2guests.xlsx',
-        uploadedAt: '06/11/2026 à 08:30',
+        uploadedAt: `${fmt(baseIso)} à 08:30`,
         rowCount: 60,
-        dateRange: '10/11/2026 — 08/01/2027',
+        dateRange: `${fmt(baseIso)} — ${fmt(horizon60Iso)}`,
         status: 'synced',
         fileSize: '48.2 Ko',
       },
@@ -87,9 +95,9 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
         id: 'rec-init-de',
         sourceType: 'dedge',
         fileName: 'dedge_crs_inventory_paris_opera.csv',
-        uploadedAt: '05/11/2026 à 17:40',
+        uploadedAt: `${fmt(baseIso)} à 07:40`,
         rowCount: 61,
-        dateRange: '01/11/2026 — 31/12/2026',
+        dateRange: `${fmt(baseIso)} — ${fmt(horizon60Iso)}`,
         status: 'synced',
         fileSize: '24.6 Ko',
       },
@@ -97,9 +105,9 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
         id: 'rec-init-pms',
         sourceType: 'pms',
         fileName: 'cloture_night_audit_opera_pms.xlsx',
-        uploadedAt: '05/11/2026 à 06:10',
-        rowCount: 90,
-        dateRange: '01/10/2026 — 31/12/2026',
+        uploadedAt: `${fmt(baseIso)} à 06:10`,
+        rowCount: 30,
+        dateRange: `${fmt(baseIso)} — ${fmt(horizon30Iso)}`,
         status: 'synced',
         fileSize: '62.1 Ko',
       },
@@ -138,22 +146,27 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
     let csvContent = '';
     let fileName = '';
 
+    const d1 = addDaysIso(todayStr, 2);
+    const d2 = addDaysIso(todayStr, 3);
+    const d3 = addDaysIso(todayStr, 4);
+    const d4 = addDaysIso(todayStr, 5);
+
     if (type === 'dedge') {
       fileName = 'modele_import_dedge_crs_inventory.csv';
       csvContent =
         'Date,Hotel_Code,Chambres_Total,Chambres_Vendues_OTB,Stock_Disponible,Tarif_BAR_EUR,Min_Stay_Nuits,Stop_Sell_Actif\n' +
-        '2026-11-18,FR-PAR-FOLKESTONE-08,45,36,9,285,2,Non\n' +
-        '2026-11-19,FR-PAR-FOLKESTONE-08,45,39,6,320,2,Non\n' +
-        '2026-11-20,FR-PAR-FOLKESTONE-08,45,41,4,340,3,Non\n' +
-        '2026-11-21,FR-PAR-FOLKESTONE-08,45,43,2,360,3,Oui\n';
+        `${d1},FR-PAR-FOLKESTONE-08,45,36,9,285,2,Non\n` +
+        `${d2},FR-PAR-FOLKESTONE-08,45,39,6,320,2,Non\n` +
+        `${d3},FR-PAR-FOLKESTONE-08,45,41,4,340,3,Non\n` +
+        `${d4},FR-PAR-FOLKESTONE-08,45,43,2,360,3,Oui\n`;
     } else {
       fileName = 'modele_import_pms_night_audit.csv';
       csvContent =
         'Date_Sejour,Taux_Occupation_OTB_Pct,Chambres_Occupees,Stock_Restant,ADR_Portefeuille_EUR,Pickup_24h_Nuits,Pickup_72h_Nuits,Pickup_7j_Nuits,Annulations_24h\n' +
-        '2026-11-18,80.0,36,9,268.50,5,11,18,0\n' +
-        '2026-11-19,86.7,39,6,282.00,4,9,16,1\n' +
-        '2026-11-20,91.1,41,4,295.40,6,14,22,0\n' +
-        '2026-11-21,95.5,43,2,315.00,3,8,15,0\n';
+        `${d1},80.0,36,9,268.50,5,11,18,0\n` +
+        `${d2},86.7,39,6,282.00,4,9,16,1\n` +
+        `${d3},91.1,41,4,295.40,6,14,22,0\n` +
+        `${d4},95.5,43,2,315.00,3,8,15,0\n`;
     }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -191,30 +204,35 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
       let headers: string[] = [];
       let rows: any[] = [];
 
+      const p1 = addDaysIso(todayStr, 2);
+      const p2 = addDaysIso(todayStr, 3);
+      const p3 = addDaysIso(todayStr, 4);
+      const p4 = addDaysIso(todayStr, 5);
+
       if (selectedChannel === 'lighthouse') {
         headers = ['Date', 'Concurrent', 'Étoiles', 'Chambre', 'Tarif BAR', 'Disponibilité', 'Canal'];
         rows = [
-          ['2026-11-18', 'Hôtel Saint-Pétersbourg Opéra', '4★', 'Classique', '345€', 'Complet', 'Booking.com'],
-          ['2026-11-18', 'Hôtel Charing Cross', '4★', 'Supérieure', '310€', 'Disponible', 'Site Direct'],
-          ['2026-11-19', 'Hôtel Saint-Pétersbourg Opéra', '4★', 'Classique', '360€', 'Complet', 'Booking.com'],
-          ['2026-11-19', 'Hôtel Astra Opéra', '4★', 'Standard', '295€', 'Disponible', 'Expedia'],
-          ['2026-11-20', 'Hotel Indigo Paris-Opéra', '4★', 'Deluxe', '385€', 'Disponible', 'Site Direct'],
+          [p1, 'Hôtel Saint-Pétersbourg Opéra', '4★', 'Classique', '345€', 'Complet', 'Booking.com'],
+          [p1, 'Hôtel Charing Cross', '4★', 'Supérieure', '310€', 'Disponible', 'Site Direct'],
+          [p2, 'Hôtel Saint-Pétersbourg Opéra', '4★', 'Classique', '360€', 'Complet', 'Booking.com'],
+          [p2, 'Hôtel Astra Opéra', '4★', 'Standard', '295€', 'Disponible', 'Expedia'],
+          [p3, 'Hotel Indigo Paris-Opéra', '4★', 'Deluxe', '385€', 'Disponible', 'Site Direct'],
         ];
       } else if (selectedChannel === 'dedge') {
         headers = ['Date', 'Hotel Code', 'Total Ch.', 'OTB Vendues', 'Stock Dispo', 'Tarif BAR', 'Min Stay'];
         rows = [
-          ['2026-11-18', 'FR-PAR-FOLKESTONE-08', '45', '36 (80%)', '9 ch.', '285€', '2 nuits'],
-          ['2026-11-19', 'FR-PAR-FOLKESTONE-08', '45', '39 (87%)', '6 ch.', '320€', '2 nuits'],
-          ['2026-11-20', 'FR-PAR-FOLKESTONE-08', '45', '41 (91%)', '4 ch.', '340€', '3 nuits'],
-          ['2026-11-21', 'FR-PAR-FOLKESTONE-08', '45', '43 (96%)', '2 ch.', '360€', '3 nuits'],
+          [p1, 'FR-PAR-FOLKESTONE-08', '45', '36 (80%)', '9 ch.', '285€', '2 nuits'],
+          [p2, 'FR-PAR-FOLKESTONE-08', '45', '39 (87%)', '6 ch.', '320€', '2 nuits'],
+          [p3, 'FR-PAR-FOLKESTONE-08', '45', '41 (91%)', '4 ch.', '340€', '3 nuits'],
+          [p4, 'FR-PAR-FOLKESTONE-08', '45', '43 (96%)', '2 ch.', '360€', '3 nuits'],
         ];
       } else {
         headers = ['Date Séjour', 'Occ. %', 'Ch. Louées', 'Stock Dispo', 'ADR Portefeuille', 'Pickup 24h', 'Pickup 7j'];
         rows = [
-          ['2026-11-18', '80.0%', '36 ch.', '9 ch.', '268.50€', '+5 nuits', '+18 nuits'],
-          ['2026-11-19', '86.7%', '39 ch.', '6 ch.', '282.00€', '+4 nuits', '+16 nuits'],
-          ['2026-11-20', '91.1%', '41 ch.', '4 ch.', '295.40€', '+6 nuits', '+22 nuits'],
-          ['2026-11-21', '95.5%', '43 ch.', '2 ch.', '315.00€', '+3 nuits', '+15 nuits'],
+          [p1, '80.0%', '36 ch.', '9 ch.', '268.50€', '+5 nuits', '+18 nuits'],
+          [p2, '86.7%', '39 ch.', '6 ch.', '282.00€', '+4 nuits', '+16 nuits'],
+          [p3, '91.1%', '41 ch.', '4 ch.', '295.40€', '+6 nuits', '+22 nuits'],
+          [p4, '95.5%', '43 ch.', '2 ch.', '315.00€', '+3 nuits', '+15 nuits'],
         ];
       }
 
@@ -241,7 +259,7 @@ export const HotelDataExcelUploadSection: React.FC<HotelDataExcelUploadSectionPr
       fileName: selectedFile.name,
       uploadedAt: `${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
       rowCount: selectedFile.rows.length * 15, // simulation of parsed rows
-      dateRange: '15/11/2026 — 31/12/2026',
+      dateRange: `${formatFrDate(todayStr)} — ${formatFrDate(addDaysIso(todayStr, 45))}`,
       status: 'synced',
       fileSize: selectedFile.size,
     };

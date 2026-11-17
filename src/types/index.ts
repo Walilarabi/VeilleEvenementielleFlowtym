@@ -436,3 +436,5 @@ export interface RMEpistemologicalBreakdown {
 }
 
 export * from './schoolHolidays';
+export * from './ratePlanning';
+export * from './connectors';

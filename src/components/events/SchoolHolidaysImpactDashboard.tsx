@@ -28,6 +28,7 @@ import { SchoolHolidayPeriod, SchoolHolidaysImpactScoreResult, HolidaySeason } f
 import { Hotel } from '../../types';
 import { calculateSchoolHolidayImpactScore, detectMajorOverlaps } from '../../services/schoolHolidaysImpactEngine';
 import { getHotelInventoryProfile } from '../../data/hotelRoomTypologies';
+import { getTodayIsoDate } from '../../utils/eventFilterUtils';
 
 interface SchoolHolidaysImpactDashboardProps {
   holidays: SchoolHolidayPeriod[];
@@ -46,23 +47,31 @@ export const SchoolHolidaysImpactDashboard: React.FC<SchoolHolidaysImpactDashboa
   const roomBreakdown = profile.roomBreakdown;
 
   // Filter state for dashboard
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
   const [selectedSeason, setSelectedSeason] = useState<'all' | HolidaySeason>('all');
   const [minScoreFilter, setMinScoreFilter] = useState<number>(0);
+  const [showPastHolidays, setShowPastHolidays] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'matrix' | 'overlaps' | 'room_typologies' | 'comparison'>('matrix');
 
-  // Calculate impact score for all holidays
+  const scopedHolidays = useMemo(() => {
+    if (showPastHolidays || year > currentYear) return holidays;
+    return holidays.filter((h) => h.endDate >= todayStr);
+  }, [holidays, showPastHolidays, year, currentYear, todayStr]);
+
+  // Calculate impact score for scoped holidays
   const evaluatedHolidays = useMemo(() => {
-    return holidays
+    return scopedHolidays
       .filter((h) => selectedSeason === 'all' || h.season === selectedSeason)
-      .map((h) => calculateSchoolHolidayImpactScore(h, hotel, holidays))
+      .map((h) => calculateSchoolHolidayImpactScore(h, hotel, scopedHolidays))
       .filter((res) => res.score >= minScoreFilter)
       .sort((a, b) => b.score - a.score);
-  }, [holidays, hotel, selectedSeason, minScoreFilter]);
+  }, [scopedHolidays, hotel, selectedSeason, minScoreFilter]);
 
   // Major multi-country overlaps
   const overlaps = useMemo(() => {
-    return detectMajorOverlaps(holidays, hotel);
-  }, [holidays, hotel]);
+    return detectMajorOverlaps(scopedHolidays, hotel);
+  }, [scopedHolidays, hotel]);
 
   // High potential holidays (Score >= 70)
   const highImpactHolidays = evaluatedHolidays.filter((h) => h.classification === 'vert');
@@ -180,24 +189,36 @@ export const SchoolHolidaysImpactDashboard: React.FC<SchoolHolidaysImpactDashboa
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-700 dark:text-slate-300">Filtre score min :</span>
-              <select
-                value={minScoreFilter}
-                onChange={(e) => setMinScoreFilter(parseInt(e.target.value, 10))}
-                className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 font-semibold text-slate-700 dark:text-slate-300"
-              >
-                <option value={0}>Tous les scores</option>
-                <option value={42}>Impact modéré & élevé (&ge; 42)</option>
-                <option value={70}>Impact élevé uniquement (&ge; 70)</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showPastHolidays}
+                  onChange={(e) => setShowPastHolidays(e.target.checked)}
+                  className="rounded accent-violet-600"
+                />
+                <span>Inclure périodes passées</span>
+              </label>
+
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-700 dark:text-slate-300">Filtre score min :</span>
+                <select
+                  value={minScoreFilter}
+                  onChange={(e) => setMinScoreFilter(parseInt(e.target.value, 10))}
+                  className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 font-semibold text-slate-700 dark:text-slate-300"
+                >
+                  <option value={0}>Tous les scores</option>
+                  <option value={42}>Impact modéré &amp; élevé (&ge; 42)</option>
+                  <option value={70}>Impact élevé uniquement (&ge; 70)</option>
+                </select>
+              </div>
             </div>
           </div>
 
           {/* Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {evaluatedHolidays.map((item) => {
-              const originalHoliday = holidays.find((h) => h.id === item.periodId);
+              const originalHoliday = scopedHolidays.find((h) => h.id === item.periodId);
               const badgeCls = getBadgeStyle(item.classification);
 
               return (

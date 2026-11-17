@@ -41,10 +41,11 @@ import {
 import { Hotel } from '../../types';
 import {
   DailyRateIntelligence,
-  TODAY_DATE_STR,
+  getTodayDateStr,
   HOTEL_TOTAL_ROOMS,
   getRateIntelligenceRecords,
 } from '../../services/rateIntelligenceService';
+import { addDaysIso } from '../../utils/eventFilterUtils';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface RMPerformanceTrendChartProps {
@@ -65,50 +66,51 @@ export const RMPerformanceTrendChart: React.FC<RMPerformanceTrendChartProps> = (
     return externalRecords || getRateIntelligenceRecords(hotel.id);
   }, [externalRecords, hotel.id]);
 
+  const todayStr = useMemo(() => getTodayDateStr(), []);
+  const [startDateFilter, setStartDateFilter] = useState<string>(() => getTodayDateStr());
+  const [includeHistorical, setIncludeHistorical] = useState<boolean>(false);
   const [horizon, setHorizon] = useState<ChartHorizon>('60d');
   const [showADR, setShowADR] = useState(true);
   const [showRevPAR, setShowRevPAR] = useState(true);
   const [showOcc, setShowOcc] = useState(true);
   const [showCompset, setShowCompset] = useState(false);
 
-  // Filtrage selon l'horizon sélectionné centré autour de TODAY_DATE_STR
+  // Filtrage à partir d'aujourd'hui par défaut (aucune donnée antérieure sauf si filtre modifié explicitement)
   const chartData = useMemo(() => {
-    const today = new Date(`${TODAY_DATE_STR}T00:00:00Z`);
-    
-    // Déterminer les jours en arrière et en avant
     let daysPast = 14;
-    let daysFuture = 46;
+    let daysFuture = 60;
 
     if (horizon === '14d') {
       daysPast = 7;
-      daysFuture = 7;
+      daysFuture = 14;
     } else if (horizon === '30d') {
       daysPast = 10;
-      daysFuture = 20;
+      daysFuture = 30;
     } else if (horizon === '60d') {
       daysPast = 14;
-      daysFuture = 46;
+      daysFuture = 60;
     } else if (horizon === '90d') {
       daysPast = 15;
-      daysFuture = 75;
+      daysFuture = 90;
     } else if (horizon === 'all') {
       daysPast = 20;
-      daysFuture = 100;
+      daysFuture = 115;
     }
 
-    const minDate = new Date(today);
-    minDate.setUTCDate(today.getUTCDate() - daysPast);
-    const minStr = minDate.toISOString().split('T')[0];
-
-    const maxDate = new Date(today);
-    maxDate.setUTCDate(today.getUTCDate() + daysFuture);
-    const maxStr = maxDate.toISOString().split('T')[0];
+    const effectiveStart =
+      startDateFilter < todayStr
+        ? startDateFilter
+        : includeHistorical
+        ? addDaysIso(todayStr, -daysPast)
+        : startDateFilter || todayStr;
+    const minStr = effectiveStart;
+    const maxStr = addDaysIso(todayStr, daysFuture);
 
     return records
       .filter((r) => r.dateStr >= minStr && r.dateStr <= maxStr)
       .map((r) => {
-        const isHistorical = r.dateStr < TODAY_DATE_STR;
-        const dObj = new Date(r.dateStr);
+        const isHistorical = r.dateStr < todayStr;
+        const dObj = new Date(`${r.dateStr}T00:00:00Z`);
         const displayDate = `${dObj.getUTCDate()} ${dObj.toLocaleDateString('fr-FR', { month: 'short' })}`;
 
         const adr = r.dedgeReservations.adrNetEur;
@@ -125,17 +127,17 @@ export const RMPerformanceTrendChart: React.FC<RMPerformanceTrendChartProps> = (
           event: r.eventTitle || 'Sans événement majeur',
           demandLevel: r.demandLevel,
           rmScore: r.rmScore || 0,
-          
+
           // Séries pour Recharts (distinction passé/futur)
           adrNet: adr,
           revpar: revpar,
           occupancy: occ,
           compsetMedian: compsetMed,
-          
+
           // Séries dédiées pour différencier le tracé continu
-          adrHistorical: isHistorical || r.dateStr === TODAY_DATE_STR ? adr : null,
+          adrHistorical: isHistorical || r.dateStr === todayStr ? adr : null,
           adrForecast: !isHistorical ? adr : null,
-          revparHistorical: isHistorical || r.dateStr === TODAY_DATE_STR ? revpar : null,
+          revparHistorical: isHistorical || r.dateStr === todayStr ? revpar : null,
           revparForecast: !isHistorical ? revpar : null,
 
           netRevenue: r.dedgeReservations.netAccommodationRevenue,
@@ -143,7 +145,7 @@ export const RMPerformanceTrendChart: React.FC<RMPerformanceTrendChartProps> = (
           pickup1d: r.dedgePickup.pickup1d,
         };
       });
-  }, [records, horizon]);
+  }, [records, horizon, startDateFilter, includeHistorical, todayStr]);
 
   // Statistiques comparatives Historique vs Prévisionnel
   const metrics = useMemo(() => {
@@ -202,8 +204,49 @@ export const RMPerformanceTrendChart: React.FC<RMPerformanceTrendChartProps> = (
           </p>
         </div>
 
-        {/* Sélecteurs de Période & Horizon */}
+        {/* Sélecteurs de Date de début, Historique & Horizon */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 text-xs">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Dès :</span>
+            <input
+              type="date"
+              value={startDateFilter}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) return;
+                setStartDateFilter(v);
+                if (v < todayStr) setIncludeHistorical(true);
+              }}
+              className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
+            />
+            {(startDateFilter !== todayStr || includeHistorical) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStartDateFilter(todayStr);
+                  setIncludeHistorical(false);
+                }}
+                className="text-[11px] font-bold text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
+              >
+                Aujourd&apos;hui
+              </button>
+            )}
+          </div>
+          <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeHistorical}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIncludeHistorical(checked);
+                if (!checked && startDateFilter < todayStr) {
+                  setStartDateFilter(todayStr);
+                }
+              }}
+              className="rounded accent-violet-600 w-3.5 h-3.5 cursor-pointer"
+            />
+            <span className="font-medium">Historique passé</span>
+          </label>
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold shadow-2xs">
             {(
               [
@@ -237,34 +280,34 @@ export const RMPerformanceTrendChart: React.FC<RMPerformanceTrendChartProps> = (
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-medium">
             <span>ADR Net Moyen</span>
             <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-800">
-              Historique vs OTB
+              {metrics.histAdr > 0 ? 'Historique vs OTB' : 'Prévisionnel OTB'}
             </span>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-black text-slate-900 dark:text-slate-100">{metrics.fcastAdr} €</span>
-            <span className="text-xs text-slate-400">vs {metrics.histAdr} €</span>
+            {metrics.histAdr > 0 && <span className="text-xs text-slate-400">vs {metrics.histAdr} €</span>}
           </div>
           <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+{metrics.adrDelta} € d’évolution prévisionnelle</span>
+            <span>{metrics.histAdr > 0 ? `${metrics.adrDelta >= 0 ? '+' : ''}${metrics.adrDelta} € vs réalisé` : `Moyenne sur ${chartData.length} jours à venir`}</span>
           </div>
         </div>
 
         {/* KPI 2 : RevPAR Réalisé vs Prévisionnel */}
         <div className="bg-violet-50/50 dark:bg-violet-950/35 rounded-2xl p-3.5 border border-violet-200/80 dark:border-violet-800/70 space-y-1">
           <div className="flex items-center justify-between text-violet-800 dark:text-violet-300 font-semibold">
-            <span>RevPAR Moyen (45 ch.)</span>
+            <span>RevPAR Moyen ({hotel.roomCount || HOTEL_TOTAL_ROOMS} ch.)</span>
             <span className="text-[10px] font-bold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/40 px-1.5 py-0.5 rounded">
               Yield Flowtym
             </span>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-black text-violet-950 dark:text-violet-100">{metrics.fcastRevpar} €</span>
-            <span className="text-xs text-violet-500">vs {metrics.histRevpar} €</span>
+            {metrics.histRevpar > 0 && <span className="text-xs text-violet-500">vs {metrics.histRevpar} €</span>}
           </div>
           <div className="flex items-center gap-1 text-[11px] font-bold text-violet-700 dark:text-violet-300">
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+{metrics.revparDelta} € / chambre disponible</span>
+            <span>{metrics.histRevpar > 0 ? `${metrics.revparDelta >= 0 ? '+' : ''}${metrics.revparDelta} € / ch. dispo` : 'Revenu moyen / chambre disponible'}</span>
           </div>
         </div>
 
@@ -278,7 +321,7 @@ export const RMPerformanceTrendChart: React.FC<RMPerformanceTrendChartProps> = (
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-black text-slate-900 dark:text-slate-100">{metrics.fcastOcc}%</span>
-            <span className="text-xs text-slate-400">vs {metrics.histOcc}% hist.</span>
+            {metrics.histOcc > 0 && <span className="text-xs text-slate-400">vs {metrics.histOcc}% hist.</span>}
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400">Rythme d’absorption conforme aux objectifs</p>
         </div>
@@ -412,23 +455,22 @@ export const RMPerformanceTrendChart: React.FC<RMPerformanceTrendChartProps> = (
             />
 
             {/* Ligne verticale de bascule Aujourd'hui */}
-            <ReferenceLine
-              yAxisId="left"
-              x={
-                chartData.find((d) => d.dateStr === TODAY_DATE_STR)?.displayDate ||
-                chartData[Math.min(chartData.length - 1, 14)]?.displayDate
-              }
-              stroke="#ef4444"
-              strokeDasharray="4 4"
-              strokeWidth={2}
-              label={{
-                value: 'Aujourd’hui (04 nov.)',
-                position: 'top',
-                fill: '#dc2626',
-                fontSize: 10,
-                fontWeight: 'bold',
-              }}
-            />
+            {chartData.some((d) => d.dateStr === todayStr) && (
+              <ReferenceLine
+                yAxisId="left"
+                x={chartData.find((d) => d.dateStr === todayStr)?.displayDate}
+                stroke="#ef4444"
+                strokeDasharray="4 4"
+                strokeWidth={2}
+                label={{
+                  value: `Aujourd’hui (${chartData.find((d) => d.dateStr === todayStr)?.displayDate})`,
+                  position: 'top',
+                  fill: '#dc2626',
+                  fontSize: 10,
+                  fontWeight: 'bold',
+                }}
+              />
+            )}
 
             <Tooltip
               content={({ active, payload }) => {

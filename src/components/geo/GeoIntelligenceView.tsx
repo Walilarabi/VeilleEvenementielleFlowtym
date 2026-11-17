@@ -50,6 +50,7 @@ import {
 import { GoogleEventMap } from './GoogleEventMap';
 import { VenueDetailDrawer } from './VenueDetailDrawer';
 import { getRMScoreColorClasses } from '../../utils/helpers';
+import { getEffectiveEndDate, getTodayIsoDate } from '../../utils/eventFilterUtils';
 
 interface GeoIntelligenceViewProps {
   hotels: Hotel[];
@@ -118,10 +119,13 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
   const [categories, setCategories] = useState<OfficialCategorySpec[]>(OFFICIAL_7_CATEGORIES);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
-  // Time Filtering (PRD Section 5)
-  // Default to October (9) or November (10) 2026 where Paris Games Week, Rolex Masters, EquipHotel occur
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(10); // 10 = Nov 2026
+  // Time Filtering (PRD Section 5) - dynamique sur le mois et l'année courants
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+  const todayYear = useMemo(() => new Date().getFullYear(), []);
+  const todayMonthIdx = useMemo(() => new Date().getMonth(), []);
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(() => new Date().getMonth());
+  const [includePastEvents, setIncludePastEvents] = useState<boolean>(false);
 
   // Impact and visual filters (PRD Section 6 & 9)
   const [impactFilter, setImpactFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -198,7 +202,14 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
         return false;
       }
 
-      // 1. Month and Year filter
+      // 1. Month and Year filter + exclusion par défaut des événements passés (< aujourd'hui)
+      const isViewingExplicitPastMonth =
+        selectedYear < todayYear ||
+        (selectedYear === todayYear && selectedMonthIndex !== -1 && selectedMonthIndex < todayMonthIdx);
+      if (!includePastEvents && !isViewingExplicitPastMonth && getEffectiveEndDate(ev) < todayStr) {
+        return false;
+      }
+
       if (selectedMonthIndex !== -1) {
         const m = String(selectedMonthIndex + 1).padStart(2, '0');
         const firstDayOfMonth = `${selectedYear}-${m}-01`;
@@ -229,7 +240,7 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
 
       return true;
     });
-  }, [events, selectedMonthIndex, selectedYear, categoryFilter, impactFilter, venueIdsInTerritory, currentHotel.city, currentTerritory.territoryName]);
+  }, [events, selectedMonthIndex, selectedYear, todayYear, todayMonthIdx, includePastEvents, todayStr, categoryFilter, impactFilter, venueIdsInTerritory, currentHotel.city, currentTerritory.territoryName]);
 
   // Filtered list for the right sidebar with search
   const sideListEvents = useMemo(() => {
@@ -559,9 +570,9 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                   onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
                   className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer"
                 >
-                  <option value={2025}>2025</option>
-                  <option value={2026}>2026</option>
-                  <option value={2027}>2027</option>
+                  <option value={todayYear - 1}>{todayYear - 1}</option>
+                  <option value={todayYear}>{todayYear}</option>
+                  <option value={todayYear + 1}>{todayYear + 1}</option>
                 </select>
 
                 {/* Steppers */}
@@ -600,6 +611,16 @@ export const GeoIntelligenceView: React.FC<GeoIntelligenceViewProps> = ({
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
+
+                <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer px-2 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={includePastEvents}
+                    onChange={(e) => setIncludePastEvents(e.target.checked)}
+                    className="rounded accent-violet-600"
+                  />
+                  <span>Passés</span>
+                </label>
               </div>
 
               {/* Right: Dynamic Counters (PRD Section 9) */}

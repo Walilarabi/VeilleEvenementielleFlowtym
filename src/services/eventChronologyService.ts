@@ -22,10 +22,12 @@
 
 import { EventItem } from '../types';
 
-export const SYSTEM_REFERENCE_DATE = '2026-11-12';
+import { getTodayIsoDate } from '../utils/eventFilterUtils';
+
+export const SYSTEM_REFERENCE_DATE = getTodayIsoDate();
 
 export function getSystemReferenceDate(): string {
-  return SYSTEM_REFERENCE_DATE;
+  return getTodayIsoDate();
 }
 
 export type EventChronologicalStatus = 'ongoing' | 'upcoming' | 'past';
@@ -43,7 +45,7 @@ export function getEffectiveEndDate(ev: { startDate: string; endDate?: string | 
  */
 export function isEventOngoing(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): boolean {
   const effectiveEnd = getEffectiveEndDate(ev);
   return ev.startDate <= refDate && effectiveEnd >= refDate;
@@ -55,7 +57,7 @@ export function isEventOngoing(
  */
 export function isEventUpcoming(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): boolean {
   return ev.startDate > refDate;
 }
@@ -66,7 +68,7 @@ export function isEventUpcoming(
  */
 export function isEventPast(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): boolean {
   const effectiveEnd = getEffectiveEndDate(ev);
   return effectiveEnd < refDate;
@@ -77,7 +79,7 @@ export function isEventPast(
  */
 export function getEventChronologicalStatus(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): EventChronologicalStatus {
   if (isEventOngoing(ev, refDate)) return 'ongoing';
   if (isEventUpcoming(ev, refDate)) return 'upcoming';
@@ -107,7 +109,7 @@ export function doesEventOverlapMonth(
 export function getMonthTemporalRelation(
   selectedYear: number,
   selectedMonth: number,
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): 'past' | 'current' | 'future' {
   const refYear = parseInt(refDate.slice(0, 4), 10);
   const refMonth = parseInt(refDate.slice(5, 7), 10) - 1; // 0-indexed
@@ -130,7 +132,7 @@ export function getMonthTemporalRelation(
  */
 export function sortEventsChronologically<T extends { startDate: string; endDate?: string | null; scoreBreakdown?: { finalRMScore?: number } }>(
   eventsList: T[],
-  refDate: string = SYSTEM_REFERENCE_DATE,
+  refDate: string = getSystemReferenceDate(),
   forceChronologicalByStartOnly: boolean = false
 ): T[] {
   return [...eventsList].sort((a, b) => {
@@ -193,7 +195,7 @@ export function filterAndSortEventsByPeriod<T extends { startDate: string; endDa
   events: T[],
   options: ChronologyFilterOptions
 ): T[] {
-  const refDate = options.refDate || SYSTEM_REFERENCE_DATE;
+  const refDate = options.refDate || getSystemReferenceDate();
   const temporal = getMonthTemporalRelation(options.selectedYear, options.selectedMonth, refDate);
 
   // 1. Événements intersectant le mois sélectionné
@@ -251,7 +253,7 @@ export function filterAndSortEventsByPeriod<T extends { startDate: string; endDa
  */
 export function getEventStatusBadgeConfig(
   ev: { startDate: string; endDate?: string | null },
-  refDate: string = SYSTEM_REFERENCE_DATE
+  refDate: string = getSystemReferenceDate()
 ): {
   status: EventChronologicalStatus;
   label: string;

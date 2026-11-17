@@ -17,6 +17,7 @@
 
 import * as XLSX from 'xlsx';
 import { Hotel } from '../types';
+import { getTodayIsoDate } from '../utils/eventFilterUtils';
 import { CompetitorProfileConfig, buildDefaultCompSetForHotel, getHotelRMSConfig } from './rmsSettingsService';
 
 export type MarketDemandLevelCategory = 'faible' | 'moderee' | 'forte' | 'tres_forte';
@@ -350,7 +351,8 @@ export function createDefaultLighthouseDataset(
   compSetOverride?: CompetitorProfileConfig[]
 ): LighthouseExtractionDataset {
   const records: LighthouseDailyItem[] = [];
-  const baseDate = new Date('2026-11-10T12:00:00Z');
+  const todayStr = getTodayIsoDate();
+  const baseDate = new Date(`${todayStr}T12:00:00Z`);
   const totalDays = 60;
   const frenchDays = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 

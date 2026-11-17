@@ -26,12 +26,26 @@ import {
 } from '../data/geoData';
 import type { HotelEventWatchConfig } from '../services/rmsSettingsService';
 
-export const CURRENT_REFERENCE_DATE = '2026-11-12';
+export function getTodayIsoDate(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function addDaysIso(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
+export const CURRENT_REFERENCE_DATE = getTodayIsoDate();
 
 export interface EventDateFilterOptions {
   selectedYear?: number | 'all';
   selectedMonth?: number | 'all'; // 0-indexed (0 = Janvier, 10 = Novembre, 11 = Décembre)
-  referenceDate?: string; // Format YYYY-MM-DD (défaut: 2026-11-12)
+  referenceDate?: string; // Format YYYY-MM-DD (défaut: date du jour dynamique)
   includePastInCurrentMonth?: boolean; // Par défaut false
 }
 
@@ -333,7 +347,7 @@ export function getEffectiveEndDate(event: Pick<EventItem, 'startDate' | 'endDat
 /**
  * Vérifie si un événement est actuellement en cours à la date de référence.
  */
-export function isEventOngoing(event: Pick<EventItem, 'startDate' | 'endDate'>, referenceDate: string = CURRENT_REFERENCE_DATE): boolean {
+export function isEventOngoing(event: Pick<EventItem, 'startDate' | 'endDate'>, referenceDate: string = getTodayIsoDate()): boolean {
   const effectiveEnd = getEffectiveEndDate(event);
   return event.startDate <= referenceDate && effectiveEnd >= referenceDate;
 }
@@ -341,19 +355,19 @@ export function isEventOngoing(event: Pick<EventItem, 'startDate' | 'endDate'>, 
 /**
  * Vérifie si un événement est à venir par rapport à la date de référence.
  */
-export function isEventUpcoming(event: Pick<EventItem, 'startDate'>, referenceDate: string = CURRENT_REFERENCE_DATE): boolean {
+export function isEventUpcoming(event: Pick<EventItem, 'startDate'>, referenceDate: string = getTodayIsoDate()): boolean {
   return event.startDate > referenceDate;
 }
 
 /**
  * Vérifie si un événement est déjà terminé avant la date de référence.
  */
-export function isEventPast(event: Pick<EventItem, 'startDate' | 'endDate'>, referenceDate: string = CURRENT_REFERENCE_DATE): boolean {
+export function isEventPast(event: Pick<EventItem, 'startDate' | 'endDate'>, referenceDate: string = getTodayIsoDate()): boolean {
   const effectiveEnd = getEffectiveEndDate(event);
   return effectiveEnd < referenceDate;
 }
 
-export function isEventFinished(event: Pick<EventItem, 'startDate' | 'endDate'>, referenceDate: string = CURRENT_REFERENCE_DATE): boolean {
+export function isEventFinished(event: Pick<EventItem, 'startDate' | 'endDate'>, referenceDate: string = getTodayIsoDate()): boolean {
   return isEventPast(event, referenceDate);
 }
 
@@ -361,7 +375,7 @@ export type EventChronologicalStatus = 'ongoing' | 'upcoming' | 'past';
 
 export function getEventChronologicalStatus(
   event: Pick<EventItem, 'startDate' | 'endDate'>,
-  referenceDate: string = CURRENT_REFERENCE_DATE
+  referenceDate: string = getTodayIsoDate()
 ): EventChronologicalStatus {
   if (isEventOngoing(event, referenceDate)) return 'ongoing';
   if (isEventUpcoming(event, referenceDate)) return 'upcoming';
@@ -370,7 +384,7 @@ export function getEventChronologicalStatus(
 
 export function getEventStatusBadgeConfig(
   event: Pick<EventItem, 'startDate' | 'endDate'>,
-  referenceDate: string = CURRENT_REFERENCE_DATE
+  referenceDate: string = getTodayIsoDate()
 ): {
   status: EventChronologicalStatus;
   label: string;
@@ -411,7 +425,7 @@ export function getEventStatusBadgeConfig(
 export function getMonthTemporalRelation(
   year: number,
   month: number,
-  referenceDate: string = CURRENT_REFERENCE_DATE
+  referenceDate: string = getTodayIsoDate()
 ): 'past' | 'current' | 'future' {
   const [refYearStr, refMonthStr] = referenceDate.split('-');
   const refYear = parseInt(refYearStr, 10);
@@ -444,7 +458,7 @@ export function doesEventOverlapMonth(
  */
 export function sortEventsChronologically<T extends EventItem>(
   events: T[],
-  referenceDate: string = CURRENT_REFERENCE_DATE,
+  referenceDate: string = getTodayIsoDate(),
   isPastPeriod: boolean = false
 ): T[] {
   return [...events].sort((a, b) => {
@@ -484,7 +498,7 @@ export function filterEventsByDate<T extends EventItem>(
   const {
     selectedYear = 'all',
     selectedMonth = 'all',
-    referenceDate = CURRENT_REFERENCE_DATE,
+    referenceDate = getTodayIsoDate(),
     includePastInCurrentMonth = false,
   } = options;
 

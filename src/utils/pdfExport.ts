@@ -8,7 +8,7 @@ import autoTable from 'jspdf-autotable';
 import { EventItem, FilterState, Hotel } from '../types';
 import { getCategoryLabel } from './helpers';
 import {
-  CURRENT_REFERENCE_DATE,
+  getTodayIsoDate,
   sortEventsChronologically,
   getEventStatusBadgeConfig,
   getMonthTemporalRelation,
@@ -28,7 +28,7 @@ export function buildEventsPDFDocument({
   hotel,
   viewMode = 'table',
   filterState,
-  referenceDate = CURRENT_REFERENCE_DATE,
+  referenceDate = getTodayIsoDate(),
 }: PDFExportOptions): { doc: jsPDF; sortedEvents: EventItem[]; tableData: string[][] } {
   // Landscape orientation for comprehensive data table visibility
   const doc = new jsPDF({
@@ -369,7 +369,7 @@ export function buildEventsPDFDocument({
 
 export function exportEventsToPDF(options: PDFExportOptions): void {
   const { doc } = buildEventsPDFDocument(options);
-  const ref = options.referenceDate || CURRENT_REFERENCE_DATE;
+  const ref = options.referenceDate || getTodayIsoDate();
   const defaultFilename = `flowtym-rapport-evenements-${ref}.pdf`;
   doc.save(options.filename || defaultFilename);
 }

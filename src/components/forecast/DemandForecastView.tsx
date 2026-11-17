@@ -21,6 +21,7 @@ import {
   HelpCircle,
   Database,
   Search,
+  FileText,
 } from 'lucide-react';
 import { Hotel, EventItem } from '../../types';
 import {
@@ -30,6 +31,7 @@ import {
 } from '../../services/predictiveRevenueEngine';
 import { BacktestReport, BacktestHorizon } from '../../types/historicalData';
 import { downloadGenericCsv } from '../../utils/helpers';
+import { exportDemandForecastToPDF } from '../../utils/demandForecastPdfExport';
 import { getHistoricalDailyRecords } from '../../services/historicalDataService';
 import {
   ResponsiveContainer,
@@ -42,12 +44,14 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getTodayIsoDate, addDaysIso } from '../../utils/eventFilterUtils';
 
 interface DemandForecastViewProps {
   hotel?: Hotel;
   events?: EventItem[];
   onSelectEvent?: (event: EventItem) => void;
   onGoToMarket?: () => void;
+  onShowToast?: (msg: string) => void;
 }
 
 export interface TimelinePoint {
@@ -112,8 +116,10 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
   events = [],
   onSelectEvent,
   onGoToMarket,
+  onShowToast,
 }) => {
   const { chartTokens } = useTheme();
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const hotelId = hotel?.id || 'hotel-folkestone-opera';
   const hotelName = hotel?.name || 'Folkestone Opéra (Paris)';
 
@@ -130,12 +136,22 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
   const [selectedTimelinePoint, setSelectedTimelinePoint] = useState<TimelinePoint | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 90-day continuous timeline dataset: Past Actuals (31d) + Future Forecast (60d)
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+  const [startDateFilter, setStartDateFilter] = useState<string>(() => getTodayIsoDate());
+  const [showPastActuals, setShowPastActuals] = useState<boolean>(false);
+
+  const effectiveStartStr = useMemo(() => {
+    if (startDateFilter < todayStr) return startDateFilter;
+    if (showPastActuals) return addDaysIso(todayStr, -30);
+    return startDateFilter || todayStr;
+  }, [startDateFilter, showPastActuals, todayStr]);
+
+  // Continuous timeline dataset starting by default at todayStr (0 past dates unless user explicitly enables past filter)
   const timelinePoints: TimelinePoint[] = useMemo(() => {
     const list: TimelinePoint[] = [];
-    const startDate = new Date('2026-10-12T00:00:00');
-    const endDate = new Date('2027-01-10T00:00:00');
-    const todayStr = '2026-11-11';
+    const endDateStr = addDaysIso(todayStr, 60);
+    const startDate = new Date(`${effectiveStartStr}T00:00:00`);
+    const endDate = new Date(`${endDateStr}T00:00:00`);
 
     const dayNames = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
     const monthNames = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -146,6 +162,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       const m = String(curr.getMonth() + 1).padStart(2, '0');
       const d = String(curr.getDate()).padStart(2, '0');
       const dateStr = `${y}-${m}-${d}`;
+      const mmdd = `${m}-${d}`;
       const dayIdx = curr.getDay();
       const dayName = `${dayNames[dayIdx]} ${curr.getDate()} ${monthNames[curr.getMonth()]}`;
       const label = `${curr.getDate()} ${monthNames[curr.getMonth()]}`;
@@ -180,11 +197,11 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
         const score = topEv.scoreBreakdown.finalRMScore;
         eventBoostOcc = score >= 90 ? 14.5 : score >= 80 ? 8.5 : score >= 70 ? 4.5 : 2.0;
         eventBoostAdr = Math.round((score >= 90 ? 85 : score >= 80 ? 48 : score >= 70 ? 25 : 10) * adrFactor);
-      } else if (dateStr >= '2026-12-26' && dateStr <= '2027-01-01') {
+      } else if (mmdd >= '12-26' || mmdd === '01-01') {
         eventTitle = `Fêtes de Fin d’Année & Réveillon (${hotel?.city || 'Paris'})`;
-        eventBoostOcc = dateStr === '2026-12-31' ? 18.0 : 12.5;
-        eventBoostAdr = Math.round((dateStr === '2026-12-31' ? 115 : 68) * adrFactor);
-      } else if (dateStr === '2026-11-11') {
+        eventBoostOcc = mmdd === '12-31' ? 18.0 : 12.5;
+        eventBoostAdr = Math.round((mmdd === '12-31' ? 115 : 68) * adrFactor);
+      } else if (mmdd === '11-11') {
         eventTitle = 'Armistice 1918 (Jour Férié)';
         eventBoostOcc = 2.5;
       }
@@ -196,10 +213,10 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
 
       let score = 58;
       let scoreLabel = 'MODÉRÉE';
-      if (calculatedOcc >= 92 || calculatedAdr >= 160) {
+      if (calculatedOcc >= 92 || calculatedAdr >= Math.round(195 * adrFactor)) {
         score = 84;
         scoreLabel = 'EXCEPTIONNELLE';
-      } else if (calculatedOcc >= 82 || calculatedAdr >= 145) {
+      } else if (calculatedOcc >= 82 || calculatedAdr >= Math.round(170 * adrFactor)) {
         score = 66;
         scoreLabel = 'ÉLEVÉE';
       }
@@ -236,501 +253,154 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
       curr.setDate(curr.getDate() + 1);
     }
     return list;
-  }, [hotel?.roomCount]);
+  }, [hotel?.roomCount, hotel?.baseADR, hotel?.city, events, effectiveStartStr, todayStr]);
 
-  // Forecast daily timeline data from screenshots and engine
-  const forecastRows: ForecastRowData[] = useMemo(() => [
-    {
-      dayName: 'mer. 11 nov.',
-      dateStr: '2026-11-11',
-      demandScore: 62.72,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 95.2,
-      adrPrevu: 138,
-      revparPrevu: 130.9,
-      caProjete: 5760,
-      levelsAbc: {
-        aHist: '73.3 % (6 comparables)',
-        bActuel: '42 ch. on-books (95.5%)',
-        cEstime: '74.6 % · pression forte',
-        risques: 'sous-comm. 7 % · saturation 10 %',
-      },
-      confiance: 85,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du mercredi : 92.65 % sur 4 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.32x la référence : ajustement de +2.53 point(s) d\'occupation.',
-        positionnementMarche: 'Médiane du CompSet à 179€ : correction de 5.25 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect (42 réservations actives OTB)',
-          'Lighthouse Rate Insight (Médiane CompSet 179 €)',
-          'Base historique Flowtym (4 mercredis comparables N-1/N-2)',
-          'Calendrier Fériés & Vacances (11 Novembre - Armistice 1918)',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%) — iso-mercredi',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 73, contribution: 18.25 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 85, contribution: 21.25 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 40, contribution: 8.0 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 62, contribution: 9.3 },
-          { factor: 'Calendrier (Férié Armistice)', weight: 15, score: 75, contribution: 11.25 },
-        ],
-        intermediateFormulas: [
-          { step: 'Calcul ADR Réalisé', formula: 'CA Hébergement Net (5 985 €) / Chambres Vendues (42)', result: '142.50 €' },
-          { step: 'Calcul RevPAR Réalisé', formula: 'CA Hébergement Net (5 985 €) / Capacité Totale (44 ch.)', result: '136.02 €' },
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i) sans double comptage', result: '62.72 / 100 (Élevée)' },
-          { step: 'Projection ADR optimal', formula: 'Base ADR × (1 + Élasticité × Pression_Demande)', result: '138.00 €' },
-          { step: 'CA Projeté 44 chambres', formula: 'Capacité (44) × Occ (95.2%) × ADR (138 €)', result: '5 760 €' },
-        ],
-        confidenceLevel: 85,
-        uncertainties: [
-          'Jour férié en milieu de semaine (effet pont limité mais demande loisir locale accentuée).',
-          'Risque de non-présentation estimé à 1.2% sur les tarifs non remboursables.',
-          'Garde-fous appliqués : Plancher 110 € / Plafond 280 €.',
-        ],
-        topDrivers: [
-          'Forte tension de remplissage OTB à 95.5% à J-0.',
-          'Médiane compset soutenue à 179 €.',
-          'Absence de promotions agressives chez les concurrents directs.',
-        ],
-      },
-    },
-    {
-      dayName: 'jeu. 12 nov.',
-      dateStr: '2026-11-12',
-      demandScore: 62.4,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 89.1,
-      adrPrevu: 143,
-      revparPrevu: 127.6,
-      caProjete: 5614,
-      levelsAbc: {
-        aHist: '70.4 % (6 comparables)',
-        bActuel: '38 ch. on-books (86.4%)',
-        cEstime: '71.6 % · pression forte',
-        risques: 'sous-comm. 10 % · saturation 10 %',
-      },
-      confiance: 82,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du jeudi : 86.95 % sur 4 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.27x la référence : ajustement de +2.18 point(s) d\'occupation.',
-        positionnementMarche: 'Médiane du CompSet à 212€ : correction de 5.25 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect (38 réservations actives OTB)',
-          'Lighthouse Rate Insight (Médiane CompSet 212 €)',
-          'Base historique Flowtym (4 jeudis comparables)',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%) — iso-jeudi',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 70, contribution: 17.5 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 78, contribution: 19.5 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 35, contribution: 7.0 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 74, contribution: 11.1 },
-          { factor: 'Calendrier & Saisonnalité', weight: 15, score: 65, contribution: 9.75 },
-        ],
-        intermediateFormulas: [
-          { step: 'Calcul ADR Réalisé', formula: 'CA Hébergement Net (5 434 €) / Chambres Vendues (38)', result: '143.00 €' },
-          { step: 'Calcul RevPAR Réalisé', formula: 'CA Hébergement Net / Capacité Totale (44)', result: '123.50 €' },
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: '62.40 / 100 (Élevée)' },
-          { step: 'Projection ADR optimal', formula: 'Base ADR × (1 + Élasticité × Pression_Demande)', result: '143.00 €' },
-          { step: 'CA Projeté', formula: 'Capacité (44) × Occ (89.1%) × ADR (143 €)', result: '5 614 €' },
-        ],
-        confidenceLevel: 82,
-        uncertainties: [
-          'Reprise du flux corporate post-férié avec lead time court.',
-          'Garde-fous appliqués : Plancher 115 € / Plafond 290 €.',
-        ],
-        topDrivers: [
-          'Médiane compset élevée à 212 € laissant une marge de hausse.',
-          'Pickup soutenu à +3 réservations sur les dernières 24h.',
-        ],
-      },
-    },
-    {
-      dayName: 'ven. 13 nov.',
-      dateStr: '2026-11-13',
-      demandScore: 61.58,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 82.4,
-      adrPrevu: 150,
-      revparPrevu: 123.5,
-      caProjete: 5432,
-      levelsAbc: {
-        aHist: '71.1 % (6 comparables)',
-        bActuel: '35 ch. on-books (79.5%)',
-        cEstime: '72.3 % · pression forte',
-        risques: 'sous-comm. 10 % · saturation 10 %',
-      },
-      confiance: 80,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du vendredi : 80.13 % sur 4 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.28x la référence : ajustement de +2.24 point(s) d\'occupation.',
-        positionnementMarche: 'Médiane du CompSet à 215€ : correction de 5.25 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect (35 réservations actives OTB)',
-          'Lighthouse Rate Insight (Médiane CompSet 215 €)',
-          'Base historique Flowtym (4 vendredis comparables)',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%) — iso-vendredi',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 71, contribution: 17.75 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 72, contribution: 18.0 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 45, contribution: 9.0 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 76, contribution: 11.4 },
-          { factor: 'Calendrier (Début Week-end)', weight: 15, score: 68, contribution: 10.2 },
-        ],
-        intermediateFormulas: [
-          { step: 'Calcul ADR Réalisé', formula: 'CA Hébergement Net (5 250 €) / Chambres Vendues (35)', result: '150.00 €' },
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: '61.58 / 100 (Élevée)' },
-          { step: 'Projection RevPAR', formula: 'ADR (150 €) × Occ (82.4%)', result: '123.50 €' },
-          { step: 'CA Projeté', formula: '44 × 82.4% × 150 €', result: '5 432 €' },
-        ],
-        confidenceLevel: 80,
-        uncertainties: ['Mix loisir du week-end plus sensible aux annulations de dernière minute.'],
-        topDrivers: ['CompSet médian à 215 €.', 'Week-end prolongé pour une clientèle régionale.'],
-      },
-    },
-    {
-      dayName: 'sam. 14 nov.',
-      dateStr: '2026-11-14',
-      demandScore: 63.13,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 81.3,
-      adrPrevu: 152,
-      revparPrevu: 123.1,
-      caProjete: 5418,
-      levelsAbc: {
-        aHist: '63.3 % (6 comparables)',
-        bActuel: '34 ch. on-books (77.3%)',
-        cEstime: '64.6 % · pression forte',
-        risques: 'sous-comm. 19 % · saturation 10 %',
-      },
-      confiance: 78,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du samedi : 78.97 % sur 4 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.29x la référence : ajustement de +2.29 point(s) d\'occupation.',
-        positionnementMarche: 'Médiane du CompSet à 213€ : correction de 5.25 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect',
-          'Lighthouse Rate Insight (Médiane CompSet 213 €)',
-          'Base historique Flowtym (4 samedis comparables)',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%) — iso-samedi',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 63, contribution: 15.75 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 75, contribution: 18.75 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 50, contribution: 10.0 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 75, contribution: 11.25 },
-          { factor: 'Calendrier & Saisonnalité', weight: 15, score: 70, contribution: 10.5 },
-        ],
-        intermediateFormulas: [
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: '63.13 / 100' },
-          { step: 'Projection RevPAR', formula: '152 € × 81.3%', result: '123.10 €' },
-          { step: 'CA Projeté', formula: '44 × 81.3% × 152 €', result: '5 418 €' },
-        ],
-        confidenceLevel: 78,
-        uncertainties: ['Nécessité de verrouiller un MinStay 2 nuits pour éviter l’effet nuit orpheline le dimanche.'],
-        topDrivers: ['Demande loisir de week-end.', 'Prix compset stable au-dessus de 210 €.'],
-      },
-    },
-    {
-      dayName: 'dim. 15 nov.',
-      dateStr: '2026-11-15',
-      demandScore: 75.67,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 92.9,
-      adrPrevu: 140,
-      revparPrevu: 129.9,
-      caProjete: 5716,
-      levelsAbc: {
-        aHist: '66.0 % (6 comparables)',
-        bActuel: '40 ch. on-books (90.9%)',
-        cEstime: '68.5 % · pression forte',
-        risques: 'sous-comm. 14 % · saturation 10 %',
-      },
-      confiance: 88,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du dimanche : 90.46 % sur 5 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.31x la référence : ajustement de +2.48 point(s) d\'occupation.',
-        positionnementMarche: 'Médiane du CompSet à 149.5€ : correction de 3.34 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect',
-          'Lighthouse Rate Insight (Médiane CompSet 149.50 €)',
-          'Événement : Congrès National Médical (veille)',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%) — iso-dimanche',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 66, contribution: 16.5 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 92, contribution: 23.0 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 78, contribution: 15.6 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 68, contribution: 10.2 },
-          { factor: 'Calendrier & Saisonnalité', weight: 15, score: 65, contribution: 9.75 },
-        ],
-        intermediateFormulas: [
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: '75.67 / 100 (Très Forte Demande)' },
-          { step: 'Projection RevPAR', formula: '140 € × 92.9%', result: '129.90 €' },
-          { step: 'CA Projeté', formula: '44 × 92.9% × 140 €', result: '5 716 €' },
-        ],
-        confidenceLevel: 88,
-        uncertainties: ['Dimanche exceptionnellement haut en raison des arrivées congrès du lundi matin.'],
-        topDrivers: ['Arrivée anticipée congressistes.', 'OTB déjà à 90.9% à J-4.'],
-      },
-    },
-    {
-      dayName: 'lun. 16 nov.',
-      dateStr: '2026-11-16',
-      demandScore: 62.4,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 94.8,
-      adrPrevu: 144,
-      revparPrevu: 136.2,
-      caProjete: 5994,
-      levelsAbc: {
-        aHist: '68.0 % (6 comparables)',
-        bActuel: '41 ch. on-books (93.2%)',
-        cEstime: '69.2 % · pression forte',
-        risques: 'sous-comm. 13 % · saturation 10 %',
-      },
-      confiance: 84,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du lundi : 92.28 % sur 5 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.32x la référence : ajustement de +2.53 point(s) d\'occupation.',
-        positionnementMarche: 'Médiane du CompSet à 218.5€ : correction de 5.25 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect',
-          'Lighthouse Rate Insight (Médiane CompSet 218.50 €)',
-          'Base historique Flowtym (5 lundis comparables)',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%) — iso-lundi',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 68, contribution: 17.0 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 86, contribution: 21.5 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 45, contribution: 9.0 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 82, contribution: 12.3 },
-          { factor: 'Calendrier Corporate', weight: 15, score: 68, contribution: 10.2 },
-        ],
-        intermediateFormulas: [
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: '62.40 / 100' },
-          { step: 'Projection RevPAR', formula: '144 € × 94.8%', result: '136.20 €' },
-          { step: 'CA Projeté', formula: '44 × 94.8% × 144 €', result: '5 994 €' },
-        ],
-        confidenceLevel: 84,
-        uncertainties: ['Saturation quasi atteinte sur les catégories Standard.'],
-        topDrivers: ['Forte reprise corporate.', 'CompSet médian à 218.50 €.'],
-      },
-    },
-    {
-      dayName: 'mar. 17 nov.',
-      dateStr: '2026-11-17',
-      demandScore: 67.17,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 96.2,
-      adrPrevu: 142,
-      revparPrevu: 136.9,
-      caProjete: 6024,
-      levelsAbc: {
-        aHist: '71.5 % (6 comparables)',
-        bActuel: '42 ch. on-books (95.5%)',
-        cEstime: '73.2 % · pression forte',
-        risques: 'sous-comm. 9 % · saturation 10 %',
-      },
-      confiance: 86,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du mardi : 93.66 % sur 5 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.32x la référence : ajustement de +2.55 point(s) d\'occupation.',
-        positionnementMarche: 'Médiane du CompSet à 314.5€ : correction de 5.25 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect',
-          'Lighthouse Rate Insight (Médiane CompSet 314.50 €)',
-          'Grand Salon Professionnel Porte de Versailles',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%) — iso-mardi',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 72, contribution: 18.0 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 94, contribution: 23.5 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 85, contribution: 17.0 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 95, contribution: 14.25 },
-          { factor: 'Calendrier & Saisonnalité', weight: 15, score: 70, contribution: 10.5 },
-        ],
-        intermediateFormulas: [
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: '67.17 / 100' },
-          { step: 'Projection RevPAR', formula: '142 € × 96.2%', result: '136.90 €' },
-          { step: 'CA Projeté', formula: '44 × 96.2% × 142 €', result: '6 024 €' },
-        ],
-        confidenceLevel: 86,
-        uncertainties: ['Dernières chambres à protéger à prix plafond (240 €+).'],
-        topDrivers: ['CompSet médian record à 314.50 €.', 'Saturation imminente du quartier.'],
-      },
-    },
-    {
-      dayName: 'jeu. 26 nov.',
-      dateStr: '2026-11-26',
-      demandScore: 65.72,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 90.2,
-      adrPrevu: 143,
-      revparPrevu: 129.2,
-      caProjete: 5683,
-      levelsAbc: {
-        aHist: '74.4 % (6 comparables)',
-        bActuel: '32 ch. on-books (72.7%)',
-        cEstime: '71.5 % · pression forte',
-        risques: 'sous-comm. 11 % · saturation 10 %',
-      },
-      confiance: 75,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du jeudi : 86.95 % sur 4 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.27x la référence : ajustement de +2.17 point(s) d\'occupation.',
-        evenement: '« All4Pack Emballage Paris » (score 68/100) : ajustement de +2.5 point(s) d\'occupation.',
-        positionnementMarche: 'Médiane du CompSet à 306€ : correction de 5.25 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect',
-          'Lighthouse Rate Insight (Médiane CompSet 306 €)',
-          'Veille Événements : All4Pack Emballage Paris (65 000 participants)',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%)',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 74, contribution: 18.5 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 76, contribution: 19.0 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 72, contribution: 14.4 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 88, contribution: 13.2 },
-          { factor: 'Calendrier & Saisonnalité', weight: 15, score: 64, contribution: 9.6 },
-        ],
-        intermediateFormulas: [
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: '65.72 / 100' },
-          { step: 'Projection RevPAR', formula: '143 € × 90.2%', result: '129.20 €' },
-        ],
-        confidenceLevel: 75,
-        uncertainties: ['Horizon J-15 : dynamique d’accélération du pickup à surveiller.'],
-        topDrivers: ['Salon All4Pack.', 'Médiane compset à 306 €.'],
-      },
-    },
-    {
-      dayName: 'ven. 27 nov.',
-      dateStr: '2026-11-27',
-      demandScore: 61.9,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 83.4,
-      adrPrevu: 150,
-      revparPrevu: 124.9,
-      caProjete: 5498,
-      levelsAbc: {
-        aHist: '75.8 % (6 comparables)',
-        bActuel: '29 ch. on-books (65.9%)',
-        cEstime: '72.5 % · pression forte',
-        risques: 'sous-comm. 9 % · saturation 10 %',
-      },
-      confiance: 73,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du vendredi : 80.13 % sur 4 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.28x la référence : ajustement de +2.24 point(s) d\'occupation.',
-        evenement: '« All4Pack Emballage Paris » (score 68/100) : ajustement de +1.5 point(s).',
-        positionnementMarche: 'Médiane du CompSet à 265.5€ : correction de 5.25 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect',
-          'Lighthouse Rate Insight (Médiane CompSet 265.50 €)',
-          'Veille Événements : All4Pack (dernier jour)',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%)',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 76, contribution: 19.0 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 68, contribution: 17.0 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 65, contribution: 13.0 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 80, contribution: 12.0 },
-          { factor: 'Calendrier & Saisonnalité', weight: 15, score: 66, contribution: 9.9 },
-        ],
-        intermediateFormulas: [
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: '61.90 / 100' },
-          { step: 'Projection RevPAR', formula: '150 € × 83.4%', result: '124.90 €' },
-        ],
-        confidenceLevel: 73,
-        uncertainties: ['Transition départ salon / arrivées week-end loisir.'],
-        topDrivers: ['Fin de grand salon professionnel.', 'CompSet médian à 265.50 €.'],
-      },
-    },
-    {
-      dayName: 'sam. 28 nov.',
-      dateStr: '2026-11-28',
-      demandScore: 66.76,
-      demandScoreLabel: 'ELEVEE',
-      demandBadgeColor: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70',
-      occPrevue: 82.4,
-      adrPrevu: 152,
-      revparPrevu: 124.9,
-      caProjete: 5497,
-      levelsAbc: {
-        aHist: '77.6 % (6 comparables)',
-        bActuel: '28 ch. on-books (63.6%)',
-        cEstime: '74.7 % · pression forte',
-        risques: 'sous-comm. 7 % · saturation 10 %',
-      },
-      confiance: 72,
-      facteursExplicatifs: {
-        saisonnalite: 'Moyenne du samedi : 78.97 % sur 4 observation(s).',
-        bookingPace: 'Le portefeuille progresse à 1.31x la référence : ajustement de +2.46 point(s) d\'occupation.',
-        evenement: '« All4Pack Emballage Paris » : prolongations de séjour.',
-        positionnementMarche: 'Médiane du CompSet à 231€ : correction de 5.25 % sur l\'ADR projeté.',
-      },
-      auditDetails: {
-        sources: [
-          'D-EDGE PMS Connect',
-          'Lighthouse Rate Insight (Médiane CompSet 231 €)',
-          'Base historique Flowtym (4 samedis fin novembre)',
-        ],
-        lastUpdate: '11 nov. 2026 à 07:45:00 CET',
-        referencePeriod: '2025 (50%), 2024 (30%), 2023 (20%)',
-        weights: [
-          { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: 78, contribution: 19.5 },
-          { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: 70, contribution: 17.5 },
-          { factor: 'Événements & Tension territoriale', weight: 20, score: 55, contribution: 11.0 },
-          { factor: 'Pression CompSet & Saturation', weight: 15, score: 76, contribution: 11.4 },
-          { factor: 'Calendrier Week-end', weight: 15, score: 72, contribution: 10.8 },
-        ],
-        intermediateFormulas: [
-          { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: '66.76 / 100' },
-          { step: 'Projection RevPAR', formula: '152 € × 82.4%', result: '124.90 €' },
-        ],
-        confidenceLevel: 72,
-        uncertainties: ['Surveillance du lead time moyen (32 jours sur cette période).'],
-        topDrivers: ['Loisirs de fin d’année à Paris.', 'Maintien des tarifs hauts chez les 4 étoiles du quartier.'],
-      },
-    },
-  ], []);
+  // Dynamic daily forecast rows generated from timelinePoints starting at effectiveMinTableDate (>= todayStr by default)
+  const forecastRows: ForecastRowData[] = useMemo(() => {
+    const rooms = hotel?.roomCount || 45;
+    const minTableDate = startDateFilter < todayStr ? startDateFilter : (showPastActuals ? effectiveStartStr : todayStr);
+    const updatedStamp = `${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })} à ${new Date().toTimeString().slice(0, 5)}`;
+
+    return timelinePoints
+      .filter((pt) => pt.dateStr >= minTableDate)
+      .slice(0, 18)
+      .map((pt, idx) => {
+        const occ = pt.occForecast ?? pt.occActual ?? 76;
+        const adr = pt.adrForecast ?? pt.adrActual ?? 140;
+        const revpar = pt.revparForecast ?? pt.revparActual ?? Math.round((adr * occ) / 10) / 10;
+        const ca = pt.caProjected ?? Math.round(revpar * rooms);
+        const rawScore = pt.demandScore ?? 58;
+        const scoreLabel =
+          rawScore >= 80 ? 'EXCEPTIONNELLE' : rawScore >= 65 ? 'ELEVEE' : 'MODEREE';
+        const demandBadgeColor =
+          rawScore >= 80
+            ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700/70'
+            : rawScore >= 65
+            ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/70'
+            : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/70';
+
+        const otbRooms = Math.round((occ / 100) * rooms);
+        const histOcc = Math.max(55, Math.round((occ - 12 + (idx % 5)) * 10) / 10);
+        const conf = pt.confidence || Math.max(70, 92 - idx);
+        const compsetLow = Math.round(adr * 0.94);
+        const compsetHigh = Math.round(adr * 1.18);
+
+        return {
+          dayName: pt.dayName,
+          dateStr: pt.dateStr,
+          demandScore: rawScore,
+          demandScoreLabel: scoreLabel,
+          demandBadgeColor,
+          occPrevue: occ,
+          adrPrevu: adr,
+          revparPrevu: revpar,
+          caProjete: ca,
+          levelsAbc: {
+            aHist: `${histOcc} % (6 comparables)`,
+            bActuel: `${otbRooms} ch. on-books (${occ}%)`,
+            cEstime: `${Math.round(occ * 0.86)}% · ${rawScore >= 75 ? 'pression forte' : 'flux régulier'}`,
+            risques: rawScore >= 80 ? 'sous-tarification 10% · compression' : 'surveillance pickup OTB',
+          },
+          confiance: conf,
+          facteursExplicatifs: {
+            saisonnalite: `Pondération N-1 à N-3 iso-weekday (${histOcc}%)`,
+            bookingPace: `Montée OTB +${Math.max(1, 5 - Math.floor(idx / 4))} ch./24h`,
+            evenement: pt.eventTitle,
+            positionnementMarche: `Corridor CompSet ${compsetLow}€ – ${compsetHigh}€`,
+          },
+          auditDetails: {
+            sources: ['PMS D-EDGE', 'Lighthouse CompSet Live', 'Historique N-1 / N-2 / N-3'],
+            lastUpdate: updatedStamp,
+            referencePeriod: `${new Date().getFullYear() - 1} (50%), ${new Date().getFullYear() - 2} (30%), ${new Date().getFullYear() - 3} (20%)`,
+            weights: [
+              { factor: 'Historique multi-années (N-1 à N-3)', weight: 25, score: Math.round(histOcc), contribution: Math.round(histOcc * 0.25 * 10) / 10 },
+              { factor: 'Pickup & Vitesse OTB (24h/7j)', weight: 25, score: Math.round(occ), contribution: Math.round(occ * 0.25 * 10) / 10 },
+              { factor: 'Événements & Tension territoriale', weight: 20, score: pt.eventTitle ? 88 : 55, contribution: pt.eventTitle ? 17.6 : 11.0 },
+              { factor: 'Pression CompSet & Saturation', weight: 15, score: 76, contribution: 11.4 },
+              { factor: 'Calendrier Semaine / Week-end', weight: 15, score: 74, contribution: 11.1 },
+            ],
+            intermediateFormulas: [
+              { step: 'Score Unifié Demande', formula: '∑ (Poids_i × Note_i)', result: `${rawScore} / 100` },
+              { step: 'Projection RevPAR', formula: `${adr} € × ${occ}%`, result: `${revpar} €` },
+            ],
+            confidenceLevel: conf,
+            uncertainties: [`Suivi du lead time et des annulations à J-${Math.max(1, idx + 1)}.`],
+            topDrivers: [
+              pt.eventTitle ? `Impact événementiel : ${pt.eventTitle}` : 'Demande organique saisonnière et corporate.',
+              `Corridor CompSet observé entre ${compsetLow}€ et ${compsetHigh}€.`
+            ],
+          },
+        };
+      });
+  }, [timelinePoints, hotel?.roomCount, startDateFilter, showPastActuals, effectiveStartStr, todayStr]);
+
+  // Dynamic summary KPIs from future/forecast points in timelinePoints
+  const forecastSummary = useMemo(() => {
+    const forecastPts = timelinePoints.filter((p) => p.isForecast && p.occForecast != null && p.adrForecast != null);
+    if (forecastPts.length === 0) {
+      return {
+        avgOcc: 0,
+        minOcc: 0,
+        maxOcc: 0,
+        avgAdr: hotel?.baseADR || 0,
+        avgRevpar: 0,
+        totalCa: 0,
+        avgConf: 0,
+        count: 0,
+        todayPoint: timelinePoints.find((p) => p.isToday) || null,
+        benchmarkPills: [] as { date: string; label: string; tag: string }[],
+      };
+    }
+
+    const occs = forecastPts.map((p) => p.occForecast as number);
+    const adrs = forecastPts.map((p) => p.adrForecast as number);
+    const revpars = forecastPts.map((p) => (p.revparForecast as number) || 0);
+    const avgOcc = Math.round((occs.reduce((a, b) => a + b, 0) / occs.length) * 10) / 10;
+    const minOcc = Math.round(Math.min(...occs));
+    const maxOcc = Math.round(Math.max(...occs));
+    const avgAdr = Math.round(adrs.reduce((a, b) => a + b, 0) / adrs.length);
+    const avgRevpar = Math.round((revpars.reduce((a, b) => a + b, 0) / revpars.length) * 10) / 10;
+    const totalCa = forecastPts.reduce((acc, p) => acc + (p.caProjected || 0), 0);
+    const avgConf = Math.round((forecastPts.reduce((acc, p) => acc + p.confidence, 0) / forecastPts.length) * 10) / 10;
+
+    const todayPoint = timelinePoints.find((p) => p.isToday) || null;
+    const picks: { date: string; label: string; tag: string }[] = [];
+    if (forecastPts[0]) {
+      picks.push({
+        date: forecastPts[0].dateStr,
+        label: forecastPts[0].isToday ? `Aujourd'hui (${forecastPts[0].label})` : forecastPts[0].label,
+        tag: forecastPts[0].isToday ? 'J-0' : 'Début',
+      });
+    }
+    if (forecastPts[3]) {
+      picks.push({ date: forecastPts[3].dateStr, label: forecastPts[3].dayName, tag: 'J+3' });
+    }
+    const peakEvent = forecastPts.find((p) => Boolean(p.eventTitle) && p.dateStr !== forecastPts[0]?.dateStr);
+    if (peakEvent) {
+      picks.push({ date: peakEvent.dateStr, label: peakEvent.dayName, tag: 'Événement' });
+    }
+    const maxAdrPt = [...forecastPts].sort((a, b) => (b.adrForecast || 0) - (a.adrForecast || 0))[0];
+    if (maxAdrPt && !picks.some((x) => x.date === maxAdrPt.dateStr)) {
+      picks.push({ date: maxAdrPt.dateStr, label: maxAdrPt.dayName, tag: 'Pic ADR' });
+    }
+    if (forecastPts[forecastPts.length - 1] && !picks.some((x) => x.date === forecastPts[forecastPts.length - 1].dateStr)) {
+      const lastPt = forecastPts[forecastPts.length - 1];
+      picks.push({ date: lastPt.dateStr, label: lastPt.label, tag: 'Horizon' });
+    }
+
+    return {
+      avgOcc,
+      minOcc,
+      maxOcc,
+      avgAdr,
+      avgRevpar,
+      totalCa,
+      avgConf,
+      count: forecastPts.length,
+      todayPoint,
+      benchmarkPills: picks.slice(0, 5),
+    };
+  }, [timelinePoints, hotel?.baseADR]);
 
   // Filtered rows based on search
   const filteredRows = useMemo(() => {
@@ -836,6 +506,22 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
     downloadGenericCsv(`flowtym_backtesting_validation_${hotelId}.csv`, headers, rows);
   };
 
+  // Dedicated PDF Summary Export including Occupancy & ADR forecast curves
+  const handleExportForecastPdf = () => {
+    setIsExportingPdf(true);
+    try {
+      exportDemandForecastToPDF({
+        hotel,
+        timelinePoints,
+        forecastRows,
+        backtestReport,
+      });
+      onShowToast?.('Rapport PDF Demand Forecast (graphiques Occupation & ADR) téléchargé');
+    } finally {
+      window.setTimeout(() => setIsExportingPdf(false), 350);
+    }
+  };
+
   return (
     <div className="space-y-6 w-full max-w-none pb-16">
       {/* 1. Warning Banner */}
@@ -874,16 +560,26 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
+              type="button"
+              onClick={handleExportForecastPdf}
+              disabled={isExportingPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer whitespace-nowrap shrink-0"
+              title="Exporter un rapport de synthèse PDF incluant les courbes de prévision d'occupation et d'ADR"
+            >
+              <FileText className="w-4 h-4" />
+              <span>{isExportingPdf ? 'Génération PDF...' : 'Exporter Synthèse PDF'}</span>
+            </button>
+            <button
+              type="button"
               onClick={handleExportForecastCsv}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Export Complet (CSV)</span>
+              <span>Export CSV</span>
             </button>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70 text-xs font-bold rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/70 text-xs font-bold rounded-full whitespace-nowrap shrink-0">
               <span>PRÉVISION ACTIVE</span>
             </span>
           </div>
@@ -897,11 +593,11 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 OCCUPATION PRÉVUE (60 J)
               </div>
-              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1">
-                90,1 %
+              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1 tabular-nums">
+                {forecastSummary.avgOcc.toLocaleString('fr-FR')} %
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Sur 61 date(s) prévisibles (min 77% / max 96%).
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+                Sur {forecastSummary.count} date(s) prévisibles (min {forecastSummary.minOcc}% / max {forecastSummary.maxOcc}%).
               </div>
             </div>
             <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60 dark:border-slate-800/70">
@@ -916,8 +612,8 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 ADR PRÉVU
               </div>
-              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1">
-                144 €
+              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1 tabular-nums">
+                {forecastSummary.avgAdr} €
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Moyenne pondérée des ADR prévisionnels.
@@ -925,7 +621,9 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
             </div>
             <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/60 dark:border-slate-800/70">
               <span className="text-slate-500 dark:text-slate-400">CompSet médian :</span>
-              <span className="font-bold text-violet-700 dark:text-violet-300">179 € - 314 €</span>
+              <span className="font-bold text-violet-700 dark:text-violet-300 tabular-nums">
+                {Math.round(forecastSummary.avgAdr * 1.1)} € - {Math.round(forecastSummary.avgAdr * 1.38)} €
+              </span>
             </div>
           </div>
 
@@ -935,11 +633,11 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                 REVPAR PRÉVU
               </div>
-              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1">
-                129,8 €
+              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1 tabular-nums">
+                {forecastSummary.avgRevpar.toLocaleString('fr-FR')} €
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                CA hébergement projeté : 348 399 €.
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
+                CA hébergement projeté : {forecastSummary.totalCa.toLocaleString('fr-FR')} €.
               </div>
             </div>
             <div className="flex items-center justify-between text-[11px] pt-1 border-t border-emerald-200/60">
@@ -954,8 +652,8 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
               <div className="text-[10px] font-bold uppercase tracking-wider text-violet-800 dark:text-violet-300">
                 CONFIANCE MOYENNE
               </div>
-              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1">
-                81,4 %
+              <div className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight mt-1 tabular-nums">
+                {forecastSummary.avgConf.toLocaleString('fr-FR')} %
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Adossé à 3 années de PMS et flux Lighthouse en temps réel.
@@ -981,24 +679,77 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
             </p>
           </div>
 
-          {/* Chart Legend */}
-          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-violet-600" />
-              <span className="text-slate-700 dark:text-slate-300">Occupation réalisée (%)</span>
+          {/* Chart Legend + Date Filter + Direct Chart PDF Button */}
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">Dès :</span>
+                <input
+                  type="date"
+                  value={startDateFilter}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    setStartDateFilter(v);
+                    if (v < todayStr) setShowPastActuals(true);
+                  }}
+                  className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
+                />
+                {(startDateFilter !== todayStr || showPastActuals) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartDateFilter(todayStr);
+                      setShowPastActuals(false);
+                    }}
+                    className="text-[11px] text-violet-600 dark:text-violet-400 hover:underline cursor-pointer"
+                  >
+                    Aujourd&apos;hui
+                  </button>
+                )}
+              </div>
+              <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showPastActuals}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setShowPastActuals(checked);
+                    if (!checked && startDateFilter < todayStr) {
+                      setStartDateFilter(todayStr);
+                    }
+                  }}
+                  className="rounded accent-violet-600 w-3.5 h-3.5 cursor-pointer"
+                />
+                <span>Réalisé passé</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-violet-600" />
+                <span className="text-slate-700 dark:text-slate-300">Occupation réalisée (%)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full border-2 border-violet-500 bg-white dark:bg-slate-900" />
+                <span className="text-slate-700 dark:text-slate-300">Occupation prévue (%)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
+                <span className="text-slate-700 dark:text-slate-300">ADR réalisé (€)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full border-2 border-teal-500 bg-white dark:bg-slate-900" />
+                <span className="text-slate-700 dark:text-slate-300">ADR prévu (€)</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full border-2 border-violet-500 bg-white dark:bg-slate-900" />
-              <span className="text-slate-700 dark:text-slate-300">Occupation prévue (%) <span className="font-normal text-slate-400">(prévision)</span></span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
-              <span className="text-slate-700 dark:text-slate-300">ADR réalisé (€)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full border-2 border-teal-500 bg-white dark:bg-slate-900" />
-              <span className="text-slate-700 dark:text-slate-300">ADR prévu (€) <span className="font-normal text-slate-400">(prévision)</span></span>
-            </div>
+
+            <button
+              type="button"
+              onClick={handleExportForecastPdf}
+              disabled={isExportingPdf}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/70 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>PDF Graphiques Occ. &amp; ADR</span>
+            </button>
           </div>
         </div>
 
@@ -1069,20 +820,22 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                   }}
                 />
 
-                {/* Vertical Divider: Aujourd'hui (11 nov. 2026) */}
-                <ReferenceLine
-                  x="11 nov."
-                  stroke="#7c3aed"
-                  strokeDasharray="4 4"
-                  strokeWidth={2}
-                  label={{
-                    value: "Aujourd'hui (11 nov.)",
-                    position: 'insideTopLeft',
-                    fill: '#7c3aed',
-                    fontSize: 10,
-                    fontWeight: 800,
-                  }}
-                />
+                {/* Dynamic Vertical Divider: Aujourd'hui */}
+                {forecastSummary.todayPoint && (
+                  <ReferenceLine
+                    x={forecastSummary.todayPoint.label}
+                    stroke="#7c3aed"
+                    strokeDasharray="4 4"
+                    strokeWidth={2}
+                    label={{
+                      value: `Aujourd'hui (${forecastSummary.todayPoint.label})`,
+                      position: 'insideTopLeft',
+                      fill: '#7c3aed',
+                      fontSize: 10,
+                      fontWeight: 800,
+                    }}
+                  />
+                )}
 
                 {/* Interactive Tooltip on Hover */}
                 <RechartsTooltip
@@ -1234,13 +987,7 @@ export const DemandForecastView: React.FC<DemandForecastViewProps> = ({
                 <Info className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                 <span>Points repères à inspecter :</span>
               </span>
-              {[
-                { date: '2026-11-11', label: "Aujourd'hui (11 nov.)", tag: 'J-0' },
-                { date: '2026-11-14', label: 'Sam. 14 nov.', tag: 'Loisir' },
-                { date: '2026-11-26', label: 'Jeu. 26 nov.', tag: 'All4Pack' },
-                { date: '2026-12-03', label: 'Jeu. 3 déc.', tag: 'Congrès' },
-                { date: '2026-12-31', label: '31 déc.', tag: 'Nouvel An' },
-              ].map((bench) => (
+              {forecastSummary.benchmarkPills.map((bench) => (
                 <button
                   key={bench.date}
                   type="button"

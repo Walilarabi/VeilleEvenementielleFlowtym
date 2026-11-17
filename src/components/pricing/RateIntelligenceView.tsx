@@ -82,7 +82,7 @@ import { Hotel, EventItem } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
   DailyRateIntelligence,
-  TODAY_DATE_STR,
+  getTodayDateStr,
   HOTEL_TOTAL_ROOMS,
   RATE_FLOOR_EUR,
   RATE_CEILING_EUR,
@@ -103,7 +103,9 @@ import {
   toggleLearnedCalibrationRule,
   exportRateGridToCSV,
 } from '../../services/rateIntelligenceService';
+import { addDaysIso } from '../../utils/eventFilterUtils';
 import { getHotelRMSConfig } from '../../services/rmsSettingsService';
+import { syncEngineDecisionToPlanning } from '../../services/ratePlanningSyncService';
 import { exportCompleteHistoricalExcel } from '../../services/excelHistoricalExportService';
 import { LighthouseCompetitiveIntelligenceView } from './LighthouseCompetitiveIntelligenceView';
 import { HistoricalDataImportView } from './HistoricalDataImportView';
@@ -395,6 +397,7 @@ interface RateIntelligenceViewProps {
   events?: EventItem[];
   onSelectEvent?: (event: EventItem) => void;
   onGoToExcelUpload?: () => void;
+  onNavigateToPlanning?: () => void;
   onShowToast: (msg: string) => void;
   initialTab?: 'grid' | 'lighthouse' | 'historical' | 'backtest' | 'learning';
   configVersion?: number;
@@ -407,6 +410,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   events = [],
   onSelectEvent,
   onGoToExcelUpload,
+  onNavigateToPlanning,
   onShowToast,
   initialTab = 'grid',
   configVersion = 0,
@@ -446,8 +450,11 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
   const [riskFilter, setRiskFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  const todayStr = useMemo(() => getTodayDateStr(), []);
+
   // Horizon temporel : 7j, 14j, 30j (défaut), 60j, 90j, Tout
   const [periodDuration, setPeriodDuration] = useState<PeriodDuration>('30d');
+  const [startDateFilter, setStartDateFilter] = useState<string>(() => getTodayDateStr());
   const [dayOffset, setDayOffset] = useState<number>(0);
   const [showPastDates, setShowPastDates] = useState<boolean>(false);
 
@@ -538,11 +545,13 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
     setCalibrationRules(getLearnedCalibrationRules());
   };
 
-  // 1. Calcul de la fenêtre de dates active
+  // 1. Calcul de la fenêtre de dates active (calculée dynamiquement depuis aujourd'hui)
   const activeDateRange = useMemo(() => {
-    const today = new Date(`${TODAY_DATE_STR}T00:00:00Z`);
-    const start = new Date(today);
-    start.setUTCDate(today.getUTCDate() + dayOffset);
+    const baseStartStr =
+      !showPastDates && startDateFilter < todayStr ? todayStr : startDateFilter || todayStr;
+    const shiftedStartStr = addDaysIso(baseStartStr, dayOffset);
+    const effectiveStartStr = !showPastDates && shiftedStartStr < todayStr ? todayStr : shiftedStartStr;
+    const start = new Date(`${effectiveStartStr}T00:00:00Z`);
 
     let numDays = 30;
     if (periodDuration === '7d') numDays = 7;
@@ -558,18 +567,21 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
     return {
       startDate: start,
       endDate: end,
-      startStr: start.toISOString().split('T')[0],
+      startStr: effectiveStartStr,
       endStr: end.toISOString().split('T')[0],
       numDays,
     };
-  }, [dayOffset, periodDuration]);
+  }, [dayOffset, periodDuration, startDateFilter, showPastDates, todayStr]);
 
   // 2. Filtrage des enregistrements synchronisés (Single Source of Truth pour Graphe & Tableau)
   const synchronizedRecords = useMemo(() => {
     return records
       .filter((r) => {
         // Exclusion des dates passées par défaut
-        if (!showPastDates && r.dateStr < TODAY_DATE_STR) {
+        if (!showPastDates && r.dateStr < todayStr) {
+          return false;
+        }
+        if (periodDuration === 'all' && startDateFilter && r.dateStr < (showPastDates ? startDateFilter : (startDateFilter > todayStr ? startDateFilter : todayStr))) {
           return false;
         }
 
@@ -613,7 +625,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
         return true;
       })
       .sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-  }, [records, showPastDates, periodDuration, activeDateRange, demandFilter, riskFilter, statusFilter, searchQuery, barFloor, barCeiling, maxJumpEur]);
+  }, [records, showPastDates, startDateFilter, todayStr, periodDuration, activeDateRange, demandFilter, riskFilter, statusFilter, searchQuery, barFloor, barCeiling, maxJumpEur]);
 
   // 3. Préparation des données pour le graphique Recharts
   const chartData = useMemo(() => {
@@ -789,19 +801,27 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
     else if (periodDuration === '60d') step = 60;
     else if (periodDuration === '90d') step = 90;
 
-    setDayOffset((prev) => (direction === 'next' ? prev + step : prev - step));
+    setDayOffset((prev) => {
+      const next = direction === 'next' ? prev + step : prev - step;
+      const targetStr = addDaysIso(startDateFilter || todayStr, next);
+      if (targetStr < todayStr) setShowPastDates(true);
+      return next;
+    });
   };
 
   const handleResetToToday = () => {
+    setShowPastDates(false);
+    setStartDateFilter(todayStr);
     setDayOffset(0);
   };
 
-  // Actions de validation humaine (Section 9)
+  // Actions de validation humaine (Section 9) -> Synchronisées avec Planning Tarifaire + Connecteur externe
   const handleAcceptSingle = (record: DailyRateIntelligence) => {
     const updated = acceptRateSuggestion(hotel.id, record.id);
     setRecords(updated);
     refreshAuditAndRules();
-    onShowToast?.(`Tarif ${record.suggestedBarEur}€ validé pour le ${record.dateStr} (Envoyé à D-EDGE)`);
+    void syncEngineDecisionToPlanning(hotel, record.dateStr, record.suggestedBarEur, 'accepted', record.suggestedMinStay);
+    onShowToast?.(`Tarif ${record.suggestedBarEur}€ validé pour le ${record.dateStr} — mis à jour dans le Planning Tarifaire et transmis`);
   };
 
   const handleOpenModifyModal = (record: DailyRateIntelligence) => {
@@ -824,8 +844,9 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
     );
     setRecords(updated);
     refreshAuditAndRules();
+    void syncEngineDecisionToPlanning(hotel, modifyingRecord.dateStr, customRate, 'modified', customMinStay);
     setModifyingRecord(null);
-    onShowToast?.(`Tarif personnalisé de ${customRate}€ enregistré et tracé pour le ${modifyingRecord.dateStr}`);
+    onShowToast?.(`Tarif personnalisé de ${customRate}€ enregistré dans le Planning Tarifaire pour le ${modifyingRecord.dateStr}`);
   };
 
   const handleOpenRejectModal = (record: DailyRateIntelligence) => {
@@ -838,15 +859,20 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
     const updated = rejectRateSuggestion(hotel.id, rejectingRecord.id, rejectNote);
     setRecords(updated);
     refreshAuditAndRules();
+    void syncEngineDecisionToPlanning(hotel, rejectingRecord.dateStr, rejectingRecord.currentBarEur, 'rejected', rejectingRecord.currentMinStay);
     setRejectingRecord(null);
     onShowToast?.(`Recommandation refusée pour le ${rejectingRecord.dateStr}. Tarif maintenu à ${rejectingRecord.currentBarEur}€`);
   };
 
   const handleApplyAllPending = () => {
+    const pendingBefore = records.filter((r) => r.status !== 'applied');
     const { updated, count } = applyAllRateSuggestions(hotel.id);
     setRecords(updated);
     refreshAuditAndRules();
-    onShowToast?.(`${count} recommandations RM validées et synchronisées vers D-EDGE CRS`);
+    pendingBefore.slice(0, 30).forEach((rec) => {
+      void syncEngineDecisionToPlanning(hotel, rec.dateStr, rec.suggestedBarEur, 'accepted', rec.suggestedMinStay);
+    });
+    onShowToast?.(`${count} recommandations RM validées, injectées dans le Planning Tarifaire et transmises`);
   };
 
   const handleExportCSV = () => {
@@ -982,6 +1008,17 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                 <span>Importer Fichiers Excel</span>
               </button>
             )}
+
+            {onNavigateToPlanning && (
+              <button
+                onClick={onNavigateToPlanning}
+                className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Planning Tarifaire</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -1003,7 +1040,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
           </div>
 
           <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-            <span>Date d’observation : <strong>{TODAY_DATE_STR.split('-').reverse().join('/')}</strong></span>
+            <span>Date d’observation : <strong>{todayStr.split('-').reverse().join('/')}</strong></span>
             <span>•</span>
             <span className="text-violet-700 dark:text-violet-300 font-bold">Capacité Totale : {hotelTotalRooms} chambres</span>
           </div>
@@ -1261,6 +1298,23 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   </div>
                 )}
 
+                {/* Sélecteur explicite date de début */}
+                <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 text-xs">
+                  <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Dès :</span>
+                  <input
+                    type="date"
+                    value={startDateFilter}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) return;
+                      setShowPastDates(val < todayStr);
+                      setStartDateFilter(val);
+                      setDayOffset(0);
+                    }}
+                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden cursor-pointer"
+                  />
+                </div>
+
                 {/* Badge d'indication de dates synchronisées */}
                 <div className="hidden xl:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 px-2.5 py-1 rounded-xl">
                   <span>📅 {new Date(activeDateRange.startStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
@@ -1274,7 +1328,14 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                   <input
                     type="checkbox"
                     checked={showPastDates}
-                    onChange={(e) => setShowPastDates(e.target.checked)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setShowPastDates(checked);
+                      if (!checked) {
+                        if (startDateFilter < todayStr) setStartDateFilter(todayStr);
+                        setDayOffset(0);
+                      }
+                    }}
                     className="rounded accent-violet-600 w-3.5 h-3.5 cursor-pointer"
                   />
                   <span className="font-medium">Dates passées</span>
@@ -2121,7 +2182,7 @@ export const RateIntelligenceView: React.FC<RateIntelligenceViewProps> = ({
                                   </div>
 
                                   <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                                    Sources : D-EDGE CRS + Lighthouse API ({TODAY_DATE_STR})
+                                    Sources : D-EDGE CRS + Lighthouse API ({todayStr})
                                   </div>
                                 </div>
 

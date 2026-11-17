@@ -4,6 +4,8 @@
  */
 
 import { CompetitorHotel, MarketCompressionAlert, StandardDemandLevel } from '../types';
+import { INITIAL_HOTELS } from '../data/mockData';
+import { getHotelRMSConfig } from './rmsSettingsService';
 
 export interface CompsetSnapshot {
   hotelId: string;
@@ -22,7 +24,7 @@ export interface CompsetSnapshot {
   compressionAlert?: MarketCompressionAlert;
 }
 
-// Compset spécifique pour l'hôtel pilote : Grand Hôtel Folkestone Opéra (4★)
+// Compset de référence fallback si aucun hôtel trouvé
 export const FOLKESTONE_COMPSET_BASE: Omit<CompetitorHotel, 'currentRate' | 'isSoldOut' | 'rateTrend' | 'deltaPercent' | 'lastObservedAt'>[] = [
   {
     id: 'comp-stpetersbourg',
@@ -83,6 +85,7 @@ export const FOLKESTONE_COMPSET_BASE: Omit<CompetitorHotel, 'currentRate' | 'isS
 
 /**
  * Calcule les prix du compset pour une date donnée en fonction des événements actifs
+ * et du CompSet configuré pour l'établissement sélectionné.
  */
 export function getCompsetForDate(
   hotelId: string,
@@ -92,30 +95,47 @@ export function getCompsetForDate(
   maxRMScore: number,
   totalPax: number
 ): CompsetSnapshot {
+  const hotel = INITIAL_HOTELS.find((h) => h.id === hotelId) || INITIAL_HOTELS[0];
+  const rmsConfig = getHotelRMSConfig(hotel);
+  const configuredCompset = rmsConfig.compSet.filter((c) => c.isActive);
+
   // Déterminer le facteur de compression du marché
   let compressionRatio = 1.0;
   let soldOutThreshold = 0.05; // 5% chance of sold out on normal day
 
   if (maxRMScore >= 80 || totalPax >= 100000) {
-    // Événement majeur (ex: Mondial Auto, SIAL, Salon des Maires, Fashion Week)
     compressionRatio = 1.35 + (maxRMScore - 80) * 0.015;
-    soldOutThreshold = 0.55; // Plus de la moitié du compset complet
+    soldOutThreshold = 0.55;
   } else if (maxRMScore >= 60 || activeEventsCount >= 2) {
     compressionRatio = 1.15 + (maxRMScore - 60) * 0.008;
     soldOutThreshold = 0.25;
   }
 
-  // Pseudo-random déterministe basé sur la date pour la stabilité des tests
-  const dateHash = dateStr.split('-').reduce((acc, part) => acc * 31 + parseInt(part, 10), 0);
+  // Pseudo-random déterministe basé sur la date et l'hôtel
+  const dateHash = (dateStr + hotelId).split('').reduce((acc, ch) => acc * 31 + ch.charCodeAt(0), 7);
+
+  const sourcePool =
+    configuredCompset.length > 0
+      ? configuredCompset.map((c) => ({
+          id: c.id,
+          name: c.name,
+          stars: c.stars,
+          roomCount: Math.max(25, Math.round(hotel.roomCount * 1.1)),
+          distanceMeters: Math.round((c.distanceKm || 0.5) * 1000),
+          address: c.city,
+          baselineRate: c.baseRateEur || hotel.baseADR,
+          roomType: c.defaultRoomType || 'Chambre Classique',
+          scrapedSource: 'Lighthouse Rate Insight & OTA Feed',
+        }))
+      : FOLKESTONE_COMPSET_BASE;
 
   let soldOutCount = 0;
-  const competitors: CompetitorHotel[] = FOLKESTONE_COMPSET_BASE.map((comp, idx) => {
-    const itemSeed = (dateHash + idx * 7919) % 1000 / 1000;
+  const competitors: CompetitorHotel[] = sourcePool.slice(0, 10).map((comp, idx) => {
+    const itemSeed = Math.abs(dateHash + idx * 7919) % 1000 / 1000;
     const isSoldOut = itemSeed < soldOutThreshold;
     if (isSoldOut) soldOutCount++;
 
-    // Variation individuelle du concurrent
-    const variationMultiplier = 0.96 + ((dateHash * (idx + 1)) % 15) / 100;
+    const variationMultiplier = 0.96 + (Math.abs(dateHash * (idx + 1)) % 15) / 100;
     const finalRate = isSoldOut
       ? Math.round(comp.baselineRate * compressionRatio * 1.25)
       : Math.round(comp.baselineRate * compressionRatio * variationMultiplier);
@@ -129,13 +149,25 @@ export function getCompsetForDate(
       isSoldOut,
       rateTrend,
       deltaPercent,
-      lastObservedAt: 'Il y a 32 min',
+      lastObservedAt: 'Synchronisé',
     };
   });
 
   const availableCompetitors = competitors.filter((c) => !c.isSoldOut);
   const compsetSum = availableCompetitors.reduce((sum, c) => sum + c.currentRate, 0);
-  const compsetAverage = availableCompetitors.length > 0 ? Math.round(compsetSum / availableCompetitors.length) : Math.round(myCurrentRate * 1.1);
+  const compsetAverage =
+    availableCompetitors.length > 0
+      ? Math.round(compsetSum / availableCompetitors.length)
+      : Math.round(myCurrentRate * 1.1);
+
+  const sortedAvailableRates = availableCompetitors.map((c) => c.currentRate).sort((a, b) => a - b);
+  const midIdx = Math.floor(sortedAvailableRates.length / 2);
+  const compsetMedian =
+    sortedAvailableRates.length === 0
+      ? compsetAverage
+      : sortedAvailableRates.length % 2 === 1
+      ? sortedAvailableRates[midIdx]
+      : Math.round((sortedAvailableRates[midIdx - 1] + sortedAvailableRates[midIdx]) / 2);
 
   const ratesSorted = [...competitors.map((c) => c.currentRate), myCurrentRate].sort((a, b) => b - a);
   const marketPosition = ratesSorted.indexOf(myCurrentRate) + 1;
@@ -150,31 +182,37 @@ export function getCompsetForDate(
   let compressionAlert: MarketCompressionAlert | undefined;
   if (soldOutCount >= 2 || compressionRatio >= 1.25) {
     compressionAlert = {
-      id: `comp-alert-${dateStr}`,
+      id: `comp-alert-${hotelId}-${dateStr}`,
       dateStr,
       compressionIndex: Math.min(10, Math.round(compressionRatio * 7)),
       demandLevel,
-      primaryDrivers: totalPax > 50000 ? ['Forte affluence événementielle', 'Resserrement de la disponibilité compset'] : ['Tension sur le compset direct'],
+      primaryDrivers:
+        totalPax > 50000
+          ? ['Forte affluence événementielle', 'Resserrement de la disponibilité compset']
+          : ['Tension sur le compset direct'],
       totalEstimatedPax: totalPax,
-      soldOutRatioPercent: Math.round((soldOutCount / competitors.length) * 100),
+      soldOutRatioPercent: Math.round((soldOutCount / Math.max(1, competitors.length)) * 100),
       compsetAverageRate: compsetAverage,
       rateSpreadVsBaselinePercent: Math.round((compressionRatio - 1) * 100),
       isMultiEventOverlap: activeEventsCount > 1,
-      recommendedAction: soldOutCount >= 2 ? 'Fermer les canaux OTA remisés & appliquer Minimum Stay 2 ou 3 nuits' : 'Rehausser le BAR de +15% à +25%',
+      recommendedAction:
+        soldOutCount >= 2
+          ? 'Fermer les canaux OTA remisés & appliquer Minimum Stay 2 ou 3 nuits'
+          : 'Rehausser le BAR de +15% à +25%',
       suggestedMinStay: compressionRatio >= 1.3 ? 3 : 2,
       ctaRecommended: soldOutCount >= 3,
     };
   }
 
   return {
-    hotelId,
-    hotelName: 'Grand Hôtel Folkestone Opéra (4★)',
+    hotelId: hotel.id,
+    hotelName: hotel.name,
     dateStr,
     myRate: myCurrentRate,
     compsetAverage,
-    compsetMedian: availableCompetitors.length > 0 ? availableCompetitors[Math.floor(availableCompetitors.length / 2)].currentRate : compsetAverage,
+    compsetMedian,
     rateSpreadVsCompset: myCurrentRate - compsetAverage,
-    rateSpreadPercent: Math.round(((myCurrentRate - compsetAverage) / compsetAverage) * 100),
+    rateSpreadPercent: Math.round(((myCurrentRate - compsetAverage) / Math.max(1, compsetAverage)) * 100),
     soldOutCount,
     totalCompetitors: competitors.length,
     marketPosition,

@@ -25,6 +25,7 @@ import {
   Upload,
   Globe,
   Radio,
+  CalendarRange,
 } from 'lucide-react';
 import { Hotel, LighthouseRateConfig, DEdgeConfig } from '../../types';
 import {
@@ -39,19 +40,24 @@ import {
   saveDEdgeConfig,
   testDEdgeConnection,
 } from '../../services/dedgeConnectivityService';
+import { getHotelConnectivityConfig } from '../../services/ratePlanningSyncService';
+import { UniversalConnectorCenter } from './UniversalConnectorCenter';
 
 interface HotelConnectivityHubProps {
   hotel: Hotel;
   onShowToast: (message: string) => void;
   onNavigateToPricing?: () => void;
+  onNavigateToPlanning?: () => void;
 }
 
 export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
   hotel,
   onShowToast,
   onNavigateToPricing,
+  onNavigateToPlanning,
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'lighthouse' | 'dedge' | 'alternatives'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'universal' | 'lighthouse' | 'dedge' | 'alternatives'>('overview');
+  const activeConnectivity = getHotelConnectivityConfig(hotel);
 
   // Lighthouse State
   const [lighthouseConfig, setLighthouseConfig] = useState<LighthouseRateConfig>(() =>
@@ -116,28 +122,45 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
     }
   };
 
+  const activeModeText =
+    activeConnectivity.activeMode === 'pms'
+      ? `Mode A · ${activeConnectivity.pmsProvider} ↔ FLOWTYM`
+      : activeConnectivity.activeMode === 'channel_manager'
+      ? `Mode B · ${activeConnectivity.channelManagerProvider} ↔ FLOWTYM`
+      : `Coexistence · ${activeConnectivity.pmsProvider} + ${activeConnectivity.channelManagerProvider}`;
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 text-white shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full text-xs font-semibold text-indigo-200">
-            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span>Connectivité & Intégrations Hôtelières en Direct</span>
+          <div className="text-xs font-medium text-indigo-200 flex flex-wrap items-center gap-2">
+            <span>Connectivité &amp; Intégrations Hôtelières en Direct</span>
+            <span aria-hidden="true">·</span>
+            <span className="font-mono text-emerald-300">{activeModeText}</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Hub de Synchronisation Lighthouse & D-EDGE
+            Hub de Synchronisation Lighthouse, PMS &amp; D-EDGE
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-            Croisez en temps réel les données de veille tarifaire de la concurrence (Lighthouse API v3) avec les données de disponibilité et de pickup de votre établissement (D-EDGE CRS & Channel Manager).
+            Croisez en temps réel les données de veille tarifaire de la concurrence (Lighthouse API v3) avec les flux bidirectionnels de tarifs, disponibilités et restrictions de votre établissement.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0">
+          {onNavigateToPlanning && (
+            <button
+              onClick={onNavigateToPlanning}
+              className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <CalendarRange className="w-3.5 h-3.5" />
+              <span>Planning Tarifaire Connecté</span>
+            </button>
+          )}
           {onNavigateToPricing && (
             <button
               onClick={onNavigateToPricing}
-              className="px-4 py-2 text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
             >
               <TrendingUp className="w-3.5 h-3.5" />
               <span>Grille des Tarifs Suggérés</span>
@@ -149,7 +172,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
               handleTestLighthouse();
               handleTestDEdge();
             }}
-            className="px-4 py-2 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Diagnostiquer les API</span>
@@ -168,7 +191,19 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
-          <span>Vue d&apos;Ensemble & Statuts</span>
+          <span>Vue d&apos;Ensemble &amp; Statuts</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('universal')}
+          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeTab === 'universal'
+              ? 'bg-violet-600 text-white shadow-2xs'
+              : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
+          }`}
+        >
+          <Globe className="w-3.5 h-3.5" />
+          <span>Connecteurs Universels (PMS / CM / API)</span>
         </button>
 
         <button
@@ -192,7 +227,7 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
           }`}
         >
           <Activity className="w-3.5 h-3.5" />
-          <span>D-EDGE CRS & Distribution</span>
+          <span>D-EDGE CRS &amp; Distribution</span>
         </button>
 
         <button
@@ -204,9 +239,14 @@ export const HotelConnectivityHub: React.FC<HotelConnectivityHubProps> = ({
           }`}
         >
           <FileSpreadsheet className="w-3.5 h-3.5" />
-          <span>Modes Alternatifs & Exports SFTP</span>
+          <span>Modes Alternatifs &amp; Exports SFTP</span>
         </button>
       </div>
+
+      {/* VIEW 0: CONNECTEURS UNIVERSELS (PMS / CHANNEL MANAGER / RATE SHOPPER) */}
+      {activeTab === 'universal' && (
+        <UniversalConnectorCenter hotel={hotel} onShowToast={onShowToast} />
+      )}
 
       {/* VIEW 1: VUE D'ENSEMBLE */}
       {activeTab === 'overview' && (

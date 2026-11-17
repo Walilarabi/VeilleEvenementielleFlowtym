@@ -59,7 +59,7 @@ import {
 import { exportMarketDemandReportPDF } from '../../utils/exportMarketPdf';
 import { SchoolHolidaysImpactView } from './SchoolHolidaysImpactView';
 import { LighthouseCompetitiveIntelligenceView } from '../pricing/LighthouseCompetitiveIntelligenceView';
-import { CURRENT_REFERENCE_DATE } from '../../utils/eventFilterUtils';
+import { getTodayIsoDate } from '../../utils/eventFilterUtils';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface MarketCalendarViewProps {
@@ -84,13 +84,18 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
   const { chartTokens } = useTheme();
   // Active sub-tab in Analyse de marché: 'calendar' | 'school_holidays' | 'lighthouse'
   const [activeMarketSubTab, setActiveMarketSubTab] = useState<'calendar' | 'school_holidays' | 'lighthouse'>(initialSubTab);
-  // Date de référence du jour pour Flowtym (12 novembre 2026)
-  const todayStr = CURRENT_REFERENCE_DATE;
+  // Date du jour calculée dynamiquement
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+  const [todayYearNum, todayMonthOneBased] = useMemo(
+    () => todayStr.split('-').map(Number),
+    [todayStr]
+  );
+  const todayMonthIdx = todayMonthOneBased - 1;
 
-  // Navigation state: start month index (0-indexed) & year
-  // Par défaut, initialisé automatiquement sur le mois en cours (Novembre 2026 = mois 10)
-  const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [currentMonth, setCurrentMonth] = useState<number>(10); // 10 = Novembre
+  // Navigation state: start month index (0-indexed) & year, initialisés dynamiquement sur aujourd'hui
+  const [currentYear, setCurrentYear] = useState<number>(() => new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState<number>(() => new Date().getMonth());
+  const [showPastDays, setShowPastDays] = useState<boolean>(false);
 
   // Filter by demand level: 'all' | 'forte' | 'moyenne' | 'faible'
   const [demandFilter, setDemandFilter] = useState<'all' | MarketDemandLevel>('all');
@@ -168,7 +173,9 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
 
   // Animation state for smooth month transitions (fade-in + horizontal slide)
   const [animationClass, setAnimationClass] = useState<string>('animate-calendar-fade');
-  const [calendarKey, setCalendarKey] = useState<string>('cal-2026-10');
+  const [calendarKey, setCalendarKey] = useState<string>(
+    () => `cal-${new Date().getFullYear()}-${new Date().getMonth()}`
+  );
 
   const triggerCalendarTransition = (direction: 'next' | 'prev') => {
     setAnimationClass(direction === 'next' ? 'animate-calendar-next' : 'animate-calendar-prev');
@@ -210,11 +217,25 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     setCurrentMonth(n.month);
   };
 
+  const todayRangeLabel = useMemo(() => {
+    const startLabel = new Date(todayYearNum, todayMonthIdx, 1).toLocaleDateString('fr-FR', {
+      month: 'short',
+      year: 'numeric',
+    });
+    const endOffset = getMonthYearOffset(todayYearNum, todayMonthIdx, 2);
+    const endLabel = new Date(endOffset.year, endOffset.month, 1).toLocaleDateString('fr-FR', {
+      month: 'short',
+      year: 'numeric',
+    });
+    return `${startLabel} - ${endLabel}`;
+  }, [todayYearNum, todayMonthIdx]);
+
   const handleResetToToday = () => {
     triggerCalendarTransition('prev');
-    setCurrentYear(2026);
-    setCurrentMonth(10); // Novembre 2026
-    onShowToast("Calendrier repositionné sur aujourd'hui (Novembre 2026 - Janvier 2027)");
+    setCurrentYear(todayYearNum);
+    setCurrentMonth(todayMonthIdx);
+    setShowPastDays(false);
+    onShowToast(`Calendrier repositionné sur aujourd'hui (${todayRangeLabel})`);
   };
 
   // Quick year switch
@@ -222,13 +243,24 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     setCurrentYear(year);
   };
 
-  // Aggregated KPI numbers for the 3 displayed consecutive months
-  const totalForte = monthData1.stats.forteCount + monthData2.stats.forteCount + monthData3.stats.forteCount;
-  const totalMoyenne = monthData1.stats.moyenneCount + monthData2.stats.moyenneCount + monthData3.stats.moyenneCount;
-  const totalFaible = monthData1.stats.faibleCount + monthData2.stats.faibleCount + monthData3.stats.faibleCount;
-  const combinedAvgTO = Math.round(
-    (monthData1.stats.avgOccupancy + monthData2.stats.avgOccupancy + monthData3.stats.avgOccupancy) / 3
-  );
+  // Aggregated KPI numbers for the 3 displayed consecutive months (uniquement >= todayStr par défaut)
+  const { totalForte, totalMoyenne, totalFaible, combinedAvgTO } = useMemo(() => {
+    const allDays = [...monthData1.days, ...monthData2.days, ...monthData3.days];
+    const scoped = showPastDays ? allDays : allDays.filter((d) => d.dateStr >= todayStr);
+    if (scoped.length === 0) {
+      return { totalForte: 0, totalMoyenne: 0, totalFaible: 0, combinedAvgTO: 0 };
+    }
+    const forte = scoped.filter((d) => d.demandLevel === 'forte').length;
+    const moyenne = scoped.filter((d) => d.demandLevel === 'moyenne').length;
+    const faible = scoped.filter((d) => d.demandLevel === 'faible').length;
+    const avgTO = Math.round(scoped.reduce((sum, d) => sum + d.projectedOccupancy, 0) / scoped.length);
+    return {
+      totalForte: forte,
+      totalMoyenne: moyenne,
+      totalFaible: faible,
+      combinedAvgTO: avgTO,
+    };
+  }, [monthData1.days, monthData2.days, monthData3.days, showPastDays, todayStr]);
 
   // Configuration de la visualisation Recharts (Évolution de la demande, barres & pics sur 3 mois)
   const [chartScope, setChartScope] = useState<'month1' | 'month2' | 'month3' | 'all3'>('all3');
@@ -263,9 +295,13 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
       daysToInclude = [...monthData1.days, ...monthData2.days, ...monthData3.days];
     }
 
+    const filteredDays = showPastDays
+      ? daysToInclude
+      : daysToInclude.filter((d) => d.dateStr >= todayStr);
+
     const basePrice = currentHotel?.baseADR || 240;
 
-    return daysToInclude.map((d) => {
+    return filteredDays.map((d) => {
       const dObj = new Date(d.dateStr);
       const dayOfWeek = dObj.getDay(); // 0 = Dimanche, 6 = Samedi
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
@@ -302,7 +338,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
         estimatedADR,
       };
     });
-  }, [chartScope, monthData1, monthData2, monthData3, currentHotel, CRITICAL_THRESHOLD]);
+  }, [chartScope, monthData1, monthData2, monthData3, currentHotel, CRITICAL_THRESHOLD, showPastDays, todayStr]);
 
   // Zones de week-ends pour shading en arrière-plan (exactement comme dans la capture)
   const weekendBlocks = useMemo(() => {
@@ -449,7 +485,14 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
     monthData: typeof monthData1,
     colIndex: number
   ) => {
-    const isCurrentActiveMonth = monthData.year === 2026 && monthData.month === 10;
+    const isCurrentActiveMonth = monthData.year === todayYearNum && monthData.month === todayMonthIdx;
+    const scopedMonthDays = showPastDays
+      ? monthData.days
+      : monthData.days.filter((d) => d.dateStr >= todayStr);
+    const monthForteCount = scopedMonthDays.filter((d) => d.demandLevel === 'forte').length;
+    const monthAvgTO = scopedMonthDays.length
+      ? Math.round(scopedMonthDays.reduce((s, d) => s + d.projectedOccupancy, 0) / scopedMonthDays.length)
+      : 0;
 
     return (
       <div
@@ -471,10 +514,10 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400">
             <span className="text-rose-600 dark:text-rose-400 font-extrabold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-              {monthData.stats.forteCount} j.
+              {monthForteCount} j.
             </span>
             <span className="text-slate-300">·</span>
-            <span className="text-violet-700 dark:text-violet-300 font-extrabold">{monthData.stats.avgOccupancy}% TO</span>
+            <span className="text-violet-700 dark:text-violet-300 font-extrabold">{monthAvgTO}% TO</span>
           </div>
         </div>
 
@@ -515,8 +558,12 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               cellClasses += 'opacity-25 grayscale scale-95 ';
             }
 
-            if (isPast) {
-              // Journée passée : gris clair atténué, information conservée, pleinement interactive
+            if (isPast && !showPastDays) {
+              // Journée passée masquée par défaut (aucune donnée antérieure à aujourd'hui affichée)
+              cellClasses +=
+                'bg-slate-100/50 dark:bg-slate-800/30 text-slate-300 dark:text-slate-600 border border-transparent opacity-40 pointer-events-none ';
+            } else if (isPast) {
+              // Journée passée affichée explicitement par l'utilisateur
               cellClasses +=
                 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200/80 dark:border-slate-700/60 hover:bg-slate-200/80 dark:hover:bg-slate-700/80 hover:text-slate-900 dark:hover:text-slate-100 hover:scale-105 active:scale-95 ';
             } else if (dayInfo.demandLevel === 'forte') {
@@ -544,8 +591,12 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             return (
               <div
                 key={dayInfo.dateStr}
-                onClick={() => setSelectedDateInfo(dayInfo)}
+                onClick={() => {
+                  if (isPast && !showPastDays) return;
+                  setSelectedDateInfo(dayInfo);
+                }}
                 onMouseEnter={(e) => {
+                  if (isPast && !showPastDays) return;
                   const rect = e.currentTarget.getBoundingClientRect();
                   setHoveredDay({
                     info: dayInfo,
@@ -565,8 +616,8 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
                   </span>
                 )}
 
-                {/* Témoin discret de tension sur les journées passées pour conserver l'information */}
-                {isPast && (
+                {/* Témoin discret de tension sur les journées passées si activées explicitement */}
+                {isPast && showPastDays && (
                   <span
                     className={`absolute bottom-1 w-1.5 h-1.5 rounded-full ${
                       dayInfo.demandLevel === 'forte'
@@ -771,27 +822,27 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
               </select>
             </div>
 
-            {/* Year Switcher (2026 / 2027) */}
+            {/* Year Switcher (dynamic currentYear / currentYear+1) */}
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold">
               <button
-                onClick={() => handleSetYear(2026)}
+                onClick={() => handleSetYear(todayYearNum)}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                  currentYear === 2026
+                  currentYear === todayYearNum
                     ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                2026
+                {todayYearNum}
               </button>
               <button
-                onClick={() => handleSetYear(2027)}
+                onClick={() => handleSetYear(todayYearNum + 1)}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                  currentYear === 2027
+                  currentYear === todayYearNum + 1
                     ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                2027 (Paris)
+                {todayYearNum + 1} (Paris)
               </button>
             </div>
 
@@ -1013,14 +1064,23 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             </button>
           </div>
 
-          {/* Quick jump to Today (Nov 2026 - Jan 2027) */}
-          <div className="flex items-center gap-2">
+          {/* Quick jump to Today & showPastDays toggle */}
+          <div className="flex items-center gap-3">
+            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showPastDays}
+                onChange={(e) => setShowPastDays(e.target.checked)}
+                className="rounded accent-violet-600"
+              />
+              <span>Jours passés</span>
+            </label>
             <button
               onClick={handleResetToToday}
               className="text-xs font-semibold text-violet-700 dark:text-violet-300 hover:text-violet-900 dark:hover:text-violet-100 hover:underline cursor-pointer flex items-center gap-1"
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>Aujourd'hui (Nov. 2026 - Janv. 2027)</span>
+              <span>Aujourd&apos;hui ({todayRangeLabel})</span>
             </button>
           </div>
         </div>
@@ -1591,7 +1651,7 @@ export const MarketCalendarView: React.FC<MarketCalendarViewProps> = ({
             <button
               onClick={handleResetToToday}
               className="px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 hover:text-violet-900 border border-violet-200 dark:border-violet-800/70 text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-              title="Revenir instantanément à la date du jour (Novembre 2026)"
+              title={`Revenir instantanément à la date du jour (${todayRangeLabel})`}
             >
               <Clock className="w-3.5 h-3.5" />
               <span>Aujourd'hui</span>

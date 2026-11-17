@@ -239,13 +239,15 @@ export async function importHoptymFile(args: {
   }
 
   let written = 0;
+  let acceptedInputRecords = read;
   const sourceName = `file:${args.fileName.slice(0, 180)}`;
 
   try {
     if (args.dataset === 'historical') {
       const mapped = args.records.map((row) => makeHistoricalRow(row, { organizationId, hotelId }, job.id, sourceName));
       const valid = mapped.filter((row): row is NonNullable<typeof row> => Boolean(row));
-      acceptedInputRecords = valid.length;\n      const invalid = read - valid.length;
+      acceptedInputRecords = valid.length;
+      const invalid = read - valid.length;
       for (const batch of batches(valid)) {
         const { error } = await client.from('hotel_historical_daily').upsert(batch, { onConflict: 'hotel_id,stay_date,source_name' });
         if (error) throw error;
@@ -276,7 +278,8 @@ export async function importHoptymFile(args: {
           raw_payload: row,
         }];
       });
-      acceptedInputRecords = mapped.length;\n      if (!mapped.length) throw new Error('Aucune ligne de disponibilité avec date de séjour exploitable.');
+      acceptedInputRecords = mapped.length;
+      if (!mapped.length) throw new Error('Aucune ligne de disponibilité avec date de séjour exploitable.');
       for (const batch of batches(mapped)) {
         const { error } = await client.from('hotel_inventory_snapshots').insert(batch);
         if (error) throw error;
@@ -311,7 +314,8 @@ export async function importHoptymFile(args: {
         if (lead !== null) { current.leadTimeTotal += lead; current.leadTimeCount += 1; }
         grouped.set(key, current);
       }
-      acceptedInputRecords = args.records.filter((row) => Boolean(dateValue(readValue(row, 'stayDate')))).length;\n      const mapped = Array.from(grouped.values()).map((row) => {
+      acceptedInputRecords = args.records.filter((row) => Boolean(dateValue(readValue(row, 'stayDate')))).length;
+      const mapped = Array.from(grouped.values()).map((row) => {
         const { leadTimeTotal, leadTimeCount, ...output } = row;
         const pickupWindow = numberValue(readValue(args.records[0], 'pickupWindow'));
         const periodStart = dateValue(readValue(args.records[0], 'periodStart'));
@@ -344,7 +348,9 @@ export async function importHoptymFile(args: {
         }];
       });
       if (!valid.length) throw new Error('Aucune observation concurrentielle avec date et nom du concurrent.');
-      acceptedInputRecords = valid.length;\n      const { data: competitors, error: competitorsError } = await client.from('competitor_hotels').select('id,competitor_name').eq('hotel_id', hotelId).eq('organization_id', organizationId);\n      if (competitorsError) throw competitorsError;
+      acceptedInputRecords = valid.length;
+      const { data: competitors, error: competitorsError } = await client.from('competitor_hotels').select('id,competitor_name').eq('hotel_id', hotelId).eq('organization_id', organizationId);
+      if (competitorsError) throw competitorsError;
       const competitorIds = new Map((competitors || []).map((item: any) => [String(item.competitor_name).trim().toLowerCase(), item.id]));
       const { data: extraction, error: extractionError } = await client.from('lighthouse_extractions').insert({
         organization_id: organizationId, hotel_id: hotelId, file_name: args.fileName,
@@ -422,7 +428,8 @@ export async function importHoptymFile(args: {
           confidence_score: 50, review_status: 'pending',
         }];
       });
-      acceptedInputRecords = mapped.length;\n      if (!mapped.length) throw new Error('Aucun événement avec titre et date de début exploitables.');
+      acceptedInputRecords = mapped.length;
+      if (!mapped.length) throw new Error('Aucun événement avec titre et date de début exploitables.');
       for (const batch of batches(mapped)) {
         const { error } = await client.from('event_suggestions').insert(batch);
         if (error) throw error;
@@ -430,9 +437,11 @@ export async function importHoptymFile(args: {
       }
     }
 
-    const rejected = read - written;
+    const rejected = Math.max(0, read - written);
+    const finalStatus: 'completed' | 'partial' | 'failed' =
+      written === 0 ? 'failed' : rejected > 0 || acceptedInputRecords < read ? 'partial' : 'completed';
     await client.from('data_ingestion_jobs').update({
-      status: rejected > 0 ? 'partial' : 'completed',
+      status: finalStatus,
       finished_at: new Date().toISOString(),
       records_written: written,
       records_rejected: rejected,
@@ -441,7 +450,8 @@ export async function importHoptymFile(args: {
     await client.from('hotel_historical_import_logs').insert({
       organization_id: organizationId, hotel_id: hotelId, file_name: args.fileName,
       records_count: written, rejected_count: rejected,
-      file_size_bytes: null,\n      import_status: finalStatus === 'completed' ? 'completed' : 'warning',
+      file_size_bytes: null,
+      import_status: finalStatus === 'completed' ? 'completed' : 'warning',
       warnings: errors, errors: [], detected_columns: Object.keys(args.records[0] || {}), imported_by: userId,
     });
     return {

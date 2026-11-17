@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Sparkles,
   TrendingUp,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { EventItem, Hotel } from '../../types';
 import { formatEventDateRange, getCategoryLabel, getImpactColorClasses } from '../../utils/helpers';
+import { getEffectiveEndDate, getTodayIsoDate } from '../../utils/eventFilterUtils';
 import { RevPARImpactSimulator } from './RevPARImpactSimulator';
 
 interface EventIntelligenceViewProps {
@@ -48,11 +49,67 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
     }
   }, [defaultTab]);
 
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+  const [includePastEvents, setIncludePastEvents] = useState<boolean>(false);
+
+  const scopedEvents = useMemo(
+    () => events.filter((e) => includePastEvents || getEffectiveEndDate(e) >= todayStr),
+    [events, includePastEvents, todayStr]
+  );
+
   // Recurrent events
-  const recurrentEvents = events.filter((e) => e.isRecurring);
+  const recurrentEvents = useMemo(() => scopedEvents.filter((e) => e.isRecurring), [scopedEvents]);
 
   // Severe compression dates (where multiple events collide or hyper event)
-  const highPressureEvents = events.filter((e) => e.impactLevel === 'hyper' || e.scoreBreakdown.finalRMScore >= 80);
+  const highPressureEvents = useMemo(
+    () =>
+      [...scopedEvents]
+        .filter((e) => e.impactLevel === 'hyper' || e.scoreBreakdown.finalRMScore >= 80)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate)),
+    [scopedEvents]
+  );
+
+  // Top upcoming saturation windows derived dynamically from scopedEvents
+  const upcomingSaturationCards = useMemo(() => {
+    const sorted = [...scopedEvents].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const top10 = sorted.slice(0, 10);
+    return top10.map((ev) => {
+      const score = ev.scoreBreakdown.finalRMScore;
+      const startDt = new Date(`${ev.startDate}T00:00:00`);
+      const dateLabel = startDt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      const value = Math.min(100, Math.max(45, score));
+      const color =
+        value >= 90
+          ? 'bg-rose-600'
+          : value >= 80
+          ? 'bg-rose-500'
+          : value >= 70
+          ? 'bg-amber-500'
+          : value >= 55
+          ? 'bg-blue-500'
+          : 'bg-emerald-500';
+      const alert =
+        value >= 90 ? 'Hyper' : value >= 80 ? 'Critique' : value >= 70 ? 'Fort' : 'Modéré';
+      return {
+        id: ev.id,
+        event: ev,
+        date: dateLabel,
+        label: ev.title,
+        value,
+        color,
+        alert,
+      };
+    });
+  }, [scopedEvents]);
+
+  const peakCompressionEvent = useMemo(() => {
+    if (highPressureEvents.length > 0) {
+      return [...highPressureEvents].sort(
+        (a, b) => b.scoreBreakdown.finalRMScore - a.scoreBreakdown.finalRMScore
+      )[0];
+    }
+    return scopedEvents[0] || null;
+  }, [highPressureEvents, scopedEvents]);
 
   return (
     <div className="space-y-6">
@@ -73,8 +130,18 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
             </div>
           </div>
 
-          {/* Sub-tabs */}
-          <div className="flex flex-wrap items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800/70 gap-1">
+          {/* Toggle événements passés & Sub-tabs */}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={includePastEvents}
+                onChange={(e) => setIncludePastEvents(e.target.checked)}
+                className="rounded accent-violet-600 w-3.5 h-3.5 cursor-pointer"
+              />
+              <span className="font-semibold">Inclure passés</span>
+            </label>
+            <div className="flex flex-wrap items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800/70 gap-1">
             <button
               onClick={() => setActiveAnalysisTab('compression')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
@@ -117,13 +184,14 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
               Règles Tarifaires RM
             </button>
           </div>
+          </div>
         </div>
       </div>
 
       {/* Tab: RevPAR Simulator with Recharts */}
       {activeAnalysisTab === 'revpar_simulator' && (
         <RevPARImpactSimulator
-          events={events}
+          events={scopedEvents}
           hotels={hotels}
           selectedHotelId={selectedHotelId}
           onSelectEvent={onSelectEvent}
@@ -157,43 +225,39 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
             </button>
           </div>
 
-          {/* Market Collision Warning */}
-          <div className="bg-amber-50/80 dark:bg-amber-950/45 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-5 flex items-start gap-3.5">
-            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                Pic Critique de Demande : Semaine 42 (12 au 21 Octobre 2026)
-              </h4>
-              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                Superposition du <strong>Mondial de l&apos;Automobile</strong> (Porte de Versailles) et du <strong>SIAL Paris</strong> (Villepinte), combinée aux concerts consécutifs de Céline Dion. Taux d&apos;occupation prévisionnel ville &gt; 94%.
-              </p>
+          {/* Market Collision Warning (Dynamic upcoming peak >= todayStr) */}
+          {peakCompressionEvent && (
+            <div className="bg-amber-50/80 dark:bg-amber-950/45 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-5 flex items-start gap-3.5">
+              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                  Pic Critique de Demande à Venir : {peakCompressionEvent.title} ({formatEventDateRange(peakCompressionEvent.startDate, peakCompressionEvent.endDate)})
+                </h4>
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  Lieu : <strong>{peakCompressionEvent.venueName}</strong> ({peakCompressionEvent.city}) · Affluence estimée : {peakCompressionEvent.expectedAttendance.toLocaleString('fr-FR')} pax · Score RM : {peakCompressionEvent.scoreBreakdown.finalRMScore}/100.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Visual Compression Timeline by day */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-              Indice de Saturation de la Destination (Octobre 2026)
+              Indice de Saturation à Venir de la Destination ({currentHotel.city} · dès {todayStr})
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Pression sur les capacités hôtelières de Paris et première couronne
+              Pression sur les capacités hôtelières à partir d&apos;aujourd&apos;hui ({scopedEvents.length} événements actifs/à venir)
             </p>
 
             {/* Visual Bar representation */}
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-10 gap-2 pt-2">
-              {[
-                { date: '1-6 Oct', label: 'Fashion W.', value: 85, color: 'bg-amber-500', alert: 'Critique' },
-                { date: '7-11 Oct', label: 'Concerts', value: 65, color: 'bg-blue-500', alert: 'Modéré' },
-                { date: '12-16 Oct', label: 'Mondial Auto', value: 98, color: 'bg-rose-500', alert: 'Hyper' },
-                { date: '17-18 Oct', label: 'Auto + SIAL', value: 100, color: 'bg-rose-600', alert: 'Saturé' },
-                { date: '19-21 Oct', label: 'SIAL', value: 92, color: 'bg-rose-500', alert: 'Hyper' },
-                { date: '22 Oct', label: 'Transition', value: 55, color: 'bg-emerald-500', alert: 'Standard' },
-                { date: '23-25 Oct', label: 'Art Basel', value: 82, color: 'bg-amber-500', alert: 'Critique' },
-                { date: '26-29 Oct', label: 'Affaires', value: 68, color: 'bg-blue-500', alert: 'Modéré' },
-                { date: '30-31 Oct', label: 'Games Week', value: 78, color: 'bg-amber-500', alert: 'Fort' },
-                { date: '31 Oct+', label: 'Rolex Masters', value: 88, color: 'bg-purple-600', alert: 'Critique' },
-              ].map((item, idx) => (
-                <div key={idx} className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-800/70 text-center flex flex-col justify-between h-32">
+            <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 pt-2">
+              {upcomingSaturationCards.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => onSelectEvent(item.event)}
+                  className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-800/70 text-center flex flex-col justify-between h-32 cursor-pointer hover:border-violet-400 transition-colors"
+                  title={item.label}
+                >
                   <div className="text-[10px] font-bold text-slate-400">{item.date}</div>
                   <div className="my-auto">
                     <div className="text-sm font-black text-slate-900 dark:text-slate-100 tabular-nums">{item.value}%</div>
@@ -283,7 +347,7 @@ export const EventIntelligenceView: React.FC<EventIntelligenceViewProps> = ({
                   <tr>
                     <th className="py-3 px-4">Événement</th>
                     <th className="py-3 px-4">Fréquence</th>
-                    <th className="py-3 px-4">Dates 2026</th>
+                    <th className="py-3 px-4">Dates</th>
                     <th className="py-3 px-4">Statut Dates</th>
                     <th className="py-3 px-4">Évolution Historique</th>
                     <th className="py-3 px-4 text-center">Score RM</th>

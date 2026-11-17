@@ -39,6 +39,7 @@ import {
 } from '../../data/schoolHolidaysData';
 import { SchoolHolidayDetailModal } from './SchoolHolidayDetailModal';
 import { SchoolHolidaysImpactDashboard } from './SchoolHolidaysImpactDashboard';
+import { getTodayIsoDate } from '../../utils/eventFilterUtils';
 
 interface SchoolHolidaysCalendarViewProps {
   hotel: Hotel;
@@ -56,7 +57,7 @@ const MONTHS_HEADER = [
   { key: 7, label: 'AOÛ', name: 'Août' },
   { key: 8, label: 'SEP', name: 'Septembre' },
   { key: 9, label: 'OCT', name: 'Octobre' },
-  { key: 10, label: 'NOV', labelSub: '•', name: 'Novembre', isCurrent: true },
+  { key: 10, label: 'NOV', name: 'Novembre' },
   { key: 11, label: 'DÉC', name: 'Décembre' },
 ];
 
@@ -64,8 +65,13 @@ export const SchoolHolidaysCalendarView: React.FC<SchoolHolidaysCalendarViewProp
   hotel,
   onShowToast,
 }) => {
-  // Navigation: Year
-  const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const currentMonthIdx = useMemo(() => new Date().getMonth(), []);
+
+  // Navigation: Year (dynamique sur l'année en cours)
+  const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
+  const [includePastPeriods, setIncludePastPeriods] = useState<boolean>(false);
 
   // Active Countries
   const [activeCountries, setActiveCountries] = useState<CountryHolidayConfig[]>(INITIAL_COUNTRIES);
@@ -96,16 +102,22 @@ export const SchoolHolidaysCalendarView: React.FC<SchoolHolidaysCalendarViewProp
     return activeCountries.filter((c) => c.code === selectedCountryFilter);
   }, [activeCountries, selectedCountryFilter]);
 
+  // Scope temporel: aucune période antérieure à aujourd'hui par défaut sur l'année courante
+  const scopedHolidaysForYear = useMemo(() => {
+    if (includePastPeriods || selectedYear > currentYear) return allHolidaysForYear;
+    return allHolidaysForYear.filter((h) => h.endDate >= todayStr);
+  }, [allHolidaysForYear, includePastPeriods, selectedYear, currentYear, todayStr]);
+
   // Filtered holidays
   const filteredHolidays = useMemo(() => {
-    return allHolidaysForYear.filter((h) => {
+    return scopedHolidaysForYear.filter((h) => {
       // Country filter
       if (selectedCountryFilter !== 'all' && h.countryCode !== selectedCountryFilter) {
         return false;
       }
       return true;
     });
-  }, [allHolidaysForYear, selectedCountryFilter]);
+  }, [scopedHolidaysForYear, selectedCountryFilter]);
 
   // Color helper according to season matching screenshot
   const getSeasonStyle = (season: HolidaySeason) => {
@@ -211,9 +223,9 @@ export const SchoolHolidaysCalendarView: React.FC<SchoolHolidaysCalendarViewProp
                 onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
                 className="appearance-none bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 font-bold text-xs text-slate-800 dark:text-slate-200 px-3.5 py-2 pr-8 rounded-xl shadow-2xs cursor-pointer transition-all"
               >
-                <option value={2026}>2026 (en cours)</option>
-                <option value={2027}>2027 (officiel & prévisionnel)</option>
-                <option value={2028}>2028 (anticipation précoce)</option>
+                <option value={currentYear}>{currentYear} (en cours)</option>
+                <option value={currentYear + 1}>{currentYear + 1} (officiel &amp; prévisionnel)</option>
+                <option value={currentYear + 2}>{currentYear + 2} (anticipation précoce)</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -283,7 +295,9 @@ export const SchoolHolidaysCalendarView: React.FC<SchoolHolidaysCalendarViewProp
               <RotateCcw className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-900 dark:text-slate-100">MAJ 02/11/2026</div>
+              <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                MAJ {new Date().toLocaleDateString('fr-FR')}
+              </div>
               <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">sources officielles</div>
             </div>
           </div>
@@ -330,6 +344,16 @@ export const SchoolHolidaysCalendarView: React.FC<SchoolHolidaysCalendarViewProp
               <span>Automne</span>
             </span>
           </div>
+
+          <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includePastPeriods}
+              onChange={(e) => setIncludePastPeriods(e.target.checked)}
+              className="rounded accent-violet-600"
+            />
+            <span>Inclure périodes passées</span>
+          </label>
         </div>
 
         {/* Right: View presentation toggle */}
@@ -378,17 +402,20 @@ export const SchoolHolidaysCalendarView: React.FC<SchoolHolidaysCalendarViewProp
                 <div className="py-3.5 px-4 text-left font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200/60 dark:border-slate-800/70 w-44 shrink-0">
                   PAYS
                 </div>
-                {MONTHS_HEADER.map((m) => (
-                  <div
-                    key={m.key}
-                    className={`py-3.5 border-r border-slate-200/60 dark:border-slate-800/70 last:border-r-0 flex flex-col items-center justify-center ${
-                      m.isCurrent ? 'bg-violet-50/60 dark:bg-violet-950/40 text-violet-900 dark:text-violet-200' : ''
-                    }`}
-                  >
-                    <span>{m.label}</span>
-                    {m.labelSub && <span className="text-violet-600 dark:text-violet-400 text-xs leading-none mt-0.5">•</span>}
-                  </div>
-                ))}
+                {MONTHS_HEADER.map((m) => {
+                  const isCurrentMonth = selectedYear === currentYear && m.key === currentMonthIdx;
+                  return (
+                    <div
+                      key={m.key}
+                      className={`py-3.5 border-r border-slate-200/60 dark:border-slate-800/70 last:border-r-0 flex flex-col items-center justify-center ${
+                        isCurrentMonth ? 'bg-violet-50/60 dark:bg-violet-950/40 text-violet-900 dark:text-violet-200' : ''
+                      }`}
+                    >
+                      <span>{m.label}</span>
+                      {isCurrentMonth && <span className="text-violet-600 dark:text-violet-400 text-xs leading-none mt-0.5">•</span>}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Country Rows */}
@@ -410,9 +437,12 @@ export const SchoolHolidaysCalendarView: React.FC<SchoolHolidaysCalendarViewProp
                       <div className="col-span-12 relative min-h-[64px] py-2 px-1 flex items-center">
                         {/* Subtle Month Grid Lines */}
                         <div className="absolute inset-0 grid grid-cols-12 pointer-events-none divide-x divide-slate-100/80 dark:divide-slate-800/60">
-                          {MONTHS_HEADER.map((m) => (
-                            <div key={m.key} className={m.isCurrent ? 'bg-violet-50/20 dark:bg-violet-950/25' : ''} />
-                          ))}
+                          {MONTHS_HEADER.map((m) => {
+                            const isCurrentMonth = selectedYear === currentYear && m.key === currentMonthIdx;
+                            return (
+                              <div key={m.key} className={isCurrentMonth ? 'bg-violet-50/20 dark:bg-violet-950/25' : ''} />
+                            );
+                          })}
                         </div>
 
                         {/* Holiday Pills Container */}
@@ -508,7 +538,7 @@ export const SchoolHolidaysCalendarView: React.FC<SchoolHolidaysCalendarViewProp
         onClose={() => setSelectedHoliday(null)}
         holiday={selectedHoliday}
         hotel={hotel}
-        allHolidays={allHolidaysForYear}
+        allHolidays={scopedHolidaysForYear}
       />
 
       {/* Modal for Adding Countries */}

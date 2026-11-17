@@ -12,6 +12,13 @@ import {
   EventSource,
   EventSuggestion,
   Hotel,
+  HotelConnectivityConfig,
+  HotelTariffConfiguration,
+  RateAuditHistoryEntry,
+  RateCalendarCell,
+  RateImportJob,
+  RateSyncConflict,
+  RateSyncOperation,
   RMAlertItem,
   RMDecisionRecord,
   Venue,
@@ -367,3 +374,317 @@ export async function syncMajorEventAlertLogToSupabase(log: MajorEventEmailAlert
     // Fallback transparent vers localStorage
   }
 }
+
+export async function syncConnectivityConfigToSupabase(
+  hotelId: string,
+  config: HotelConnectivityConfig
+): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return;
+  try {
+    await client.from('hotel_connectivity_configs').upsert(
+      {
+        external_hotel_id: hotelId,
+        active_mode: config.activeMode,
+        pms_provider: config.pmsProvider,
+        channel_manager_provider: config.channelManagerProvider,
+        source_of_truth: config.sourceOfTruth,
+        pms_responsibilities: config.pmsResponsibilities,
+        cm_responsibilities: config.cmResponsibilities,
+        conflict_priority_strategy: config.conflictPriorityStrategy,
+        anti_loop_enabled: config.antiLoopEnabled,
+        webhook_enabled: config.webhookEnabled,
+        webhook_url: config.webhookUrl,
+        polling_interval_minutes: config.pollingIntervalMinutes,
+        dual_mode_confirmed: config.dualModeConfirmed,
+        last_push_at: config.lastPushAt,
+        last_pull_at: config.lastPullAt,
+        connection_health: config.connectionHealth,
+      },
+      { onConflict: 'external_hotel_id' }
+    );
+  } catch {
+    // Fallback transparent local
+  }
+}
+
+export async function syncRatePlanningCellsToSupabase(cells: RateCalendarCell[]): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured() || cells.length === 0) return;
+  try {
+    const rows = cells.map((c) => ({
+      cell_key: c.cellKey,
+      external_hotel_id: c.hotelId,
+      room_type_code: c.roomTypeCode,
+      room_type_name: c.roomTypeName,
+      rate_plan_code: c.ratePlanCode,
+      rate_plan_name: c.ratePlanName,
+      stay_date: c.stayDate,
+      current_rate_eur: c.currentRateEur,
+      previous_rate_eur: c.previousRateEur,
+      inventory_available: c.inventoryAvailable,
+      total_rooms_in_category: c.totalRoomsInCategory,
+      min_stay: c.minStay,
+      max_stay: c.maxStay,
+      cta: c.cta,
+      ctd: c.ctd,
+      is_closed: c.isClosed,
+      channel_rates: c.channelRates,
+      flowtym_saved_rate_eur: c.flowtymSavedRateEur,
+      transmitted_rate_eur: c.transmittedRateEur,
+      confirmed_external_rate_eur: c.confirmedExternalRateEur,
+      sync_status: c.syncStatus,
+      sync_error_message: c.syncErrorMessage,
+      last_sync_at: c.lastSyncAt,
+      last_sync_ack_id: c.lastSyncAckId,
+      modification_origin: c.modificationOrigin,
+      is_manual_override: c.isManualOverride,
+      version: c.version,
+      external_version: c.externalVersion,
+      last_external_rate_eur: c.lastExternalRateEur,
+      last_external_updated_at: c.lastExternalUpdatedAt,
+      last_external_actor: c.lastExternalActor,
+      updated_by: c.updatedBy,
+      updated_at: c.updatedAt,
+    }));
+    for (let i = 0; i < rows.length; i += 100) {
+      await client.from('rate_calendar_cells').upsert(rows.slice(i, i + 100), { onConflict: 'cell_key' });
+    }
+  } catch {
+    // Fallback transparent local
+  }
+}
+
+export async function syncRateSyncOperationToSupabase(op: RateSyncOperation): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return;
+  try {
+    await client.from('rate_sync_operations').upsert(
+      {
+        external_op_id: op.id,
+        external_hotel_id: op.hotelId,
+        cell_key: op.cellKey,
+        stay_date: op.stayDate,
+        room_type_code: op.roomTypeCode,
+        rate_plan_code: op.ratePlanCode,
+        direction: op.direction,
+        target_system: op.targetSystem,
+        origin: op.origin,
+        idempotency_key: op.idempotencyKey,
+        previous_rate_eur: op.previousRateEur,
+        new_rate_eur: op.newRateEur,
+        status: op.status,
+        external_ack_id: op.externalAckId,
+        error_message: op.errorMessage,
+        attempts: op.attempts,
+        created_at: op.createdAt,
+        confirmed_at: op.confirmedAt,
+      },
+      { onConflict: 'external_op_id' }
+    );
+  } catch {
+    // Fallback transparent local
+  }
+}
+
+export async function syncRateConflictToSupabase(conflict: RateSyncConflict): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return;
+  try {
+    await client.from('rate_sync_conflicts').upsert(
+      {
+        external_conflict_id: conflict.id,
+        external_hotel_id: conflict.hotelId,
+        cell_key: conflict.cellKey,
+        stay_date: conflict.stayDate,
+        room_type_code: conflict.roomTypeCode,
+        room_type_name: conflict.roomTypeName,
+        rate_plan_code: conflict.ratePlanCode,
+        flowtym_rate_eur: conflict.flowtymRateEur,
+        flowtym_timestamp: conflict.flowtymTimestamp,
+        flowtym_actor: conflict.flowtymActor,
+        external_rate_eur: conflict.externalRateEur,
+        external_source: conflict.externalSource,
+        external_timestamp: conflict.externalTimestamp,
+        external_actor: conflict.externalActor,
+        base_version: conflict.baseVersion,
+        external_version: conflict.externalVersion,
+        pending_recommendation_id: conflict.pendingRecommendationId || null,
+        status: conflict.status,
+        resolution_choice: conflict.resolutionChoice || null,
+        resolved_rate_eur: conflict.resolvedRateEur ?? null,
+        resolved_by: conflict.resolvedBy || null,
+        resolved_at: conflict.resolvedAt || null,
+      },
+      { onConflict: 'external_conflict_id' }
+    );
+  } catch {
+    // Fallback transparent local
+  }
+}
+
+export async function syncRateAuditHistoryToSupabase(entry: RateAuditHistoryEntry): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return;
+  try {
+    await client.from('rate_cell_audit_history').insert({
+      external_history_id: entry.id,
+      external_hotel_id: entry.hotelId,
+      cell_key: entry.cellKey,
+      stay_date: entry.stayDate,
+      room_type_code: entry.roomTypeCode,
+      rate_plan_code: entry.ratePlanCode,
+      action_type: entry.actionType,
+      previous_rate_eur: entry.previousRateEur,
+      new_rate_eur: entry.newRateEur,
+      origin: entry.origin,
+      sync_status: entry.syncStatus,
+      recommendation_id: entry.recommendationId || null,
+      sync_operation_id: entry.syncOperationId || null,
+      reverted_from_history_id: entry.revertedFromHistoryId || null,
+      actor: entry.actor,
+      reason: entry.reason,
+      created_at: entry.createdAt,
+    });
+  } catch {
+    // Fallback transparent local
+  }
+}
+
+export async function syncTariffConfigToSupabase(config: HotelTariffConfiguration): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return;
+  try {
+    await client.from('meal_plan_settings').upsert(
+      {
+        external_hotel_id: config.hotelId,
+        meal_plan_name: config.mealPlan.name,
+        description: config.mealPlan.description,
+        public_adult_price_eur: config.mealPlan.publicAdultPriceEur,
+        internal_adult_cost_eur: config.mealPlan.internalAdultCostEur,
+        child_price_eur: config.mealPlan.childPriceEur,
+        vat_percent: config.mealPlan.vatPercent,
+        currency: config.mealPlan.currency,
+        pricing_basis: config.mealPlan.pricingBasis,
+        beneficiary_category: config.mealPlan.beneficiaryCategory,
+        included_count_default: config.mealPlan.includedCountDefault,
+        category_prices: config.mealPlan.categoryPrices,
+        period_prices: config.mealPlan.periodPrices,
+        normalize_in_rm_engine: config.mealPlan.normalizeInRmEngine,
+      },
+      { onConflict: 'external_hotel_id' }
+    );
+
+    if (config.referenceRules.length > 0) {
+      await client.from('rate_reference_settings').upsert(
+        config.referenceRules.map((r) => ({
+          external_hotel_id: config.hotelId,
+          scope: r.scope,
+          room_category_code: r.roomCategoryCode,
+          reference_plan_code: r.referencePlanCode,
+          currency: r.currency,
+          valid_from: r.validFrom,
+          valid_to: r.validTo,
+          priority: r.priority,
+          is_active: r.isActive,
+          inheritance_mode: config.inheritanceMode,
+        })),
+        { onConflict: 'external_hotel_id,scope,room_category_code,priority' }
+      );
+    }
+
+    const relations = config.ratePlans
+      .filter((p) => p.referencePlanCode && p.calculationMode !== 'independent')
+      .map((p) => ({
+        external_hotel_id: config.hotelId,
+        source_reference_code: p.referencePlanCode!,
+        target_derived_code: p.code,
+        calculation_mode: p.calculationMode,
+        variation_value: p.variationValue,
+        custom_formula: p.customFormula || null,
+        is_active: p.relationActive,
+      }));
+    if (relations.length > 0) {
+      await client
+        .from('rate_plan_relations')
+        .upsert(relations, { onConflict: 'external_hotel_id,source_reference_code,target_derived_code' });
+    }
+
+    if (config.supplementsAndPromos.length > 0) {
+      await client.from('rate_supplements').upsert(
+        config.supplementsAndPromos.map((s) => ({
+          external_item_id: s.id,
+          external_hotel_id: config.hotelId,
+          code: s.code,
+          name: s.name,
+          category: s.category,
+          item_type: s.itemType,
+          pricing_type: s.pricingType,
+          value: s.value,
+          valid_from: s.validFrom,
+          valid_to: s.validTo,
+          room_category_codes: s.roomCategoryCodes,
+          rate_plan_codes: s.ratePlanCodes,
+          conditions: s.conditions,
+          combinable: s.combinable,
+          exclude_from_reference_calc: s.excludeFromReferenceCalc,
+          is_active: s.isActive,
+        })),
+        { onConflict: 'external_item_id' }
+      );
+    }
+
+    if (config.restrictionRules.length > 0) {
+      await client.from('rate_restrictions').upsert(
+        config.restrictionRules.map((rr) => ({
+          external_rule_id: rr.id,
+          external_hotel_id: config.hotelId,
+          name: rr.name,
+          date_from: rr.dateFrom,
+          date_to: rr.dateTo,
+          room_category_codes: rr.roomCategoryCodes,
+          rate_plan_codes: rr.ratePlanCodes,
+          min_stay: rr.minStay,
+          max_stay: rr.maxStay,
+          cta: rr.cta,
+          ctd: rr.ctd,
+          stop_sell: rr.stopSell,
+          advance_booking_min_days: rr.advanceBookingMinDays,
+          allowed_arrival_days: rr.allowedArrivalDays,
+          allowed_departure_days: rr.allowedDepartureDays,
+          is_active: rr.isActive,
+        })),
+        { onConflict: 'external_rule_id' }
+      );
+    }
+  } catch {
+    // Fallback transparent localStorage
+  }
+}
+
+export async function syncRateImportJobToSupabase(job: RateImportJob): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return;
+  try {
+    await client.from('rate_import_jobs').upsert(
+      {
+        external_job_id: job.id,
+        external_hotel_id: job.hotelId,
+        source: job.source,
+        file_name: job.fileName || null,
+        import_mode: job.mode,
+        items_count: job.itemsCount,
+        added_count: job.addedCount,
+        updated_count: job.updatedCount,
+        ignored_count: job.ignoredCount,
+        status: job.status,
+        actor: job.actor,
+        summary: job.summary,
+      },
+      { onConflict: 'external_job_id' }
+    );
+  } catch {
+    // Fallback transparent
+  }
+}
+

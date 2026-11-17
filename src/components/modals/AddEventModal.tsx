@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, Plus, MapPin, Building2, TrendingUp } from 'lucide-react';
 import { EventItem, EventCategory, RMImpactLevel, Venue, Hotel } from '../../types';
+import { getTodayIsoDate, addDaysIso } from '../../utils/eventFilterUtils';
 
 interface AddEventModalProps {
   isOpen: boolean;
@@ -24,12 +25,21 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const [category, setCategory] = useState<EventCategory>('salons_foires');
   const [venueId, setVenueId] = useState(venues[0]?.id || '');
   const [city, setCity] = useState('Paris');
-  const [startDate, setStartDate] = useState(defaultDate || '2026-10-15');
-  const [endDate, setEndDate] = useState(defaultDate || '2026-10-17');
+  const [startDate, setStartDate] = useState(() => defaultDate || getTodayIsoDate());
+  const [endDate, setEndDate] = useState(() =>
+    defaultDate ? addDaysIso(defaultDate, 2) : addDaysIso(getTodayIsoDate(), 2)
+  );
   const [expectedAttendance, setExpectedAttendance] = useState(30000);
   const [internationalRatioPercent, setInternationalRatioPercent] = useState(40);
   const [impactLevel, setImpactLevel] = useState<RMImpactLevel>('modere');
   const [isRecurring, setIsRecurring] = useState(true);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const base = defaultDate || getTodayIsoDate();
+    setStartDate(base);
+    setEndDate(addDaysIso(base, 2));
+  }, [isOpen, defaultDate]);
 
   if (!isOpen) return null;
 

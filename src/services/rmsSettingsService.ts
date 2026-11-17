@@ -15,7 +15,7 @@
  *  H. Système, journal d'opérations & administration
  */
 
-import { EventCategory, Hotel } from '../types';
+import { EventCategory, Hotel, HotelConnectivityConfig } from '../types';
 import { DEFAULT_SUPABASE_URL, isSupabaseConfigured } from './supabaseClient';
 import { syncHotelRMSConfigToSupabase } from './supabaseSyncService';
 
@@ -104,6 +104,28 @@ export interface HotelRMSConfig {
   };
   eventWatch: HotelEventWatchConfig;
   notifications: HotelNotificationsConfig;
+  connectivity?: HotelConnectivityConfig;
+}
+
+export function buildDefaultConnectivityConfig(hotelId: string): HotelConnectivityConfig {
+  return {
+    activeMode: 'channel_manager',
+    pmsProvider: 'Opera PMS',
+    channelManagerProvider: 'D-EDGE CRS',
+    sourceOfTruth: 'channel_manager',
+    pmsResponsibilities: ['inventory', 'restrictions'],
+    cmResponsibilities: ['ota_distribution', 'rates'],
+    conflictPriorityStrategy: 'manual',
+    antiLoopEnabled: true,
+    webhookEnabled: true,
+    webhookUrl: `/api/webhooks/external-ari?hotelId=${encodeURIComponent(hotelId)}`,
+    pollingIntervalMinutes: 15,
+    dualModeConfirmed: false,
+    lastPushAt: null,
+    lastPullAt: null,
+    connectionHealth: 'connected',
+    lastExternalLatencyMs: 42,
+  };
 }
 
 export interface IntegrationConnectorState {
@@ -296,7 +318,7 @@ export function buildDefaultHotelRMSConfig(hotel: Hotel): HotelRMSConfig {
 
   return {
     hotelId: hotel.id,
-    updatedAt: '2026-11-12T08:30:00Z',
+    updatedAt: new Date().toISOString(),
     roomTypologies: [
       { id: `${hotel.id}-cat-1`, code: 'classique', name: 'Chambre Classique Double', totalRooms: classicCount, baseOffsetEur: 0, weightPercent: 51 },
       { id: `${hotel.id}-cat-2`, code: 'superieure', name: 'Chambre Supérieure', totalRooms: supCount, baseOffsetEur: 35, weightPercent: 18 },
@@ -353,6 +375,7 @@ export function buildDefaultHotelRMSConfig(hotel: Hotel): HotelRMSConfig {
       compsetSoldOutMinCount: 2,
       alertSyncErrorsEnabled: true,
     },
+    connectivity: buildDefaultConnectivityConfig(hotel.id),
   };
 }
 
@@ -362,6 +385,7 @@ const USERS_KEY = 'flowtym_rbac_users_v2';
 const OP_LOGS_KEY = 'flowtym_system_operation_logs_v2';
 
 export function getDefaultIntegrations(): IntegrationConnectorState[] {
+  const nowStamp = new Date().toISOString().replace('T', ' ').slice(0, 16);
   return [
     {
       id: 'int-lighthouse-xlsx',
@@ -370,7 +394,7 @@ export function getDefaultIntegrations(): IntegrationConnectorState[] {
       mode: 'local_file',
       status: 'active_local',
       description: 'Import multi-onglets (Aperçu, Tarifs, vs Hier, vs 3j, vs 7j) jusqu’à 10 concurrents.',
-      lastSyncAt: '2026-11-12 08:30',
+      lastSyncAt: nowStamp,
       lastError: null,
     },
     {
@@ -380,7 +404,7 @@ export function getDefaultIntegrations(): IntegrationConnectorState[] {
       mode: 'local_file',
       status: 'active_local',
       description: 'Exploitation des disponibilités, Pickup J-1/J-7 et chiffre d’affaires hébergement net.',
-      lastSyncAt: '2026-11-12 08:30',
+      lastSyncAt: nowStamp,
       lastError: null,
     },
     {
@@ -539,11 +563,16 @@ export function getDefaultOperationLogs(): SystemOperationLogEntry[] {
   ];
 }
 
+const rmsMemoryStore = new Map<string, string>();
+
 function safeReadJSON<T>(key: string): T | null {
   try {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T) : null;
+    }
+    const mem = rmsMemoryStore.get(key);
+    return mem ? (JSON.parse(mem) as T) : null;
   } catch {
     return null;
   }
@@ -551,8 +580,11 @@ function safeReadJSON<T>(key: string): T | null {
 
 function safeWriteJSON(key: string, value: unknown): void {
   try {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.setItem(key, JSON.stringify(value));
+    const serialized = JSON.stringify(value);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, serialized);
+    }
+    rmsMemoryStore.set(key, serialized);
   } catch {
     // ignore storage quota / non-browser envs
   }
@@ -566,6 +598,9 @@ export function getHotelRMSConfig(hotel: Hotel): HotelRMSConfig {
     const hasSeasonal = existing.eventWatch.enabledCategories.includes('periodes_saisonnieres_fetes');
     if (!hasSeasonal) {
       existing.eventWatch.enabledCategories = [...existing.eventWatch.enabledCategories, 'periodes_saisonnieres_fetes'];
+    }
+    if (!existing.connectivity) {
+      existing.connectivity = buildDefaultConnectivityConfig(hotel.id);
     }
     return existing;
   }
@@ -592,6 +627,9 @@ export function saveHotelRMSConfig(
   all[hotelId] = updated;
   safeWriteJSON(HOTEL_CONFIGS_KEY, all);
   void syncHotelRMSConfigToSupabase(hotelId, updated);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('flowtym:rms-data-updated', { detail: { hotelId, domain: 'config', timestamp: updated.updatedAt } }));
+  }
 
   if (logAction) {
     appendSystemOperationLog({
@@ -627,6 +665,9 @@ export function getSystemAdminConfig(): SystemAdminConfig {
 
 export function saveSystemAdminConfig(config: SystemAdminConfig, actor: string = 'Wali Larabi'): SystemAdminConfig {
   safeWriteJSON(SYSTEM_CONFIG_KEY, config);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('flowtym:rms-data-updated', { detail: { hotelId: 'all', domain: 'config', timestamp: new Date().toISOString() } }));
+  }
   appendSystemOperationLog({
     id: `op-${Date.now()}`,
     timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),

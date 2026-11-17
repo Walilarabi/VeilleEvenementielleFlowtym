@@ -6,6 +6,8 @@
  * Automatisation des récapitulatifs de performance et recommandations de prix S+1
  */
 
+import { getTodayIsoDate, addDaysIso } from '../utils/eventFilterUtils';
+
 export interface MondayDigestConfig {
   enabled: boolean;
   dayOfWeek: 'lundi';
@@ -96,7 +98,7 @@ export function getMondayDigestConfig(): MondayDigestConfig {
       compsetMovements: true,
       compressionAlerts: true,
     },
-    lastSentAt: '2026-11-02 08:00:14',
+    lastSentAt: `${getTodayIsoDate()} 08:00:14`,
   };
 }
 
@@ -109,12 +111,29 @@ export function saveMondayDigestConfig(config: MondayDigestConfig): void {
 }
 
 export function generateMondayDigestContent(): MondayDigestContent {
+  const todayStr = getTodayIsoDate();
+  const endRangeStr = addDaysIso(todayStr, 6);
+  const fmtShort = (ds: string) =>
+    new Date(`${ds}T12:00:00Z`).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const fmtDay = (ds: string) => {
+    const raw = new Date(`${ds}T12:00:00Z`).toLocaleDateString('fr-FR', { weekday: 'long', timeZone: 'UTC' });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  };
+  const fmtDayShort = (ds: string) =>
+    new Date(`${ds}T12:00:00Z`).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', timeZone: 'UTC' });
+
+  const d0 = todayStr;
+  const d1 = addDaysIso(todayStr, 1);
+  const d2 = addDaysIso(todayStr, 2);
+  const d3 = addDaysIso(todayStr, 3);
+  const d4 = addDaysIso(todayStr, 4);
+
   return {
-    subject: '📊 Brief Hebdomadaire RM · Grand Hôtel Folkestone Opéra (Semaine du 09 au 15 Nov 2026)',
-    generationDate: 'Lundi 09 Novembre 2026 à 08:00',
+    subject: `📊 Brief Hebdomadaire RM · Grand Hôtel Folkestone Opéra (Du ${fmtDayShort(todayStr)} au ${fmtShort(endRangeStr)})`,
+    generationDate: `${fmtDay(todayStr)} ${fmtShort(todayStr)} à 08:00`,
     hotelName: 'Grand Hôtel Folkestone Opéra (45 chambres)',
     totalRooms: 45,
-    periodLabel: 'Semaine 46 (09 nov. – 15 nov. 2026)',
+    periodLabel: `Horizon ${fmtDayShort(todayStr)} – ${fmtShort(endRangeStr)}`,
     pastWeek: {
       roomNightsSold: 284,
       occupancyPercent: 90.2,
@@ -126,8 +145,8 @@ export function generateMondayDigestContent(): MondayDigestContent {
     },
     upcomingWeekRecommendations: [
       {
-        dateStr: '2026-11-10',
-        dayOfWeek: 'Mardi',
+        dateStr: d0,
+        dayOfWeek: fmtDay(d0),
         eventTitle: 'Sommet Tech & Intelligence Artificielle Paris',
         demandLevel: 'Très fort',
         demandPercent: 88,
@@ -140,9 +159,9 @@ export function generateMondayDigestContent(): MondayDigestContent {
         compsetMedianEur: 315,
       },
       {
-        dateStr: '2026-11-11',
-        dayOfWeek: 'Mercredi (Férié Armistice)',
-        eventTitle: 'Week-end prolongé & Tourisme Loisir Européen',
+        dateStr: d1,
+        dayOfWeek: fmtDay(d1),
+        eventTitle: 'Affluence Corporate & Tourisme Loisir Européen',
         demandLevel: 'Élevé',
         demandPercent: 82,
         currentBarEur: 280,
@@ -154,8 +173,8 @@ export function generateMondayDigestContent(): MondayDigestContent {
         compsetMedianEur: 320,
       },
       {
-        dateStr: '2026-11-12',
-        dayOfWeek: 'Jeudi',
+        dateStr: d2,
+        dayOfWeek: fmtDay(d2),
         eventTitle: 'Salon International de la Transition Énergétique',
         demandLevel: 'Exceptionnel',
         demandPercent: 95,
@@ -168,8 +187,8 @@ export function generateMondayDigestContent(): MondayDigestContent {
         compsetMedianEur: 360,
       },
       {
-        dateStr: '2026-11-13',
-        dayOfWeek: 'Vendredi',
+        dateStr: d3,
+        dayOfWeek: fmtDay(d3),
         eventTitle: 'Concerts Festifs Opéra & Tourisme Week-end',
         demandLevel: 'Très fort',
         demandPercent: 90,
@@ -182,8 +201,8 @@ export function generateMondayDigestContent(): MondayDigestContent {
         compsetMedianEur: 370,
       },
       {
-        dateStr: '2026-11-14',
-        dayOfWeek: 'Samedi',
+        dateStr: d4,
+        dayOfWeek: fmtDay(d4),
         eventTitle: 'Match Tournoi International & Nuitées Loisir',
         demandLevel: 'Exceptionnel',
         demandPercent: 96,
@@ -198,12 +217,12 @@ export function generateMondayDigestContent(): MondayDigestContent {
     ],
     yieldDirectives: [
       {
-        title: 'Application immédiate d’un Min Stay 2 nuits sur le 11-13 Novembre',
-        description: 'Évite l’isolement de la nuitée du jeudi et maximise le revenu cumulé du week-end prolongé.',
+        title: `Application immédiate d’un Min Stay 2 nuits du ${fmtDayShort(d1)} au ${fmtDayShort(d3)}`,
+        description: 'Évite l’isolement des nuitées intermédiaires et maximise le revenu cumulé sur la période.',
         type: 'min_stay',
       },
       {
-        title: 'Rehaussement tarifaire BAR de +75€ à +100€ sur le Jeudi 12 et Vendredi 13',
+        title: `Rehaussement tarifaire BAR de +75€ à +100€ sur ${fmtDay(d2)} (${fmtDayShort(d2)}) et ${fmtDay(d3)} (${fmtDayShort(d3)})`,
         description: 'La tension compset est maximale avec 3 concurrents déjà complets sur le rayon Opéra.',
         type: 'price_increase',
       },

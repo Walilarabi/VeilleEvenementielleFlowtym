@@ -28,6 +28,7 @@ import {
   Compass,
   MapPin,
   Radio,
+  CalendarRange,
 } from 'lucide-react';
 import { NavTab } from '../layout/Sidebar';
 import { EventItem } from '../../types';
@@ -118,6 +119,18 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         onClose();
       },
       badge: 'Recommandé',
+    },
+    {
+      id: 'tab-planning',
+      category: 'Modules RM',
+      title: 'Planning Tarifaire Connecté (2-Way Sync)',
+      subtitle: 'Grille tarifaire multi-mois reliée au moteur RM et au PMS / Channel Manager',
+      icon: CalendarRange,
+      run: () => {
+        onSelectTab('planning');
+        onClose();
+      },
+      badge: '2-Way Sync',
     },
     {
       id: 'tab-lighthouse-veille',

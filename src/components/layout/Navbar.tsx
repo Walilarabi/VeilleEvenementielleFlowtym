@@ -19,6 +19,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  Star,
 } from 'lucide-react';
 import { Hotel } from '../../types';
 import { useTheme, ThemeMode } from '../../contexts/ThemeContext';
@@ -41,6 +42,8 @@ interface NavbarProps {
   onOpenShortcutsHelp?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  favoriteCount?: number;
+  onOpenFavorites?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -61,6 +64,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenShortcutsHelp,
   isFullscreen: externalIsFullscreen,
   onToggleFullscreen: externalOnToggleFullscreen,
+  favoriteCount = 0,
+  onOpenFavorites,
 }) => {
   const currentHotel = hotels.find((h) => h.id === selectedHotelId);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -259,10 +264,43 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
 
+          {/* Favoris button (Global across all hotels) */}
+          {onOpenFavorites && (
+            <button
+              type="button"
+              onClick={onOpenFavorites}
+              title={`Accéder aux événements favoris (${favoriteCount} à travers tous les hôtels)`}
+              aria-label={`Ouvrir les favoris (${favoriteCount})`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer whitespace-nowrap shrink-0 ${
+                favoriteCount > 0
+                  ? 'bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800/70 hover:bg-amber-100/80 dark:hover:bg-amber-950/70'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Star
+                className={`w-3.5 h-3.5 shrink-0 ${
+                  favoriteCount > 0
+                    ? 'text-amber-500 fill-amber-400'
+                    : 'text-slate-400 dark:text-slate-400'
+                }`}
+              />
+              <span className="hidden md:inline">Favoris</span>
+              <span
+                className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums leading-none ${
+                  favoriteCount > 0
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                {favoriteCount}
+              </span>
+            </button>
+          )}
+
           {/* Propositions button */}
           <button
             onClick={onOpenProposals}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer whitespace-nowrap shrink-0 ${
               pendingProposalsCount > 0
                 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700/70 hover:bg-amber-100 dark:hover:bg-amber-950 shadow-2xs'
                 : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'

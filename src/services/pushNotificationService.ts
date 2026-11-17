@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { getTodayIsoDate, addDaysIso } from '../utils/eventFilterUtils';
+
 export interface PushOpportunityAlert {
   id: string;
   title: string;
@@ -105,69 +107,87 @@ export function triggerNativePushNotification(alert: PushOpportunityAlert) {
   }
 }
 
-export const SAMPLE_MAJOR_OPPORTUNITIES: PushOpportunityAlert[] = [
-  {
-    id: 'push-sial-2026',
-    title: 'SIAL Paris 2026 — Salon International de l’Alimentation',
-    dateStr: '18 oct. 2026',
-    venueName: 'Parc des Expositions Paris Nord Villepinte',
-    currentRate: 275,
-    recommendedRate: 395,
-    gapEur: 120,
-    gapPercent: 43.6,
-    demandLevel: 'Exceptionnel',
-    demandPercent: 96,
-    urgency: 'critique',
-    reason: 'Saturation internationale (285k pax). 4/5 concurrents à plus de 420€ ou sold out. Hausse immédiate de +120€ préconisée.',
-    compsetContext: 'Compset moyen : 415€ · Votre tarif actuel (275€) est sous-évalué de 140€.',
-    timestamp: Date.now(),
-  },
-  {
-    id: 'push-reveillon-2026',
-    title: 'Réveillon Saint-Sylvestre 2026 & Galas Opéra',
-    dateStr: '31 déc. 2026',
-    venueName: 'Palais Garnier & Opéra',
-    currentRate: 320,
-    recommendedRate: 550,
-    gapEur: 230,
-    gapPercent: 71.9,
-    demandLevel: 'Exceptionnel',
-    demandPercent: 99,
-    urgency: 'critique',
-    reason: 'Plafond RM atteint (550€). 4 concurrents complets dans un rayon de 400m. Risque de vendre prématurément sous le prix du marché.',
-    compsetContext: 'Hôtel Saint-Pétersbourg sold-out à 580€ · OTB hôtel à 92%.',
-    timestamp: Date.now(),
-  },
-  {
-    id: 'push-salon-maires-2026',
-    title: 'Salon des Maires et des Collectivités Locales 2026',
-    dateStr: '18 nov. 2026',
-    venueName: 'Paris Expo Porte de Versailles',
-    currentRate: 210,
-    recommendedRate: 295,
-    gapEur: 85,
-    gapPercent: 40.5,
-    demandLevel: 'Très fort',
-    demandPercent: 86,
-    urgency: 'haute',
-    reason: 'Forte accélération du pickup D-EDGE (+5 ch. en 24h). Stock résiduel 9 chambres. Rehaussement immédiat pour préserver l’ADR.',
-    compsetContext: 'Compset moyen relevé à 310€ · OTB 80% à J-14.',
-    timestamp: Date.now(),
-  },
-  {
-    id: 'push-mondial-auto-2026',
-    title: 'Mondial de l’Automobile de Paris 2026',
-    dateStr: '14 oct. 2026',
-    venueName: 'Paris Expo Porte de Versailles',
-    currentRate: 260,
-    recommendedRate: 365,
-    gapEur: 105,
-    gapPercent: 40.4,
-    demandLevel: 'Exceptionnel',
-    demandPercent: 94,
-    urgency: 'critique',
-    reason: '490k visiteurs attendus. Chevauchement partiel avec congrès pharmaceutique. Application d’un Min Stay 3 nuits et +105€.',
-    compsetContext: 'Pression compset maximale · 3 concurrents complets sur les nuits du 14-16 oct.',
-    timestamp: Date.now(),
-  },
-];
+function formatShortFrDate(isoDate: string): string {
+  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+export function buildSampleMajorOpportunities(todayStr: string = getTodayIsoDate()): PushOpportunityAlert[] {
+  const d1 = addDaysIso(todayStr, 2);
+  const d2 = addDaysIso(todayStr, 7);
+  const d3 = addDaysIso(todayStr, 12);
+  const dNye = '2026-12-31' >= todayStr ? '2026-12-31' : addDaysIso(todayStr, 25);
+
+  return [
+    {
+      id: 'push-sial-2026',
+      title: 'Congrès International & Sommet Tech Paris Nord Villepinte',
+      dateStr: formatShortFrDate(d1),
+      venueName: 'Parc des Expositions Paris Nord Villepinte',
+      currentRate: 275,
+      recommendedRate: 395,
+      gapEur: 120,
+      gapPercent: 43.6,
+      demandLevel: 'Exceptionnel',
+      demandPercent: 96,
+      urgency: 'critique',
+      reason: 'Saturation internationale. 4/5 concurrents à plus de 420€ ou sold out. Hausse immédiate de +120€ préconisée.',
+      compsetContext: 'Compset moyen : 415€ · Votre tarif actuel (275€) est sous-évalué de 140€.',
+      timestamp: Date.now(),
+    },
+    {
+      id: 'push-reveillon-2026',
+      title: 'Réveillon Saint-Sylvestre & Galas Opéra',
+      dateStr: formatShortFrDate(dNye),
+      venueName: 'Palais Garnier & Opéra',
+      currentRate: 320,
+      recommendedRate: 550,
+      gapEur: 230,
+      gapPercent: 71.9,
+      demandLevel: 'Exceptionnel',
+      demandPercent: 99,
+      urgency: 'critique',
+      reason: 'Plafond RM atteint (550€). 4 concurrents complets dans un rayon de 400m. Risque de vendre prématurément sous le prix du marché.',
+      compsetContext: 'Hôtel Saint-Pétersbourg sold-out à 580€ · OTB hôtel à 92%.',
+      timestamp: Date.now(),
+    },
+    {
+      id: 'push-salon-maires-2026',
+      title: 'Salon des Maires et des Collectivités Locales',
+      dateStr: formatShortFrDate(d2),
+      venueName: 'Paris Expo Porte de Versailles',
+      currentRate: 210,
+      recommendedRate: 295,
+      gapEur: 85,
+      gapPercent: 40.5,
+      demandLevel: 'Très fort',
+      demandPercent: 86,
+      urgency: 'haute',
+      reason: 'Forte accélération du pickup D-EDGE (+5 ch. en 24h). Stock résiduel 9 chambres. Rehaussement immédiat pour préserver l’ADR.',
+      compsetContext: 'Compset moyen relevé à 310€ · OTB 80% à J-14.',
+      timestamp: Date.now(),
+    },
+    {
+      id: 'push-mondial-auto-2026',
+      title: 'Grand Salon Professionnel & Forum Européen Porte de Versailles',
+      dateStr: formatShortFrDate(d3),
+      venueName: 'Paris Expo Porte de Versailles',
+      currentRate: 260,
+      recommendedRate: 365,
+      gapEur: 105,
+      gapPercent: 40.4,
+      demandLevel: 'Exceptionnel',
+      demandPercent: 94,
+      urgency: 'critique',
+      reason: 'Affluence internationale majeure. Chevauchement partiel avec congrès sectoriel. Application d’un Min Stay 3 nuits et +105€.',
+      compsetContext: 'Pression compset maximale · 3 concurrents complets sur cette période.',
+      timestamp: Date.now(),
+    },
+  ];
+}
+
+export const SAMPLE_MAJOR_OPPORTUNITIES: PushOpportunityAlert[] = buildSampleMajorOpportunities();

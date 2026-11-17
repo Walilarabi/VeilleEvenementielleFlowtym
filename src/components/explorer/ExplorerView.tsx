@@ -32,7 +32,8 @@ import {
 } from '../../utils/helpers';
 import { getTerritoryForHotel, OFFICIAL_TERRITORIES_DIRECTORY } from '../../data/geoData';
 import {
-  CURRENT_REFERENCE_DATE,
+  getTodayIsoDate,
+  getEffectiveEndDate,
   sortEventsChronologically,
   getEventStatusBadgeConfig,
   getMonthTemporalRelation,
@@ -81,6 +82,15 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [radiusKm, setRadiusKm] = useState<number>(30);
   const [minRMScore, setMinRMScore] = useState<number>(0);
+  const [includePastEvents, setIncludePastEvents] = useState<boolean>(false);
+
+  const todayStr = useMemo(() => getTodayIsoDate(), []);
+  const yearOptions = useMemo(() => {
+    const baseYear = new Date().getFullYear();
+    return Array.from(
+      new Set([baseYear - 1, baseYear, baseYear + 1, baseYear + 2, filterState?.currentYear ?? baseYear])
+    ).sort((a, b) => a - b);
+  }, [filterState?.currentYear]);
 
   // Dynamic quick searches tailored to the active hotel's destination
   const quickSearches = useMemo(() => {
@@ -185,13 +195,16 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
     }
   }, [availableCities, selectedCity]);
 
-  const activeYear = filterState?.currentYear ?? 2026;
-  const activeMonth = filterState?.currentMonth ?? 10;
-  const isPastPeriod = getMonthTemporalRelation(activeYear, activeMonth, CURRENT_REFERENCE_DATE) === 'past';
+  const activeYear = filterState?.currentYear ?? new Date().getFullYear();
+  const activeMonth = filterState?.currentMonth ?? new Date().getMonth();
+  const isPastPeriod = getMonthTemporalRelation(activeYear, activeMonth, todayStr) === 'past';
 
   // Filter logic across the catchment events + strict centralized chronological sorting
   const filteredEvents = useMemo(() => {
     const matched = catchmentEvents.filter((ev) => {
+      if (!includePastEvents && !isPastPeriod && getEffectiveEndDate(ev) < todayStr) {
+        return false;
+      }
       // Text search
       if (query.trim()) {
         const q = query.toLowerCase().trim();
@@ -238,8 +251,8 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
       return true;
     });
 
-    return sortEventsChronologically(matched, CURRENT_REFERENCE_DATE, isPastPeriod);
-  }, [catchmentEvents, query, selectedCity, selectedCategory, minRMScore, radiusKm, currentHotel, eventWatchConfig, isPastPeriod]);
+    return sortEventsChronologically(matched, todayStr, isPastPeriod || includePastEvents);
+  }, [catchmentEvents, query, selectedCity, selectedCategory, minRMScore, radiusKm, currentHotel, eventWatchConfig, isPastPeriod, includePastEvents, todayStr]);
 
   return (
     <div className="space-y-6">
@@ -275,9 +288,9 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                   onChange={(e) => onFilterChange({ currentYear: parseInt(e.target.value, 10) })}
                   className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 px-2 py-1 focus:outline-none cursor-pointer"
                 >
-                  <option value={2025}>2025</option>
-                  <option value={2026}>2026</option>
-                  <option value={2027}>2027</option>
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
                 </select>
                 <button
                   type="button"
@@ -318,13 +331,27 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onFilterChange({ currentYear: 2026, currentMonth: 10, periodTab: 'all' })}
+                  onClick={() => {
+                    const now = new Date();
+                    setIncludePastEvents(false);
+                    onFilterChange({ currentYear: now.getFullYear(), currentMonth: now.getMonth(), periodTab: 'all' });
+                  }}
                   className="px-2 py-1 text-[11px] font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 hover:bg-violet-100 dark:hover:bg-violet-900/50 rounded-lg cursor-pointer"
                 >
                   Aujourd&apos;hui
                 </button>
               </div>
             )}
+
+            <label className="inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={includePastEvents}
+                onChange={(e) => setIncludePastEvents(e.target.checked)}
+                className="rounded border-slate-300 text-violet-600 focus:ring-violet-500 cursor-pointer"
+              />
+              <span>Inclure passés</span>
+            </label>
 
             <div className="inline-flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
               <MapPin className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
@@ -588,7 +615,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                                 {ev.title}
                               </span>
                               {(() => {
-                                const badgeCfg = getEventStatusBadgeConfig(ev, CURRENT_REFERENCE_DATE);
+                                const badgeCfg = getEventStatusBadgeConfig(ev, todayStr);
                                 return (
                                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${badgeCfg.badgeClass}`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${badgeCfg.dotClass}`} />
@@ -757,7 +784,7 @@ export const ExplorerView: React.FC<ExplorerViewProps> = ({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {(() => {
-                        const badgeCfg = getEventStatusBadgeConfig(ev, CURRENT_REFERENCE_DATE);
+                        const badgeCfg = getEventStatusBadgeConfig(ev, todayStr);
                         return (
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${badgeCfg.badgeClass}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${badgeCfg.dotClass}`} />

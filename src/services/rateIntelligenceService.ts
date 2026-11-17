@@ -24,7 +24,13 @@ import {
   HotelRMSConfig,
 } from './rmsSettingsService';
 
-export const TODAY_DATE_STR = '2026-11-12';
+import { getTodayIsoDate, addDaysIso } from '../utils/eventFilterUtils';
+
+export function getTodayDateStr(): string {
+  return getTodayIsoDate();
+}
+
+export const TODAY_DATE_STR = getTodayDateStr();
 export const HOTEL_TOTAL_ROOMS = 45; // Valeur par défaut si aucun hôtel n'est fourni
 export const RATE_FLOOR_EUR = 180; // Plancher par défaut
 export const RATE_CEILING_EUR = 550; // Plafond par défaut
@@ -1213,9 +1219,10 @@ export function generateContinuous90DaysData(hotel?: Hotel): DailyRateIntelligen
 
   const activeCompsetProfiles: CompetitorProfileConfig[] = rmsConfig.compSet.filter((c) => c.isActive).slice(0, 10);
 
-  // Start 15 days before Oct 20 → 112 days continuous through Feb 8, 2027 (couvre Nov 2026, Déc 2026–1er Janv 2027, Janv 2027)
-  const baseDate = new Date('2026-10-20T12:00:00Z');
-  const totalDays = 112;
+  const todayStr = getTodayDateStr();
+  // Fenêtre continue : 15 jours avant aujourd'hui → +100 jours à venir (couvre aujourd'hui + 95j+ quel que soit le jour d'ouverture)
+  const baseDate = new Date(`${addDaysIso(todayStr, -15)}T12:00:00Z`);
+  const totalDays = 115;
 
   for (let i = 0; i < totalDays; i++) {
     const curDate = new Date(baseDate);
@@ -1444,17 +1451,44 @@ export function generateContinuous90DaysData(hotel?: Hotel): DailyRateIntelligen
 const STORAGE_PREFIX = 'flowtym_pricing_intelligence_v3_';
 const AUDIT_STORAGE_KEY = 'flowtym_rm_decision_audit_log_v2';
 const RULES_STORAGE_KEY = 'flowtym_rm_learned_calibration_rules_v2';
+const riMemoryStore = new Map<string, string>();
+
+function riStorageGet(key: string): string | null {
+  try {
+    if (typeof localStorage !== 'undefined') return localStorage.getItem(key);
+  } catch {
+    // ignore
+  }
+  return riMemoryStore.get(key) ?? null;
+}
+
+function riStorageSet(key: string, val: string): void {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, val);
+  } catch {
+    // ignore
+  }
+  riMemoryStore.set(key, val);
+}
 
 export function getRateIntelligenceRecords(hotelOrId: string | Hotel = 'hotel-opera'): DailyRateIntelligence[] {
   const hotelId = typeof hotelOrId === 'string' ? hotelOrId : hotelOrId.id;
   const hotelObj = typeof hotelOrId === 'string' ? undefined : hotelOrId;
+  const todayStr = getTodayDateStr();
+  const minRequiredFutureEnd = addDaysIso(todayStr, 45);
 
   try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${hotelId}`);
+    const raw = riStorageGet(`${STORAGE_PREFIX}${hotelId}`);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        const maxCachedDate = parsed.reduce<string>(
+          (m, r) => (r?.dateStr && r.dateStr > m ? r.dateStr : m),
+          ''
+        );
+        if (maxCachedDate >= minRequiredFutureEnd) {
+          return parsed;
+        }
       }
     }
   } catch (e) {
@@ -1504,7 +1538,14 @@ export function recalculateHotelRateIntelligence(hotel: Hotel): DailyRateIntelli
 
 export function saveRateIntelligenceRecords(hotelId: string, records: DailyRateIntelligence[]): void {
   try {
-    localStorage.setItem(`${STORAGE_PREFIX}${hotelId}`, JSON.stringify(records));
+    riStorageSet(`${STORAGE_PREFIX}${hotelId}`, JSON.stringify(records));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('flowtym:rms-data-updated', {
+          detail: { hotelId, domain: 'pricing', timestamp: new Date().toISOString() },
+        })
+      );
+    }
   } catch (e) {
     console.error('Failed to save rate intelligence records', e);
   }
@@ -1720,28 +1761,36 @@ export function recordDecisionAudit(entry: RMDecisionAuditRecord): void {
 }
 
 export function getDecisionAuditLog(): RMDecisionAuditRecord[] {
+  const todayStr = getTodayDateStr();
   try {
     const raw = localStorage.getItem(AUDIT_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.some((e: RMDecisionAuditRecord) => e.dateStr >= todayStr)) {
+        return parsed;
+      }
+    }
   } catch (e) {
     console.error('Failed to get decision audit log', e);
   }
-  // Logs initiaux de démonstration
+  const dPeak = addDaysIso(todayStr, 9);
+  const dNear = addDaysIso(todayStr, 3);
+  // Logs initiaux calibrés sur des échéances actives à partir d'aujourd'hui
   return [
     {
       id: 'audit-init-1',
-      recordId: 'rate-2026-11-25',
+      recordId: `rate-${dPeak}`,
       hotelId: 'hotel-opera',
-      dateStr: '2026-11-25',
+      dateStr: dPeak,
       action: 'accept',
       originalRateEur: 265,
       suggestedRateEur: 350,
       finalRateEur: 350,
       originalMinStay: 1,
       finalMinStay: 2,
-      reasonText: 'Recommandation acceptée. Pression SMCL 2026 avec 3 concurrents complets.',
+      reasonText: 'Recommandation acceptée. Pression congrès / salon majeur avec 3 concurrents complets.',
       userEmail: 'wali.larabi@flowtym.com',
-      timestamp: '2026-11-03T18:32:00Z',
+      timestamp: `${todayStr}T08:32:00Z`,
       snapshotContext: {
         occupancyPercent: 86.7,
         compsetMedianEur: 360,
@@ -1751,9 +1800,9 @@ export function getDecisionAuditLog(): RMDecisionAuditRecord[] {
     },
     {
       id: 'audit-init-2',
-      recordId: 'rate-2026-11-14',
+      recordId: `rate-${dNear}`,
       hotelId: 'hotel-opera',
-      dateStr: '2026-11-14',
+      dateStr: dNear,
       action: 'modify',
       originalRateEur: 255,
       suggestedRateEur: 300,
@@ -1761,9 +1810,9 @@ export function getDecisionAuditLog(): RMDecisionAuditRecord[] {
       originalMinStay: 1,
       finalMinStay: 2,
       reasonCode: 'increase_higher',
-      reasonText: 'Souhait d’augmenter davantage le prix (+20€ vs IA). Salon Paris Photo à fort pouvoir d’achat.',
+      reasonText: 'Souhait d’augmenter davantage le prix (+20€ vs IA). Demande à fort pouvoir d’achat.',
       userEmail: 'wali.larabi@flowtym.com',
-      timestamp: '2026-11-02T14:15:00Z',
+      timestamp: `${todayStr}T07:15:00Z`,
       snapshotContext: {
         occupancyPercent: 80.0,
         compsetMedianEur: 310,
@@ -1785,6 +1834,7 @@ export function getLearnedCalibrationRules(): RMLearnedCalibrationRule[] {
   } catch (e) {
     console.error('Failed to get calibration rules', e);
   }
+  const todayFormatted = new Date().toLocaleDateString('fr-FR');
   // Règles apprises initiales fondées sur le comportement du Revenue Manager
   return [
     {
@@ -1796,7 +1846,7 @@ export function getLearnedCalibrationRules(): RMLearnedCalibrationRule[] {
       sampleDecisionsCount: 14,
       agreementRatePct: 92,
       isActive: true,
-      learnedAt: '02/11/2026',
+      learnedAt: todayFormatted,
       description: 'Le RM surcote systématiquement les samedis d’événements de +15€ au-delà de la médiane compset.',
     },
     {
@@ -1808,7 +1858,7 @@ export function getLearnedCalibrationRules(): RMLearnedCalibrationRule[] {
       sampleDecisionsCount: 22,
       agreementRatePct: 95,
       isActive: true,
-      learnedAt: '28/10/2026',
+      learnedAt: todayFormatted,
       description: 'Sécurise la durée de séjour et bloque les séjours d’une seule nuit en période de compression.',
     },
     {
@@ -1820,7 +1870,7 @@ export function getLearnedCalibrationRules(): RMLearnedCalibrationRule[] {
       sampleDecisionsCount: 18,
       agreementRatePct: 83,
       isActive: false,
-      learnedAt: '20/10/2026',
+      learnedAt: todayFormatted,
       description: 'Garde une marge de compétitivité de 10€ sous l’Astra Opéra pour capter la clientèle affaires récurrente.',
     },
   ];

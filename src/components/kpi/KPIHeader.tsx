@@ -9,6 +9,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { EventItem, FilterState } from '../../types';
+import { getTodayIsoDate, getEffectiveEndDate } from '../../utils/eventFilterUtils';
 
 interface KPIHeaderProps {
   events: EventItem[];
@@ -23,9 +24,10 @@ export const KPIHeader: React.FC<KPIHeaderProps> = ({
   onFilterChange,
   onTriggerRefresh,
 }) => {
-  // Compute reactive counts
+  // Compute reactive counts dynamically from today
+  const todayStr = getTodayIsoDate();
   const totalEvents = events.length;
-  const upcomingCount = events.filter((e) => new Date(e.startDate) >= new Date('2026-10-01')).length;
+  const upcomingCount = events.filter((e) => getEffectiveEndDate(e) >= todayStr).length;
   const hyperCount = events.filter((e) => e.impactLevel === 'hyper').length;
   const criticalCount = events.filter((e) => e.impactLevel === 'critique').length;
   const rmsPrioritiesCount = events.filter((e) => e.scoreBreakdown.finalRMScore >= 50).length;

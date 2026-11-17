@@ -13,6 +13,7 @@ import {
   LogOut,
   Sparkles,
   MapPin,
+  CalendarRange,
 } from 'lucide-react';
 
 export type NavTab =
@@ -23,6 +24,7 @@ export type NavTab =
   | 'forecast'
   | 'sources'
   | 'pricing'
+  | 'planning'
   | 'connectivity'
   | 'reports'
   | 'settings'
@@ -76,6 +78,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'pricing',
       label: 'Pricing Intelligent',
       icon: SlidersHorizontal,
+    },
+    {
+      id: 'planning',
+      label: 'Planning Tarifaire',
+      icon: CalendarRange,
     },
     {
       id: 'calendar',
